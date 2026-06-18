@@ -41,6 +41,18 @@
       <div class="bar job"><div class="bar-fill" id="job-fill"></div></div>
     </div>
 
+    <div id="tavern-hud" class="hidden">
+      <div class="tavern-obj">🚪 Stagger to the glowing door</div>
+      <div class="tavern-ruckus">Ruckus caused: <b id="ruckus-count">0</b></div>
+    </div>
+
+    <div id="top-buttons">
+      <button class="iconbtn" id="btn-pause" title="Pause (P)">⏸</button>
+      <button class="iconbtn" id="btn-mute" title="Mute (M)">🔊</button>
+    </div>
+
+    <div id="joystick" class="hidden"><div id="joy-knob"></div></div>
+
     <div id="spellbook">
       <div class="spell-chip" data-spell="fireball"><span class="glyph">△</span><span class="name">Fireball</span><span class="key">1</span></div>
       <div class="spell-chip" data-spell="lightning"><span class="glyph">ϟ</span><span class="name">Lightning</span><span class="key">2</span></div>
@@ -80,12 +92,13 @@
     <div id="howto" class="howto hidden">
       <h3>How to Play</h3>
       <ul>
-        <li><b>You are a spirit</b> possessing Wobblesworth, the realm's drunkest wizard. He wobbles. A lot.</li>
-        <li><b>WASD</b> — lurch around. <b>Mouse</b> — aim where Wobblesworth points.</li>
-        <li><b>Hold Right-Mouse</b> and <b>draw a glyph</b> to sign a spell. Time slows while you draw.</li>
-        <li>Glyphs: <b>△ triangle</b>=Fireball · <b>Z zig-zag</b>=Lightning · <b>◯ circle</b>=Frost Splash · <b>V</b>=Heal · <b>— line</b>=Gust.</li>
-        <li>Can't draw under pressure? Press <b>1–5</b> to fire a spell straight away.</li>
-        <li>Survive the swarm, soak up XP motes, level up, and <b>do your chores</b> (yes, the dishes).</li>
+        <li><b>You are a spirit</b> possessing Wobblesworth, the realm's drunkest wizard. He flops. A lot.</li>
+        <li><b>Part 1 — The Tavern:</b> steer the blind-drunk wizard to the glowing <b>door</b>. Try not to bump the patrons or send the furniture flying!</li>
+        <li><b>Part 2 — The Forest:</b> you black out and wake in a moonlit wood, swarmed by goblins, bats, vampires, zombies and the <b>Goblin King</b>.</li>
+        <li><b>Move:</b> <b>WASD</b> / arrows — or <b>drag the left side</b> on a phone (virtual stick).</li>
+        <li><b>Cast:</b> hold <b>Right-Mouse</b> (or draw on the <b>right side</b> on phone) and sketch a glyph. Time slows while you draw. Or tap a spell / press <b>1–5</b>.</li>
+        <li>Glyphs: <b>△</b>=Fireball · <b>Z</b>=Lightning · <b>◯</b>=Frost Splash · <b>V</b>=Heal · <b>—</b>=Gust.</li>
+        <li>Soak up XP motes, level up, do forest chores, and slay the King to survive the night.</li>
       </ul>
       <button class="btn" id="btn-how-close">Got it</button>
     </div>
@@ -102,6 +115,8 @@
   <div id="loading" class="overlay">
     <div class="loading-text">Summoning the tavern…</div>
   </div>
+
+  <div id="blackout"></div>
 
   <script type="module" src="src/main.js"></script>
 </body>

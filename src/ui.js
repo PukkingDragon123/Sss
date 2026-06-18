@@ -18,6 +18,10 @@ export class UI {
       title: $('title'), btnStart: $('btn-start'), btnHow: $('btn-how'), howto: $('howto'), btnHowClose: $('btn-how-close'),
       end: $('end'), endTitle: $('end-title'), endStats: $('end-stats'), btnAgain: $('btn-again'),
       loading: $('loading'),
+      bars: document.querySelector('.bars'), spellbook: $('spellbook'), castHint: $('cast-hint'),
+      tavernHud: $('tavern-hud'), ruckusCount: $('ruckus-count'),
+      btnPause: $('btn-pause'), btnMute: $('btn-mute'),
+      joystick: $('joystick'), joyKnob: $('joy-knob'), blackout: $('blackout'),
     };
     this.chips = {};
     document.querySelectorAll('.spell-chip').forEach((c) => { this.chips[c.dataset.spell] = c; });
@@ -33,9 +37,57 @@ export class UI {
     this.el.btnHow.addEventListener('click', () => { game.audio.play('click'); this.el.howto.classList.toggle('hidden'); });
     this.el.btnHowClose.addEventListener('click', () => { game.audio.play('click'); this.el.howto.classList.add('hidden'); });
     this.el.storyNext.addEventListener('click', () => { game.audio.play('click'); this._storyAdvance(); });
+
+    // tappable spell chips (works on desktop and mobile)
+    for (const id of Object.keys(this.chips)) {
+      this.chips[id].addEventListener('click', () => game.castById(id));
+    }
+    this.el.btnPause.addEventListener('click', () => { game.audio.play('click'); game.togglePause(); });
+    this.el.btnMute.addEventListener('click', () => { game.toggleMute(); });
   }
 
   hideLoading() { this.el.loading.classList.add('hidden'); }
+
+  // toggle which HUD bits show for the tavern vs the forest fight
+  setPhase(phase, isTouch) {
+    const tavern = phase === 'tavern';
+    this.el.bars.classList.toggle('hidden', tavern);
+    this.el.spellbook.classList.toggle('hidden', tavern);
+    this.el.sobriety.classList.toggle('hidden', tavern);
+    this.el.timer.classList.toggle('hidden', tavern);
+    this.el.kills.classList.toggle('hidden', tavern);
+    this.el.tavernHud.classList.toggle('hidden', !tavern);
+    if (tavern) {
+      this.el.castHint.innerHTML = isTouch ? 'Drag the <b>left side</b> to stagger toward the <b>door</b>' : '<b>WASD</b> to stagger toward the glowing <b>door</b> — he\'s very drunk!';
+    } else {
+      this.el.castHint.innerHTML = isTouch ? 'Left side = move · <b>draw a glyph</b> on the right to cast · or tap a spell' : 'Hold <b>Right-Mouse</b> and draw a glyph · <b>WASD</b> move · mouse aim · keys <b>1–5</b>';
+    }
+  }
+
+  fadeBlack(on) { this.el.blackout.classList.toggle('show', !!on); }
+
+  bumpTavern(n) {
+    this.el.ruckusCount.textContent = n;
+    this.el.tavernHud.classList.remove('flash');
+    void this.el.tavernHud.offsetWidth;
+    this.el.tavernHud.classList.add('flash');
+  }
+
+  setMuteIcon(muted) { this.el.btnMute.textContent = muted ? '🔇' : '🔊'; }
+
+  // position the on-screen joystick (called each frame)
+  updateJoystick(input) {
+    const joy = input.joy;
+    if (joy.active && input.isTouch) {
+      this.el.joystick.classList.remove('hidden');
+      this.el.joystick.style.left = joy.ox + 'px';
+      this.el.joystick.style.top = joy.oy + 'px';
+      this.el.joyKnob.style.left = (50 + joy.dx * 38) + '%';
+      this.el.joyKnob.style.top = (50 + joy.dz * 38) + '%';
+    } else {
+      this.el.joystick.classList.add('hidden');
+    }
+  }
 
   closeModals() {
     this.el.story.classList.add('hidden');
@@ -51,6 +103,8 @@ export class UI {
 
   // ---- HUD ----
   updateHUD(game) {
+    this.updateJoystick(game.input);
+    if (game.phase === 'tavern') return; // tavern shows its own minimal HUD
     const s = game.stats, w = game.wizard;
     const hpPct = Math.max(0, w.hp / s.hpMax) * 100;
     this.el.hpFill.style.width = hpPct + '%';

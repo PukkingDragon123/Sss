@@ -11,8 +11,9 @@
 }
 
 *{box-sizing:border-box;}
-html,body{margin:0;height:100%;overflow:hidden;background:#0c0712;font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;color:var(--ink);}
+html,body{margin:0;height:100%;overflow:hidden;background:#0c0712;font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;color:var(--ink);touch-action:none;-webkit-user-select:none;user-select:none;}
 body{cursor:crosshair;}
+canvas#scene{touch-action:none;}
 
 canvas#scene{position:fixed;inset:0;width:100vw;height:100vh;display:block;}
 canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointer-events:none;z-index:5;}
@@ -138,6 +139,60 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
   position:fixed;z-index:8;pointer-events:none;
   font-weight:800;font-size:18px;text-shadow:0 2px 3px #000;
   animation:floatup .8s ease-out forwards;
+}
+
+/* ===== Blackout transition ===== */
+#blackout{
+  position:fixed;inset:0;z-index:15;background:#000;opacity:0;pointer-events:none;
+  transition:opacity 1.1s ease;
+}
+#blackout.show{opacity:1;}
+
+/* ===== Tavern objective HUD ===== */
+#tavern-hud{position:absolute;top:14px;left:50%;transform:translateX(-50%);text-align:center;
+  background:var(--panel);border:1.5px solid var(--panel-edge);border-radius:12px;padding:8px 18px;}
+.tavern-obj{font-weight:800;color:var(--gold);font-size:17px;}
+.tavern-ruckus{font-size:13px;color:var(--ink-dim);margin-top:2px;}
+.tavern-ruckus b{color:var(--hp);}
+#tavern-hud.flash{animation:ruckusflash .3s ease;}
+@keyframes ruckusflash{0%{transform:translateX(-50%) scale(1);}40%{transform:translateX(-50%) scale(1.12);border-color:var(--hp);}100%{transform:translateX(-50%) scale(1);}}
+
+/* ===== On-screen buttons ===== */
+#top-buttons{position:absolute;top:14px;right:14px;display:flex;gap:8px;pointer-events:none;}
+.iconbtn{pointer-events:auto;width:42px;height:42px;border-radius:10px;border:1.5px solid var(--panel-edge);
+  background:var(--panel);color:var(--ink);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.iconbtn:active{transform:scale(.92);}
+
+/* spell chips are tappable */
+.spell-chip{pointer-events:auto;cursor:pointer;}
+.spell-chip:active{transform:translateY(2px) scale(.97);}
+
+/* ===== Virtual joystick ===== */
+#joystick{position:fixed;z-index:9;width:128px;height:128px;border-radius:50%;
+  background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.18);
+  transform:translate(-50%,-50%);pointer-events:none;}
+#joy-knob{position:absolute;left:50%;top:50%;width:58px;height:58px;border-radius:50%;
+  background:rgba(155,123,255,.6);border:2px solid rgba(255,255,255,.5);transform:translate(-50%,-50%);}
+
+/* ===== Responsive / mobile ===== */
+@media (max-width:760px), (pointer:coarse){
+  body{cursor:default;}
+  #cast-hint{font-size:11px;bottom:84px;white-space:normal;max-width:90vw;text-align:center;}
+  #spellbook{gap:5px;bottom:10px;flex-wrap:wrap;justify-content:center;max-width:96vw;}
+  .spell-chip{padding:8px 9px;gap:4px;}
+  .spell-chip .name{display:none;}
+  .spell-chip .glyph{font-size:22px;}
+  .spell-chip .key{display:none;}
+  .bars{width:46vw;}
+  .stat{font-size:12px;padding:3px 8px;}
+  .game-title{font-size:clamp(40px,16vw,90px);}
+  .card{width:44vw;min-height:auto;padding:12px;}
+  .cards{gap:10px;}
+  .card .card-icon{font-size:34px;}
+  .card .card-name{font-size:16px;}
+  .card .card-desc{font-size:12px;}
+  .story-box{padding:14px 16px;}
+  .howto{max-height:70vh;overflow:auto;}
 }
 @keyframes floatup{
   0%{opacity:0;transform:translate(-50%,-50%) scale(.6);}

@@ -1,15 +1,26 @@
-// story.js — the night's pacing: narrative beats, the swarm director,
-// chore hand-outs, and the final boss. One run ≈ a single rowdy night.
+// story.js — narration + the forest swarm director.
+// New flow: a cinematic in the tavern (drunk-walk to the door) -> black out ->
+// wake in a moonlit forest -> survive the swarm and the Goblin King.
 import * as THREE from 'three';
 
-export const INTRO = {
+export const TAVERN_INTRO = {
   speaker: 'The Spirit',
   lines: [
-    'Ahhh, a fresh body to haunt! And what a body — Wobblesworth the Sloshed, the realm\'s drunkest wizard.',
-    'You are the mischievous spirit pulling his soggy strings tonight. Steer his stagger with WASD, point with the mouse.',
-    'To cast, HOLD the right mouse button and DRAW a glyph — a hand-sign. Time slows while you sketch.',
-    '△ flings a Fireball · Z is Lightning · ◯ a Frost Splash · V to Heal · — for a Gust. (Or smash 1–5 in a panic.)',
-    'Survive the night, soak up the glowing motes to grow stronger… oh, and he DID promise to do the dishes. Cheers!',
+    'Ahhh, a warm body at last! Tonight I haunt Wobblesworth the Sloshed — the realm\'s drunkest wizard.',
+    'He\'s had... several. The room is spinning, and not for him. Your job: steer this sack of mead to the DOOR.',
+    'He\'s VERY hard to control while sozzled. Try not to bump the patrons or knock the furniture flying.',
+    'Drag the left side to stagger; aim for the glowing door. Off we wobble!',
+  ],
+};
+
+// shown over the black screen after leaving the tavern
+export const BLACKOUT_LINES = {
+  speaker: 'The Spirit',
+  lines: [
+    'You stumble into the cold night air… the stars smear… your knees fold…',
+    '…………',
+    'You come to face-down in damp moss. A moonlit forest. This is NOT the way home.',
+    'And those red eyes in the dark? Definitely not fireflies. On your feet, wizard — DRAW to cast!',
   ],
 };
 
@@ -22,18 +33,17 @@ export class Director {
     this._lastPulse = -1;
     this.bossStarted = false;
     this.beats = [
-      { t: 9,   done: false, fn: (g) => g.showStory('The Spirit', ['Go on — draw a △ and fling a Fireball at something rude.']) },
-      { t: 28,  done: false, fn: (g) => { g.jobs.start('dishes'); g.ui.showJob('Wash the Dishes', 'Splash them clean: ◯ Frost Splash by the sink (north-west).'); g.showStory('The Landlady (muffled)', ['OI! While you\'re flailing about — the DISHES, wizard! Northwest corner!']); } },
-      { t: 78,  done: false, fn: (g) => g.showStory('The Spirit', ['More of them slithering out of the woodwork. Wobble faster, you old soak!']) },
-      { t: 96,  done: false, fn: (g) => { g.jobs.start('sweep'); g.ui.showJob('Sweep the Floor', 'Blow the dust bunnies away: — Gust (north-east).'); g.showStory('The Spirit', ['Dust bunnies. Enormous ones. Give them a good Gust (—) over east.']); } },
-      { t: 150, done: false, fn: (g) => g.showStory('The Spirit', ['A BRUTE! Big, slow, cranky. Hit it with everything — glyphs be damned, mash 1–5!']) },
-      { t: 188, done: false, fn: (g) => { g.jobs.start('douse'); g.ui.showJob('Douse the Hearth', 'The fire\'s out of control! ◯ Frost Splash it (far north).'); g.showStory('The Landlady (muffled)', ['The HEARTH\'S on fire, you menace! Frost Splash it before the whole pub goes up!']); } },
-      { t: 236, done: false, fn: (g) => g.showStory('The Spirit', ['…something enormous is stomping up from the cellar. It smells of overdue rent.']) },
+      { t: 7,   done: false, fn: (g) => g.showStory('The Spirit', ['Draw a △ to sling a Fireball at those things. Singe something!']) },
+      { t: 26,  done: false, fn: (g) => { g.jobs.start('campfire'); g.ui.showJob('Douse the Campfire', 'It\'s spreading to the trees! ◯ Frost Splash it (north-west).'); g.showStory('The Spirit', ['A campfire\'s catching the woods alight. Splash it out with ◯ Frost before we roast.']); } },
+      { t: 70,  done: false, fn: (g) => g.showStory('The Spirit', ['More of them clawing out from between the trees. Wobble faster, you old soak!']) },
+      { t: 96,  done: false, fn: (g) => { g.jobs.start('spores'); g.ui.showJob('Clear the Spores', 'Cursed spore-puffs! — Gust them away (north-east).'); g.showStory('The Spirit', ['Glowing spore-puffs — breathe those and we\'ll hallucinate worse than usual. — Gust them!']); } },
+      { t: 150, done: false, fn: (g) => g.showStory('The Spirit', ['ZOMBIES and a VAMPIRE now? Hit them with everything — mash 1–5 if your glyphs go wobbly!']) },
+      { t: 188, done: false, fn: (g) => { g.jobs.start('cauldron'); g.ui.showJob('Quench the Hex-Fire', 'A cursed cauldron blazes! ◯ Frost Splash it (far north).'); g.showStory('The Spirit', ['That cursed cauldron is boiling over with hex-fire. ◯ Frost Splash it cold!']); } },
+      { t: 236, done: false, fn: (g) => g.showStory('The Spirit', ['…the ground is shaking. Something BIG and crowned is coming through the pines.']) },
       { t: 242, done: false, fn: (g) => g.startBoss() },
     ];
   }
 
-  // choose what to spawn based on how late the night is
   _spawnBatch(game) {
     const t = this.t;
     const hpScale = 1 + t * 0.011;
@@ -43,9 +53,9 @@ export class Director {
       let type = 'goblin';
       const r = Math.random();
       if (t < 30) { type = r < 0.85 ? 'goblin' : 'bat'; }
-      else if (t < 90) { type = r < 0.55 ? 'goblin' : (r < 0.9 ? 'bat' : 'brute'); }
-      else if (t < 180) { type = r < 0.45 ? 'goblin' : (r < 0.78 ? 'bat' : 'brute'); }
-      else { type = r < 0.4 ? 'goblin' : (r < 0.72 ? 'bat' : 'brute'); }
+      else if (t < 90) { type = r < 0.5 ? 'goblin' : (r < 0.82 ? 'bat' : 'zombie'); }
+      else if (t < 180) { type = r < 0.38 ? 'goblin' : (r < 0.64 ? 'bat' : (r < 0.85 ? 'zombie' : 'vampire')); }
+      else { type = r < 0.3 ? 'goblin' : (r < 0.52 ? 'bat' : (r < 0.78 ? 'zombie' : 'vampire')); }
       game.enemies.spawn(type, hpScale, game.wizard.pos);
     }
   }
@@ -53,7 +63,6 @@ export class Director {
   update(dt, game) {
     this.t += dt;
 
-    // difficulty-scaled spawn cadence
     const interval = Math.max(0.22, 1.35 - this.t * 0.0033);
     this.spawnAcc += dt;
     while (this.spawnAcc >= interval) {
@@ -61,7 +70,6 @@ export class Director {
       if (game.enemies.count() < 120) this._spawnBatch(game);
     }
 
-    // periodic swarm pulse to keep it spicy
     if (this.t > 60 && Math.floor(this.t) % 45 === 0 && this._lastPulse !== Math.floor(this.t)) {
       this._lastPulse = Math.floor(this.t);
       const burst = 4 + Math.floor(this.t / 60);

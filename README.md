@@ -1,8 +1,11 @@
 # 🧙 Wonky Wizard
 
 > A spirit possesses **Wobblesworth the Sloshed**, the realm's drunkest wizard.
-> Steer his soggy stagger, *draw arcane hand-signs* to sling spells, survive the
-> endless swarm… and yes, **do the dishes**.
+> First, steer his blind-drunk stagger **out of the tavern** without wrecking the
+> place. Then black out… and wake in a **moonlit forest**, swarmed by monsters.
+> Draw arcane hand-signs to sling spells and survive the night.
+
+**Plays on desktop and mobile** (virtual joystick + draw-to-cast).
 
 A self-contained 3D browser game: **floppy ragdoll-physics** characters (heavily
 inspired by **Human: Fall Flat** — dangling verlet-physics limbs, soft pastel
@@ -46,16 +49,21 @@ You need WebGL and an internet connection (for the Three.js CDN).
 
 ## 🎮 How to play
 
-You are the **spirit**; the wizard is your wobbly puppet.
+You are the **spirit**; the wizard is your wobbly puppet. The night runs in two acts:
 
-| Action | Control |
-| --- | --- |
-| Stagger around | **W A S D** / arrow keys |
-| Aim | **Mouse** (the wizard points where you point) |
-| **Cast a spell** | **Hold Right-Mouse** and **draw a glyph**, then release |
-| Quick-cast (panic button) | **1 – 5** |
-| Pause | **P** / **Esc** |
-| Mute | **M** |
+1. **The Tavern** — steer the hopelessly drunk wizard to the glowing **door**. Real
+   ragdoll physics, very hard to control. Bump a patron (they block you) or knock
+   furniture flying (it topples) and the spirit keeps score.
+2. **The Forest** — you black out and wake in a moonlit wood, fighting a swarm of
+   **goblins, bats, vampires, zombies** and the **Goblin King** boss.
+
+| Action | Desktop | Mobile |
+| --- | --- | --- |
+| Move | **WASD** / arrows | **drag the left side** (virtual stick) |
+| Aim | **mouse** | auto-aims nearest foe |
+| **Cast** | hold **Right-Mouse** + draw a glyph | **draw on the right side**, or tap a spell |
+| Quick-cast | keys **1 – 5** | tap a spell chip |
+| Pause / Mute | **P**/**Esc**, **M** | on-screen ⏸ / 🔊 |
 
 While you draw a glyph, **time slows down** — sketch your sign, then let go to
 unleash it toward where you were aiming.
@@ -89,9 +97,10 @@ index.html        # canvas, HUD/menus, Three.js import map
 styles.css        # all UI styling
 src/
   main.js         # bootstrap
-  game.js         # the conductor: world, state machine, main loop, camera
-  wizard.js       # the wonky spring-physics wizard rig
-  enemies.js      # swarm spawning, wobbly AI, pooling
+  game.js         # the conductor: phases, state machine, main loop, camera
+  wizard.js       # the wonky spring + verlet-ragdoll wizard rig
+  tavern.js       # the opening drunk-walk level (props, patrons, the door)
+  enemies.js      # the 5 monsters, wobbly AI, pooling
   spells.js       # the 5 spells, projectiles, chain lightning, effects
   recognizer.js   # $1 unistroke gesture recognizer
   input.js        # keyboard / pointer / glyph capture

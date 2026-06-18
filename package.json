@@ -1,0 +1,11 @@
+{
+  "name": "wonky-wizard",
+  "version": "1.0.0",
+  "description": "A 3D wonky-physics spellcasting roguelite: a spirit possessing the realm's drunkest wizard. Draw glyphs to cast, survive the swarm, and do your chores.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "test": "node test/sanity.mjs"
+  }
+}

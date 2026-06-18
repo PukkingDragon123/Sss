@@ -3,10 +3,10 @@ import * as THREE from 'three';
 import { ARENA } from './wizard.js';
 
 const TYPES = {
-  goblin: { hp: 14, speed: 3.0, dmg: 8, r: 0.6, xp: 4, color: 0x6fae3a, size: 1.0 },
-  bat:    { hp: 6,  speed: 5.2, dmg: 5, r: 0.45, xp: 2, color: 0x7a5a9c, size: 0.7 },
-  brute:  { hp: 70, speed: 1.7, dmg: 16, r: 1.0, xp: 12, color: 0xc05a3a, size: 1.7 },
-  boss:   { hp: 1200, speed: 2.0, dmg: 24, r: 2.0, xp: 140, color: 0x9b2f6a, size: 3.2 },
+  goblin: { hp: 14, speed: 3.0, dmg: 8, r: 0.6, xp: 4, color: 0x9ed172, size: 1.0 },
+  bat:    { hp: 6,  speed: 5.2, dmg: 5, r: 0.45, xp: 2, color: 0xb6a3e0, size: 0.7 },
+  brute:  { hp: 70, speed: 1.7, dmg: 16, r: 1.0, xp: 12, color: 0xe89a78, size: 1.7 },
+  boss:   { hp: 1200, speed: 2.0, dmg: 24, r: 2.0, xp: 140, color: 0xd980b0, size: 3.2 },
 };
 
 const MAX_ENEMIES = 140;
@@ -36,9 +36,10 @@ export class Enemies {
     const darkMat = new THREE.MeshStandardMaterial({ color: 0x1c1620, roughness: 0.7 });
 
     // squat blobby body
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 10), bodyMat);
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.55, 14, 12), bodyMat);
     body.scale.set(1, 1.15, 1);
     body.position.y = 0.6;
+    body.castShadow = true;
     g.add(body);
     // big goofy eyes
     const eyeW = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
@@ -51,13 +52,13 @@ export class Enemies {
     g.add(eL, eR, pL, pR);
     // little feet
     const footGeo = new THREE.SphereGeometry(0.16, 8, 8);
-    const fL = new THREE.Mesh(footGeo, darkMat); fL.position.set(-0.25, 0.12, 0.05);
-    const fR = new THREE.Mesh(footGeo, darkMat); fR.position.set(0.25, 0.12, 0.05);
+    const fL = new THREE.Mesh(footGeo, darkMat); fL.position.set(-0.25, 0.12, 0.05); fL.castShadow = true;
+    const fR = new THREE.Mesh(footGeo, darkMat); fR.position.set(0.25, 0.12, 0.05); fR.castShadow = true;
     g.add(fL, fR);
     if (type === 'boss') {
       // a crooked crown
-      const crown = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.5, 5), new THREE.MeshStandardMaterial({ color: 0xffcf5c, metalness: 0.4, roughness: 0.4, emissive: 0x3a2c00 }));
-      crown.position.y = 1.35; crown.rotation.z = 0.2;
+      const crown = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.5, 5), new THREE.MeshStandardMaterial({ color: 0xffd98a, metalness: 0.3, roughness: 0.4, emissive: 0x3a2c00 }));
+      crown.position.y = 1.35; crown.rotation.z = 0.2; crown.castShadow = true;
       g.add(crown);
     }
     g.scale.setScalar(def.size);

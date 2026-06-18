@@ -34,13 +34,17 @@ export class Game {
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // soft Human-Fall-Flat shadows
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.12;
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x140d20);
-    this.scene.fog = new THREE.FogExp2(0x140d20, 0.012);
+    this.scene.background = new THREE.Color(0x7e7ec0);
+    this.scene.fog = new THREE.FogExp2(0x8e8ecb, 0.0085);
 
-    this.camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.1, 400);
-    this.camOffset = new THREE.Vector3(0, 30, 22);
+    this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 400);
+    this.camOffset = new THREE.Vector3(0, 27, 22);
     this.camTarget = new THREE.Vector3();
 
     this._buildWorld();
@@ -105,54 +109,71 @@ export class Game {
 
   // ---------- world ----------
   _buildWorld() {
-    const hemi = new THREE.HemisphereLight(0x6a5a9c, 0x241830, 0.9);
+    // soft, airy lighting (Human Fall Flat vibe)
+    const hemi = new THREE.HemisphereLight(0xdfe2ff, 0x6a5e8c, 1.05);
     this.scene.add(hemi);
-    const dir = new THREE.DirectionalLight(0xffe6b0, 1.1);
-    dir.position.set(20, 40, 12);
+    const dir = new THREE.DirectionalLight(0xfff2d8, 1.7);
+    dir.position.set(28, 46, 18);
+    dir.castShadow = true;
+    dir.shadow.mapSize.set(2048, 2048);
+    const sc = dir.shadow.camera;
+    sc.left = -62; sc.right = 62; sc.top = 62; sc.bottom = -62; sc.near = 1; sc.far = 200;
+    dir.shadow.bias = -0.0004;
+    dir.shadow.normalBias = 0.03;
     this.scene.add(dir);
-    this.scene.add(new THREE.AmbientLight(0x402d5a, 0.4));
+    this.scene.add(dir.target);
+    this.scene.add(new THREE.AmbientLight(0xb9b2e0, 0.45));
 
-    // floor (tavern boards)
+    // big soft floor
     const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(140, 140),
-      new THREE.MeshStandardMaterial({ color: 0x3a2a44, roughness: 1 })
+      new THREE.PlaneGeometry(220, 220),
+      new THREE.MeshStandardMaterial({ color: 0x8f88c4, roughness: 0.95 })
     );
     floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
     this.scene.add(floor);
 
-    // a warm circular rug to mark the brawl zone
+    // a soft pastel play-mat to mark the brawl zone
     const rug = new THREE.Mesh(
-      new THREE.CircleGeometry(ARENA, 48),
-      new THREE.MeshStandardMaterial({ color: 0x5a2f3a, roughness: 1 })
+      new THREE.CircleGeometry(ARENA, 64),
+      new THREE.MeshStandardMaterial({ color: 0xc9bfe8, roughness: 0.9 })
     );
     rug.rotation.x = -Math.PI / 2; rug.position.y = 0.01;
+    rug.receiveShadow = true;
     this.scene.add(rug);
     const rugRing = new THREE.Mesh(
-      new THREE.RingGeometry(ARENA - 0.6, ARENA, 64),
-      new THREE.MeshBasicMaterial({ color: 0xffcf5c, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
+      new THREE.RingGeometry(ARENA - 0.7, ARENA, 96),
+      new THREE.MeshBasicMaterial({ color: 0xfff0c2, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
     );
     rugRing.rotation.x = -Math.PI / 2; rugRing.position.y = 0.02;
     this.scene.add(rugRing);
 
-    // perimeter walls
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0x241830, roughness: 1 });
-    const wallGeo = new THREE.BoxGeometry(ARENA * 2 + 4, 4, 2);
-    const mkWall = (x, z, ry) => { const w = new THREE.Mesh(wallGeo, wallMat); w.position.set(x, 2, z); w.rotation.y = ry; this.scene.add(w); };
-    mkWall(0, -ARENA - 1, 0); mkWall(0, ARENA + 1, 0);
-    mkWall(-ARENA - 1, 0, Math.PI / 2); mkWall(ARENA + 1, 0, Math.PI / 2);
+    // rounded perimeter walls (soft cream blocks)
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xb6aee0, roughness: 0.9 });
+    const wallGeo = new THREE.BoxGeometry(ARENA * 2 + 6, 5, 3);
+    const mkWall = (x, z, ry) => {
+      const w = new THREE.Mesh(wallGeo, wallMat);
+      w.position.set(x, 2.5, z); w.rotation.y = ry;
+      w.castShadow = true; w.receiveShadow = true;
+      this.scene.add(w);
+    };
+    mkWall(0, -ARENA - 1.5, 0); mkWall(0, ARENA + 1.5, 0);
+    mkWall(-ARENA - 1.5, 0, Math.PI / 2); mkWall(ARENA + 1.5, 0, Math.PI / 2);
 
-    // decorative barrels & glowing lanterns (emissive only — no extra real lights)
-    const barrelMat = new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: 0.9 });
-    const lanternMat = new THREE.MeshStandardMaterial({ color: 0xffcf5c, emissive: 0xff9a3a, emissiveIntensity: 1.2, roughness: 0.5 });
-    for (let i = 0; i < 14; i++) {
-      const a = (i / 14) * Math.PI * 2;
-      const r = ARENA - 2;
-      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.8, 1.6, 12), barrelMat);
-      barrel.position.set(Math.cos(a) * r, 0.8, Math.sin(a) * r);
-      this.scene.add(barrel);
+    // soft props: rounded crates & glowing paper lanterns
+    const crateMat = new THREE.MeshStandardMaterial({ color: 0xd9b48a, roughness: 0.85 });
+    const lanternMat = new THREE.MeshStandardMaterial({ color: 0xffe6a8, emissive: 0xffb35c, emissiveIntensity: 1.1, roughness: 0.6 });
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      const r = ARENA - 3;
+      const crate = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), crateMat);
+      crate.position.set(Math.cos(a) * r, 0.75, Math.sin(a) * r);
+      crate.rotation.y = Math.random() * Math.PI;
+      crate.castShadow = true; crate.receiveShadow = true;
+      this.scene.add(crate);
       if (i % 2 === 0) {
-        const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.4, 10, 10), lanternMat);
-        lantern.position.set(Math.cos(a) * r, 2.0, Math.sin(a) * r);
+        const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 12), lanternMat);
+        lantern.position.set(Math.cos(a) * r, 2.4, Math.sin(a) * r);
         this.scene.add(lantern);
       }
     }
@@ -160,7 +181,7 @@ export class Game {
     // aim reticle on the ground
     this.reticle = new THREE.Mesh(
       new THREE.RingGeometry(0.5, 0.7, 24),
-      new THREE.MeshBasicMaterial({ color: 0x9b7bff, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false })
+      new THREE.MeshBasicMaterial({ color: 0x6f5fd0, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false })
     );
     this.reticle.rotation.x = -Math.PI / 2; this.reticle.position.y = 0.05;
     this.scene.add(this.reticle);

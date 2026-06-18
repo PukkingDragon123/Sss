@@ -88,6 +88,7 @@ export class Jobs {
     if (!spec) return;
     const built = spec.build();
     built.group.position.copy(spec.at);
+    built.group.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
     this.group.add(built.group);
 
     // bobbing gold marker so the player can find the chore

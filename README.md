@@ -4,9 +4,17 @@
 > Steer his soggy stagger, *draw arcane hand-signs* to sling spells, survive the
 > endless swarm… and yes, **do the dishes**.
 
-A self-contained 3D browser game: **wonky spring-physics** characters (à la
-Party Animals / Gang Beasts), **gesture-based spellcasting**, a **Vampire-Survivors-style
+A self-contained 3D browser game: **floppy ragdoll-physics** characters (heavily
+inspired by **Human: Fall Flat** — dangling verlet-physics limbs, soft pastel
+lighting and soft shadows), **gesture-based spellcasting**, a **Vampire-Survivors-style
 roguelite** swarm loop, and a tongue-in-cheek **story** with chores to finish.
+
+### ▶ Play instantly (no download)
+
+**https://raw.githack.com/PukkingDragon123/Sss/claude/modest-curie-3hphhi/index.html**
+
+> Served straight from this branch via raw.githack.com. If you just pushed an
+> update and still see the old build, the CDN is caching — add `?v=2` to the URL.
 
 No build step, no installed dependencies, no asset files — every model is built
 from primitives, every sound is synthesized with WebAudio, and Three.js is loaded
@@ -107,8 +115,13 @@ node test/sanity.mjs    # or: npm test
 
 ## 🛠️ Design notes
 
-- **Wonky physics** is custom: the body is a chain of springs (torso → head →
-  hat) that lag and overshoot, plus a constant drunk sway and random hiccups.
+- **Human: Fall Flat-style ragdoll**: the arms are real **verlet-physics chains**
+  (shoulder → elbow → hand) simulated in world space. They dangle, swing and flop
+  behind the shoulders as the wizard staggers, and reach upward when casting.
+- **Wonky body**: a chain of springs (torso → head → hat) that lag and overshoot,
+  plus a constant drunk sway and random hiccups that fling the limbs.
+- **Soft visuals**: pastel clay materials, soft ambient + key lighting, filmic
+  tone mapping, and **PCF soft shadows** for that grounded, dreamy look.
 - **Gesture casting** uses the classic **$1 unistroke recognizer**, with a small
   fix to scale 1-D gestures (the line) uniformly so they don't degrade into noise.
 - **Performance**: particles, enemies and XP motes are **pooled**; spells avoid

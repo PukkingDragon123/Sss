@@ -162,4 +162,15 @@ export const TEMPLATES = {
   line: [
     { x: 0, y: 0 }, { x: 40, y: 0 }, { x: 80, y: 0 }, { x: 120, y: 0 },
   ],
+  // Caret ^ -> Arcane Spike
+  caret: [
+    { x: 0, y: 100 }, { x: 50, y: 0 }, { x: 100, y: 100 },
+  ],
+  // Five-point star (single stroke) -> Fire Nova
+  star: (() => {
+    const p = [];
+    const order = [0, 2, 4, 1, 3, 0];
+    for (const k of order) { const a = (-90 + k * 72) * Math.PI / 180; p.push({ x: Math.cos(a) * 50, y: Math.sin(a) * 50 }); }
+    return p;
+  })(),
 };

@@ -29,6 +29,7 @@
         <div class="bar xp"><div class="bar-fill" id="xp-fill"></div><span class="bar-label" id="xp-label">Lv 1</span></div>
       </div>
       <div class="stats">
+        <div class="stat" id="gold">🪙 0</div>
         <div class="stat" id="timer">0:00</div>
         <div class="stat" id="kills">☠ 0</div>
         <div class="stat" id="sobriety" title="How steady the wizard is. Lower = wonkier.">🍺 Sloshed</div>
@@ -63,6 +64,8 @@
     </div>
 
     <div id="toast-area"></div>
+    <div id="interact-prompt" class="hidden"></div>
+    <button id="btn-interact" class="hidden">✋ Interact</button>
     <div id="cast-hint">Hold <b>Right-Mouse</b> and draw a glyph to cast · <b>WASD</b> to stagger about · mouse to aim</div>
   </div>
 
@@ -94,12 +97,11 @@
       <h3>How to Play</h3>
       <ul>
         <li><b>You are a spirit</b> possessing Wobblesworth, the realm's drunkest wizard. He flops. A lot.</li>
-        <li><b>Part 1 — The Tavern:</b> steer the blind-drunk wizard to the glowing <b>door</b>. Try not to bump the patrons or send the furniture flying!</li>
-        <li><b>Part 2 — The Forest:</b> you black out and wake in a moonlit wood, swarmed by goblins, bats, vampires, zombies and the <b>Goblin King</b>.</li>
-        <li><b>Move:</b> <b>WASD</b> / arrows — or <b>drag the left side</b> on a phone (virtual stick).</li>
-        <li><b>Cast:</b> hold <b>Right-Mouse</b> (or draw on the <b>right side</b> on phone) and sketch a glyph. Time slows while you draw. Or tap a spell / press <b>1–5</b>.</li>
-        <li>Glyphs: <b>△</b>=Fireball · <b>Z</b>=Lightning · <b>◯</b>=Frost Splash · <b>V</b>=Heal · <b>—</b>=Gust.</li>
-        <li>Soak up XP motes, level up, do forest chores, and slay the King to survive the night.</li>
+        <li><b>The Tavern (hub):</b> wobble up to the glowing stations and press <b>E</b> (tap ✋): the <b>Spell Table</b> (unlock/upgrade/equip 3 spells), the <b>Cauldron</b> (brew combos), the <b>Manager</b> (bounties), and your <b>Room</b> (rest/decorate). Head to the <b>door</b> to start a run.</li>
+        <li><b>The Forest:</b> you black out and wake in a moonlit wood — survive goblins, bats, vampires, zombies and the <b>Goblin King</b>, then spend your loot back at the tavern.</li>
+        <li><b>Move:</b> <b>WASD</b>/arrows or <b>drag the left side</b> on phone.</li>
+        <li><b>Cast:</b> hold <b>Right-Mouse</b> (or draw on the <b>right side</b> on phone) and sketch a glyph. Cleaner = more damage; <b>perfect = CRIT</b>. Or tap a spell / press <b>1–3</b>.</li>
+        <li><b>Combos:</b> draw two equipped glyphs in a row, e.g. <b>△ then —</b> = 🔥 Fire Tornado (learn them at the Cauldron).</li>
       </ul>
       <button class="btn" id="btn-how-close">Got it</button>
     </div>
@@ -119,6 +121,15 @@
     <p class="levelup-sub">Hold <b>Right-Mouse</b> (or draw on the <b>right side</b> on phone) and trace the shape from the green dot. A cleaner glyph hits harder — a <b>perfect</b> one <b>crits!</b></p>
     <div class="guide-cards" id="guide-cards"></div>
     <button class="btn big" id="btn-guide-close">Got it ▸</button>
+  </div>
+
+  <!-- ===== Shop / station panel (skill tree, cauldron, room, manager) ===== -->
+  <div id="shop" class="overlay hidden">
+    <div class="shop-box">
+      <div class="shop-head"><h2 id="shop-title">Shop</h2><div id="shop-gold">🪙 0</div></div>
+      <div id="shop-body"></div>
+      <button class="btn" id="shop-close">Close ▸</button>
+    </div>
   </div>
 
   <div id="loading" class="overlay">

@@ -66,6 +66,17 @@ You are the **spirit**; the wizard is your wobbly puppet. The night runs in two 
 | Pause / Mute | **P**/**Esc**, **M** | on-screen ⏸ / 🔊 |
 | Spell guide | **H** | 📖 button |
 
+**The Tavern is a hub.** Between runs, wobble up to the glowing stations and press
+**E** (tap ✋): the **Spell Table** (a skill tree — unlock & upgrade spells, then
+**equip 3**), the **Cauldron** (brew **combos**), the **Tavern Manager** (bounty
+quests for gold), and your **Room** (rest for a bonus, buy decorations). Walk to
+the **door** to head out on a run. Runs award **gold** (shown on a results/loot
+screen) and everything is **saved** to your browser.
+
+**Combos:** draw two equipped glyphs in quick succession to unleash a learned
+combo — e.g. **△ then —** = 🔥 Fire Tornado, **◯ then ϟ** = Ice Storm, **∨ then ★**
+= Holy Nova.
+
 **Progression & accuracy:** you start with just **Fireball (△)** and **Gust (—)**;
 **Lightning (Z)**, **Frost Splash (◯)** and **Heal (V)** are unlocked via level-up
 cards. The cleaner you draw a glyph, the more damage it deals — a **near-perfect

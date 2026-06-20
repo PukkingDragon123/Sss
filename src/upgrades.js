@@ -3,20 +3,6 @@
 // each spell's upgrades behind owning that spell.
 
 export const UPGRADES = [
-  // ----- spell unlocks (only offered while still locked) -----
-  { id: 'unlock_lightning', name: 'Learn: Lightning', icon: 'ϟ', tag: 'New Spell', weight: 16,
-    desc: 'Unlock Lightning (draw Z) — zaps and chains between foes.',
-    available: g => !g.unlocked.has('lightning'),
-    apply: g => g.unlock('lightning') },
-  { id: 'unlock_frost', name: 'Learn: Frost Splash', icon: '◯', tag: 'New Spell', weight: 16,
-    desc: 'Unlock Frost Splash (draw ◯) — an icy nova that slows. Also douses fires.',
-    available: g => !g.unlocked.has('frost'),
-    apply: g => g.unlock('frost') },
-  { id: 'unlock_heal', name: 'Learn: Heal', icon: '∨', tag: 'New Spell', weight: 14,
-    desc: 'Unlock Heal (draw V) — patch yourself up mid-fight.',
-    available: g => !g.unlocked.has('heal'),
-    apply: g => g.unlock('heal') },
-
   // ----- general -----
   { id: 'maxhp',  name: 'Iron Liver',     icon: '❤️', tag: 'Vitality', weight: 10,
     desc: '+30 max HP, and patch up by 30 right now.',
@@ -55,6 +41,14 @@ export const UPGRADES = [
     desc: '+20 Heal potency, -20% Heal cooldown.',
     available: g => g.unlocked.has('heal'),
     apply: g => { g.stats.healAmount += 20; g.spells.adjustCd('heal', 0.8); } },
+  { id: 'spikeup', name: 'Piercing Spikes', icon: '∧', tag: 'Spike', weight: 6,
+    desc: '+30% Arcane Spike damage, -15% cooldown.',
+    available: g => g.unlocked.has('spike'),
+    apply: g => { g.stats.spikeDmg *= 1.3; g.spells.adjustCd('spike', 0.85); } },
+  { id: 'novaup', name: 'Supernova', icon: '★', tag: 'Nova', weight: 6,
+    desc: '+25% Fire Nova damage & +25% radius.',
+    available: g => g.unlocked.has('nova'),
+    apply: g => { g.stats.novaDmg *= 1.25; g.stats.novaRadius *= 1.25; } },
 
   // ----- more general -----
   { id: 'pickup', name: 'Mote Magnet',    icon: '🧲', tag: 'Utility', weight: 7,

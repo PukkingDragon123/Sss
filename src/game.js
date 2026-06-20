@@ -13,6 +13,8 @@ import { Director, TAVERN_INTRO, BLACKOUT_LINES } from './story.js';
 import { Jobs } from './jobs.js';
 import { Tavern } from './tavern.js';
 import { rollUpgrades } from './upgrades.js';
+import * as meta from './meta.js';
+import { COMBO_META } from './meta.js';
 
 const DEFAULT_STATS = () => ({
   hpMax: 130, moveSpeed: 7.2, wobble: 1.0,
@@ -23,6 +25,7 @@ const DEFAULT_STATS = () => ({
   frostDmg: 10, frostRadius: 5, frostSlow: 0.5, frostSlowTime: 2.5,
   healAmount: 35,
   gustDmg: 5, gustRange: 9, gustForce: 16,
+  spikeDmg: 30, novaDmg: 26, novaRadius: 6,
   pickupRadius: 2.6, hpRegen: 1.0, thorns: 0,
 });
 
@@ -77,9 +80,15 @@ export class Game {
     this.cineT = 0;
     this._exiting = false;
     this.lastRuckus = 0;
-    this.unlocked = new Set(['fireball', 'gust']); // start with 2 spells
+    meta.load();
+    this.unlocked = new Set(['fireball', 'gust']); // equipped spells in a run
+    this.activeCombos = [];
+    this._lastCast = null;     // for combo detection
+    this.nearStation = null;   // hub interaction target
     this._guideOpen = false;
     this._guideShown = false;
+    this._shopKind = null;
+    this._introShown = false;
     this._live = null; // live gesture prediction while drawing
     this.elapsed = 0;
     this.level = 1;
@@ -352,10 +361,24 @@ export class Game {
     this._showEnd(false);
   }
   _showEnd(win) {
-    const m = Math.floor(this.elapsed / 60), s = Math.floor(this.elapsed % 60);
+    const t = Math.floor(this.elapsed);
+    const m = Math.floor(t / 60), s = t % 60;
+    // ---- loot ----
+    const base = 20;
+    const kill = this.kills * 2;
+    const time = Math.floor(t / 3);
+    const chore = this.chores * 20;
+    const winB = win ? 150 : 0;
+    const total = base + kill + time + chore + winB;
+    meta.addGold(total);
+    const questDone = meta.evaluateQuest({ kills: this.kills, time: t, chores: this.chores, win });
+    meta.save();
     this.ui.closeModals();
     this.ui.setScreen('end');
-    this.ui.showEnd(win, { time: `${m}:${s.toString().padStart(2, '0')}`, kills: this.kills, level: this.level, chores: this.chores });
+    this.ui.showResults(win, {
+      time: `${m}:${s.toString().padStart(2, '0')}`, kills: this.kills, level: this.level, chores: this.chores,
+      loot: { base, kill, time, chore, win: winB, total }, gold: meta.gold(), questDone,
+    });
   }
 
   // ---------- lifecycle ----------
@@ -382,51 +405,77 @@ export class Game {
     this.enterTavern();
   }
 
-  // ---- phase 1: the drunk stagger out of the tavern ----
+  // ---- the Tavern hub: roam (drunkenly), shop at stations, leave via the door ----
   enterTavern() {
     this.phase = 'tavern';
-    this.tavernReady = false;
-    this.cineT = 0;
     this._exiting = false;
-    this.stats.wobble = 1.8;        // extra sloshed and hard to steer
-    this.stats.moveSpeed = 6.5;
+    this.nearStation = null;
+    this.storyQueue.length = 0; this.storyShowing = false;
+    this.ui.closeModals();
+    this.ui.fadeBlack(false);
+    this.ui.setScreen('play');
+    this.stats = DEFAULT_STATS();
+    this.stats.wobble = 0.9;        // tipsy but steerable enough to shop
     this.tavern.reset();
+    this.tavern.refreshDecor(meta);
     this.tavern.show(true);
     this.arenaGroup.visible = false;
     this.wizard.reset(this.stats);
     this.wizard.pos.copy(this.tavern.start);
     this.aimPoint.set(this.tavern.door.x, 0, this.tavern.door.z);
-    this.camOffset.set(0, 16, 15);
+    this.camOffset.set(0, 18, 16);
     this._setMood('tavern');
     this.ui.setPhase('tavern', this.input.isTouch);
-    this.ui.bumpTavern(0);
+    this.ui.setGold(meta.gold());
     this.state = 'play';
-    this.showStory(TAVERN_INTRO.speaker, TAVERN_INTRO.lines, () => { this.tavernReady = true; });
+    if (!this._introShown) {
+      this._introShown = true; this.tavernReady = false; this.cineT = 0;
+      this.showStory(TAVERN_INTRO.speaker, TAVERN_INTRO.lines, () => { this.tavernReady = true; });
+    } else {
+      this.tavernReady = true;
+    }
   }
 
-  onTavernExit(ruckus) {
+  interact() {
+    if (this.state !== 'play' || this.phase !== 'tavern' || !this.nearStation) return;
+    const t = this.nearStation.type;
+    this.audio.play('click');
+    if (t === 'door') { this.beginRun(); return; }
+    this._shopKind = t;
+    this.state = 'menu';
+    this.ui.openShop(t, this);
+  }
+  closeShop() {
+    if (this.state !== 'menu') return;
+    this._shopKind = null;
+    this.ui.closeShop();
+    this.tavern.refreshDecor(meta);
+    this.ui.setGold(meta.gold());
+    this.state = 'play';
+  }
+
+  beginRun() {
     if (this._exiting) return;
     this._exiting = true;
-    this.lastRuckus = ruckus || 0;
     this.audio.play('jobDone');
     this.state = 'blackout';
     this.ui.fadeBlack(true);
     setTimeout(() => {
-      const tally = this.lastRuckus === 0
-        ? 'And not a single thing knocked over. Suspiciously graceful.'
-        : `You left ${this.lastRuckus} bit(s) of carnage behind. The landlady will remember.`;
-      this.showStory(BLACKOUT_LINES.speaker, [...BLACKOUT_LINES.lines, tally], () => this.enterArena());
+      this.showStory(BLACKOUT_LINES.speaker, BLACKOUT_LINES.lines, () => this.enterArena());
     }, 1250);
   }
 
-  // ---- phase 2: wake up in the moonlit forest and fight ----
+  // ---- the forest run ----
   enterArena() {
     this.phase = 'arena';
     this.stats = DEFAULT_STATS();
-    this.unlocked = new Set(['fireball', 'gust']);
+    if (meta.consumeRest()) this.stats.hpMax += 30; // a good night's rest
+    this.loadout = meta.getLoadout();
+    this.unlocked = new Set(this.loadout);
+    this.activeCombos = meta.activeCombos(this.unlocked);
     this.elapsed = 0; this.level = 1; this.xp = 0; this.xpNeed = this._xpForLevel(1);
     this.kills = 0; this.chores = 0; this.pendingLevels = 0; this.bossActive = false;
-    this._endState = null;
+    this._endState = null; this._exiting = false; this._lastCast = null;
     this.enemies.clear();
     this.spells.reset();
     this._clearPickups();
@@ -439,26 +488,30 @@ export class Game {
     this.camOffset.set(0, 27, 22);
     this._setMood('forest');
     this.ui.setPhase('arena', this.input.isTouch);
-    this.ui.setUnlocked(this.unlocked);
+    this.ui.setLoadout(this.loadout);
     this.ui.hideJob();
     this.ui.fadeBlack(false);
     this.state = 'play';
     this.ui.toast('🌲 A moonlit forest…');
-    // first time only: open the "how to draw" guide (paused) so players learn
     if (!this._guideShown) {
-      this._guideShown = true;
-      this._guideOpen = true;
-      this.ui.showGuide();
-      this.state = 'paused';
+      this._guideShown = true; this._guideOpen = true; this.ui.showGuide(); this.state = 'paused';
     }
   }
 
-  unlock(id) {
-    if (this.unlocked.has(id)) return;
-    this.unlocked.add(id);
-    this.ui.setUnlocked(this.unlocked);
-    this.audio.play('levelup');
-    this.ui.toast(`✨ Learned ${SPELLS[id] ? SPELLS[id].name : id}!`);
+  _registerCast(id) {
+    const now = performance.now() / 1000;
+    if (this._lastCast && now - this._lastCast.t < 1.4) {
+      const prev = this._lastCast.id;
+      for (const cid of this.activeCombos) {
+        const m = COMBO_META[cid];
+        if ((m.a === prev && m.b === id) || (m.a === id && m.b === prev)) {
+          this.spells.castCombo(this, cid);
+          this._lastCast = null;
+          return;
+        }
+      }
+    }
+    this._lastCast = { id, t: now };
   }
 
   toggleGuide() {
@@ -495,6 +548,7 @@ export class Game {
     for (const e of events) {
       if (e.type === 'mute') { this.toggleMute(); continue; }
       if (e.type === 'guide') { this.toggleGuide(); continue; }
+      if (e.type === 'interact') { if (this.state === 'menu') this.closeShop(); else this.interact(); continue; }
 
       if (this.storyShowing) {
         if (e.type === 'confirm' || e.type === 'primary') this.ui._storyAdvance();
@@ -520,9 +574,8 @@ export class Game {
       if (e.type === 'drawstart') { this.gestureAim.copy(this.aimPoint); }
       else if (e.type === 'gesture') { this._resolveGesture(e.points); }
       else if (e.type === 'quickcast') {
-        const id = SPELL_ORDER[e.index];
-        if (id && this.unlocked.has(id)) this._castAt(id, this.aimPoint, { accuracy: 0.8 });
-        else if (id) this.ui.toast(`🔒 ${SPELLS[id].name} — not learned yet`);
+        const id = this.loadout ? this.loadout[e.index] : null;
+        if (id) this._castAt(id, this.aimPoint, { accuracy: 0.8 });
       }
     }
   }
@@ -540,7 +593,7 @@ export class Game {
         if (!crit) this.ui.accuracyToast(accuracy);
         return;
       }
-      if (id) { this.ui.toast(`🔒 ${SPELLS[id].name} — not learned yet`); this.audio.play('hiccup'); return; }
+      if (id) { this.ui.toast(`✋ ${SPELLS[id].name} — not equipped`); this.audio.play('hiccup'); return; }
     }
     // a fizzle — show a little puff so it still feels responsive
     this.audio.play('hiccup');
@@ -552,8 +605,9 @@ export class Game {
   _castAt(id, aim, opts) {
     const saved = this.aimPoint;
     this.aimPoint = aim;
-    this.spells.tryCast(this, id, opts);
+    const ok = this.spells.tryCast(this, id, opts);
     this.aimPoint = saved;
+    if (ok) this._registerCast(id);
   }
 
   _updateAim() {

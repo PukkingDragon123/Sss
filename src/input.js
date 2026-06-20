@@ -33,6 +33,7 @@ export class Input {
       if (k === ' ' || k === 'enter') this.events.push({ type: 'confirm' });
       if (k === 'm') this.events.push({ type: 'mute' });
       if (k === 'h' || k === '?') this.events.push({ type: 'guide' });
+      if (k === 'e' || k === 'f') this.events.push({ type: 'interact' });
       if ([' ', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
     });
     window.addEventListener('keyup', (e) => { this.keys.delete(e.key.toLowerCase()); });

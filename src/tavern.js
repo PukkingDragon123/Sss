@@ -15,12 +15,16 @@ export class Tavern {
     scene.add(this.group);
     this.props = [];
     this.npcs = [];
+    this.stations = [];   // hub interactables (door + shops)
+    this.decor = {};      // toggleable bought decorations
     this.ruckus = { props: 0, patrons: 0 };
     this.phase = 0;
     this.exited = false;
-    this.start = new THREE.Vector3(0, 0, 5.5);
+    this.start = new THREE.Vector3(0, 0, 4.5);
     this.door = new THREE.Vector3(DOOR_X, 0, NORTH);
     this._build();
+    this._buildStations();
+    this._buildDecor();
   }
 
   _build() {
@@ -135,6 +139,79 @@ export class Tavern {
     return person;
   }
 
+  // hub interactables: the door out, plus the shop stations
+  _buildStations() {
+    const g = this.group;
+    const gold = new THREE.MeshStandardMaterial({ color: 0xffd98a, emissive: 0x4a3400, metalness: 0.3, roughness: 0.5 });
+    const wood = new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: 0.9 });
+    const mk = (type, label, x, z, build) => {
+      const grp = new THREE.Group(); grp.position.set(x, 0, z);
+      if (build) build(grp);
+      // floating marker
+      const mark = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), new THREE.MeshBasicMaterial({ color: 0xffe6a8, transparent: true, opacity: 0.95 }));
+      mark.position.y = 2.6; grp.add(mark);
+      g.add(grp);
+      this.stations.push({ type, label, pos: new THREE.Vector3(x, 0, z), mark });
+    };
+    // Spell Table (skill tree)
+    mk('skilltree', 'the Spell Table', 7, -8, (grp) => {
+      const top = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.2, 1.2), wood); top.position.y = 1.0; top.castShadow = true;
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1, 8), wood); leg.position.y = 0.5; grp.add(top, leg);
+      const book = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.16, 0.5), new THREE.MeshStandardMaterial({ color: 0x6f5fc4, roughness: 0.7 })); book.position.set(0, 1.18, 0); book.rotation.y = 0.3; grp.add(book);
+      const rune = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.05, 8, 18), new THREE.MeshBasicMaterial({ color: 0x9b7bff, transparent: true, opacity: 0.8 })); rune.rotation.x = Math.PI / 2; rune.position.y = 1.5; grp.add(rune);
+    });
+    // Cauldron (combos)
+    mk('cauldron', 'the Cauldron', -6, -11, (grp) => {
+      const iron = new THREE.MeshStandardMaterial({ color: 0x33323a, roughness: 0.7, metalness: 0.3 });
+      const pot = new THREE.Mesh(new THREE.SphereGeometry(0.8, 14, 12, 0, Math.PI * 2, 0, Math.PI * 0.6), iron); pot.rotation.x = Math.PI; pot.position.y = 0.85; pot.castShadow = true; grp.add(pot);
+      const brew = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.1, 14), new THREE.MeshBasicMaterial({ color: 0x9bff7a, transparent: true, opacity: 0.8 })); brew.position.y = 1.15; grp.add(brew);
+    });
+    // Tavern Manager (quest giver)
+    mk('manager', 'the Tavern Manager', -7.5, -1, (grp) => {
+      const p = this._buildPatron(0x9a6a3a, true);
+      p.scale.setScalar(1.05); grp.add(p);
+      const apron = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.6, 0.15), new THREE.MeshStandardMaterial({ color: 0xece0c0, roughness: 0.9 })); apron.position.set(0, 0.95, 0.4); grp.add(apron);
+    });
+    // Bed / room
+    mk('room', 'your Room', 8.5, 3, (grp) => {
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.5, 2.4), wood); frame.position.y = 0.3; frame.castShadow = true;
+      const mattress = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.3, 2.2), new THREE.MeshStandardMaterial({ color: 0x8a7bc0, roughness: 0.9 })); mattress.position.y = 0.6; grp.add(frame, mattress);
+      const pillow = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.2, 0.5), new THREE.MeshStandardMaterial({ color: 0xf2efe6, roughness: 0.9 })); pillow.position.set(0, 0.78, -0.85); grp.add(pillow);
+    });
+    // Door out (start a run)
+    this.stations.push({ type: 'door', label: 'leave for the forest', pos: this.door.clone(), mark: null });
+  }
+
+  _buildDecor() {
+    const g = this.group;
+    const rug = new THREE.Mesh(new THREE.CircleGeometry(2.2, 24), new THREE.MeshStandardMaterial({ color: 0x9a3a4a, roughness: 0.95 }));
+    rug.rotation.x = -Math.PI / 2; rug.position.set(8.5, 0.02, 4.5); rug.receiveShadow = true; rug.visible = false; g.add(rug);
+    const banner = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.4), new THREE.MeshStandardMaterial({ color: 0x4a2f8a, roughness: 0.9, side: THREE.DoubleSide }));
+    banner.position.set(11.2, 3, 3); banner.rotation.y = -Math.PI / 2; banner.visible = false; g.add(banner);
+    const plant = new THREE.Group();
+    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.24, 0.45, 10), new THREE.MeshStandardMaterial({ color: 0x8a5a2b, roughness: 0.9 })); pot.position.y = 0.22;
+    const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 8), new THREE.MeshStandardMaterial({ color: 0x3a824a, roughness: 0.9 })); leaf.position.y = 0.7;
+    plant.add(pot, leaf); plant.position.set(6.4, 0, 4.6); plant.visible = false; g.add(plant);
+    this.decor = { rug, banner, plant };
+  }
+
+  refreshDecor(meta) {
+    this.decor.rug.visible = meta.ownsDecor('rug');
+    this.decor.banner.visible = meta.ownsDecor('banner');
+    this.decor.plant.visible = meta.ownsDecor('plant');
+  }
+
+  // nearest interactable station within range (for the hub prompt)
+  nearestStation(pos, range = 2.8) {
+    let best = null, bd = range * range;
+    for (const s of this.stations) {
+      const dx = s.pos.x - pos.x, dz = s.pos.z - pos.z;
+      const d = dx * dx + dz * dz;
+      if (d < bd) { bd = d; best = s; }
+    }
+    return best;
+  }
+
   reset() {
     this.exited = false;
     this.ruckus.props = 0; this.ruckus.patrons = 0;
@@ -232,20 +309,14 @@ export class Tavern {
       }
     }
 
-    this._arrow.position.y = 3.6 + Math.sin(this.phase * 3) * 0.2;
+    this._arrow.position.y = 3.4 + Math.sin(this.phase * 3) * 0.2;
 
-    // walls + door
+    // animate station markers + report the nearest one for the hub prompt
+    for (const s of this.stations) if (s.mark) { s.mark.rotation.y += dt * 2; s.mark.position.y = 2.6 + Math.sin(this.phase * 3 + s.pos.x) * 0.18; }
+    game.nearStation = this.nearestStation(w.pos);
+
+    // walls (leaving the tavern is done by interacting with the door, not walking out)
     w.pos.x = Math.max(MINX, Math.min(MAXX, w.pos.x));
-    if (w.pos.z < NORTH) {
-      if (Math.abs(w.pos.x - DOOR_X) < DOOR_HALF) { this._exit(game); return; }
-      w.pos.z = NORTH; w.vel.z *= -0.3;
-    }
-    if (w.pos.z > SOUTH) { w.pos.z = SOUTH; w.vel.z *= -0.3; }
-  }
-
-  _exit(game) {
-    if (this.exited) return;
-    this.exited = true;
-    game.onTavernExit(this.ruckus.props + this.ruckus.patrons);
+    w.pos.z = Math.max(NORTH, Math.min(SOUTH, w.pos.z));
   }
 }

@@ -1,6 +1,8 @@
-// ui.js — all the DOM: HUD, story modal, level-up cards, toasts, end screen.
+// ui.js — all the DOM: HUD, story modal, level-up cards, toasts, results,
+// and the tavern shop panels (skill tree / cauldron / room / manager).
 import { SPELL_ORDER, SPELLS } from './spells.js';
 import { TEMPLATES } from './recognizer.js';
+import * as meta from './meta.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -55,13 +57,14 @@ export class UI {
       end: $('end'), endTitle: $('end-title'), endStats: $('end-stats'), btnAgain: $('btn-again'),
       loading: $('loading'),
       bars: document.querySelector('.bars'), spellbook: $('spellbook'), castHint: $('cast-hint'),
+      gold: $('gold'), interactPrompt: $('interact-prompt'), btnInteract: $('btn-interact'),
+      shop: $('shop'), shopTitle: $('shop-title'), shopGold: $('shop-gold'), shopBody: $('shop-body'), shopClose: $('shop-close'),
       tavernHud: $('tavern-hud'), ruckusCount: $('ruckus-count'),
       btnGuide: $('btn-guide'), btnPause: $('btn-pause'), btnMute: $('btn-mute'),
       joystick: $('joystick'), joyKnob: $('joy-knob'), blackout: $('blackout'),
       glyphGuide: $('glyph-guide'), guideCards: $('guide-cards'), btnGuideClose: $('btn-guide-close'),
     };
-    this.chips = {};
-    document.querySelectorAll('.spell-chip').forEach((c) => { this.chips[c.dataset.spell] = c; });
+    this.chips = {}; // rebuilt per run from the loadout
     this._storyCb = null;
     this._storyLines = [];
     this._storyIdx = 0;
@@ -70,33 +73,47 @@ export class UI {
   init(game) {
     this.game = game;
     this.el.btnStart.addEventListener('click', () => { game.audio.resume(); game.audio.play('click'); game.startGame(); });
-    this.el.btnAgain.addEventListener('click', () => { game.audio.play('click'); game.startGame(); });
+    this.el.btnAgain.addEventListener('click', () => { game.audio.play('click'); game.enterTavern(); });
     this.el.btnHow.addEventListener('click', () => { game.audio.play('click'); this.el.howto.classList.toggle('hidden'); });
     this.el.btnHowClose.addEventListener('click', () => { game.audio.play('click'); this.el.howto.classList.add('hidden'); });
     this.el.storyNext.addEventListener('click', () => { game.audio.play('click'); this._storyAdvance(); });
-
-    // tappable spell chips (works on desktop and mobile)
-    for (const id of Object.keys(this.chips)) {
-      this.chips[id].addEventListener('click', () => game.castById(id));
-    }
     this.el.btnPause.addEventListener('click', () => { game.audio.play('click'); game.togglePause(); });
     this.el.btnMute.addEventListener('click', () => { game.toggleMute(); });
     this.el.btnGuide.addEventListener('click', () => { game.audio.play('click'); game.toggleGuide(); });
     this.el.btnGuideClose.addEventListener('click', () => { game.audio.play('click'); game.toggleGuide(); });
+    this.el.btnInteract.addEventListener('click', () => game.interact());
+    this.el.shopClose.addEventListener('click', () => { game.audio.play('click'); game.closeShop(); });
+    // shop buttons are delegated (the body is re-rendered on every action)
+    this.el.shopBody.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-act]');
+      if (b) this._shopAction(b.dataset.act, b.dataset.id);
+    });
   }
 
-  // show only the unlocked spells in the spellbook + rebuild the guide
-  setUnlocked(set) {
-    for (const id of Object.keys(this.chips)) this.chips[id].classList.toggle('hidden', !set.has(id));
-    this.buildGuide(set);
+  // build the spellbook from the 3 equipped spells (keys 1..3) + rebuild guide
+  setLoadout(loadout) {
+    this.el.spellbook.innerHTML = '';
+    this.chips = {};
+    loadout.forEach((id, i) => {
+      const s = SPELLS[id]; if (!s) return;
+      const chip = document.createElement('div');
+      chip.className = 'spell-chip'; chip.dataset.spell = id;
+      chip.innerHTML = `<span class="glyph">${s.glyph}</span><span class="name">${s.name}</span><span class="key">${i + 1}</span>`;
+      chip.addEventListener('click', () => this.game.castById(id));
+      this.el.spellbook.appendChild(chip);
+      this.chips[id] = chip;
+    });
+    this.buildGuide(loadout);
   }
 
-  buildGuide(set) {
+  setGold(n) { if (this.el.gold) this.el.gold.textContent = `🪙 ${n}`; if (this.el.shopGold) this.el.shopGold.textContent = `🪙 ${n}`; }
+
+  buildGuide(loadout) {
     if (!this.el.guideCards) return;
+    const ids = Array.isArray(loadout) ? loadout : [...loadout];
     this.el.guideCards.innerHTML = '';
-    for (const id of SPELL_ORDER) {
-      if (!set.has(id)) continue;
-      const s = SPELLS[id];
+    ids.forEach((id, i) => {
+      const s = SPELLS[id]; if (!s) return;
       const card = document.createElement('div');
       card.className = 'guide-card';
       const cv = document.createElement('canvas');
@@ -104,10 +121,10 @@ export class UI {
       drawTemplate(cv, TEMPLATES[s.gesture]);
       const label = document.createElement('div');
       label.className = 'guide-label';
-      label.innerHTML = `<span class="guide-glyph">${s.glyph}</span> ${s.name} <span class="key">${s.key + 1}</span>`;
+      label.innerHTML = `<span class="guide-glyph">${s.glyph}</span> ${s.name} <span class="key">${i + 1}</span>`;
       card.appendChild(cv); card.appendChild(label);
       this.el.guideCards.appendChild(card);
-    }
+    });
   }
 
   showGuide() { this.el.glyphGuide.classList.remove('hidden'); }
@@ -128,7 +145,7 @@ export class UI {
 
   hideLoading() { this.el.loading.classList.add('hidden'); }
 
-  // toggle which HUD bits show for the tavern vs the forest fight
+  // toggle which HUD bits show for the tavern hub vs the forest fight
   setPhase(phase, isTouch) {
     const tavern = phase === 'tavern';
     this.el.bars.classList.toggle('hidden', tavern);
@@ -136,12 +153,26 @@ export class UI {
     this.el.sobriety.classList.toggle('hidden', tavern);
     this.el.timer.classList.toggle('hidden', tavern);
     this.el.kills.classList.toggle('hidden', tavern);
-    this.el.tavernHud.classList.toggle('hidden', !tavern);
+    this.el.tavernHud.classList.add('hidden');
     this.el.btnGuide.classList.toggle('hidden', tavern);
+    if (!tavern) { this.el.interactPrompt.classList.add('hidden'); this.el.btnInteract.classList.add('hidden'); }
     if (tavern) {
-      this.el.castHint.innerHTML = isTouch ? 'Drag the <b>left side</b> to stagger toward the <b>door</b>' : '<b>WASD</b> to stagger toward the glowing <b>door</b> — he\'s very drunk!';
+      this.el.castHint.innerHTML = isTouch ? 'Drag the <b>left side</b> to wander · tap glowing stations to use them' : 'Walk up to glowing stations and press <b>E</b> · head to the <b>door</b> to start a run';
     } else {
-      this.el.castHint.innerHTML = isTouch ? 'Left side = move · <b>draw a glyph</b> on the right to cast · or tap a spell' : 'Hold <b>Right-Mouse</b> and draw a glyph · <b>WASD</b> move · mouse aim · keys <b>1–5</b>';
+      this.el.castHint.innerHTML = isTouch ? 'Left = move · <b>draw a glyph</b> on the right to cast · or tap a spell' : 'Hold <b>Right-Mouse</b> and draw a glyph · <b>WASD</b> move · keys <b>1–3</b> · 📖 guide';
+    }
+  }
+
+  // hub prompt: show what the wizard can interact with
+  updatePrompt(station, isTouch) {
+    if (station) {
+      this.el.interactPrompt.classList.remove('hidden');
+      this.el.interactPrompt.innerHTML = isTouch ? `Tap ✋ to use <b>${station.label}</b>` : `Press <b>E</b> to use <b>${station.label}</b>`;
+      this.el.btnInteract.classList.toggle('hidden', !isTouch);
+      this.el.btnInteract.textContent = station.type === 'door' ? '🚪 Leave' : '✋ Use';
+    } else {
+      this.el.interactPrompt.classList.add('hidden');
+      this.el.btnInteract.classList.add('hidden');
     }
   }
 
@@ -186,7 +217,10 @@ export class UI {
   // ---- HUD ----
   updateHUD(game) {
     this.updateJoystick(game.input);
-    if (game.phase === 'tavern') return; // tavern shows its own minimal HUD
+    if (game.phase === 'tavern') { // hub: show gold + interaction prompt only
+      this.updatePrompt(game.state === 'play' ? game.nearStation : null, game.input.isTouch);
+      return;
+    }
     const s = game.stats, w = game.wizard;
     const hpPct = Math.max(0, w.hp / s.hpMax) * 100;
     this.el.hpFill.style.width = hpPct + '%';
@@ -205,9 +239,8 @@ export class UI {
     const label = wob <= 0.6 ? '🍵 Tipsy' : (wob <= 1.15 ? '🍺 Sloshed' : '🥴 Hammered');
     this.el.sobriety.textContent = label;
 
-    for (const id of SPELL_ORDER) {
+    for (const id of Object.keys(this.chips)) {
       const chip = this.chips[id];
-      if (!chip) continue;
       const frac = game.spells.cooldownFrac(id);
       const poor = w.mana < SPELLS[id].mana;
       chip.classList.toggle('cooling', frac > 0.04 || poor);
@@ -296,15 +329,144 @@ export class UI {
     this.el.levelup.classList.remove('hidden');
   }
 
-  // ---- End ----
-  showEnd(win, info) {
+  // ---- Results / loot ----
+  showResults(win, info) {
     this.el.endTitle.textContent = win ? 'You Survived the Night!' : 'The Wizard Passed Out';
+    const L = info.loot;
+    const row = (label, v) => v ? `<div class="loot-row"><span>${label}</span><b>+${v}🪙</b></div>` : '';
     this.el.endStats.innerHTML = `
-      <div>Time staggered: <b>${info.time}</b></div>
-      <div>Foes vanquished: <b>${info.kills}</b></div>
-      <div>Level reached: <b>${info.level}</b></div>
-      <div>Chores done: <b>${info.chores}</b></div>
-      <div style="margin-top:8px;color:var(--ink-dim)">${win ? 'The landlady is, grudgingly, impressed.' : 'Tomorrow he\'ll blame the goblins.'}</div>`;
+      <div class="end-summary">⏱ ${info.time} · ☠ ${info.kills} · Lv ${info.level} · Chores ${info.chores}</div>
+      <div class="loot-box">
+        ${row('Survival', L.base)}${row('Foes slain', L.kill)}${row('Time', L.time)}${row('Chores', L.chore)}${row('Victory', L.win)}
+        <div class="loot-row loot-total"><span>Loot earned</span><b>+${L.total}🪙</b></div>
+      </div>
+      <div class="loot-purse">Purse: <b>${info.gold}🪙</b></div>
+      ${info.questDone ? '<div style="color:var(--xp);font-weight:800">✓ Quest complete! Claim it from the Manager.</div>' : ''}
+      <div style="margin-top:6px;color:var(--ink-dim)">${win ? 'The forest is quiet. Spend your loot in the tavern!' : 'Dust yourself off and try again — keep your loot.'}</div>`;
+    this.el.btnAgain.textContent = '▸ Return to the Tavern';
     this.el.end.classList.remove('hidden');
+  }
+
+  comboToast(name) {
+    const t = document.createElement('div');
+    t.className = 'toast crit'; t.textContent = `⚡ COMBO: ${name}!`;
+    this.el.toastArea.appendChild(t); setTimeout(() => t.remove(), 1700);
+  }
+
+  // ---- Shop panels (skill tree / cauldron / room / manager) ----
+  openShop(kind, game) {
+    this._shopKind = kind;
+    this._shopGame = game;
+    this.setGold(meta.gold());
+    this._renderShop();
+    this.el.shop.classList.remove('hidden');
+  }
+  closeShop() { this.el.shop.classList.add('hidden'); }
+
+  _shopAction(act, id) {
+    const g = this._shopGame;
+    let ok = false;
+    if (act === 'unlock') ok = meta.unlockSpell(id);
+    else if (act === 'upgrade') ok = meta.upgradeSpell(id);
+    else if (act === 'equip') ok = meta.toggleEquip(id);
+    else if (act === 'learn') ok = meta.learnCombo(id);
+    else if (act === 'buyroom') ok = meta.buyRoom();
+    else if (act === 'buydecor') ok = meta.buyDecor(id);
+    else if (act === 'rest') ok = meta.rest();
+    else if (act === 'claim') { const r = meta.claimQuest(); ok = r > 0; if (ok) g.ui.toast(`Quest reward: +${r}🪙`); }
+    if (g) g.audio.play(ok ? 'click' : 'hiccup');
+    this.setGold(meta.gold());
+    this._renderShop();
+  }
+
+  _renderShop() {
+    const kind = this._shopKind;
+    const titles = { skilltree: '✦ Spell Table', cauldron: '🜲 Cauldron', room: '🛏 Your Room', manager: '🍺 Tavern Manager' };
+    this.el.shopTitle.textContent = titles[kind] || 'Tavern';
+    let html = '';
+    if (kind === 'skilltree') html = this._renderSkillTree();
+    else if (kind === 'cauldron') html = this._renderCauldron();
+    else if (kind === 'room') html = this._renderRoom();
+    else if (kind === 'manager') html = this._renderManager();
+    this.el.shopBody.innerHTML = html;
+  }
+
+  _renderSkillTree() {
+    const eq = meta.getLoadout();
+    let h = '<p class="shop-sub">Unlock & upgrade spells, then equip up to <b>3</b> (these are your run loadout).</p><div class="shop-grid">';
+    for (const id of meta.SPELL_LIST) {
+      const m = meta.SPELL_META[id];
+      const owned = meta.owns(id);
+      const lvl = meta.spellLevel(id);
+      const equipped = eq.includes(id);
+      let action = '';
+      if (!owned) {
+        action = `<button class="shop-btn" data-act="unlock" data-id="${id}" ${meta.canAfford(m.unlock) ? '' : 'disabled'}>Unlock ${m.unlock}🪙</button>`;
+      } else {
+        const up = lvl >= meta.MAX_LEVEL ? `<button class="shop-btn" disabled>MAX</button>` :
+          `<button class="shop-btn" data-act="upgrade" data-id="${id}" ${meta.canAfford(meta.levelCost(lvl)) ? '' : 'disabled'}>Lv${lvl}→${lvl + 1} · ${meta.levelCost(lvl)}🪙</button>`;
+        const eqBtn = `<button class="shop-btn ${equipped ? 'on' : ''}" data-act="equip" data-id="${id}">${equipped ? '✓ Equipped' : 'Equip'}</button>`;
+        action = up + eqBtn;
+      }
+      h += `<div class="shop-card ${owned ? '' : 'locked'}">
+        <div class="shop-glyph">${m.glyph}</div>
+        <div class="shop-name">${m.name}${owned ? ` <span class="lvtag">Lv${lvl}</span>` : ''}</div>
+        <div class="shop-acts">${action}</div></div>`;
+    }
+    h += '</div>';
+    return h;
+  }
+
+  _renderCauldron() {
+    let h = '<p class="shop-sub">Brew <b>combos</b>: cast the two glyphs in quick succession in a run (both must be equipped) to unleash them.</p><div class="shop-grid">';
+    for (const id of meta.COMBO_LIST) {
+      const c = meta.COMBO_META[id];
+      const learned = meta.learned(id);
+      const haveParts = meta.owns(c.a) && meta.owns(c.b);
+      const ga = SPELLS[c.a].glyph, gb = SPELLS[c.b].glyph;
+      let action;
+      if (learned) action = '<button class="shop-btn on" disabled>✓ Learned</button>';
+      else if (!haveParts) action = '<button class="shop-btn" disabled>Need both spells</button>';
+      else action = `<button class="shop-btn" data-act="learn" data-id="${id}" ${meta.canAfford(c.cost) ? '' : 'disabled'}>Learn ${c.cost}🪙</button>`;
+      h += `<div class="shop-card ${learned ? '' : 'locked'}">
+        <div class="shop-glyph">${ga}+${gb}</div>
+        <div class="shop-name">${c.name}</div>
+        <div class="shop-desc">${c.desc}</div>
+        <div class="shop-acts">${action}</div></div>`;
+    }
+    h += '</div>';
+    return h;
+  }
+
+  _renderRoom() {
+    if (!meta.roomOwned()) {
+      return `<p class="shop-sub">A room of your own — rest before a run and decorate it.</p>
+        <div class="shop-acts"><button class="shop-btn big" data-act="buyroom" ${meta.canAfford(meta.ROOM_COST) ? '' : 'disabled'}>Buy Room · ${meta.ROOM_COST}🪙</button></div>`;
+    }
+    let h = `<p class="shop-sub">Rest for a <b>+30 max HP</b> bonus on your next run, and buy decorations.</p>
+      <div class="shop-acts"><button class="shop-btn big ${meta.isRested() ? 'on' : ''}" data-act="rest" ${meta.isRested() ? 'disabled' : ''}>${meta.isRested() ? '✓ Rested' : 'Rest (sleep)'}</button></div>
+      <div class="shop-grid">`;
+    for (const d of meta.DECOR) {
+      const owned = meta.ownsDecor(d.id);
+      h += `<div class="shop-card ${owned ? '' : 'locked'}">
+        <div class="shop-name">${d.name}</div>
+        <div class="shop-acts">${owned ? '<button class="shop-btn on" disabled>✓ Placed</button>' : `<button class="shop-btn" data-act="buydecor" data-id="${d.id}" ${meta.canAfford(d.cost) ? '' : 'disabled'}>Buy ${d.cost}🪙</button>`}</div></div>`;
+    }
+    h += '</div>';
+    return h;
+  }
+
+  _renderManager() {
+    const q = meta.currentQuest();
+    const done = meta.questDone();
+    return `<p class="shop-sub">"Evenin'. Mind the furniture. Here's a bit of work if you want coin…"</p>
+      <div class="quest-box">
+        <div class="quest-title">📜 Bounty</div>
+        <div class="quest-text">${q.text}</div>
+        <div class="quest-reward">Reward: <b>${q.reward}🪙</b></div>
+        <div class="shop-acts">${done
+          ? '<button class="shop-btn big on" data-act="claim">✓ Claim reward</button>'
+          : '<button class="shop-btn big" disabled>Complete it in a run</button>'}</div>
+      </div>`;
   }
 }

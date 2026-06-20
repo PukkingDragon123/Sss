@@ -16,6 +16,11 @@ rec.add('vee', TEMPLATES.vee);
 rec.add('line', TEMPLATES.line);
 rec.add('caret', TEMPLATES.caret);
 rec.add('star', TEMPLATES.star);
+rec.add('spiral', TEMPLATES.spiral);
+rec.add('square', TEMPLATES.square);
+rec.add('scurve', TEMPLATES.scurve);
+rec.add('wshape', TEMPLATES.wshape);
+rec.add('pigtail', TEMPLATES.pigtail);
 
 // helper: scale + translate + rotate + jitter a template to mimic a sloppy draw
 function messUp(points, { scale = 1, dx = 0, dy = 0, rot = 0, jitter = 0 } = {}) {

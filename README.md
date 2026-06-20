@@ -68,10 +68,16 @@ You are the **spirit**; the wizard is your wobbly puppet. The night runs in two 
 
 **The Tavern is a hub.** Between runs, wobble up to the glowing stations and press
 **E** (tap ✋): the **Spell Table** (a skill tree — unlock & upgrade spells, then
-**equip 3**), the **Cauldron** (brew **combos**), the **Tavern Manager** (bounty
-quests for gold), and your **Room** (rest for a bonus, buy decorations). Walk to
-the **door** to head out on a run. Runs award **gold** (shown on a results/loot
-screen) and everything is **saved** to your browser.
+**equip 3**), the **Cauldron** (brew **combos**), the **Wardrobe** (buy & wear
+**equipment** — hat/robe/staff/charm with stat bonuses), the **Tavern Manager**
+(bounty quests), and your **Room** (rest for a bonus, buy decorations). At the
+**door** you pick a **stage**.
+
+**Stages & waves.** Three stages — 🌲 **Forest**, 🦇 **Cave**, ⚰ **Graveyard** —
+each with its own monsters, a **5-wave + boss** structure, enemies that **pour
+out of portals**, and a **boss reveal** cinematic. Bosses: the Goblin King, the
+Spider Queen, and the Skeleton King. Runs award **gold** (results/loot screen)
+and everything is **saved** to your browser.
 
 **Combos:** draw two equipped glyphs in quick succession to unleash a learned
 combo — e.g. **△ then —** = 🔥 Fire Tornado, **◯ then ϟ** = Ice Storm, **∨ then ★**

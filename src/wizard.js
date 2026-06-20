@@ -50,6 +50,8 @@ export class Wizard {
     this.hp = 100;
     this.mana = 100;
     this._maxHp = 100;
+    this.shield = 0;
+    this.shieldT = 0;
     this.alive = true;
 
     this._armReady = false;
@@ -190,15 +192,18 @@ export class Wizard {
     this.hatLean = { x: 0, z: 0 }; this.hatV = { x: 0, z: 0 };
     this._maxHp = stats.hpMax;
     this.hp = stats.hpMax; this.mana = stats.manaMax;
+    this.shield = 0; this.shieldT = 0;
     this.alive = true; this.invuln = 0; this.flash = 0; this.castTimer = 0;
     this._armReady = false;
   }
 
   spendMana(n) { if (this.mana >= n) { this.mana -= n; return true; } return false; }
   heal(n) { this.hp = Math.min(this._maxHp, this.hp + n); }
+  addShield(n, dur) { this.shield = Math.max(this.shield, n); this.shieldT = Math.max(this.shieldT, dur); }
 
   takeDamage(n, fromPos) {
     if (this.invuln > 0 || !this.alive) return false;
+    if (this.shield > 0) { const a = Math.min(this.shield, n); this.shield -= a; n -= a; }
     this.hp -= n;
     this.invuln = 0.7;
     this.flash = 0.25;
@@ -389,7 +394,8 @@ export class Wizard {
       this.skinMat.emissive.setRGB(0, 0, 0);
     }
 
-    // ---- mana regen ----
+    // ---- shield + mana regen ----
+    if (this.shieldT > 0) { this.shieldT -= dt; if (this.shieldT <= 0) this.shield = 0; }
     this.mana = Math.min(s.manaMax, this.mana + s.manaRegen * dt);
   }
 }

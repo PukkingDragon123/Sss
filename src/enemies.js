@@ -4,11 +4,21 @@ import * as THREE from 'three';
 import { ARENA } from './wizard.js';
 
 const TYPES = {
+  // forest
   goblin:  { hp: 12,  speed: 2.9, dmg: 6,  r: 0.6,  xp: 5,   color: 0x8fc24a, size: 1.0, baseY: 0 },
   bat:     { hp: 5,   speed: 5.0, dmg: 4,  r: 0.45, xp: 3,   color: 0x8c6fb8, size: 0.7, baseY: 1.4 },
   vampire: { hp: 26,  speed: 3.5, dmg: 9,  r: 0.7,  xp: 16,  color: 0xe6dcec, size: 1.15, baseY: 0 },
   zombie:  { hp: 52,  speed: 1.5, dmg: 11, r: 0.95, xp: 13,  color: 0x6f9e5a, size: 1.55, baseY: 0 },
-  boss:    { hp: 850, speed: 1.9, dmg: 18, r: 2.0, xp: 220, color: 0x6fae3a, size: 3.2, baseY: 0 }, // Goblin King
+  goblinking:  { hp: 850, speed: 1.9, dmg: 18, r: 2.0, xp: 220, color: 0x6fae3a, size: 3.2, baseY: 0, boss: true },
+  // cave
+  rat:      { hp: 8,  speed: 4.3, dmg: 5,  r: 0.45, xp: 3,  color: 0x8a7a66, size: 0.7, baseY: 0 },
+  brutebat: { hp: 34, speed: 3.1, dmg: 10, r: 0.75, xp: 9,  color: 0x6a5a8c, size: 1.25, baseY: 1.2 },
+  spider:   { hp: 22, speed: 3.4, dmg: 9,  r: 0.7,  xp: 10, color: 0x4a3a55, size: 1.05, baseY: 0 },
+  spiderqueen: { hp: 1000, speed: 1.9, dmg: 18, r: 2.0, xp: 240, color: 0x6a2f6a, size: 3.0, baseY: 0, boss: true },
+  // graveyard
+  skeleton: { hp: 24, speed: 2.7, dmg: 9,  r: 0.65, xp: 9,  color: 0xe6e2d0, size: 1.05, baseY: 0 },
+  wraith:   { hp: 18, speed: 3.9, dmg: 11, r: 0.65, xp: 12, color: 0x9fb0c8, size: 1.1, baseY: 0.9 },
+  skeletonking: { hp: 1100, speed: 2.0, dmg: 20, r: 2.0, xp: 260, color: 0xd8d2bc, size: 3.1, baseY: 0, boss: true },
 };
 
 const MAX_ENEMIES = 140;
@@ -19,11 +29,13 @@ export class Enemies {
     this.group = new THREE.Group();
     scene.add(this.group);
     this.list = [];
-    this.pools = { goblin: [], bat: [], vampire: [], zombie: [], boss: [] };
+    this.pools = {};
+    for (const k of Object.keys(TYPES)) this.pools[k] = [];
     this.bossAlive = false;
   }
 
   count() { return this.list.length; }
+  countNonBoss() { let n = 0; for (const e of this.list) if (e.alive && !TYPES[e.type].boss) n++; return n; }
 
   clear() {
     for (const e of this.list) { e.mesh.visible = false; this.pools[e.type].push(e); }
@@ -57,42 +69,73 @@ export class Enemies {
     const pR = new THREE.Mesh(pGeo, pupMat); pR.position.set(0.2, 0.85, 0.55);
     g.add(eL, eR, pL, pR);
 
-    // little feet (bats hover, so no feet)
-    if (type !== 'bat') {
+    // little feet (flyers/floaters have none)
+    if (type !== 'bat' && type !== 'brutebat' && type !== 'wraith') {
       const footGeo = new THREE.SphereGeometry(0.16, 8, 8);
       const fL = new THREE.Mesh(footGeo, darkMat); fL.position.set(-0.25, 0.12, 0.05); fL.castShadow = true;
       const fR = new THREE.Mesh(footGeo, darkMat); fR.position.set(0.25, 0.12, 0.05); fR.castShadow = true;
       g.add(fL, fR);
     }
 
-    if (type === 'goblin' || type === 'boss') {
+    if (type === 'goblin' || type === 'goblinking' || type === 'rat') {
       // pointy ears
-      const earGeo = new THREE.ConeGeometry(0.16, 0.42, 6);
-      const earL = new THREE.Mesh(earGeo, bodyMat); earL.position.set(-0.52, 0.78, 0); earL.rotation.z = 1.1; earL.castShadow = true;
-      const earR = new THREE.Mesh(earGeo, bodyMat); earR.position.set(0.52, 0.78, 0); earR.rotation.z = -1.1; earR.castShadow = true;
+      const er = type === 'rat' ? 0.6 : 0.52, ey = type === 'rat' ? 0.95 : 0.78;
+      const earGeo = new THREE.ConeGeometry(0.16, type === 'rat' ? 0.5 : 0.42, 6);
+      const earL = new THREE.Mesh(earGeo, bodyMat); earL.position.set(-er, ey, 0); earL.rotation.z = 1.1; earL.castShadow = true;
+      const earR = new THREE.Mesh(earGeo, bodyMat); earR.position.set(er, ey, 0); earR.rotation.z = -1.1; earR.castShadow = true;
       g.add(earL, earR);
+      if (type === 'rat') { // long tail + snout
+        const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.02, 0.9, 6), bodyMat); tail.position.set(0, 0.4, -0.6); tail.rotation.x = 1.1; g.add(tail);
+        body.scale.set(1.1, 0.85, 1.3);
+      }
     }
-    if (type === 'boss') {
-      const crown = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.55, 5), new THREE.MeshStandardMaterial({ color: 0xffd98a, metalness: 0.3, roughness: 0.4, emissive: 0x3a2c00 }));
-      crown.position.y = 1.4; crown.rotation.z = 0.18; crown.castShadow = true;
+    if (type === 'goblinking' || type === 'spiderqueen' || type === 'skeletonking') {
+      const crownMat = new THREE.MeshStandardMaterial({ color: 0xffd98a, metalness: 0.3, roughness: 0.4, emissive: 0x3a2c00 });
+      const crown = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.55, 5), crownMat);
+      crown.position.y = 1.45; crown.rotation.z = 0.18; crown.castShadow = true;
       g.add(crown);
     }
-    if (type === 'bat') {
-      // flappy wings + big ears
-      const wingMat = new THREE.MeshStandardMaterial({ color: 0x4a3a66, roughness: 0.8, side: THREE.DoubleSide });
+    if (type === 'bat' || type === 'brutebat') {
+      const wingMat = new THREE.MeshStandardMaterial({ color: type === 'brutebat' ? 0x3a2f4a : 0x4a3a66, roughness: 0.8, side: THREE.DoubleSide });
       const wingGeo = new THREE.ConeGeometry(0.5, 0.9, 3); wingGeo.rotateZ(Math.PI / 2);
       const wL = new THREE.Mesh(wingGeo, wingMat); wL.position.set(-0.55, 0.7, 0); wL.castShadow = true;
       const wR = new THREE.Mesh(wingGeo, wingMat); wR.position.set(0.55, 0.7, 0); wR.rotation.y = Math.PI; wR.castShadow = true;
-      g.add(wL, wR);
-      anim.wings = [wL, wR];
+      g.add(wL, wR); anim.wings = [wL, wR];
+    }
+    if (type === 'spider' || type === 'spiderqueen') {
+      // 8 legs as angled cylinders
+      const legGeo = new THREE.CylinderGeometry(0.06, 0.04, 1.0, 6); legGeo.translate(0, -0.5, 0);
+      for (let s = 0; s < 4; s++) {
+        for (const side of [-1, 1]) {
+          const leg = new THREE.Mesh(legGeo, darkMat);
+          leg.position.set(side * 0.45, 0.7, -0.3 + s * 0.22);
+          leg.rotation.z = side * (0.9 + Math.random() * 0.2); leg.rotation.x = (s - 1.5) * 0.2; leg.castShadow = true;
+          g.add(leg);
+        }
+      }
+      body.scale.set(1.2, 0.8, 1.1);
     }
     if (type === 'zombie') {
-      // arms reaching forward + a slouch
       body.position.y = 0.62; body.scale.set(1.05, 1.0, 1.05);
       const armGeo = new THREE.CylinderGeometry(0.13, 0.11, 0.8, 8); armGeo.translate(0, -0.4, 0);
       const aL = new THREE.Mesh(armGeo, bodyMat); aL.position.set(-0.4, 0.9, 0.2); aL.rotation.x = -1.4; aL.castShadow = true;
       const aR = new THREE.Mesh(armGeo, bodyMat); aR.position.set(0.4, 0.9, 0.2); aR.rotation.x = -1.4; aR.castShadow = true;
       g.add(aL, aR);
+    }
+    if (type === 'skeleton' || type === 'skeletonking') {
+      // ribcage hint + bony arms
+      const boneMat = new THREE.MeshStandardMaterial({ color: type === 'skeletonking' ? 0xd8d2bc : 0xeae6d6, roughness: 0.7 });
+      for (let r = 0; r < 3; r++) { const rib = new THREE.Mesh(new THREE.TorusGeometry(0.32 - r * 0.05, 0.04, 6, 14), boneMat); rib.position.set(0, 0.5 + r * 0.18, 0.2); rib.rotation.x = Math.PI / 2; g.add(rib); }
+      const armGeo = new THREE.CylinderGeometry(0.07, 0.06, 0.7, 6); armGeo.translate(0, -0.35, 0);
+      const aL = new THREE.Mesh(armGeo, boneMat); aL.position.set(-0.45, 0.95, 0.1); aL.rotation.x = -1.2; aL.castShadow = true;
+      const aR = new THREE.Mesh(armGeo, boneMat); aR.position.set(0.45, 0.95, 0.1); aR.rotation.x = -1.2; aR.castShadow = true;
+      g.add(aL, aR);
+    }
+    if (type === 'wraith') {
+      // tattered hood + wispy tail (no feet, floats)
+      const robe = new THREE.MeshStandardMaterial({ color: 0x6a7a9a, roughness: 0.9, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
+      const hood = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.3, 12, 1, true), robe); hood.position.set(0, 0.5, 0); hood.castShadow = true;
+      g.add(hood); anim.cape = hood;
     }
     if (type === 'vampire') {
       // a swishy cape + pale slicked look
@@ -110,9 +153,10 @@ export class Enemies {
     return { mesh: g, bodyMat, anim };
   }
 
-  spawn(type, hpScale = 1, near = null) {
-    if (this.list.length >= MAX_ENEMIES && type !== 'boss') return null;
+  spawn(type, hpScale = 1, near = null, game = null) {
     const def = TYPES[type];
+    if (!def) return null;
+    if (this.list.length >= MAX_ENEMIES && !def.boss) return null;
     let e = this.pools[type].pop();
     if (!e) e = this._buildMesh(type);
     e.type = type;
@@ -129,18 +173,25 @@ export class Enemies {
     e.contactCd = 0;
     e.flash = 0;
     e.phase = Math.random() * 10;
+    e.spawnT = 0.45; // emerging from a portal
     e.knock = new THREE.Vector3();
 
     const center = near || new THREE.Vector3();
     const ang = Math.random() * Math.PI * 2;
-    const dist = 26 + Math.random() * 8;
+    const dist = def.boss ? 22 : 24 + Math.random() * 9;
     let x = center.x + Math.cos(ang) * dist;
     let z = center.z + Math.sin(ang) * dist;
     x = Math.max(-ARENA + 1, Math.min(ARENA - 1, x));
     z = Math.max(-ARENA + 1, Math.min(ARENA - 1, z));
     e.mesh.position.set(x, e.baseY, z);
+    e.mesh.scale.setScalar(0.01);
+    // portal effect
+    if (game) {
+      game.particles.ring({ pos: new THREE.Vector3(x, 0.1, z), color: def.boss ? 0xff5a8a : 0x9b7bff, r0: 0.3, r1: def.boss ? 5 : 2.4, life: 0.5 });
+      game.particles.burst({ pos: new THREE.Vector3(x, 0.6, z), color: 0x9b7bff, count: def.boss ? 24 : 8, speed: 5, size: 0.3, life: 0.6 });
+    }
     this.list.push(e);
-    if (type === 'boss') this.bossAlive = true;
+    if (def.boss) { this.bossAlive = true; e.bossPos = new THREE.Vector3(x, 0, z); }
     return e;
   }
 
@@ -163,11 +214,11 @@ export class Enemies {
     const def = TYPES[e.type];
     if (game) {
       game.audio.play('enemyDie');
-      game.particles.burst({ pos: e.mesh.position.clone().setY(0.7 * def.size), color: def.color, count: e.type === 'boss' ? 40 : 12, speed: e.type === 'boss' ? 10 : 6, size: 0.35 * def.size, life: 0.9, up: 3, blend: 'normal' });
+      game.particles.burst({ pos: e.mesh.position.clone().setY(0.7 * def.size), color: def.color, count: def.boss ? 44 : 12, speed: def.boss ? 11 : 6, size: 0.35 * def.size, life: 0.9, up: 3, blend: 'normal' });
       game.particles.burst({ pos: e.mesh.position.clone().setY(0.7 * def.size), color: 0xffffff, count: 6, speed: 7, size: 0.25, life: 0.5 });
       game.spawnXP(e.mesh.position.clone(), e.xp);
-      if (e.type === 'boss') { game.particles.ring({ pos: e.mesh.position.clone(), color: 0xffd98a, r0: 1, r1: 14, life: 0.8 }); game.onBossDead(); }
-      else if (Math.random() < (e.type === 'zombie' ? 0.5 : 0.07)) game.spawnHeart(e.mesh.position.clone());
+      if (def.boss) { this.bossAlive = false; game.particles.ring({ pos: e.mesh.position.clone(), color: 0xffd98a, r0: 1, r1: 16, life: 0.9 }); game.onBossDead(); }
+      else if (Math.random() < (def.size >= 1.4 ? 0.4 : 0.07)) game.spawnHeart(e.mesh.position.clone());
       game.kills++;
     }
   }
@@ -177,6 +228,18 @@ export class Enemies {
     for (let i = this.list.length - 1; i >= 0; i--) {
       const e = this.list[i];
       if (!e.alive) { e.mesh.visible = false; this.pools[e.type].push(e); this.list.splice(i, 1); continue; }
+
+      const sz = TYPES[e.type].size;
+      // emerging from a portal — scale up, don't move or bite yet
+      if (e.spawnT > 0) {
+        e.spawnT -= dt;
+        e.phase += dt * 6;
+        const emerge = Math.max(0.01, 1 - e.spawnT / 0.45);
+        e.mesh.scale.setScalar(sz * emerge);
+        e.mesh.rotation.y = Math.atan2(player.x - e.mesh.position.x, player.z - e.mesh.position.z);
+        e.mesh.position.y = e.baseY;
+        continue;
+      }
 
       if (e.slowT > 0) { e.slowT -= dt; if (e.slowT <= 0) e.slow = 0; }
       const speed = e.speed * (1 - e.slow);

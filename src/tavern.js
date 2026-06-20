@@ -178,27 +178,51 @@ export class Tavern {
       const mattress = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.3, 2.2), new THREE.MeshStandardMaterial({ color: 0x8a7bc0, roughness: 0.9 })); mattress.position.y = 0.6; grp.add(frame, mattress);
       const pillow = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.2, 0.5), new THREE.MeshStandardMaterial({ color: 0xf2efe6, roughness: 0.9 })); pillow.position.set(0, 0.78, -0.85); grp.add(pillow);
     });
+    // Wardrobe (equipment)
+    mk('wardrobe', 'the Wardrobe', 9, -8, (grp) => {
+      const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.4, 1.6, 8), wood); stand.position.y = 0.8; stand.castShadow = true;
+      const torso = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 10), new THREE.MeshStandardMaterial({ color: 0x6f5fc4, roughness: 0.85 })); torso.position.y = 1.5; torso.scale.set(1, 1.2, 0.7); torso.castShadow = true;
+      grp.add(stand, torso);
+    });
     // Door out (start a run)
-    this.stations.push({ type: 'door', label: 'leave for the forest', pos: this.door.clone(), mark: null });
+    this.stations.push({ type: 'door', label: 'leave on a run', pos: this.door.clone(), mark: null });
   }
 
   _buildDecor() {
     const g = this.group;
-    const rug = new THREE.Mesh(new THREE.CircleGeometry(2.2, 24), new THREE.MeshStandardMaterial({ color: 0x9a3a4a, roughness: 0.95 }));
-    rug.rotation.x = -Math.PI / 2; rug.position.set(8.5, 0.02, 4.5); rug.receiveShadow = true; rug.visible = false; g.add(rug);
+    const M = (c, r = 0.9) => new THREE.MeshStandardMaterial({ color: c, roughness: r });
+    const rug = new THREE.Mesh(new THREE.CircleGeometry(2.2, 24), M(0x9a3a4a, 0.95));
+    rug.rotation.x = -Math.PI / 2; rug.position.set(8.5, 0.02, 4.5); rug.receiveShadow = true; g.add(rug);
     const banner = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.4), new THREE.MeshStandardMaterial({ color: 0x4a2f8a, roughness: 0.9, side: THREE.DoubleSide }));
-    banner.position.set(11.2, 3, 3); banner.rotation.y = -Math.PI / 2; banner.visible = false; g.add(banner);
+    banner.position.set(11.2, 3, 3); banner.rotation.y = -Math.PI / 2; g.add(banner);
     const plant = new THREE.Group();
-    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.24, 0.45, 10), new THREE.MeshStandardMaterial({ color: 0x8a5a2b, roughness: 0.9 })); pot.position.y = 0.22;
-    const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 8), new THREE.MeshStandardMaterial({ color: 0x3a824a, roughness: 0.9 })); leaf.position.y = 0.7;
-    plant.add(pot, leaf); plant.position.set(6.4, 0, 4.6); plant.visible = false; g.add(plant);
-    this.decor = { rug, banner, plant };
+    plant.add(new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.24, 0.45, 10), M(0x8a5a2b)));
+    const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 8), M(0x3a824a)); leaf.position.y = 0.5; plant.add(leaf);
+    plant.position.set(6.4, 0.2, 4.6); g.add(plant);
+    // new decos
+    const torch = new THREE.Group();
+    for (const x of [-11, 11]) { const t = new THREE.Group(); const br = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.6, 6), M(0x3a2a1a)); br.position.set(x, 2.4, -8); const fl = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffb35c, transparent: true, opacity: 0.9 })); fl.position.set(x, 2.8, -8); fl.scale.y = 1.4; t.add(br, fl); torch.add(t); }
+    g.add(torch);
+    const bookshelf = new THREE.Group();
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.6, 0.5), M(0x4a3322)); frame.position.set(-11, 1.3, 1); frame.castShadow = true; bookshelf.add(frame);
+    for (let i = 0; i < 8; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 0.4), M([0xb04a4a, 0x4a7ab0, 0x6fb08a, 0xc9a24a][i % 4])); b.position.set(-11 + 0.25, 0.7 + (i % 4) * 0.55, 1 - 0.6 + Math.floor(i / 4) * 1.2); bookshelf.add(b); }
+    g.add(bookshelf);
+    const statue = new THREE.Group();
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.4, 0.9), M(0x6a6e7a, 1)); base.position.set(-9, 0.2, 5.5);
+    const gar = new THREE.Mesh(new THREE.DodecahedronGeometry(0.55, 0), M(0x7a7e88, 1)); gar.position.set(-9, 0.95, 5.5); gar.castShadow = true; statue.add(base, gar); g.add(statue);
+    const crystal = new THREE.Group();
+    const cr = new THREE.Mesh(new THREE.OctahedronGeometry(0.5, 0), new THREE.MeshStandardMaterial({ color: 0x7fd0ff, emissive: 0x2a6a9a, roughness: 0.3 })); cr.position.set(3.5, 1.2, 5.5); crystal.add(cr); g.add(crystal);
+    const fireplace = new THREE.Group();
+    const hearth = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.6, 0.8), M(0x5a5050, 1)); hearth.position.set(0, 0.8, 6.6); fireplace.add(hearth);
+    const flames = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.0, 8), new THREE.MeshBasicMaterial({ color: 0xff8a2a, transparent: true, opacity: 0.85 })); flames.position.set(0, 0.9, 6.3); fireplace.add(flames);
+    g.add(fireplace);
+
+    this.decor = { rug, banner, plant, torch, bookshelf, statue, crystal, fireplace };
+    for (const k in this.decor) this.decor[k].visible = false;
   }
 
   refreshDecor(meta) {
-    this.decor.rug.visible = meta.ownsDecor('rug');
-    this.decor.banner.visible = meta.ownsDecor('banner');
-    this.decor.plant.visible = meta.ownsDecor('plant');
+    for (const k in this.decor) this.decor[k].visible = meta.ownsDecor(k);
   }
 
   // nearest interactable station within range (for the hub prompt)

@@ -12,31 +12,71 @@ export const SPELL_META = {
   frost:     { name: 'Frost Splash', glyph: '◯', unlock: 90 },
   spike:     { name: 'Arcane Spike', glyph: '∧', unlock: 130 },
   nova:      { name: 'Fire Nova',    glyph: '★', unlock: 180 },
+  acid:      { name: 'Acid Spray',   glyph: '@', unlock: 120 },
+  shield:    { name: 'Barrier',      glyph: '▢', unlock: 110 },
+  quake:     { name: 'Quake',        glyph: 'W', unlock: 160 },
+  orb:       { name: 'Arcane Orb',   glyph: 'S', unlock: 150 },
+  blink:     { name: 'Blink Strike', glyph: '↻', unlock: 140 },
 };
 export const SPELL_LIST = Object.keys(SPELL_META);
 export const MAX_LEVEL = 5;
 export function levelCost(level) { return 45 + (level - 1) * 40; } // cost from `level` -> level+1
 
 export const COMBO_META = {
-  firetornado: { name: 'Fire Tornado', a: 'fireball', b: 'gust',      cost: 150, desc: '△ then — : a roaming vortex of flame.' },
-  icestorm:    { name: 'Ice Storm',    a: 'frost',    b: 'lightning', cost: 210, desc: '◯ then ϟ : a freezing, shocking storm.' },
-  holynova:    { name: 'Holy Nova',    a: 'heal',     b: 'nova',      cost: 240, desc: '∨ then ★ : heal yourself and blast foes.' },
+  firetornado:  { name: 'Fire Tornado', a: 'fireball', b: 'gust',      cost: 150, desc: '△ then — : a roaming vortex of flame.' },
+  icestorm:     { name: 'Ice Storm',    a: 'frost',    b: 'lightning', cost: 210, desc: '◯ then ϟ : a freezing, shocking storm.' },
+  holynova:     { name: 'Holy Nova',    a: 'heal',     b: 'nova',      cost: 240, desc: '∨ then ★ : heal yourself and blast foes.' },
+  toxiccloud:   { name: 'Toxic Cloud',  a: 'acid',     b: 'nova',      cost: 200, desc: '@ then ★ : a lingering cloud of acid.' },
+  bulwark:      { name: 'Bulwark',      a: 'shield',   b: 'heal',      cost: 190, desc: '▢ then ∨ : a big heal and a thick barrier.' },
+  glacier:      { name: 'Glacier',      a: 'quake',    b: 'frost',     cost: 230, desc: 'W then ◯ : a shattering wave of ice.' },
+  flamedash:    { name: 'Flame Dash',   a: 'blink',    b: 'fireball',  cost: 220, desc: '↻ then △ : dash leaving an explosion.' },
+  thunderorb:   { name: 'Thunder Orb',  a: 'orb',      b: 'lightning', cost: 250, desc: 'S then ϟ : a crackling orb of storms.' },
 };
 export const COMBO_LIST = Object.keys(COMBO_META);
 
 export const ROOM_COST = 220;
 export const DECOR = [
-  { id: 'rug',    name: 'Cozy Rug',        cost: 50 },
-  { id: 'banner', name: 'Wizard Banner',   cost: 70 },
-  { id: 'plant',  name: 'Potted Mandrake', cost: 60 },
+  { id: 'rug',       name: 'Cozy Rug',        cost: 50 },
+  { id: 'banner',    name: 'Wizard Banner',   cost: 70 },
+  { id: 'plant',     name: 'Potted Mandrake', cost: 60 },
+  { id: 'torch',     name: 'Wall Torches',    cost: 80 },
+  { id: 'bookshelf', name: 'Bookshelf',       cost: 110 },
+  { id: 'statue',    name: 'Stone Gargoyle',  cost: 130 },
+  { id: 'crystal',   name: 'Mana Crystal',    cost: 150 },
+  { id: 'fireplace', name: 'Fireplace',       cost: 170 },
 ];
 export const REST_BONUS = 30; // +max HP on your next run after resting
 
+// ---- equipment ----
+export const EQUIP_SLOTS = ['hat', 'robe', 'staff', 'charm'];
+export const EQUIPMENT = {
+  hat: [
+    { id: 'hat_none', name: 'Bare Head', cost: 0, mods: {} },
+    { id: 'hat_sturdy', name: 'Sturdy Hat', cost: 120, mods: { hpMax: 35 } },
+    { id: 'hat_mind', name: 'Mindcap', cost: 150, mods: { manaRegen: 7 } },
+  ],
+  robe: [
+    { id: 'robe_none', name: 'Tattered Robe', cost: 0, mods: {} },
+    { id: 'robe_arcane', name: 'Arcane Robe', cost: 170, mods: { damageMult: 0.15 } },
+    { id: 'robe_swift', name: 'Swift Robe', cost: 150, mods: { moveSpeed: 1.0 } },
+  ],
+  staff: [
+    { id: 'staff_none', name: 'Old Stick', cost: 0, mods: {} },
+    { id: 'staff_ember', name: 'Ember Staff', cost: 190, mods: { damageMult: 0.22 } },
+    { id: 'staff_quick', name: 'Quick Staff', cost: 190, mods: { cooldownMult: -0.12 } },
+  ],
+  charm: [
+    { id: 'charm_none', name: 'Lucky Coin', cost: 0, mods: {} },
+    { id: 'charm_magnet', name: 'Magnet Charm', cost: 120, mods: { pickupRadius: 1.6 } },
+    { id: 'charm_thorn', name: 'Thorn Charm', cost: 160, mods: { thorns: 12, hpMax: 15 } },
+  ],
+};
+
 export const QUESTS = [
-  { id: 'q_kill',   text: 'Vanquish 70 foes in one run', type: 'kills',  goal: 70,  reward: 120 },
-  { id: 'q_time',   text: 'Survive 3 minutes',            type: 'time',   goal: 180, reward: 150 },
-  { id: 'q_chores', text: 'Finish 2 forest chores',       type: 'chores', goal: 2,   reward: 130 },
-  { id: 'q_boss',   text: 'Defeat the Goblin King',       type: 'boss',   goal: 1,   reward: 300 },
+  { id: 'q_kill',   text: 'Vanquish 70 foes in one run', type: 'kills', goal: 70,  reward: 120 },
+  { id: 'q_wave',   text: 'Reach wave 6 in any stage',    type: 'wave',  goal: 6,   reward: 150 },
+  { id: 'q_boss',   text: 'Defeat any stage boss',        type: 'boss',  goal: 1,   reward: 300 },
+  { id: 'q_clear',  text: 'Clear a whole stage',          type: 'win',   goal: 1,   reward: 350 },
 ];
 
 function defaultSave() {
@@ -47,6 +87,8 @@ function defaultSave() {
     combos: {},
     loadout: ['fireball', 'gust'],
     room: { owned: false, decor: {} },
+    equipOwned: { hat_none: true, robe_none: true, staff_none: true, charm_none: true },
+    equipped: { hat: 'hat_none', robe: 'robe_none', staff: 'staff_none', charm: 'charm_none' },
     questIdx: 0, questDone: false,
     rested: false,
   };
@@ -67,6 +109,8 @@ export function load() {
       state.room.decor = state.room.decor || {};
       state.loadout = Array.isArray(state.loadout) ? state.loadout.filter(x => state.owned[x]).slice(0, 3) : ['fireball', 'gust'];
       if (state.loadout.length === 0) state.loadout = ['fireball', 'gust'];
+      state.equipOwned = Object.assign({ hat_none: true, robe_none: true, staff_none: true, charm_none: true }, state.equipOwned || {});
+      state.equipped = Object.assign({ hat: 'hat_none', robe: 'robe_none', staff: 'staff_none', charm: 'charm_none' }, state.equipped || {});
     }
   } catch (e) { state = defaultSave(); }
   return state;
@@ -127,6 +171,30 @@ export function rest() { if (!state.room.owned || state.rested) return false; st
 export const isRested = () => state.rested;
 export function consumeRest() { const r = state.rested; if (r) { state.rested = false; save(); } return r; }
 
+// ---- equipment ----
+function findItem(slot, id) { return (EQUIPMENT[slot] || []).find(x => x.id === id); }
+export const ownsEquip = (id) => !!state.equipOwned[id];
+export const equippedId = (slot) => state.equipped[slot];
+export function buyEquip(slot, id) {
+  const it = findItem(slot, id);
+  if (!it || ownsEquip(id) || !canAfford(it.cost)) return false;
+  state.gold -= it.cost; state.equipOwned[id] = true; save(); return true;
+}
+export function equipItem(slot, id) {
+  if (!ownsEquip(id) || !findItem(slot, id)) return false;
+  state.equipped[slot] = id; save(); return true;
+}
+// total stat mods from all equipped gear
+export function equipMods() {
+  const out = {};
+  for (const slot of EQUIP_SLOTS) {
+    const it = findItem(slot, state.equipped[slot]);
+    if (!it) continue;
+    for (const k in it.mods) out[k] = (out[k] || 0) + it.mods[k];
+  }
+  return out;
+}
+
 export function currentQuest() { return QUESTS[state.questIdx % QUESTS.length]; }
 export const questDone = () => state.questDone;
 export function evaluateQuest(run) {
@@ -135,8 +203,9 @@ export function evaluateQuest(run) {
   let done = false;
   if (q.type === 'kills') done = run.kills >= q.goal;
   else if (q.type === 'time') done = run.time >= q.goal;
-  else if (q.type === 'chores') done = run.chores >= q.goal;
-  else if (q.type === 'boss') done = !!run.win;
+  else if (q.type === 'wave') done = (run.wave || 0) >= q.goal;
+  else if (q.type === 'boss') done = !!run.bossKilled;
+  else if (q.type === 'win') done = !!run.win;
   if (done) { state.questDone = true; save(); }
   return done;
 }

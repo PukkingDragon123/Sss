@@ -173,4 +173,26 @@ export const TEMPLATES = {
     for (const k of order) { const a = (-90 + k * 72) * Math.PI / 180; p.push({ x: Math.cos(a) * 50, y: Math.sin(a) * 50 }); }
     return p;
   })(),
+  // Inward spiral -> Acid Spray
+  spiral: (() => {
+    const p = [];
+    for (let i = 0; i <= 44; i++) { const t = i / 44; const a = t * Math.PI * 5; const r = 60 * (1 - t * 0.82); p.push({ x: Math.cos(a) * r, y: Math.sin(a) * r }); }
+    return p;
+  })(),
+  // Square loop -> Barrier
+  square: [{ x: 0, y: 0 }, { x: 80, y: 0 }, { x: 80, y: 80 }, { x: 0, y: 80 }, { x: 0, y: 0 }],
+  // S-curve -> Arcane Orb
+  scurve: (() => {
+    const p = [];
+    for (let i = 0; i <= 30; i++) { const t = i / 30; p.push({ x: 45 * Math.sin(t * Math.PI * 2), y: t * 120 }); }
+    return p;
+  })(),
+  // W (sharp double-vee) -> Quake
+  wshape: [{ x: 0, y: 0 }, { x: 25, y: 90 }, { x: 50, y: 10 }, { x: 75, y: 90 }, { x: 100, y: 0 }],
+  // Drifting loop / pigtail -> Blink
+  pigtail: (() => {
+    const p = [];
+    for (let i = 0; i <= 38; i++) { const a = (i / 38) * Math.PI * 2 * 1.15; p.push({ x: Math.cos(a) * 42 + i * 1.4, y: Math.sin(a) * 42 }); }
+    return p;
+  })(),
 };

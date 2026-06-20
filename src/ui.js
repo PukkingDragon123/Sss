@@ -3,6 +3,7 @@
 import { SPELL_ORDER, SPELLS } from './spells.js';
 import { TEMPLATES } from './recognizer.js';
 import * as meta from './meta.js';
+import { STAGES } from './story.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -57,7 +58,7 @@ export class UI {
       end: $('end'), endTitle: $('end-title'), endStats: $('end-stats'), btnAgain: $('btn-again'),
       loading: $('loading'),
       bars: document.querySelector('.bars'), spellbook: $('spellbook'), castHint: $('cast-hint'),
-      gold: $('gold'), interactPrompt: $('interact-prompt'), btnInteract: $('btn-interact'),
+      gold: $('gold'), wave: $('wave'), banner: $('banner'), interactPrompt: $('interact-prompt'), btnInteract: $('btn-interact'),
       shop: $('shop'), shopTitle: $('shop-title'), shopGold: $('shop-gold'), shopBody: $('shop-body'), shopClose: $('shop-close'),
       tavernHud: $('tavern-hud'), ruckusCount: $('ruckus-count'),
       btnGuide: $('btn-guide'), btnPause: $('btn-pause'), btnMute: $('btn-mute'),
@@ -86,7 +87,7 @@ export class UI {
     // shop buttons are delegated (the body is re-rendered on every action)
     this.el.shopBody.addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]');
-      if (b) this._shopAction(b.dataset.act, b.dataset.id);
+      if (b) this._shopAction(b.dataset.act, b.dataset.id, b.dataset.slot);
     });
   }
 
@@ -152,6 +153,7 @@ export class UI {
     this.el.spellbook.classList.toggle('hidden', tavern);
     this.el.sobriety.classList.toggle('hidden', tavern);
     this.el.timer.classList.toggle('hidden', tavern);
+    this.el.wave.classList.toggle('hidden', tavern);
     this.el.kills.classList.toggle('hidden', tavern);
     this.el.tavernHud.classList.add('hidden');
     this.el.btnGuide.classList.toggle('hidden', tavern);
@@ -232,8 +234,10 @@ export class UI {
     this.el.xpFill.style.width = xpPct + '%';
     this.el.xpLabel.textContent = `Lv ${game.level}`;
 
-    const m = Math.floor(game.elapsed / 60), sec = Math.floor(game.elapsed % 60);
-    this.el.timer.textContent = `${m}:${sec.toString().padStart(2, '0')}`;
+    const mm = Math.floor(game.elapsed / 60), ss = Math.floor(game.elapsed % 60);
+    this.el.timer.textContent = `${mm}:${ss.toString().padStart(2, '0')}`;
+    const d = game.director;
+    this.el.wave.textContent = d && d.active ? (d.state === 'boss' ? '👑 BOSS' : `Wave ${d.wave}/${d.total}`) : '';
     this.el.kills.textContent = `☠ ${game.kills}`;
     const wob = s.wobble;
     const label = wob <= 0.6 ? '🍵 Tipsy' : (wob <= 1.15 ? '🍺 Sloshed' : '🥴 Hammered');
@@ -331,18 +335,18 @@ export class UI {
 
   // ---- Results / loot ----
   showResults(win, info) {
-    this.el.endTitle.textContent = win ? 'You Survived the Night!' : 'The Wizard Passed Out';
+    this.el.endTitle.textContent = win ? `${info.stage} — Cleared!` : 'The Wizard Passed Out';
     const L = info.loot;
     const row = (label, v) => v ? `<div class="loot-row"><span>${label}</span><b>+${v}🪙</b></div>` : '';
     this.el.endStats.innerHTML = `
-      <div class="end-summary">⏱ ${info.time} · ☠ ${info.kills} · Lv ${info.level} · Chores ${info.chores}</div>
+      <div class="end-summary">${info.stage} · Wave ${info.wave} · ⏱ ${info.time} · ☠ ${info.kills} · Lv ${info.level}</div>
       <div class="loot-box">
-        ${row('Survival', L.base)}${row('Foes slain', L.kill)}${row('Time', L.time)}${row('Chores', L.chore)}${row('Victory', L.win)}
+        ${row('Survival', L.base)}${row('Foes slain', L.kill)}${row('Waves', L.wave)}${row('Victory', L.win)}
         <div class="loot-row loot-total"><span>Loot earned</span><b>+${L.total}🪙</b></div>
       </div>
       <div class="loot-purse">Purse: <b>${info.gold}🪙</b></div>
       ${info.questDone ? '<div style="color:var(--xp);font-weight:800">✓ Quest complete! Claim it from the Manager.</div>' : ''}
-      <div style="margin-top:6px;color:var(--ink-dim)">${win ? 'The forest is quiet. Spend your loot in the tavern!' : 'Dust yourself off and try again — keep your loot.'}</div>`;
+      <div style="margin-top:6px;color:var(--ink-dim)">${win ? 'Spend your loot at the tavern, then pick your next haunt!' : 'Dust yourself off and try again — you keep your loot.'}</div>`;
     this.el.btnAgain.textContent = '▸ Return to the Tavern';
     this.el.end.classList.remove('hidden');
   }
@@ -351,6 +355,19 @@ export class UI {
     const t = document.createElement('div');
     t.className = 'toast crit'; t.textContent = `⚡ COMBO: ${name}!`;
     this.el.toastArea.appendChild(t); setTimeout(() => t.remove(), 1700);
+  }
+
+  bannerWave(w, total, isBoss) {
+    const el = this.el.banner;
+    el.classList.remove('boss');
+    el.innerHTML = isBoss ? '<b>FINAL WAVE</b>' : `Wave <b>${w}</b> <span class="banner-sub">of ${total}</span>`;
+    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  }
+  bossBanner(name) {
+    const el = this.el.banner;
+    el.classList.add('boss');
+    el.innerHTML = `<b>${name}</b><br><span class="banner-sub">approaches…</span>`;
+    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
   }
 
   // ---- Shop panels (skill tree / cauldron / room / manager) ----
@@ -363,8 +380,9 @@ export class UI {
   }
   closeShop() { this.el.shop.classList.add('hidden'); }
 
-  _shopAction(act, id) {
+  _shopAction(act, id, slot) {
     const g = this._shopGame;
+    if (act === 'startrun') { g.startRun(id); return; }
     let ok = false;
     if (act === 'unlock') ok = meta.unlockSpell(id);
     else if (act === 'upgrade') ok = meta.upgradeSpell(id);
@@ -373,6 +391,8 @@ export class UI {
     else if (act === 'buyroom') ok = meta.buyRoom();
     else if (act === 'buydecor') ok = meta.buyDecor(id);
     else if (act === 'rest') ok = meta.rest();
+    else if (act === 'buygear') ok = meta.buyEquip(slot, id);
+    else if (act === 'gear') ok = meta.equipItem(slot, id);
     else if (act === 'claim') { const r = meta.claimQuest(); ok = r > 0; if (ok) g.ui.toast(`Quest reward: +${r}🪙`); }
     if (g) g.audio.play(ok ? 'click' : 'hiccup');
     this.setGold(meta.gold());
@@ -381,14 +401,48 @@ export class UI {
 
   _renderShop() {
     const kind = this._shopKind;
-    const titles = { skilltree: '✦ Spell Table', cauldron: '🜲 Cauldron', room: '🛏 Your Room', manager: '🍺 Tavern Manager' };
+    const titles = { skilltree: '✦ Spell Table', cauldron: '🜲 Cauldron', room: '🛏 Your Room', manager: '🍺 Tavern Manager', wardrobe: '🎽 Wardrobe', stage: '🗺 Choose a Stage' };
     this.el.shopTitle.textContent = titles[kind] || 'Tavern';
     let html = '';
     if (kind === 'skilltree') html = this._renderSkillTree();
     else if (kind === 'cauldron') html = this._renderCauldron();
     else if (kind === 'room') html = this._renderRoom();
     else if (kind === 'manager') html = this._renderManager();
+    else if (kind === 'wardrobe') html = this._renderWardrobe();
+    else if (kind === 'stage') html = this._renderStages();
     this.el.shopBody.innerHTML = html;
+  }
+
+  _renderStages() {
+    let h = '<p class="shop-sub">Pick where to haunt. Each stage has 5 waves and a boss. Bring your best 3 spells!</p><div class="shop-grid">';
+    for (const id of Object.keys(STAGES)) {
+      const s = STAGES[id];
+      h += `<div class="shop-card">
+        <div class="shop-name">${s.name}</div>
+        <div class="shop-desc">Boss: ${s.bossName}</div>
+        <div class="shop-acts"><button class="shop-btn big" data-act="startrun" data-id="${id}">Venture ▸</button></div></div>`;
+    }
+    h += '</div>';
+    return h;
+  }
+
+  _renderWardrobe() {
+    let h = '<p class="shop-sub">Buy and equip gear — bonuses apply on your next run.</p>';
+    for (const slot of meta.EQUIP_SLOTS) {
+      h += `<div class="ward-slot"><div class="ward-slot-name">${slot.toUpperCase()}</div><div class="shop-grid">`;
+      for (const it of meta.EQUIPMENT[slot]) {
+        const owned = meta.ownsEquip(it.id);
+        const on = meta.equippedId(slot) === it.id;
+        const mods = Object.entries(it.mods).map(([k, v]) => `${v > 0 ? '+' : ''}${k === 'cooldownMult' ? Math.round(v * 100) + '% CD' : k === 'damageMult' ? Math.round(v * 100) + '% dmg' : v + ' ' + k}`).join(', ') || 'plain';
+        let act;
+        if (on) act = '<button class="shop-btn on" disabled>✓ Worn</button>';
+        else if (owned) act = `<button class="shop-btn" data-act="gear" data-slot="${slot}" data-id="${it.id}">Wear</button>`;
+        else act = `<button class="shop-btn" data-act="buygear" data-slot="${slot}" data-id="${it.id}" ${meta.canAfford(it.cost) ? '' : 'disabled'}>Buy ${it.cost}🪙</button>`;
+        h += `<div class="shop-card ${owned ? '' : 'locked'}"><div class="shop-name">${it.name}</div><div class="shop-desc">${mods}</div><div class="shop-acts">${act}</div></div>`;
+      }
+      h += '</div></div>';
+    }
+    return h;
   }
 
   _renderSkillTree() {

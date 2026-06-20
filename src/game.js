@@ -9,7 +9,7 @@ import { Recognizer, TEMPLATES } from './recognizer.js';
 import { Input } from './input.js';
 import { AudioEngine } from './audio.js';
 import { UI } from './ui.js';
-import { Director, TAVERN_INTRO, BLACKOUT_LINES } from './story.js';
+import { Director, STAGES, OPENING, TAVERN_INTRO, BLACKOUT_LINES } from './story.js';
 import { Jobs } from './jobs.js';
 import { Tavern } from './tavern.js';
 import { rollUpgrades } from './upgrades.js';
@@ -26,6 +26,7 @@ const DEFAULT_STATS = () => ({
   healAmount: 35,
   gustDmg: 5, gustRange: 9, gustForce: 16,
   spikeDmg: 30, novaDmg: 26, novaRadius: 6,
+  acidDmg: 40, shieldAmount: 60, quakeDmg: 30, quakeRadius: 6, orbDmg: 60, orbRadius: 4.2,
   pickupRadius: 2.6, hpRegen: 1.0, thorns: 0,
 });
 
@@ -119,7 +120,7 @@ export class Game {
     this.ui.hideLoading();
     this.ui.setScreen('title');
     this.ui.setMuteIcon(false);
-    this._setMood('forest'); // title screen shows the moonlit forest
+    this._applyStageTheme(STAGES.forest); // title screen shows the moonlit forest
 
     window.addEventListener('resize', () => this._resize());
     this._resize();
@@ -152,47 +153,19 @@ export class Game {
     this.ambient = new THREE.AmbientLight(0x3a4a6a, 0.45);
     this.scene.add(this.ambient);
 
-    // forest floor + mossy clearing
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(240, 240), new THREE.MeshStandardMaterial({ color: 0x2f4a32, roughness: 1 }));
+    // floor + clearing (recoloured per stage)
+    this.floorMat = new THREE.MeshStandardMaterial({ color: 0x2f4a32, roughness: 1 });
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(240, 240), this.floorMat);
     floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; G.add(floor);
-    const rug = new THREE.Mesh(new THREE.CircleGeometry(ARENA, 64), new THREE.MeshStandardMaterial({ color: 0x3f6440, roughness: 1 }));
+    this.rugMat = new THREE.MeshStandardMaterial({ color: 0x3f6440, roughness: 1 });
+    const rug = new THREE.Mesh(new THREE.CircleGeometry(ARENA, 64), this.rugMat);
     rug.rotation.x = -Math.PI / 2; rug.position.y = 0.01; rug.receiveShadow = true; G.add(rug);
-    const rugRing = new THREE.Mesh(new THREE.RingGeometry(ARENA - 0.7, ARENA, 96), new THREE.MeshBasicMaterial({ color: 0xbfe0c2, transparent: true, opacity: 0.35, side: THREE.DoubleSide }));
+    const rugRing = new THREE.Mesh(new THREE.RingGeometry(ARENA - 0.7, ARENA, 96), new THREE.MeshBasicMaterial({ color: 0xbfe0c2, transparent: true, opacity: 0.3, side: THREE.DoubleSide }));
     rugRing.rotation.x = -Math.PI / 2; rugRing.position.y = 0.02; G.add(rugRing);
 
-    // a ring of pine trees forms the forest "wall"
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3326, roughness: 0.95 });
-    const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f6e3f, roughness: 0.9 });
-    const leafMat2 = new THREE.MeshStandardMaterial({ color: 0x3a824a, roughness: 0.9 });
-    for (let i = 0; i < 44; i++) {
-      const a = (i / 44) * Math.PI * 2;
-      const r = ARENA + 2.5 + (i % 3) * 1.5;
-      const tree = new THREE.Group();
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.75, 4, 8), trunkMat); trunk.position.y = 2; trunk.castShadow = true;
-      const f1 = new THREE.Mesh(new THREE.ConeGeometry(2.2, 3.6, 9), leafMat); f1.position.y = 4.3; f1.castShadow = true;
-      const f2 = new THREE.Mesh(new THREE.ConeGeometry(1.7, 2.8, 9), leafMat2); f2.position.y = 6.0; f2.castShadow = true;
-      tree.add(trunk, f1, f2);
-      tree.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
-      tree.scale.setScalar(0.85 + Math.random() * 0.7);
-      G.add(tree);
-    }
-
-    // scattered rocks & toadstools for flavour
-    const rockMat = new THREE.MeshStandardMaterial({ color: 0x5a5e66, roughness: 1 });
-    const capMat = new THREE.MeshStandardMaterial({ color: 0xc0556a, roughness: 0.8 });
-    const stalkMat = new THREE.MeshStandardMaterial({ color: 0xe8e0cc, roughness: 0.9 });
-    for (let i = 0; i < 12; i++) {
-      const a = Math.random() * Math.PI * 2, r = ARENA * (0.2 + Math.random() * 0.55);
-      const x = Math.cos(a) * r, z = Math.sin(a) * r;
-      if (i % 3 === 0) {
-        const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.5, 7), stalkMat); stalk.position.set(x, 0.25, z); stalk.castShadow = true;
-        const cap = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), capMat); cap.position.set(x, 0.5, z); cap.castShadow = true;
-        G.add(stalk, cap);
-      } else {
-        const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5 + Math.random() * 0.7, 0), rockMat);
-        rock.position.set(x, 0.3, z); rock.castShadow = true; rock.receiveShadow = true; G.add(rock);
-      }
-    }
+    // per-stage scatter (trees / rocks / graves) rebuilt on stage change
+    this.scatterGroup = new THREE.Group(); G.add(this.scatterGroup);
+    this._buildScatter('trees');
 
     // aim reticle on the ground
     this.reticle = new THREE.Mesh(
@@ -201,6 +174,43 @@ export class Game {
     );
     this.reticle.rotation.x = -Math.PI / 2; this.reticle.position.y = 0.05;
     G.add(this.reticle);
+  }
+
+  _buildScatter(kind) {
+    const grp = this.scatterGroup;
+    while (grp.children.length) { const c = grp.children.pop(); c.traverse((o) => { if (o.isMesh) o.geometry.dispose(); }); grp.remove(c); }
+    const ring = (build) => { for (let i = 0; i < 44; i++) { const a = (i / 44) * Math.PI * 2; const r = ARENA + 2.5 + (i % 3) * 1.5; const o = build(); o.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); o.scale.setScalar(0.85 + Math.random() * 0.7); grp.add(o); } };
+    if (kind === 'trees') {
+      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3326, roughness: 0.95 });
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f6e3f, roughness: 0.9 });
+      const leafMat2 = new THREE.MeshStandardMaterial({ color: 0x3a824a, roughness: 0.9 });
+      ring(() => { const t = new THREE.Group(); const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.75, 4, 8), trunkMat); tr.position.y = 2; tr.castShadow = true; const f1 = new THREE.Mesh(new THREE.ConeGeometry(2.2, 3.6, 9), leafMat); f1.position.y = 4.3; f1.castShadow = true; const f2 = new THREE.Mesh(new THREE.ConeGeometry(1.7, 2.8, 9), leafMat2); f2.position.y = 6; f2.castShadow = true; t.add(tr, f1, f2); return t; });
+    } else if (kind === 'rocks') {
+      const rockMat = new THREE.MeshStandardMaterial({ color: 0x4a443e, roughness: 1 });
+      const tipMat = new THREE.MeshStandardMaterial({ color: 0x5a524a, roughness: 1 });
+      ring(() => { const g = new THREE.Group(); const base = new THREE.Mesh(new THREE.ConeGeometry(1.6, 5 + Math.random() * 3, 7), rockMat); base.position.y = 2.5; base.castShadow = true; const tip = new THREE.Mesh(new THREE.ConeGeometry(0.6, 2, 6), tipMat); tip.position.y = 5; g.add(base, tip); return g; });
+    } else if (kind === 'graves') {
+      const stoneMat = new THREE.MeshStandardMaterial({ color: 0x6a6e7a, roughness: 1 });
+      const deadMat = new THREE.MeshStandardMaterial({ color: 0x3a3026, roughness: 0.95 });
+      ring(() => {
+        const g = new THREE.Group();
+        if (Math.random() < 0.6) { const s = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.2, 0.4), stoneMat); s.position.y = 1.1; s.rotation.z = (Math.random() - 0.5) * 0.3; s.castShadow = true; g.add(s); const top = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.4, 12, 1, false, 0, Math.PI), stoneMat); top.rotation.z = Math.PI / 2; top.position.y = 2.2; g.add(top); }
+        else { const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 5, 7), deadMat); trunk.position.y = 2.5; trunk.castShadow = true; const b1 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, 2, 5), deadMat); b1.position.set(0.8, 4, 0); b1.rotation.z = -0.9; g.add(trunk, b1); }
+        return g;
+      });
+    }
+  }
+
+  _applyStageTheme(stage) {
+    const t = stage.theme;
+    this.scene.background.setHex(t.bg);
+    this.scene.fog.color.setHex(t.fog); this.scene.fog.density = t.fogD;
+    this.hemi.color.setHex(t.hemi); this.hemi.groundColor.setHex(t.hemiG); this.hemi.intensity = 1.0;
+    this.dir.color.setHex(t.dir); this.dir.intensity = t.dirI;
+    this.ambient.color.setHex(t.amb); this.ambient.intensity = 0.5;
+    this.floorMat.color.setHex(t.floor);
+    this.rugMat.color.setHex(t.rug);
+    this._buildScatter(t.scatter);
   }
 
   _resize() {
@@ -337,17 +347,27 @@ export class Game {
     this.showStory('The Spirit', [`"${name}" — done! Who says a drunk can\'t multitask? (+XP)`]);
   }
 
-  startBoss() {
-    if (this.bossActive) return;
-    this.bossActive = true;
-    const hpScale = 1 + this.elapsed * 0.004; // gentler than trash mobs so it stays beatable
-    this.enemies.spawn('boss', hpScale, this.wizard.pos);
-    this.ui.toast('👑 THE GOBLIN KING 👑');
-    this.shake(2);
-    this.audio.play('explosion');
+  announceWave(w, total, isBoss) {
+    this.audio.play(isBoss ? 'explosion' : 'levelup');
+    this.ui.bannerWave(w, total, isBoss);
   }
 
-  onBossDead() { this.bossActive = false; this.showStory('The Spirit', ['The GOBLIN KING topples like a felled oak! The forest falls quiet. You survived the night, you glorious sot!']); this._win(); }
+  startBossCinematic(stage) {
+    if (this.bossActive) return;
+    this.bossActive = true;
+    const e = this.enemies.spawn(stage.bossType, 1.0, this.wizard.pos, this);
+    this._bossEnemy = e;
+    this.bossCine = 2.8; // dramatic focus + slow-mo
+    this.shake(2);
+    this.ui.bossBanner(stage.bossName);
+    this.audio.play('gameover'); // ominous sting
+  }
+
+  onBossDead() {
+    this.bossActive = false; this.bossKilled = true; this._stageCleared = true;
+    this.showStory('The Spirit', [`${this.stage.bossName} falls! ${this.stage.name} is cleared. Pockets full, let\'s stagger home.`]);
+    this._win();
+  }
 
   _win() {
     if (this.state === 'win' || this.state === 'gameover') return;
@@ -363,46 +383,50 @@ export class Game {
   _showEnd(win) {
     const t = Math.floor(this.elapsed);
     const m = Math.floor(t / 60), s = t % 60;
+    const wave = this.director ? this.director.wave : 0;
     // ---- loot ----
     const base = 20;
     const kill = this.kills * 2;
-    const time = Math.floor(t / 3);
-    const chore = this.chores * 20;
-    const winB = win ? 150 : 0;
-    const total = base + kill + time + chore + winB;
+    const waveB = wave * 18;
+    const winB = win ? 200 : 0;
+    const total = base + kill + waveB + winB;
     meta.addGold(total);
-    const questDone = meta.evaluateQuest({ kills: this.kills, time: t, chores: this.chores, win });
+    const questDone = meta.evaluateQuest({ kills: this.kills, time: t, wave, bossKilled: this.bossKilled, win });
     meta.save();
     this.ui.closeModals();
     this.ui.setScreen('end');
     this.ui.showResults(win, {
-      time: `${m}:${s.toString().padStart(2, '0')}`, kills: this.kills, level: this.level, chores: this.chores,
-      loot: { base, kill, time, chore, win: winB, total }, gold: meta.gold(), questDone,
+      time: `${m}:${s.toString().padStart(2, '0')}`, kills: this.kills, level: this.level, wave, stage: this.stage ? this.stage.name : '',
+      loot: { base, kill, wave: waveB, win: winB, total }, gold: meta.gold(), questDone,
     });
   }
 
   // ---------- lifecycle ----------
   startGame() {
-    this.stats = DEFAULT_STATS();
-    this.elapsed = 0; this.level = 1; this.xp = 0; this.xpNeed = this._xpForLevel(1);
-    this.kills = 0; this.chores = 0; this.pendingLevels = 0; this.bossActive = false;
     this.shakeAmt = 0; this.timeScale = 1; this._endState = null; this._exiting = false;
-    this._guideOpen = false;
+    this._guideOpen = false; this.bossCine = 0;
     this.storyQueue.length = 0; this.storyShowing = false;
 
     this.enemies.clear();
     this.spells.reset();
     this._clearPickups();
-    this.jobs._cleanup();
     this.director.reset();
 
     this.ui.closeModals();
     this.ui.hideJob();
     this.ui.fadeBlack(false);
-    this.ui.setScreen('play');
     this.ui.setMuteIcon(this.audio.muted);
 
-    this.enterTavern();
+    if (!this._opened) {
+      // opening cinematic (first launch)
+      this._opened = true;
+      this._openingCine = true;
+      this.cineT = 0;
+      this.ui.setScreen('cinematic');
+      this.showStory(OPENING.speaker, OPENING.lines, () => { this._openingCine = false; this.enterTavern(); });
+    } else {
+      this.enterTavern();
+    }
   }
 
   // ---- the Tavern hub: roam (drunkenly), shop at stations, leave via the door ----
@@ -438,12 +462,16 @@ export class Game {
 
   interact() {
     if (this.state !== 'play' || this.phase !== 'tavern' || !this.nearStation) return;
-    const t = this.nearStation.type;
+    const t = this.nearStation.type === 'door' ? 'stage' : this.nearStation.type;
     this.audio.play('click');
-    if (t === 'door') { this.beginRun(); return; }
     this._shopKind = t;
     this.state = 'menu';
     this.ui.openShop(t, this);
+  }
+  startRun(stageId) {
+    this.ui.closeShop();
+    this._shopKind = null;
+    this.beginRun(stageId);
   }
   closeShop() {
     if (this.state !== 'menu') return;
@@ -454,48 +482,67 @@ export class Game {
     this.state = 'play';
   }
 
-  beginRun() {
+  beginRun(stageId) {
     if (this._exiting) return;
     this._exiting = true;
+    this._pendingStage = STAGES[stageId] || STAGES.forest;
     this.audio.play('jobDone');
     this.state = 'blackout';
     this.ui.fadeBlack(true);
     setTimeout(() => {
-      this.showStory(BLACKOUT_LINES.speaker, BLACKOUT_LINES.lines, () => this.enterArena());
+      this.showStory(BLACKOUT_LINES.speaker, BLACKOUT_LINES.lines, () => this.enterArena(this._pendingStage));
     }, 1250);
   }
 
-  // ---- the forest run ----
-  enterArena() {
+  // ---- a stage run ----
+  enterArena(stage) {
+    stage = stage || STAGES.forest;
+    this.stage = stage;
     this.phase = 'arena';
     this.stats = DEFAULT_STATS();
     if (meta.consumeRest()) this.stats.hpMax += 30; // a good night's rest
+    this._applyEquipment();
     this.loadout = meta.getLoadout();
     this.unlocked = new Set(this.loadout);
     this.activeCombos = meta.activeCombos(this.unlocked);
+    // per-run recognizer: only the 3 equipped glyphs -> robust recognition
+    this.recognizer = new Recognizer();
+    for (const id of this.loadout) { const g = SPELLS[id].gesture; this.recognizer.add(g, TEMPLATES[g]); }
     this.elapsed = 0; this.level = 1; this.xp = 0; this.xpNeed = this._xpForLevel(1);
     this.kills = 0; this.chores = 0; this.pendingLevels = 0; this.bossActive = false;
+    this.bossKilled = false; this._stageCleared = false; this.bossCine = 0;
     this._endState = null; this._exiting = false; this._lastCast = null;
     this.enemies.clear();
     this.spells.reset();
     this._clearPickups();
-    this.jobs._cleanup();
     this.director.reset();
     this.wizard.reset(this.stats);
     this.wizard.pos.set(0, 0, 0);
     this.tavern.show(false);
     this.arenaGroup.visible = true;
     this.camOffset.set(0, 27, 22);
-    this._setMood('forest');
+    this._applyStageTheme(stage);
     this.ui.setPhase('arena', this.input.isTouch);
     this.ui.setLoadout(this.loadout);
     this.ui.hideJob();
     this.ui.fadeBlack(false);
     this.state = 'play';
-    this.ui.toast('🌲 A moonlit forest…');
-    if (!this._guideShown) {
-      this._guideShown = true; this._guideOpen = true; this.ui.showGuide(); this.state = 'paused';
-    }
+    this.director.start(stage);
+    this.showStory('The Spirit', stage.intro, () => {
+      if (!this._guideShown) { this._guideShown = true; this._guideOpen = true; this.ui.showGuide(); this.state = 'paused'; }
+    });
+  }
+
+  _applyEquipment() {
+    const m = meta.equipMods();
+    const s = this.stats;
+    if (m.hpMax) s.hpMax += m.hpMax;
+    if (m.manaRegen) s.manaRegen += m.manaRegen;
+    if (m.moveSpeed) s.moveSpeed += m.moveSpeed;
+    if (m.pickupRadius) s.pickupRadius += m.pickupRadius;
+    if (m.thorns) s.thorns += m.thorns;
+    if (m.damageMult) s.damageMult += m.damageMult;
+    if (m.cooldownMult) s.cooldownMult *= (1 + m.cooldownMult);
   }
 
   _registerCast(id) {
@@ -692,12 +739,28 @@ export class Game {
 
   // ---------- camera ----------
   _updateCamera(dt) {
+    // opening cinematic: slow sweeping orbit over the world
+    if (this._openingCine) {
+      this.cineT += dt;
+      const a = this.cineT * 0.25;
+      this.camera.position.lerp(new THREE.Vector3(Math.sin(a) * 26, 16 + Math.sin(a * 0.5) * 4, Math.cos(a) * 26), Math.min(1, dt * 2));
+      this.camera.lookAt(this.wizard.pos.x, 1.5, this.wizard.pos.z);
+      return;
+    }
     // tavern intro: a slow cinematic orbit of the room before you take control
     if (this.phase === 'tavern' && !this.tavernReady) {
       this.cineT += dt;
       const a = this.cineT * 0.35;
       this.camera.position.lerp(new THREE.Vector3(Math.sin(a) * 13, 11, -3 + Math.cos(a) * 13), Math.min(1, dt * 2));
       this.camera.lookAt(this.wizard.pos.x, 1.4, this.wizard.pos.z);
+      return;
+    }
+    // boss reveal: pull out and frame the boss as it emerges
+    if (this.bossCine > 0 && this._bossEnemy && this._bossEnemy.alive) {
+      const bp = this._bossEnemy.mesh.position;
+      const mid = new THREE.Vector3((bp.x + this.wizard.pos.x) / 2, 0, (bp.z + this.wizard.pos.z) / 2);
+      this.camera.position.lerp(new THREE.Vector3(mid.x, 22, mid.z + 20), Math.min(1, dt * 3));
+      this.camera.lookAt(bp.x, 2, bp.z);
       return;
     }
     this.camTarget.lerp(this.wizard.pos, Math.min(1, dt * 6));
@@ -721,9 +784,14 @@ export class Game {
     this._handleInput();
     this._updateAim();
     this._drawTrail();
+    if (this.bossCine > 0) this.bossCine -= dt;
 
-    // slow-mo while drawing a glyph (forest fight only)
-    const targetScale = (this.state === 'play' && this.phase === 'arena' && this.input.drawing) ? 0.32 : 1;
+    // slow-mo while drawing a glyph, or during the boss reveal (forest fight only)
+    let targetScale = 1;
+    if (this.state === 'play' && this.phase === 'arena') {
+      if (this.bossCine > 0) targetScale = 0.35;
+      else if (this.input.drawing) targetScale = 0.32;
+    }
     this.timeScale += (targetScale - this.timeScale) * Math.min(1, dt * 12);
     const sdt = dt * this.timeScale;
 

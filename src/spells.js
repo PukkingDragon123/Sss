@@ -11,10 +11,18 @@ export const SPELLS = {
   heal:      { name: 'Heal',         gesture: 'vee',      mana: 28, cd: 2.80, tags: ['holy'],            glyph: '∨', color: 0x8dffa0 },
   spike:     { name: 'Arcane Spike', gesture: 'caret',    mana: 12, cd: 0.40, tags: ['arcane'],          glyph: '∧', color: 0xb98cff },
   nova:      { name: 'Fire Nova',    gesture: 'star',     mana: 30, cd: 1.60, tags: ['fire'],            glyph: '★', color: 0xff9a3a },
+  acid:      { name: 'Acid Spray',   gesture: 'spiral',   mana: 16, cd: 0.90, tags: ['acid'],            glyph: '@', color: 0x9bff5a },
+  shield:    { name: 'Barrier',      gesture: 'square',   mana: 24, cd: 6.00, tags: ['arcane'],          glyph: '▢', color: 0x8ad0ff },
+  quake:     { name: 'Quake',        gesture: 'wshape',   mana: 26, cd: 1.40, tags: ['arcane'],          glyph: 'W', color: 0xc9a06a },
+  orb:       { name: 'Arcane Orb',   gesture: 'scurve',   mana: 22, cd: 1.20, tags: ['arcane'],          glyph: 'S', color: 0xb98cff },
+  blink:     { name: 'Blink Strike', gesture: 'pigtail',  mana: 18, cd: 1.00, tags: ['arcane'],          glyph: '↻', color: 0xffd86a },
 };
 
-export const SPELL_ORDER = ['fireball', 'gust', 'lightning', 'frost', 'heal', 'spike', 'nova'];
-export const GESTURE_TO_SPELL = { triangle: 'fireball', zigzag: 'lightning', circle: 'frost', vee: 'heal', line: 'gust', caret: 'spike', star: 'nova' };
+export const SPELL_ORDER = ['fireball', 'gust', 'lightning', 'frost', 'heal', 'spike', 'nova', 'acid', 'shield', 'quake', 'orb', 'blink'];
+export const GESTURE_TO_SPELL = {
+  triangle: 'fireball', zigzag: 'lightning', circle: 'frost', vee: 'heal', line: 'gust', caret: 'spike', star: 'nova',
+  spiral: 'acid', square: 'shield', wshape: 'quake', scurve: 'orb', pigtail: 'blink',
+};
 
 export class SpellSystem {
   constructor(scene) {
@@ -89,8 +97,63 @@ export class SpellSystem {
       case 'gust':      this._gust(game, dir); break;
       case 'spike':     this._spike(game, origin, dir); break;
       case 'nova':      this._nova(game); break;
+      case 'acid':      this._acid(game, aim); break;
+      case 'shield':    this._shield(game); break;
+      case 'quake':     this._quake(game); break;
+      case 'orb':       this._orb(game, origin, dir); break;
+      case 'blink':     this._blink(game, aim); break;
     }
     return true;
+  }
+
+  _acid(game, aim) {
+    game.audio.play('frost');
+    const pos = aim.clone(); pos.y = 0.1;
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(3, 24), new THREE.MeshBasicMaterial({ color: 0x9bff5a, transparent: true, opacity: 0.4, depthWrite: false }));
+    disc.rotation.x = -Math.PI / 2; disc.position.copy(pos);
+    this.group.add(disc);
+    this.areas.push({ kind: 'acid', mesh: disc, pos: pos.clone(), life: 2.6, tick: 0, radius: 3, dmg: game.stats.acidDmg * game.stats.damageMult * this.power, spin: 0 });
+    game.notifySpell(['acid'], pos);
+  }
+
+  _shield(game) {
+    game.audio.play('heal');
+    const amt = game.stats.shieldAmount * this.power;
+    game.wizard.addShield(amt, 9);
+    game.ui.toast(`🛡 +${Math.round(amt)} shield`);
+    game.particles.ring({ pos: game.wizard.pos.clone(), color: 0x8ad0ff, r0: 0.5, r1: 2.4, life: 0.6 });
+  }
+
+  _quake(game) {
+    game.audio.play('explosion');
+    game.shake(1.6);
+    const c = game.wizard.pos.clone();
+    const r = game.stats.quakeRadius;
+    game.particles.ring({ pos: c.clone().setY(0.1), color: 0xc9a06a, r0: 0.6, r1: r * 1.6, life: 0.55 });
+    game.particles.burst({ pos: c.clone().setY(0.4), color: 0x9a7a52, count: 24, speed: 9, size: 0.5, life: 0.8, up: 3, blend: 'normal' });
+    const dmg = game.stats.quakeDmg * game.stats.damageMult * this.power;
+    for (const e of game.enemies.inRadius(c, r)) game.enemies.damage(e, dmg, game, new THREE.Vector3().subVectors(e.mesh.position, c), 10);
+    game.notifySpell(['quake'], c);
+  }
+
+  _orb(game, origin, dir) {
+    game.audio.play('fireball');
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.7, 14, 14), new THREE.MeshBasicMaterial({ color: 0xc9a8ff, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.85, depthWrite: false }));
+    mesh.position.copy(origin);
+    this.group.add(mesh);
+    this.projectiles.push({ kind: 'orb', mesh, vel: dir.clone().multiplyScalar(16), life: 2.0, dmg: game.stats.orbDmg * game.stats.damageMult * this.power, radius: game.stats.orbRadius, crit: this.crit });
+  }
+
+  _blink(game, aim) {
+    game.audio.play('zap');
+    const from = game.wizard.pos.clone();
+    const to = aim.clone(); to.x = Math.max(-45, Math.min(45, to.x)); to.z = Math.max(-45, Math.min(45, to.z)); to.y = 0;
+    game.particles.burst({ pos: from.clone().setY(1), color: 0xffd86a, count: 16, speed: 8, size: 0.3, life: 0.5 });
+    game.wizard.pos.copy(to); game.wizard.vel.set(0, 0, 0);
+    game.particles.burst({ pos: to.clone().setY(1), color: 0xffd86a, count: 16, speed: 8, size: 0.3, life: 0.5 });
+    const dmg = game.stats.spikeDmg * 0.8 * game.stats.damageMult * this.power;
+    for (const e of game.enemies.inRadius(to, 3)) game.enemies.damage(e, dmg, game, new THREE.Vector3().subVectors(e.mesh.position, to), 5);
+    game.shake(0.5);
   }
 
   _spike(game, origin, dir) {
@@ -156,6 +219,41 @@ export class SpellSystem {
       game.particles.ring({ pos: c.clone().setY(0.1), color: 0x8dffa0, r0: 0.5, r1: 8, life: 0.7 });
       game.particles.burst({ pos: c.clone().setY(1), color: 0xfff0b0, count: 30, speed: 9, size: 0.34, life: 0.9, up: 3 });
       for (const e of game.enemies.inRadius(c, 7)) game.enemies.damage(e, 34 * mult, game, new THREE.Vector3().subVectors(e.mesh.position, c), 5);
+    } else if (id === 'toxiccloud') {
+      const pos = aim.clone(); pos.y = 0.1;
+      const disc = new THREE.Mesh(new THREE.CircleGeometry(4.2, 28), new THREE.MeshBasicMaterial({ color: 0x9bff5a, transparent: true, opacity: 0.45, depthWrite: false }));
+      disc.rotation.x = -Math.PI / 2; disc.position.copy(pos);
+      this.group.add(disc);
+      this.areas.push({ kind: 'acid', mesh: disc, pos: pos.clone(), life: 4.5, tick: 0, radius: 4.2, dmg: 40 * mult, spin: 0 });
+    } else if (id === 'bulwark') {
+      game.wizard.heal(70); game.wizard.addShield(80, 12);
+      game.particles.ring({ pos: game.wizard.pos.clone(), color: 0x8ad0ff, r0: 0.5, r1: 3.4, life: 0.7 });
+      game.ui.toast('🛡 Bulwark!');
+    } else if (id === 'glacier') {
+      const pos = aim.clone();
+      game.particles.ring({ pos: pos.clone().setY(0.1), color: 0x9fe8ff, r0: 0.6, r1: 9, life: 0.7 });
+      game.particles.burst({ pos: pos.clone().setY(0.6), color: 0xbfeeff, count: 30, speed: 9, size: 0.4, life: 0.9, up: 3 });
+      for (const e of game.enemies.inRadius(pos, 8)) { game.enemies.damage(e, 44 * mult, game, new THREE.Vector3().subVectors(e.mesh.position, pos), 6); game.enemies.applySlow(e, 0.8, 4); }
+    } else if (id === 'flamedash') {
+      const to = aim.clone(); to.x = Math.max(-45, Math.min(45, to.x)); to.z = Math.max(-45, Math.min(45, to.z)); to.y = 0;
+      const from = game.wizard.pos.clone();
+      game.wizard.pos.copy(to); game.wizard.vel.set(0, 0, 0);
+      for (const c2 of [from, to]) {
+        game.particles.ring({ pos: c2.clone().setY(0.1), color: 0xff8a3a, r0: 0.4, r1: 5, life: 0.45 });
+        game.particles.burst({ pos: c2.clone().setY(0.8), color: 0xff8a2a, count: 18, speed: 10, size: 0.45, life: 0.7, up: 3 });
+        for (const e of game.enemies.inRadius(c2, 4)) game.enemies.damage(e, 40 * mult, game, new THREE.Vector3().subVectors(e.mesh.position, c2), 7);
+      }
+    } else if (id === 'thunderorb') {
+      const pos = aim.clone();
+      const hit = new Set();
+      for (let k = 0; k < 5; k++) {
+        const t = game.enemies.nearest(pos, 14, hit);
+        if (!t) break;
+        this._spawnBolt([pos.clone().setY(3), t.mesh.position.clone().setY(1)]);
+        game.enemies.damage(t, 30 * mult, game, new THREE.Vector3().subVectors(t.mesh.position, pos), 3);
+        hit.add(t);
+      }
+      game.particles.burst({ pos: pos.clone().setY(1), color: 0x9fe8ff, count: 24, speed: 9, size: 0.34, life: 0.8 });
     }
   }
 
@@ -372,21 +470,22 @@ export class SpellSystem {
       }
     }
 
-    // area effects (fire tornado)
+    // area effects (fire tornado, acid pool)
     for (let i = this.areas.length - 1; i >= 0; i--) {
       const a = this.areas[i];
       a.life -= dt; a.tick -= dt; a.spin += dt * 8;
-      a.mesh.rotation.y = a.spin;
       if (a.kind === 'tornado') {
+        a.mesh.rotation.y = a.spin;
         a.pos.x += (Math.random() - 0.5) * 6 * dt; a.pos.z += (Math.random() - 0.5) * 6 * dt;
         a.mesh.position.set(a.pos.x, 2.2, a.pos.z);
         if (Math.random() < 0.9) game.particles.spawn({ pos: new THREE.Vector3(a.pos.x + (Math.random() - 0.5) * 2, Math.random() * 4, a.pos.z + (Math.random() - 0.5) * 2), color: Math.random() < 0.5 ? 0xff8a2a : 0xffd86a, vel: new THREE.Vector3(0, 4, 0), size: 0.4, life: 0.5 });
-        if (a.tick <= 0) {
-          a.tick = 0.2;
-          for (const e of game.enemies.inRadius(a.pos, a.radius)) game.enemies.damage(e, a.dmg * 0.2, game, new THREE.Vector3().subVectors(e.mesh.position, a.pos), 2);
-        }
+        if (a.tick <= 0) { a.tick = 0.2; for (const e of game.enemies.inRadius(a.pos, a.radius)) game.enemies.damage(e, a.dmg * 0.2, game, new THREE.Vector3().subVectors(e.mesh.position, a.pos), 2); }
+        a.mesh.material.opacity = 0.5 * Math.min(1, a.life);
+      } else if (a.kind === 'acid') {
+        if (Math.random() < 0.6) game.particles.spawn({ pos: new THREE.Vector3(a.pos.x + (Math.random() - 0.5) * a.radius * 1.6, 0.2, a.pos.z + (Math.random() - 0.5) * a.radius * 1.6), color: 0x9bff5a, vel: new THREE.Vector3(0, 1.5, 0), size: 0.25, life: 0.6 });
+        if (a.tick <= 0) { a.tick = 0.3; for (const e of game.enemies.inRadius(a.pos, a.radius)) { game.enemies.damage(e, a.dmg * 0.3, game, null, 0); game.enemies.applySlow(e, 0.4, 0.7); } }
+        a.mesh.material.opacity = 0.4 * Math.min(1, a.life);
       }
-      a.mesh.material.opacity = 0.5 * Math.min(1, a.life);
       if (a.life <= 0) { this.group.remove(a.mesh); a.mesh.geometry.dispose(); this.areas.splice(i, 1); }
     }
 

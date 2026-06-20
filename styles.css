@@ -148,6 +148,26 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
   border:none;border-radius:14px;padding:12px 26px;box-shadow:0 5px 0 #9c641b;cursor:pointer;}
 #btn-interact:active{transform:translate(-50%,4px);box-shadow:0 1px 0 #9c641b;}
 
+/* ===== Wave / boss banner ===== */
+#banner{position:absolute;left:50%;top:22%;transform:translateX(-50%);pointer-events:none;
+  font-weight:900;font-size:clamp(28px,6vw,56px);color:var(--gold);text-shadow:0 0 20px rgba(155,123,255,.7),0 3px 6px #000;
+  opacity:0;letter-spacing:1px;text-align:center;white-space:nowrap;}
+#banner b{color:#fff;}
+#banner.boss{color:var(--hp);}
+.banner-sub{font-size:.5em;color:var(--ink-dim);font-weight:700;}
+#banner.show{animation:bannerpop 2s ease forwards;}
+@keyframes bannerpop{
+  0%{opacity:0;transform:translateX(-50%) scale(.6);}
+  15%{opacity:1;transform:translateX(-50%) scale(1.08);}
+  30%{transform:translateX(-50%) scale(1);}
+  75%{opacity:1;}
+  100%{opacity:0;transform:translateX(-50%) scale(1);}
+}
+
+/* ===== Wardrobe ===== */
+.ward-slot{margin-bottom:12px;}
+.ward-slot-name{font-weight:800;color:var(--magic);letter-spacing:1.5px;font-size:13px;margin-bottom:6px;}
+
 /* ===== Shop panel ===== */
 .shop-box{width:min(94vw,860px);max-height:88vh;overflow:auto;background:var(--panel);border:2px solid var(--panel-edge);
   border-radius:18px;padding:18px 20px;box-shadow:0 18px 50px rgba(0,0,0,.6);}

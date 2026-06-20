@@ -32,6 +32,7 @@ export class Input {
       if (k === 'escape' || k === 'p') this.events.push({ type: 'pause' });
       if (k === ' ' || k === 'enter') this.events.push({ type: 'confirm' });
       if (k === 'm') this.events.push({ type: 'mute' });
+      if (k === 'h' || k === '?') this.events.push({ type: 'guide' });
       if ([' ', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
     });
     window.addEventListener('keyup', (e) => { this.keys.delete(e.key.toLowerCase()); });
@@ -79,7 +80,7 @@ export class Input {
         e.preventDefault();
       } else if (this.drawing && e.pointerId === this.drawId) {
         const last = this.points[this.points.length - 1];
-        if (!last || Math.hypot(e.clientX - last.x, e.clientY - last.y) > 3) this.points.push({ x: e.clientX, y: e.clientY });
+        if (!last || Math.hypot(e.clientX - last.x, e.clientY - last.y) > 2) this.points.push({ x: e.clientX, y: e.clientY });
       }
     });
 

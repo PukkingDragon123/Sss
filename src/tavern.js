@@ -54,13 +54,6 @@ export class Tavern {
     const bar = new THREE.Mesh(new THREE.BoxGeometry(2, 1.2, 12), barMat);
     bar.position.set(-9.2, 0.6, -4); bar.castShadow = true; bar.receiveShadow = true; g.add(bar);
 
-    // glowing lanterns on posts
-    const lanternMat = new THREE.MeshStandardMaterial({ color: 0xffe6a8, emissive: 0xffae42, emissiveIntensity: 1.2, roughness: 0.6 });
-    for (let i = 0; i < 4; i++) {
-      const lan = new THREE.Mesh(new THREE.SphereGeometry(0.4, 10, 10), lanternMat);
-      lan.position.set(-6 + i * 4, 3.0, -6 + (i % 2) * 6); g.add(lan);
-    }
-
     // ---- knockable furniture ----
     const woodMat = new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.9 });
     const mugMat = new THREE.MeshStandardMaterial({ color: 0x9a6a3a, roughness: 0.7 });
@@ -89,21 +82,57 @@ export class Tavern {
       addProp(stool, x, z, 0.45, 0.6);
     }
 
-    // ---- patrons (solid: don't bump them) ----
-    const shirtColors = [0x7a8bd0, 0xcf6f6f, 0x6fb08a, 0xc9a24a, 0x9a6fb0, 0xc98a5a];
-    const patronPos = [[-6, 3], [2.5, -2], [-4, -4], [6.5, -5], [0.5, -9], [-7.5, -12]];
+    // ---- patrons: same clay-wizard look as the hero, wandering the room ----
+    const robeColors = [0x7a8bd0, 0xcf6f6f, 0x6fb08a, 0xc9a24a, 0x9a6fb0, 0xc98a5a];
+    const patronPos = [[-6, 3], [2.5, -2], [-4, -4], [6.5, -5], [0.5, -9], [4, -11]];
     patronPos.forEach((p, i) => {
-      const person = new THREE.Group();
-      const skin = new THREE.MeshStandardMaterial({ color: 0xe8c4a0, roughness: 0.8 });
-      const shirt = new THREE.MeshStandardMaterial({ color: shirtColors[i % shirtColors.length], roughness: 0.85 });
-      const bodyM = new THREE.Mesh(new THREE.CapsuleGeometry(0.42, 0.9, 4, 10), shirt); bodyM.position.y = 1.0; bodyM.castShadow = true;
-      const headM = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 12), skin); headM.position.y = 1.85; headM.castShadow = true;
-      person.add(bodyM, headM);
+      const person = this._buildPatron(robeColors[i % robeColors.length], i % 2 === 0);
       person.position.set(p[0], 0, p[1]);
       person.rotation.y = Math.random() * Math.PI * 2;
       g.add(person);
-      this.npcs.push({ mesh: person, pos: new THREE.Vector3(p[0], 0, p[1]), r: 0.6, annoyedCd: 0, wob: 0, phase: Math.random() * 6 });
+      this.npcs.push({
+        mesh: person, pos: new THREE.Vector3(p[0], 0, p[1]), home: new THREE.Vector3(p[0], 0, p[1]),
+        r: 0.6, annoyedCd: 0, wob: 0, phase: Math.random() * 6,
+        target: new THREE.Vector3(p[0], 0, p[1]), repathCd: Math.random() * 3, speed: 1.2 + Math.random() * 0.8, yaw: 0,
+      });
     });
+  }
+
+  // a rounded clay humanoid in a robe + pointy hat (matches the wizard's style)
+  _buildPatron(robeColor, hasHat) {
+    const person = new THREE.Group();
+    const robe = new THREE.MeshStandardMaterial({ color: robeColor, roughness: 0.85 });
+    const robe2 = new THREE.MeshStandardMaterial({ color: robeColor, roughness: 0.85 });
+    robe2.color.multiplyScalar(0.8);
+    const skin = new THREE.MeshStandardMaterial({ color: 0xf0d6b8, roughness: 0.8 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x2a2230, roughness: 0.7 });
+
+    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.62, 0.85, 14), robe); skirt.position.y = 0.72; skirt.castShadow = true;
+    const torso = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 12), robe); torso.position.y = 1.2; torso.scale.set(1, 0.95, 0.92); torso.castShadow = true;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 12), skin); head.position.y = 1.72; head.castShadow = true;
+    person.add(skirt, torso, head);
+    // simple face
+    const eyeGeo = new THREE.SphereGeometry(0.05, 8, 8);
+    const eL = new THREE.Mesh(eyeGeo, dark); eL.position.set(-0.12, 1.76, 0.3); eL.scale.y = 0.7;
+    const eR = new THREE.Mesh(eyeGeo, dark); eR.position.set(0.12, 1.76, 0.3); eR.scale.y = 0.7;
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), new THREE.MeshStandardMaterial({ color: 0xd98a72, roughness: 0.75 }));
+    nose.position.set(0, 1.68, 0.34);
+    person.add(eL, eR, nose);
+    // stubby arms
+    const armGeo = new THREE.CapsuleGeometry(0.1, 0.5, 4, 8);
+    const aL = new THREE.Mesh(armGeo, robe); aL.position.set(-0.44, 1.15, 0); aL.rotation.z = 0.5; aL.castShadow = true;
+    const aR = new THREE.Mesh(armGeo, robe); aR.position.set(0.44, 1.15, 0); aR.rotation.z = -0.5; aR.castShadow = true;
+    person.add(aL, aR);
+    // mug in one hand
+    const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.24, 10), new THREE.MeshStandardMaterial({ color: 0x9a6a3a, roughness: 0.7 }));
+    mug.position.set(0.6, 1.0, 0.1); person.add(mug);
+    if (hasHat) {
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.46, 0.08, 14), robe2); brim.position.y = 1.98; brim.castShadow = true;
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.9, 14), robe2); cone.position.y = 2.4; cone.rotation.z = 0.12; cone.castShadow = true;
+      person.add(brim, cone);
+    }
+    person._mug = mug;
+    return person;
   }
 
   reset() {
@@ -115,7 +144,11 @@ export class Tavern {
       p.mesh.position.copy(p.home);
       p.mesh.rotation.set(0, 0, 0);
     }
-    for (const n of this.npcs) { n.annoyedCd = 0; n.wob = 0; }
+    for (const n of this.npcs) {
+      n.annoyedCd = 0; n.wob = 0; n.repathCd = Math.random() * 3;
+      n.pos.copy(n.home); n.target.copy(n.home);
+      n.mesh.position.set(n.home.x, 0, n.home.z);
+    }
   }
 
   show(v) { this.group.visible = v; }
@@ -126,9 +159,27 @@ export class Tavern {
     const w = game.wizard;
     const wr = 0.7;
 
-    // patrons block the wizard (solid)
+    // patrons wander the room, and block the wizard (solid)
     for (const n of this.npcs) {
       n.phase += dt;
+      // pick a new wander target now and then
+      n.repathCd -= dt;
+      const reached = n.pos.distanceTo(n.target) < 0.4;
+      if (n.repathCd <= 0 || reached) {
+        n.repathCd = 2.5 + Math.random() * 3.5;
+        n.target.set(-6 + Math.random() * 16, 0, -13 + Math.random() * 18); // open floor area
+      }
+      // stroll toward it (but freeze briefly when annoyed)
+      if (n.annoyedCd <= 0.6) {
+        const tx = n.target.x - n.pos.x, tz = n.target.z - n.pos.z;
+        const td = Math.hypot(tx, tz) || 1e-4;
+        const step = Math.min(td, n.speed * dt);
+        n.pos.x += (tx / td) * step; n.pos.z += (tz / td) * step;
+        if (td > 0.1) n.yaw = Math.atan2(tx, tz);
+      }
+      n.mesh.position.set(n.pos.x, Math.abs(Math.sin(n.phase * 5)) * 0.06, n.pos.z);
+      n.mesh.rotation.y = n.yaw;
+
       const dx = w.pos.x - n.pos.x, dz = w.pos.z - n.pos.z;
       const d = Math.hypot(dx, dz) || 1e-4;
       const minD = wr + n.r;

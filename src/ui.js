@@ -1,7 +1,43 @@
 // ui.js — all the DOM: HUD, story modal, level-up cards, toasts, end screen.
 import { SPELL_ORDER, SPELLS } from './spells.js';
+import { TEMPLATES } from './recognizer.js';
 
 const $ = (id) => document.getElementById(id);
+
+// draw a template stroke onto a small canvas, with a green start dot + arrow
+function drawTemplate(canvas, points) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, pad = 22;
+  ctx.clearRect(0, 0, W, H);
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of points) { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y); }
+  const w = (maxX - minX) || 1, h = (maxY - minY) || 1;
+  const s = Math.min((W - pad * 2) / w, (H - pad * 2) / h);
+  const ox = (W - w * s) / 2, oy = (H - h * s) / 2;
+  const X = (p) => ox + (p.x - minX) * s, Y = (p) => oy + (p.y - minY) * s;
+  // stroke
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(155,123,255,0.35)'; ctx.lineWidth = 10;
+  ctx.beginPath(); ctx.moveTo(X(points[0]), Y(points[0]));
+  for (let i = 1; i < points.length; i++) ctx.lineTo(X(points[i]), Y(points[i]));
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(220,205,255,0.95)'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(X(points[0]), Y(points[0]));
+  for (let i = 1; i < points.length; i++) ctx.lineTo(X(points[i]), Y(points[i]));
+  ctx.stroke();
+  // start dot
+  ctx.fillStyle = '#6ee7a0';
+  ctx.beginPath(); ctx.arc(X(points[0]), Y(points[0]), 6, 0, Math.PI * 2); ctx.fill();
+  // arrowhead at the end
+  const a = points[points.length - 2] || points[0], b = points[points.length - 1];
+  const ang = Math.atan2(Y(b) - Y(a), X(b) - X(a));
+  ctx.fillStyle = '#ffcf5c';
+  ctx.beginPath();
+  ctx.moveTo(X(b), Y(b));
+  ctx.lineTo(X(b) - 12 * Math.cos(ang - 0.4), Y(b) - 12 * Math.sin(ang - 0.4));
+  ctx.lineTo(X(b) - 12 * Math.cos(ang + 0.4), Y(b) - 12 * Math.sin(ang + 0.4));
+  ctx.closePath(); ctx.fill();
+}
 
 export class UI {
   constructor() {
@@ -20,8 +56,9 @@ export class UI {
       loading: $('loading'),
       bars: document.querySelector('.bars'), spellbook: $('spellbook'), castHint: $('cast-hint'),
       tavernHud: $('tavern-hud'), ruckusCount: $('ruckus-count'),
-      btnPause: $('btn-pause'), btnMute: $('btn-mute'),
+      btnGuide: $('btn-guide'), btnPause: $('btn-pause'), btnMute: $('btn-mute'),
       joystick: $('joystick'), joyKnob: $('joy-knob'), blackout: $('blackout'),
+      glyphGuide: $('glyph-guide'), guideCards: $('guide-cards'), btnGuideClose: $('btn-guide-close'),
     };
     this.chips = {};
     document.querySelectorAll('.spell-chip').forEach((c) => { this.chips[c.dataset.spell] = c; });
@@ -44,6 +81,49 @@ export class UI {
     }
     this.el.btnPause.addEventListener('click', () => { game.audio.play('click'); game.togglePause(); });
     this.el.btnMute.addEventListener('click', () => { game.toggleMute(); });
+    this.el.btnGuide.addEventListener('click', () => { game.audio.play('click'); game.toggleGuide(); });
+    this.el.btnGuideClose.addEventListener('click', () => { game.audio.play('click'); game.toggleGuide(); });
+  }
+
+  // show only the unlocked spells in the spellbook + rebuild the guide
+  setUnlocked(set) {
+    for (const id of Object.keys(this.chips)) this.chips[id].classList.toggle('hidden', !set.has(id));
+    this.buildGuide(set);
+  }
+
+  buildGuide(set) {
+    if (!this.el.guideCards) return;
+    this.el.guideCards.innerHTML = '';
+    for (const id of SPELL_ORDER) {
+      if (!set.has(id)) continue;
+      const s = SPELLS[id];
+      const card = document.createElement('div');
+      card.className = 'guide-card';
+      const cv = document.createElement('canvas');
+      cv.width = 120; cv.height = 120; cv.className = 'guide-cv';
+      drawTemplate(cv, TEMPLATES[s.gesture]);
+      const label = document.createElement('div');
+      label.className = 'guide-label';
+      label.innerHTML = `<span class="guide-glyph">${s.glyph}</span> ${s.name} <span class="key">${s.key + 1}</span>`;
+      card.appendChild(cv); card.appendChild(label);
+      this.el.guideCards.appendChild(card);
+    }
+  }
+
+  showGuide() { this.el.glyphGuide.classList.remove('hidden'); }
+  hideGuide() { this.el.glyphGuide.classList.add('hidden'); }
+
+  critToast() {
+    const t = document.createElement('div');
+    t.className = 'toast crit'; t.textContent = '✦ PERFECT — CRIT! ✦';
+    this.el.toastArea.appendChild(t); setTimeout(() => t.remove(), 1700);
+  }
+  accuracyToast(acc) {
+    const label = acc >= 0.92 ? 'Clean!' : acc >= 0.8 ? 'Nice' : acc >= 0.65 ? 'Sloppy…' : 'Messy!';
+    const color = acc >= 0.92 ? '#6ee7a0' : acc >= 0.8 ? '#cde87a' : acc >= 0.65 ? '#ffcf5c' : '#ff9a6a';
+    const t = document.createElement('div');
+    t.className = 'toast acc'; t.textContent = label; t.style.color = color;
+    this.el.toastArea.appendChild(t); setTimeout(() => t.remove(), 1100);
   }
 
   hideLoading() { this.el.loading.classList.add('hidden'); }
@@ -57,6 +137,7 @@ export class UI {
     this.el.timer.classList.toggle('hidden', tavern);
     this.el.kills.classList.toggle('hidden', tavern);
     this.el.tavernHud.classList.toggle('hidden', !tavern);
+    this.el.btnGuide.classList.toggle('hidden', tavern);
     if (tavern) {
       this.el.castHint.innerHTML = isTouch ? 'Drag the <b>left side</b> to stagger toward the <b>door</b>' : '<b>WASD</b> to stagger toward the glowing <b>door</b> — he\'s very drunk!';
     } else {
@@ -93,6 +174,7 @@ export class UI {
     this.el.story.classList.add('hidden');
     this.el.levelup.classList.add('hidden');
     this.el.howto.classList.add('hidden');
+    this.el.glyphGuide.classList.add('hidden');
   }
 
   setScreen(name) {

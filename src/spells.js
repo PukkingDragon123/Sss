@@ -2,15 +2,16 @@
 import * as THREE from 'three';
 
 // Spell metadata. Quick-cast keys 1..5 map to indices 0..4 in this order.
+// Fireball + Gust are the two starting spells; the rest are unlocked on level-up.
 export const SPELLS = {
   fireball:  { name: 'Fireball',     gesture: 'triangle', key: 0, mana: 18, cd: 0.55, tags: ['fire'],            glyph: '△', color: 0xff7a2a },
-  lightning: { name: 'Lightning',    gesture: 'zigzag',   key: 1, mana: 14, cd: 0.45, tags: ['lightning'],       glyph: 'ϟ', color: 0x9fe8ff },
-  frost:     { name: 'Frost Splash', gesture: 'circle',   key: 2, mana: 22, cd: 1.10, tags: ['water', 'frost'],  glyph: '◯', color: 0x7fe0ff },
-  heal:      { name: 'Heal',         gesture: 'vee',      key: 3, mana: 28, cd: 2.80, tags: ['holy'],            glyph: '∨', color: 0x8dffa0 },
-  gust:      { name: 'Gust',         gesture: 'line',     key: 4, mana: 10, cd: 0.45, tags: ['wind'],            glyph: '—', color: 0xdfffe0 },
+  gust:      { name: 'Gust',         gesture: 'line',     key: 1, mana: 10, cd: 0.45, tags: ['wind'],            glyph: '—', color: 0xdfffe0 },
+  lightning: { name: 'Lightning',    gesture: 'zigzag',   key: 2, mana: 14, cd: 0.45, tags: ['lightning'],       glyph: 'ϟ', color: 0x9fe8ff },
+  frost:     { name: 'Frost Splash', gesture: 'circle',   key: 3, mana: 22, cd: 1.10, tags: ['water', 'frost'],  glyph: '◯', color: 0x7fe0ff },
+  heal:      { name: 'Heal',         gesture: 'vee',      key: 4, mana: 28, cd: 2.80, tags: ['holy'],            glyph: '∨', color: 0x8dffa0 },
 };
 
-export const SPELL_ORDER = ['fireball', 'lightning', 'frost', 'heal', 'gust'];
+export const SPELL_ORDER = ['fireball', 'gust', 'lightning', 'frost', 'heal'];
 export const GESTURE_TO_SPELL = { triangle: 'fireball', zigzag: 'lightning', circle: 'frost', vee: 'heal', line: 'gust' };
 
 export class SpellSystem {
@@ -22,6 +23,7 @@ export class SpellSystem {
     this.bolts = [];   // transient lightning tubes
     this.cd = {};      // cooldown timers per spell id
     this.cdMult = {};  // per-spell cooldown multiplier (from upgrades)
+    this.power = 1; this.crit = false;
     for (const id of SPELL_ORDER) { this.cd[id] = 0; this.cdMult[id] = 1; }
   }
 
@@ -44,12 +46,17 @@ export class SpellSystem {
     return Math.max(0, this.cd[id]) / ((def.cd * this.cdMult[id]) || 1);
   }
 
-  tryCast(game, id) {
+  tryCast(game, id, opts = {}) {
     const def = SPELLS[id];
     if (!def) return false;
     if (this.cd[id] > 0) return false;
     if (!game.wizard.alive) return false;
     if (!game.wizard.spendMana(def.mana)) { game.ui.toast('Too sober… need mana'); return false; }
+
+    // accuracy -> power: sloppy draws hit softer, a perfect glyph crits
+    const accuracy = opts.accuracy == null ? 1 : opts.accuracy;
+    this.crit = !!opts.crit;
+    this.power = accuracy * (this.crit ? 2 : 1);
 
     this.cd[id] = def.cd * this.cdMult[id] * game.stats.cooldownMult;
     const origin = game.wizard.handPosition();
@@ -61,6 +68,12 @@ export class SpellSystem {
     game.wizard.triggerCast(dir);
     game.audio.play('cast');
     game.ui.flashSpell(id);
+    if (this.crit) {
+      game.audio.play('xp');
+      game.shake(0.6);
+      game.particles.burst({ pos: origin.clone(), color: 0xffe08a, count: 14, speed: 7, size: 0.32, life: 0.6 });
+      game.ui.critToast();
+    }
 
     switch (id) {
       case 'fireball':  this._fireball(game, origin, dir); break;
@@ -91,8 +104,9 @@ export class SpellSystem {
       kind: 'fireball', mesh,
       vel: dir.clone().multiplyScalar(34),
       life: 1.4,
-      dmg: game.stats.fireballDmg * game.stats.damageMult,
-      radius: game.stats.fireballRadius,
+      dmg: game.stats.fireballDmg * game.stats.damageMult * this.power,
+      radius: game.stats.fireballRadius * (this.crit ? 1.45 : 1),
+      crit: this.crit,
     });
   }
 
@@ -100,8 +114,8 @@ export class SpellSystem {
     const pos = p.mesh.position.clone();
     game.audio.play('explosion');
     game.shake(1.2 + p.radius * 0.15);
-    game.particles.ring({ pos: pos.clone().setY(0.1), color: 0xff8a3a, r0: 0.5, r1: p.radius * 1.6, life: 0.45 });
-    game.particles.burst({ pos, color: 0xff8a2a, count: 26, speed: 11, size: 0.5, life: 0.7, up: 3, blend: 'add' });
+    game.particles.ring({ pos: pos.clone().setY(0.1), color: p.crit ? 0xffe08a : 0xff8a3a, r0: 0.5, r1: p.radius * 1.6, life: 0.45 });
+    game.particles.burst({ pos, color: p.crit ? 0xffd86a : 0xff8a2a, count: p.crit ? 38 : 26, speed: 11, size: 0.5, life: 0.7, up: 3, blend: 'add' });
     game.particles.burst({ pos, color: 0x3a2a22, count: 10, speed: 5, size: 0.6, life: 1.0, up: 2, blend: 'normal' });
     const hits = game.enemies.inRadius(pos, p.radius);
     for (const e of hits) {
@@ -115,7 +129,7 @@ export class SpellSystem {
     game.audio.play('zap');
     game.shake(0.7);
     const maxChain = game.stats.lightningChains;
-    const dmg = game.stats.lightningDmg * game.stats.damageMult;
+    const dmg = game.stats.lightningDmg * game.stats.damageMult * this.power;
     const hit = new Set();
     const path = [origin.clone()];
     // first target: nearest enemy to the aim point, else just shoot at the aim
@@ -181,7 +195,7 @@ export class SpellSystem {
       });
     }
     const hits = game.enemies.inRadius(center, r);
-    const dmg = game.stats.frostDmg * game.stats.damageMult;
+    const dmg = game.stats.frostDmg * game.stats.damageMult * this.power;
     for (const e of hits) {
       const dir = new THREE.Vector3().subVectors(e.mesh.position, center);
       game.enemies.damage(e, dmg, game, dir, 2);
@@ -192,8 +206,9 @@ export class SpellSystem {
 
   _heal(game) {
     game.audio.play('heal');
-    game.wizard.heal(game.stats.healAmount);
-    game.ui.toast(`+${Math.round(game.stats.healAmount)} HP`);
+    const amt = game.stats.healAmount * this.power;
+    game.wizard.heal(amt);
+    game.ui.toast(`+${Math.round(amt)} HP`);
     const c = game.wizard.pos.clone();
     for (let i = 0; i < 20; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -228,7 +243,7 @@ export class SpellSystem {
       if (dist > range || dist < 0.001) continue;
       to.normalize();
       if (to.dot(dir) > 0.5) {
-        game.enemies.damage(e, game.stats.gustDmg * game.stats.damageMult, game, to, force);
+        game.enemies.damage(e, game.stats.gustDmg * game.stats.damageMult * this.power, game, to, force);
       }
     }
     game.notifySpell(['wind'], origin.clone().addScaledVector(dir, range * 0.5));

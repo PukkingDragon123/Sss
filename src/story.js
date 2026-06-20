@@ -34,9 +34,9 @@ export class Director {
     this.bossStarted = false;
     this.beats = [
       { t: 7,   done: false, fn: (g) => g.showStory('The Spirit', ['Draw a △ to sling a Fireball at those things. Singe something!']) },
-      { t: 26,  done: false, fn: (g) => { g.jobs.start('campfire'); g.ui.showJob('Douse the Campfire', 'It\'s spreading to the trees! ◯ Frost Splash it (north-west).'); g.showStory('The Spirit', ['A campfire\'s catching the woods alight. Splash it out with ◯ Frost before we roast.']); } },
+      { t: 26,  done: false, fn: (g) => { g.jobs.start('spores'); g.ui.showJob('Clear the Spores', 'Cursed spore-puffs! — Gust them away (north-east).'); g.showStory('The Spirit', ['Glowing spore-puffs — blow those away with a — Gust before we hallucinate worse than usual.']); } },
       { t: 70,  done: false, fn: (g) => g.showStory('The Spirit', ['More of them clawing out from between the trees. Wobble faster, you old soak!']) },
-      { t: 96,  done: false, fn: (g) => { g.jobs.start('spores'); g.ui.showJob('Clear the Spores', 'Cursed spore-puffs! — Gust them away (north-east).'); g.showStory('The Spirit', ['Glowing spore-puffs — breathe those and we\'ll hallucinate worse than usual. — Gust them!']); } },
+      { t: 96,  done: false, fn: (g) => { g.jobs.start('campfire'); g.ui.showJob('Douse the Campfire', 'It\'s spreading to the trees! ◯ Frost Splash it (north-west).'); g.showStory('The Spirit', ['A campfire\'s catching the woods alight — once you\'ve learned ◯ Frost, splash it out.']); } },
       { t: 150, done: false, fn: (g) => g.showStory('The Spirit', ['ZOMBIES and a VAMPIRE now? Hit them with everything — mash 1–5 if your glyphs go wobbly!']) },
       { t: 188, done: false, fn: (g) => { g.jobs.start('cauldron'); g.ui.showJob('Quench the Hex-Fire', 'A cursed cauldron blazes! ◯ Frost Splash it (far north).'); g.showStory('The Spirit', ['That cursed cauldron is boiling over with hex-fire. ◯ Frost Splash it cold!']); } },
       { t: 236, done: false, fn: (g) => g.showStory('The Spirit', ['…the ground is shaking. Something BIG and crowned is coming through the pines.']) },
@@ -46,9 +46,9 @@ export class Director {
 
   _spawnBatch(game) {
     const t = this.t;
-    const hpScale = 1 + t * 0.011;
-    let count = 1 + (Math.random() < Math.min(0.6, t / 220) ? 1 : 0);
-    if (t > 120 && Math.random() < 0.25) count += 1;
+    const hpScale = 1 + t * 0.008;
+    let count = 1 + (Math.random() < Math.min(0.45, t / 300) ? 1 : 0);
+    if (t > 150 && Math.random() < 0.2) count += 1;
     for (let i = 0; i < count; i++) {
       let type = 'goblin';
       const r = Math.random();
@@ -63,17 +63,17 @@ export class Director {
   update(dt, game) {
     this.t += dt;
 
-    const interval = Math.max(0.22, 1.35 - this.t * 0.0033);
+    const interval = Math.max(0.38, 1.7 - this.t * 0.0028);
     this.spawnAcc += dt;
     while (this.spawnAcc >= interval) {
       this.spawnAcc -= interval;
-      if (game.enemies.count() < 120) this._spawnBatch(game);
+      if (game.enemies.count() < 90) this._spawnBatch(game);
     }
 
-    if (this.t > 60 && Math.floor(this.t) % 45 === 0 && this._lastPulse !== Math.floor(this.t)) {
+    if (this.t > 75 && Math.floor(this.t) % 60 === 0 && this._lastPulse !== Math.floor(this.t)) {
       this._lastPulse = Math.floor(this.t);
-      const burst = 4 + Math.floor(this.t / 60);
-      for (let i = 0; i < burst; i++) game.enemies.spawn(Math.random() < 0.7 ? 'goblin' : 'bat', 1 + this.t * 0.011, game.wizard.pos);
+      const burst = 3 + Math.floor(this.t / 90);
+      for (let i = 0; i < burst; i++) game.enemies.spawn(Math.random() < 0.7 ? 'goblin' : 'bat', 1 + this.t * 0.008, game.wizard.pos);
     }
 
     for (const b of this.beats) {

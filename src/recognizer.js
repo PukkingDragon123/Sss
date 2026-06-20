@@ -124,7 +124,7 @@ export class Recognizer {
 
   // Returns { name, score } where score in [0,1]; null if not enough points.
   recognize(rawPoints) {
-    if (!rawPoints || rawPoints.length < 8) return null;
+    if (!rawPoints || rawPoints.length < 6) return null;
     const candidate = normalize(rawPoints);
     let best = Infinity, bestName = null;
     for (const t of this.templates) {

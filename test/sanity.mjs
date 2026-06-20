@@ -62,12 +62,18 @@ for (const name of Object.keys(TEMPLATES)) {
 
 // ---- upgrade roller ----
 console.log('Upgrades:');
+const stubEarly = { unlocked: new Set(['fireball', 'gust']) };   // 3 spells still locked
+const stubLate = { unlocked: new Set(['fireball', 'gust', 'lightning', 'frost', 'heal']) };
 for (let i = 0; i < 200; i++) {
-  const r = rollUpgrades(3);
-  ok(r.length === 3, 'rollUpgrades(3) returns 3');
-  const ids = new Set(r.map(u => u.id));
-  ok(ids.size === 3, 'rollUpgrades(3) returns distinct items');
-  ok(r.every(u => typeof u.apply === 'function'), 'every upgrade has apply()');
+  for (const g of [stubEarly, stubLate]) {
+    const r = rollUpgrades(g, 3);
+    ok(r.length === 3, 'rollUpgrades returns 3');
+    const ids = new Set(r.map(u => u.id));
+    ok(ids.size === 3, 'rollUpgrades returns distinct items');
+    ok(r.every(u => typeof u.apply === 'function'), 'every upgrade has apply()');
+    // locked-spell upgrades must never be offered before the unlock
+    if (g === stubEarly) ok(!r.some(u => ['chain', 'frost', 'healup'].includes(u.id)), 'no locked-spell upgrades offered early');
+  }
 }
 ok(UPGRADES.length >= 12, `upgrade pool is large enough (${UPGRADES.length})`);
 

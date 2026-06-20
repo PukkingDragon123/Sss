@@ -4,11 +4,11 @@ import * as THREE from 'three';
 import { ARENA } from './wizard.js';
 
 const TYPES = {
-  goblin:  { hp: 14,  speed: 3.0, dmg: 8,  r: 0.6,  xp: 4,   color: 0x8fc24a, size: 1.0, baseY: 0 },
-  bat:     { hp: 6,   speed: 5.4, dmg: 5,  r: 0.45, xp: 2,   color: 0x8c6fb8, size: 0.7, baseY: 1.4 },
-  vampire: { hp: 30,  speed: 3.7, dmg: 12, r: 0.7,  xp: 14,  color: 0xe6dcec, size: 1.15, baseY: 0 },
-  zombie:  { hp: 64,  speed: 1.5, dmg: 14, r: 0.95, xp: 11,  color: 0x6f9e5a, size: 1.55, baseY: 0 },
-  boss:    { hp: 1200, speed: 2.0, dmg: 24, r: 2.0, xp: 200, color: 0x6fae3a, size: 3.2, baseY: 0 }, // Goblin King
+  goblin:  { hp: 12,  speed: 2.9, dmg: 6,  r: 0.6,  xp: 5,   color: 0x8fc24a, size: 1.0, baseY: 0 },
+  bat:     { hp: 5,   speed: 5.0, dmg: 4,  r: 0.45, xp: 3,   color: 0x8c6fb8, size: 0.7, baseY: 1.4 },
+  vampire: { hp: 26,  speed: 3.5, dmg: 9,  r: 0.7,  xp: 16,  color: 0xe6dcec, size: 1.15, baseY: 0 },
+  zombie:  { hp: 52,  speed: 1.5, dmg: 11, r: 0.95, xp: 13,  color: 0x6f9e5a, size: 1.55, baseY: 0 },
+  boss:    { hp: 850, speed: 1.9, dmg: 18, r: 2.0, xp: 220, color: 0x6fae3a, size: 3.2, baseY: 0 }, // Goblin King
 };
 
 const MAX_ENEMIES = 140;

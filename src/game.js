@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { Wizard, ARENA } from './wizard.js';
 import { Enemies } from './enemies.js';
 import { Particles } from './particles.js';
-import { SpellSystem, SPELL_ORDER, GESTURE_TO_SPELL } from './spells.js';
+import { SpellSystem, SPELLS, SPELL_ORDER, GESTURE_TO_SPELL } from './spells.js';
 import { Recognizer, TEMPLATES } from './recognizer.js';
 import { Input } from './input.js';
 import { AudioEngine } from './audio.js';
@@ -15,15 +15,15 @@ import { Tavern } from './tavern.js';
 import { rollUpgrades } from './upgrades.js';
 
 const DEFAULT_STATS = () => ({
-  hpMax: 100, moveSpeed: 7, wobble: 1.0,
-  manaMax: 100, manaRegen: 14,
+  hpMax: 130, moveSpeed: 7.2, wobble: 1.0,
+  manaMax: 110, manaRegen: 17,
   damageMult: 1, cooldownMult: 1,
-  fireballDmg: 22, fireballRadius: 3.2,
+  fireballDmg: 24, fireballRadius: 3.4,
   lightningDmg: 14, lightningChains: 3,
   frostDmg: 10, frostRadius: 5, frostSlow: 0.5, frostSlowTime: 2.5,
   healAmount: 35,
-  gustDmg: 4, gustRange: 9, gustForce: 16,
-  pickupRadius: 2.2, hpRegen: 0.5, thorns: 0,
+  gustDmg: 5, gustRange: 9, gustForce: 16,
+  pickupRadius: 2.6, hpRegen: 1.0, thorns: 0,
 });
 
 export class Game {
@@ -77,6 +77,10 @@ export class Game {
     this.cineT = 0;
     this._exiting = false;
     this.lastRuckus = 0;
+    this.unlocked = new Set(['fireball', 'gust']); // start with 2 spells
+    this._guideOpen = false;
+    this._guideShown = false;
+    this._live = null; // live gesture prediction while drawing
     this.elapsed = 0;
     this.level = 1;
     this.xp = 0;
@@ -215,7 +219,7 @@ export class Game {
   _openLevelUp() {
     this.state = 'levelup';
     this.audio.play('levelup');
-    const choices = rollUpgrades(3);
+    const choices = rollUpgrades(this, 3);
     this.ui.showLevelUp(choices, (u) => {
       u.apply(this);
       this.pendingLevels--;
@@ -360,6 +364,7 @@ export class Game {
     this.elapsed = 0; this.level = 1; this.xp = 0; this.xpNeed = this._xpForLevel(1);
     this.kills = 0; this.chores = 0; this.pendingLevels = 0; this.bossActive = false;
     this.shakeAmt = 0; this.timeScale = 1; this._endState = null; this._exiting = false;
+    this._guideOpen = false;
     this.storyQueue.length = 0; this.storyShowing = false;
 
     this.enemies.clear();
@@ -418,6 +423,7 @@ export class Game {
   enterArena() {
     this.phase = 'arena';
     this.stats = DEFAULT_STATS();
+    this.unlocked = new Set(['fireball', 'gust']);
     this.elapsed = 0; this.level = 1; this.xp = 0; this.xpNeed = this._xpForLevel(1);
     this.kills = 0; this.chores = 0; this.pendingLevels = 0; this.bossActive = false;
     this._endState = null;
@@ -433,10 +439,31 @@ export class Game {
     this.camOffset.set(0, 27, 22);
     this._setMood('forest');
     this.ui.setPhase('arena', this.input.isTouch);
+    this.ui.setUnlocked(this.unlocked);
     this.ui.hideJob();
     this.ui.fadeBlack(false);
     this.state = 'play';
     this.ui.toast('🌲 A moonlit forest…');
+    // first time only: open the "how to draw" guide (paused) so players learn
+    if (!this._guideShown) {
+      this._guideShown = true;
+      this._guideOpen = true;
+      this.ui.showGuide();
+      this.state = 'paused';
+    }
+  }
+
+  unlock(id) {
+    if (this.unlocked.has(id)) return;
+    this.unlocked.add(id);
+    this.ui.setUnlocked(this.unlocked);
+    this.audio.play('levelup');
+    this.ui.toast(`✨ Learned ${SPELLS[id] ? SPELLS[id].name : id}!`);
+  }
+
+  toggleGuide() {
+    if (this._guideOpen) { this._guideOpen = false; this.ui.hideGuide(); if (this.state === 'paused') this.state = 'play'; }
+    else if (this.state === 'play' && this.phase === 'arena') { this._guideOpen = true; this.ui.showGuide(); this.state = 'paused'; }
   }
 
   _setMood(mood) {
@@ -455,7 +482,7 @@ export class Game {
     }
   }
 
-  castById(id) { if (this.state === 'play' && this.phase === 'arena') this._castAt(id, this.aimPoint); }
+  castById(id) { if (this.state === 'play' && this.phase === 'arena' && this.unlocked.has(id)) this._castAt(id, this.aimPoint, { accuracy: 0.8 }); }
   togglePause() {
     if (this.state === 'play') { this.state = 'paused'; this.ui.toast('⏸ Paused'); }
     else if (this.state === 'paused') { this.state = 'play'; this.ui.toast('▶ Resumed'); }
@@ -466,7 +493,8 @@ export class Game {
   _handleInput() {
     const events = this.input.drain();
     for (const e of events) {
-      if (e.type === 'mute') { this.audio.setMuted(!this.audio.muted); this.ui.toast(this.audio.muted ? '🔇 Muted' : '🔊 Sound on'); continue; }
+      if (e.type === 'mute') { this.toggleMute(); continue; }
+      if (e.type === 'guide') { this.toggleGuide(); continue; }
 
       if (this.storyShowing) {
         if (e.type === 'confirm' || e.type === 'primary') this.ui._storyAdvance();
@@ -491,16 +519,28 @@ export class Game {
 
       if (e.type === 'drawstart') { this.gestureAim.copy(this.aimPoint); }
       else if (e.type === 'gesture') { this._resolveGesture(e.points); }
-      else if (e.type === 'quickcast') { const id = SPELL_ORDER[e.index]; if (id) this._castAt(id, this.aimPoint); }
+      else if (e.type === 'quickcast') {
+        const id = SPELL_ORDER[e.index];
+        if (id && this.unlocked.has(id)) this._castAt(id, this.aimPoint, { accuracy: 0.8 });
+        else if (id) this.ui.toast(`🔒 ${SPELLS[id].name} — not learned yet`);
+      }
     }
   }
 
   _resolveGesture(points) {
-    if (!points || points.length < 8) { return; }
+    if (!points || points.length < 7) return;
     const res = this.recognizer.recognize(points);
-    if (res && res.score > 0.62) {
+    if (res && res.score > 0.6) {
       const id = GESTURE_TO_SPELL[res.name];
-      if (id) { this._castAt(id, this.gestureAim); return; }
+      if (id && this.unlocked.has(id)) {
+        // map recognition score -> damage: sloppy 0.5x … clean 1x … perfect crit
+        const accuracy = Math.max(0.5, Math.min(1, (res.score - 0.6) / (0.92 - 0.6) * 0.5 + 0.5));
+        const crit = res.score >= 0.9;
+        this._castAt(id, this.gestureAim, { accuracy, crit });
+        if (!crit) this.ui.accuracyToast(accuracy);
+        return;
+      }
+      if (id) { this.ui.toast(`🔒 ${SPELLS[id].name} — not learned yet`); this.audio.play('hiccup'); return; }
     }
     // a fizzle — show a little puff so it still feels responsive
     this.audio.play('hiccup');
@@ -509,10 +549,10 @@ export class Game {
     this.particles.burst({ pos: hp, color: 0x6a5a82, count: 6, speed: 2, size: 0.2, life: 0.5, grav: 1, blend: 'normal' });
   }
 
-  _castAt(id, aim) {
+  _castAt(id, aim, opts) {
     const saved = this.aimPoint;
     this.aimPoint = aim;
-    this.spells.tryCast(this, id);
+    this.spells.tryCast(this, id, opts);
     this.aimPoint = saved;
   }
 
@@ -551,23 +591,49 @@ export class Game {
   _drawTrail() {
     const ctx = this.fxctx;
     ctx.clearRect(0, 0, this.fx2d.width, this.fx2d.height);
+    this._live = null;
     if (this.phase !== 'arena' || !this.input.drawing || this.input.points.length < 2) return;
     const pts = this.input.points;
+
+    // live prediction — recolour the trail by how clean the glyph is
+    let rgb = [180, 170, 200];
+    if (pts.length >= 7) {
+      const res = this.recognizer.recognize(pts);
+      if (res && res.score > 0.5) {
+        const id = GESTURE_TO_SPELL[res.name];
+        if (id && this.unlocked.has(id)) {
+          this._live = { id, score: res.score };
+          rgb = res.score >= 0.9 ? [255, 216, 120] : res.score >= 0.75 ? [120, 240, 150] : res.score >= 0.6 ? [240, 220, 120] : [220, 150, 120];
+        } else if (id) { this._live = { id, score: res.score, locked: true }; rgb = [210, 120, 120]; }
+      }
+    }
+    const c = rgb.join(',');
+
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    // glow
-    ctx.strokeStyle = 'rgba(155,123,255,0.35)'; ctx.lineWidth = 16;
+    ctx.strokeStyle = `rgba(${c},0.30)`; ctx.lineWidth = 16;
     ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
     for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
     ctx.stroke();
-    // core
-    ctx.strokeStyle = 'rgba(220,205,255,0.95)'; ctx.lineWidth = 5;
+    ctx.strokeStyle = `rgba(${c},0.95)`; ctx.lineWidth = 5;
     ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
     for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
     ctx.stroke();
-    // a dot at the pen tip
+    // start dot (green) + pen-tip dot
+    ctx.fillStyle = 'rgba(120,240,150,0.95)';
+    ctx.beginPath(); ctx.arc(pts[0].x, pts[0].y, 7, 0, Math.PI * 2); ctx.fill();
     const last = pts[pts.length - 1];
-    ctx.fillStyle = 'rgba(255,207,92,0.95)';
+    ctx.fillStyle = `rgba(${c},1)`;
     ctx.beginPath(); ctx.arc(last.x, last.y, 6, 0, Math.PI * 2); ctx.fill();
+
+    // predicted-spell label at the pen tip
+    if (this._live) {
+      const s = SPELLS[this._live.id];
+      ctx.font = 'bold 26px "Trebuchet MS", sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = `rgba(${c},1)`;
+      const label = this._live.locked ? `🔒 ${s.name}` : (this._live.score >= 0.9 ? `${s.glyph} ${s.name}  ✦CRIT` : `${s.glyph} ${s.name}`);
+      ctx.fillText(label, last.x + 16, last.y - 18);
+    }
   }
 
   // ---------- camera ----------

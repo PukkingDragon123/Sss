@@ -47,6 +47,7 @@
     </div>
 
     <div id="top-buttons">
+      <button class="iconbtn" id="btn-guide" title="How to draw spells (H)">📖</button>
       <button class="iconbtn" id="btn-pause" title="Pause (P)">⏸</button>
       <button class="iconbtn" id="btn-mute" title="Mute (M)">🔊</button>
     </div>
@@ -55,10 +56,10 @@
 
     <div id="spellbook">
       <div class="spell-chip" data-spell="fireball"><span class="glyph">△</span><span class="name">Fireball</span><span class="key">1</span></div>
-      <div class="spell-chip" data-spell="lightning"><span class="glyph">ϟ</span><span class="name">Lightning</span><span class="key">2</span></div>
-      <div class="spell-chip" data-spell="frost"><span class="glyph">◯</span><span class="name">Frost Splash</span><span class="key">3</span></div>
-      <div class="spell-chip" data-spell="heal"><span class="glyph">∨</span><span class="name">Heal</span><span class="key">4</span></div>
-      <div class="spell-chip" data-spell="gust"><span class="glyph">—</span><span class="name">Gust</span><span class="key">5</span></div>
+      <div class="spell-chip" data-spell="gust"><span class="glyph">—</span><span class="name">Gust</span><span class="key">2</span></div>
+      <div class="spell-chip hidden" data-spell="lightning"><span class="glyph">ϟ</span><span class="name">Lightning</span><span class="key">3</span></div>
+      <div class="spell-chip hidden" data-spell="frost"><span class="glyph">◯</span><span class="name">Frost Splash</span><span class="key">4</span></div>
+      <div class="spell-chip hidden" data-spell="heal"><span class="glyph">∨</span><span class="name">Heal</span><span class="key">5</span></div>
     </div>
 
     <div id="toast-area"></div>
@@ -110,6 +111,14 @@
     <h1 class="end-title" id="end-title">The Wizard Passed Out</h1>
     <div class="end-stats" id="end-stats"></div>
     <button class="btn big" id="btn-again">▸ Possess Him Again</button>
+  </div>
+
+  <!-- ===== Spell drawing guide ===== -->
+  <div id="glyph-guide" class="overlay hidden">
+    <h2 class="levelup-title">✍️ How to Draw Spells</h2>
+    <p class="levelup-sub">Hold <b>Right-Mouse</b> (or draw on the <b>right side</b> on phone) and trace the shape from the green dot. A cleaner glyph hits harder — a <b>perfect</b> one <b>crits!</b></p>
+    <div class="guide-cards" id="guide-cards"></div>
+    <button class="btn big" id="btn-guide-close">Got it ▸</button>
   </div>
 
   <div id="loading" class="overlay">

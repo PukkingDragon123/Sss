@@ -64,6 +64,13 @@ You are the **spirit**; the wizard is your wobbly puppet. The night runs in two 
 | **Cast** | hold **Right-Mouse** + draw a glyph | **draw on the right side**, or tap a spell |
 | Quick-cast | keys **1 – 5** | tap a spell chip |
 | Pause / Mute | **P**/**Esc**, **M** | on-screen ⏸ / 🔊 |
+| Spell guide | **H** | 📖 button |
+
+**Progression & accuracy:** you start with just **Fireball (△)** and **Gust (—)**;
+**Lightning (Z)**, **Frost Splash (◯)** and **Heal (V)** are unlocked via level-up
+cards. The cleaner you draw a glyph, the more damage it deals — a **near-perfect
+glyph crits** (2×). The trail recolours live to show the predicted spell and its
+quality; the 📖 guide shows exactly how to draw each one.
 
 While you draw a glyph, **time slows down** — sketch your sign, then let go to
 unleash it toward where you were aiming.

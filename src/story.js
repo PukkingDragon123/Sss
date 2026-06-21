@@ -14,9 +14,10 @@ export const OPENING = {
 export const TAVERN_INTRO = {
   speaker: 'The Spirit',
   lines: [
-    'Welcome to the Tipsy Toad — your tavern, now. Wobble around and use the glowing stations.',
-    'The Spell Table teaches & equips magic, the Cauldron brews combos, the Wardrobe dresses us up, and the Manager pays for mayhem.',
-    'When you\'re ready for trouble, lurch through the door and pick somewhere to haunt. Try not to wreck the furniture on the way.',
+    'This is the Tipsy Toad. Old Barkeep Tomas takes in strays — drunks, spirits, possessed wizards. He gave us a bed and a job.',
+    'But last night, monsters dragged poor Tomas into the dark and didn\'t bring him back. We are going to make them regret that.',
+    'For now, you work here: tend the Spell Table, brew at the Cauldron, dress at the Wardrobe, take bounties from the Manager, and earn tips in the Kitchen.',
+    'When you\'re ready, lurch out the door, pick a haunt, and hunt the beasts that took him. Avenge Tomas — and the Toad is yours.',
   ],
 };
 

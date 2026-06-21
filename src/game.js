@@ -24,7 +24,7 @@ const DEFAULT_STATS = () => ({
   lightningDmg: 14, lightningChains: 3,
   frostDmg: 10, frostRadius: 5, frostSlow: 0.5, frostSlowTime: 2.5,
   healAmount: 35,
-  gustDmg: 5, gustRange: 9, gustForce: 16,
+  gustDmg: 5, gustRange: 9, gustForce: 16, gustSelfPush: 26,
   spikeDmg: 30, novaDmg: 26, novaRadius: 6,
   acidDmg: 40, shieldAmount: 60, quakeDmg: 30, quakeRadius: 6, orbDmg: 60, orbRadius: 4.2,
   pickupRadius: 2.6, hpRegen: 1.0, thorns: 0,
@@ -81,7 +81,7 @@ export class Game {
     this.cineT = 0;
     this._exiting = false;
     this.lastRuckus = 0;
-    meta.load();
+    meta.useSlot(0);
     this.unlocked = new Set(['fireball', 'gust']); // equipped spells in a run
     this.activeCombos = [];
     this._lastCast = null;     // for combo detection
@@ -120,7 +120,7 @@ export class Game {
     this.ui.hideLoading();
     this.ui.setScreen('title');
     this.ui.setMuteIcon(false);
-    this._applyStageTheme(STAGES.forest); // title screen shows the moonlit forest
+    this.enterDemo(); // animated title: wizard auto-fights waves behind the menu
 
     window.addEventListener('resize', () => this._resize());
     this._resize();
@@ -312,7 +312,7 @@ export class Game {
   }
 
   // ---------- effects helpers used by subsystems ----------
-  shake(a) { this.shakeAmt = Math.min(2.5, this.shakeAmt + a); }
+  shake(a) { if (this.shakeEnabled === false) return; this.shakeAmt = Math.min(2.5, this.shakeAmt + a); }
 
   popDamage(worldPos, n) {
     const v = worldPos.clone(); v.y += 1.2;
@@ -384,6 +384,7 @@ export class Game {
     const t = Math.floor(this.elapsed);
     const m = Math.floor(t / 60), s = t % 60;
     const wave = this.director ? this.director.wave : 0;
+    if (win && !meta.tavernOwned()) { meta.setTavernOwned(true); this._justInherited = true; } // avenge -> inherit
     // ---- loot ----
     const base = 20;
     const kill = this.kills * 2;
@@ -458,15 +459,38 @@ export class Game {
     } else {
       this.tavernReady = true;
     }
+    if (this._justInherited) {
+      this._justInherited = false;
+      this.showStory('The Spirit', [
+        'You did it — the brute that ambushed old Barkeep Tomas lies in pieces.',
+        'Tomas had no kin… and a wizard who avenges him is kin enough. The Tipsy Toad is YOURS now.',
+        'Run the place! It earns coin even while we\'re out causing mayhem — manage it at the Ledger.',
+      ]);
+    } else if (meta.tavernOwned() && meta.tavernBank() > 0) {
+      this.ui.toast(`🍺 The Toad earned ${meta.tavernBank()}🪙 — collect at the Ledger`);
+    }
   }
 
   interact() {
     if (this.state !== 'play' || this.phase !== 'tavern' || !this.nearStation) return;
-    const t = this.nearStation.type === 'door' ? 'stage' : this.nearStation.type;
+    let t = this.nearStation.type;
     this.audio.play('click');
+    if (t === 'work') { this.startMinigame(); return; }
+    if (t === 'door') t = 'stage';
     this._shopKind = t;
     this.state = 'menu';
     this.ui.openShop(t, this);
+  }
+
+  startMinigame() {
+    this.state = 'menu';
+    this.ui.showMinigame(25, (score) => {
+      const earned = score * 4;
+      meta.addGold(earned); meta.save();
+      this.ui.setGold(meta.gold());
+      this.ui.toast(`🍺 Earned ${earned}🪙 in tips!`);
+      this.state = 'play';
+    });
   }
   startRun(stageId) {
     this.ui.closeShop();
@@ -798,6 +822,8 @@ export class Game {
     if (this.state === 'play') {
       if (this.phase === 'tavern') this._updateTavern(sdt);
       else this._updateArena(sdt);
+    } else if (this.state === 'title' && !this._openingCine) {
+      this._updateDemo(dt);
     } else {
       // keep particles/wizard idle-breathing alive in menus for life
       this.particles.update(dt);
@@ -838,5 +864,46 @@ export class Game {
     this.wizard.update(sdt, this);
     this.tavern.update(sdt, this);
     this.particles.update(sdt);
+    if (meta.tavernOwned()) meta.accrueIdle(sdt); // tycoon ticks while you potter about
+  }
+
+  // ---- animated title screen: a drunk wizard auto-blasting waves of foes ----
+  enterDemo() {
+    this.phase = 'arena';
+    this.tavernReady = true; this._openingCine = false; this.bossCine = 0;
+    this.stats = DEFAULT_STATS();
+    this.tavern.show(false);
+    this.arenaGroup.visible = true;
+    this._applyStageTheme(STAGES.forest);
+    this.camOffset.set(0, 26, 22);
+    this.enemies.clear(); this.spells.reset(); this._clearPickups();
+    this.wizard.reset(this.stats);
+    this.recognizer = new Recognizer();
+    this.recognizer.add('triangle', TEMPLATES.triangle);
+    this._demoSpawn = 0.5; this._demoCast = 1; this._demoMove = 0;
+    this.activeCombos = [];
+  }
+
+  _updateDemo(dt) {
+    // wander the wizard a little
+    this._demoMove -= dt;
+    if (this._demoMove <= 0) { this._demoMove = 1.5 + Math.random() * 2; this._demoDir = new THREE.Vector3((Math.random() - 0.5), 0, (Math.random() - 0.5)); }
+    if (this._demoDir) { this.wizard.vel.addScaledVector(this._demoDir, 18 * dt); }
+    // spawn foes
+    this._demoSpawn -= dt;
+    if (this._demoSpawn <= 0 && this.enemies.count() < 14) { this._demoSpawn = 1.0; this.enemies.spawn(Math.random() < 0.7 ? 'goblin' : 'bat', 1, this.wizard.pos, this); }
+    // auto-aim + auto-cast
+    const near = this.enemies.nearest(this.wizard.pos, 40);
+    if (near) this.aimPoint.set(near.mesh.position.x, 0, near.mesh.position.z);
+    this._demoCast -= dt;
+    if (this._demoCast <= 0 && near) { this._demoCast = 0.55 + Math.random() * 0.35; this.wizard.mana = this.stats.manaMax; this._castAt('fireball', this.aimPoint, { accuracy: 0.85 }); }
+    // sim
+    this.wizard.update(dt, this);
+    this.enemies.update(dt, this);
+    this.spells.update(dt, this);
+    this._updatePickups(dt);
+    this.particles.update(dt);
+    // the demo wizard is immortal
+    this.wizard.hp = this.stats.hpMax; this.wizard.alive = true; this.wizard.invuln = 1;
   }
 }

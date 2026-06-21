@@ -153,37 +153,53 @@ export class Tavern {
       g.add(grp);
       this.stations.push({ type, label, pos: new THREE.Vector3(x, 0, z), mark });
     };
-    // Spell Table (skill tree)
-    mk('skilltree', 'the Spell Table', 7, -8, (grp) => {
+    // ===== MAIN HALL (front) =====
+    mk('skilltree', 'the Spell Table', 6, -3, (grp) => {
       const top = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.2, 1.2), wood); top.position.y = 1.0; top.castShadow = true;
       const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1, 8), wood); leg.position.y = 0.5; grp.add(top, leg);
       const book = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.16, 0.5), new THREE.MeshStandardMaterial({ color: 0x6f5fc4, roughness: 0.7 })); book.position.set(0, 1.18, 0); book.rotation.y = 0.3; grp.add(book);
       const rune = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.05, 8, 18), new THREE.MeshBasicMaterial({ color: 0x9b7bff, transparent: true, opacity: 0.8 })); rune.rotation.x = Math.PI / 2; rune.position.y = 1.5; grp.add(rune);
     });
-    // Cauldron (combos)
-    mk('cauldron', 'the Cauldron', -6, -11, (grp) => {
+    mk('cauldron', 'the Cauldron', -6, -6, (grp) => {
       const iron = new THREE.MeshStandardMaterial({ color: 0x33323a, roughness: 0.7, metalness: 0.3 });
       const pot = new THREE.Mesh(new THREE.SphereGeometry(0.8, 14, 12, 0, Math.PI * 2, 0, Math.PI * 0.6), iron); pot.rotation.x = Math.PI; pot.position.y = 0.85; pot.castShadow = true; grp.add(pot);
       const brew = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.1, 14), new THREE.MeshBasicMaterial({ color: 0x9bff7a, transparent: true, opacity: 0.8 })); brew.position.y = 1.15; grp.add(brew);
     });
-    // Tavern Manager (quest giver)
     mk('manager', 'the Tavern Manager', -7.5, -1, (grp) => {
       const p = this._buildPatron(0x9a6a3a, true);
       p.scale.setScalar(1.05); grp.add(p);
       const apron = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.6, 0.15), new THREE.MeshStandardMaterial({ color: 0xece0c0, roughness: 0.9 })); apron.position.set(0, 0.95, 0.4); grp.add(apron);
     });
-    // Bed / room
-    mk('room', 'your Room', 8.5, 3, (grp) => {
-      const frame = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.5, 2.4), wood); frame.position.y = 0.3; frame.castShadow = true;
-      const mattress = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.3, 2.2), new THREE.MeshStandardMaterial({ color: 0x8a7bc0, roughness: 0.9 })); mattress.position.y = 0.6; grp.add(frame, mattress);
-      const pillow = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.2, 0.5), new THREE.MeshStandardMaterial({ color: 0xf2efe6, roughness: 0.9 })); pillow.position.set(0, 0.78, -0.85); grp.add(pillow);
-    });
-    // Wardrobe (equipment)
-    mk('wardrobe', 'the Wardrobe', 9, -8, (grp) => {
+    mk('wardrobe', 'the Wardrobe', 8, -6, (grp) => {
       const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.4, 1.6, 8), wood); stand.position.y = 0.8; stand.castShadow = true;
       const torso = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 10), new THREE.MeshStandardMaterial({ color: 0x6f5fc4, roughness: 0.85 })); torso.position.y = 1.5; torso.scale.set(1, 1.2, 0.7); torso.castShadow = true;
       grp.add(stand, torso);
     });
+    mk('ledger', 'the Tavern Ledger', 2.5, 3, (grp) => {
+      const desk = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.0, 0.9), wood); desk.position.y = 0.5; desk.castShadow = true; grp.add(desk);
+      const book = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 0.45), new THREE.MeshStandardMaterial({ color: 0x7a3a2a, roughness: 0.7 })); book.position.set(-0.3, 1.06, 0); grp.add(book);
+      for (let i = 0; i < 3; i++) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.06, 10), gold); c.position.set(0.4, 1.06 + i * 0.07, 0.1); grp.add(c); }
+    });
+
+    // partition wall dividing the back rooms from the hall (doorway gap in the middle)
+    const partMat = new THREE.MeshStandardMaterial({ color: 0x4a3322, roughness: 0.95 });
+    const part = (w, x) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, 2.9, 0.4), partMat); m.position.set(x, 1.45, -9); m.castShadow = true; m.receiveShadow = true; g.add(m); };
+    part(8.2, -6.9); part(8.2, 6.9); // gap: x in [-2.8, 2.8]
+
+    // ===== BEDROOM (back-right) — separate from the tavern proper =====
+    mk('room', 'your Bedroom', 7, -12, (grp) => {
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.5, 2.4), wood); frame.position.y = 0.3; frame.castShadow = true;
+      const mattress = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.3, 2.2), new THREE.MeshStandardMaterial({ color: 0x8a7bc0, roughness: 0.9 })); mattress.position.y = 0.6; grp.add(frame, mattress);
+      const pillow = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.2, 0.5), new THREE.MeshStandardMaterial({ color: 0xf2efe6, roughness: 0.9 })); pillow.position.set(0, 0.78, -0.85); grp.add(pillow);
+      const stand2 = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.7, 0.6), wood); stand2.position.set(1.1, 0.35, -0.8); grp.add(stand2);
+    });
+    // ===== KITCHEN (back-left) — work a shift (mini-game) =====
+    mk('work', 'the Kitchen — work a shift', -7, -12, (grp) => {
+      const stove = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.1, 1.0), new THREE.MeshStandardMaterial({ color: 0x3a3a42, roughness: 0.6, metalness: 0.3 })); stove.position.y = 0.55; stove.castShadow = true; grp.add(stove);
+      const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.34, 0.4, 12), new THREE.MeshStandardMaterial({ color: 0x55555c, roughness: 0.6, metalness: 0.3 })); pot.position.set(0, 1.3, 0); grp.add(pot);
+      const steam = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 })); steam.position.set(0, 1.7, 0); grp.add(steam);
+    });
+
     // Door out (start a run)
     this.stations.push({ type: 'door', label: 'leave on a run', pos: this.door.clone(), mark: null });
   }
@@ -240,6 +256,7 @@ export class Tavern {
     this.exited = false;
     this.ruckus.props = 0; this.ruckus.patrons = 0;
     this.phase = 0;
+    this._prevWz = this.start.z;
     for (const p of this.props) {
       p.knocked = false; p.fall = 0; p.vel.set(0, 0, 0);
       p.mesh.position.copy(p.home);
@@ -342,5 +359,12 @@ export class Tavern {
     // walls (leaving the tavern is done by interacting with the door, not walking out)
     w.pos.x = Math.max(MINX, Math.min(MAXX, w.pos.x));
     w.pos.z = Math.max(NORTH, Math.min(SOUTH, w.pos.z));
+    // interior partition at z = -9, walkable only through the central doorway gap
+    const PZ = -9, GAP = 2.8;
+    if (Math.abs(w.pos.x) > GAP) {
+      const prev = this._prevWz == null ? w.pos.z : this._prevWz;
+      if ((prev >= PZ && w.pos.z < PZ) || (prev <= PZ && w.pos.z > PZ)) { w.pos.z = prev >= PZ ? PZ + 0.7 : PZ - 0.7; w.vel.z *= -0.3; }
+    }
+    this._prevWz = w.pos.z;
   }
 }

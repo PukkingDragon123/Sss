@@ -280,3 +280,39 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
   20%{opacity:1;transform:translate(-50%,-70%) scale(1.1);}
   100%{opacity:0;transform:translate(-50%,-160%) scale(1);}
 }
+
+/* ===== Heart HP + Elixir mana vitals ===== */
+.vitals{display:flex;align-items:flex-end;gap:10px;}
+.vital{position:relative;width:46px;height:42px;flex:0 0 auto;}
+.vital-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;text-shadow:0 1px 2px #000;z-index:2;}
+.vital-fill{position:absolute;left:0;right:0;bottom:0;height:100%;transition:height .12s linear;}
+.vital.heart{clip-path:path('M23,8 C19,1 6,1 4,11 C2,20 12,30 23,38 C34,30 44,20 42,11 C40,1 27,1 23,8 Z');background:#4a0e1a;}
+.vital.heart .vital-fill{background:linear-gradient(#ff7a88,#d2243a);}
+.vital.elixir{clip-path:path('M17,3 L29,3 L29,15 L40,36 C42,41 38,43 23,43 C8,43 4,41 6,36 L17,15 Z');background:#0e2236;}
+.vital.elixir .vital-fill{background:linear-gradient(#8fe0ff,#1c6fb8);}
+.xpwrap{flex:1;min-width:90px;align-self:center;}
+
+#wave-wrap{display:flex;align-items:center;gap:8px;margin-top:6px;font-weight:800;font-size:13px;color:var(--gold);}
+#wave-pips{display:flex;gap:4px;}
+.pip{width:14px;height:8px;border-radius:3px;background:rgba(255,255,255,.18);}
+.pip.on{background:var(--gold);box-shadow:0 0 6px rgba(255,207,92,.7);}
+
+/* ===== Save slots ===== */
+.slots-row{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;}
+.slot-card{width:210px;background:var(--panel);border:2px solid var(--panel-edge);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px;align-items:center;}
+.slot-name{font-weight:800;color:var(--gold);font-size:19px;}
+.slot-info{color:var(--ink-dim);font-size:13px;min-height:1.2em;text-align:center;}
+
+/* ===== Settings / credits ===== */
+.set-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:12px 0;font-size:15px;}
+.set-row input[type=range]{width:55%;}
+.credits-body{line-height:1.7;text-align:center;}
+.credits-body b{color:var(--gold);}
+
+/* ===== Serve-drinks mini-game ===== */
+.mg-board{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:430px;margin:10px auto;}
+.mg-slot{width:120px;height:92px;border-radius:14px;background:rgba(0,0,0,.3);border:2px solid var(--panel-edge);display:flex;align-items:center;justify-content:center;font-size:46px;cursor:pointer;user-select:none;}
+.mg-slot.full{background:rgba(255,180,80,.25);border-color:var(--gold);animation:mgpop .2s ease;}
+@keyframes mgpop{0%{transform:scale(.6);}100%{transform:scale(1);}}
+.mg-score{font-size:20px;font-weight:800;color:var(--gold);}
+#mg-timer{color:var(--hp);font-weight:800;}

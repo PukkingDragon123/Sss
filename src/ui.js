@@ -55,6 +55,12 @@ export class UI {
       story: $('story'), storySpeaker: $('story-speaker'), storyText: $('story-text'), storyNext: $('story-next'),
       levelup: $('levelup'), cards: $('upgrade-cards'),
       title: $('title'), btnStart: $('btn-start'), btnHow: $('btn-how'), howto: $('howto'), btnHowClose: $('btn-how-close'),
+      btnSettings: $('btn-settings'), btnCredits: $('btn-credits'),
+      slots: $('slots'), slotsRow: $('slots-row'), slotsBack: $('slots-back'),
+      settings: $('settings'), settingsClose: $('settings-close'), setVol: $('set-vol'), setMute: $('set-mute'), setShake: $('set-shake'), setErase: $('set-erase'),
+      credits: $('credits'), creditsClose: $('credits-close'),
+      waveWrap: $('wave-wrap'), wavePips: $('wave-pips'),
+      minigame: $('minigame'), mgBoard: $('mg-board'), mgScore: $('mg-score'), mgTimer: $('mg-timer'), mgTitle: $('mg-title'), mgSub: $('mg-sub'),
       end: $('end'), endTitle: $('end-title'), endStats: $('end-stats'), btnAgain: $('btn-again'),
       loading: $('loading'),
       bars: document.querySelector('.bars'), spellbook: $('spellbook'), castHint: $('cast-hint'),
@@ -73,10 +79,25 @@ export class UI {
 
   init(game) {
     this.game = game;
-    this.el.btnStart.addEventListener('click', () => { game.audio.resume(); game.audio.play('click'); game.startGame(); });
+    this.el.btnStart.addEventListener('click', () => { game.audio.resume(); game.audio.play('click'); this.showSlots(); });
     this.el.btnAgain.addEventListener('click', () => { game.audio.play('click'); game.enterTavern(); });
     this.el.btnHow.addEventListener('click', () => { game.audio.play('click'); this.el.howto.classList.toggle('hidden'); });
     this.el.btnHowClose.addEventListener('click', () => { game.audio.play('click'); this.el.howto.classList.add('hidden'); });
+    this.el.btnSettings.addEventListener('click', () => { game.audio.resume(); game.audio.play('click'); this.showSettings(); });
+    this.el.btnCredits.addEventListener('click', () => { game.audio.play('click'); this.el.credits.classList.remove('hidden'); });
+    this.el.creditsClose.addEventListener('click', () => { game.audio.play('click'); this.el.credits.classList.add('hidden'); });
+    this.el.slotsBack.addEventListener('click', () => { game.audio.play('click'); this.el.slots.classList.add('hidden'); });
+    this.el.slotsRow.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-slot]'); if (!b) return;
+      const i = parseInt(b.dataset.slot, 10);
+      if (b.dataset.erase) { meta.eraseSlot(i); game.audio.play('hiccup'); this._renderSlots(); }
+      else { game.audio.play('click'); meta.useSlot(i); this.el.slots.classList.add('hidden'); game.startGame(); }
+    });
+    this.el.settingsClose.addEventListener('click', () => { game.audio.play('click'); this.el.settings.classList.add('hidden'); });
+    this.el.setVol.addEventListener('input', () => { game.audio.resume(); game.audio.setVolume(this.el.setVol.value / 100); });
+    this.el.setMute.addEventListener('change', () => { game.audio.setMuted(this.el.setMute.checked); this.setMuteIcon(game.audio.muted); });
+    this.el.setShake.addEventListener('change', () => { game.shakeEnabled = this.el.setShake.checked; });
+    this.el.setErase.addEventListener('click', () => { meta.eraseSlot(meta.currentSlot()); game.audio.play('hiccup'); this.toast('Save slot erased'); });
     this.el.storyNext.addEventListener('click', () => { game.audio.play('click'); this._storyAdvance(); });
     this.el.btnPause.addEventListener('click', () => { game.audio.play('click'); game.togglePause(); });
     this.el.btnMute.addEventListener('click', () => { game.toggleMute(); });
@@ -153,7 +174,7 @@ export class UI {
     this.el.spellbook.classList.toggle('hidden', tavern);
     this.el.sobriety.classList.toggle('hidden', tavern);
     this.el.timer.classList.toggle('hidden', tavern);
-    this.el.wave.classList.toggle('hidden', tavern);
+    this.el.waveWrap.classList.toggle('hidden', tavern);
     this.el.kills.classList.toggle('hidden', tavern);
     this.el.tavernHud.classList.add('hidden');
     this.el.btnGuide.classList.toggle('hidden', tavern);
@@ -225,11 +246,11 @@ export class UI {
     }
     const s = game.stats, w = game.wizard;
     const hpPct = Math.max(0, w.hp / s.hpMax) * 100;
-    this.el.hpFill.style.width = hpPct + '%';
-    this.el.hpLabel.textContent = `HP ${Math.ceil(Math.max(0, w.hp))}/${Math.round(s.hpMax)}`;
+    this.el.hpFill.style.height = hpPct + '%';
+    this.el.hpLabel.textContent = `${Math.ceil(Math.max(0, w.hp))}${w.shield > 0 ? '+' + Math.ceil(w.shield) : ''}`;
     const manaPct = Math.max(0, w.mana / s.manaMax) * 100;
-    this.el.manaFill.style.width = manaPct + '%';
-    this.el.manaLabel.textContent = `Mana ${Math.floor(w.mana)}/${Math.round(s.manaMax)}`;
+    this.el.manaFill.style.height = manaPct + '%';
+    this.el.manaLabel.textContent = `${Math.floor(w.mana)}`;
     const xpPct = (game.xp / game.xpNeed) * 100;
     this.el.xpFill.style.width = xpPct + '%';
     this.el.xpLabel.textContent = `Lv ${game.level}`;
@@ -237,7 +258,11 @@ export class UI {
     const mm = Math.floor(game.elapsed / 60), ss = Math.floor(game.elapsed % 60);
     this.el.timer.textContent = `${mm}:${ss.toString().padStart(2, '0')}`;
     const d = game.director;
-    this.el.wave.textContent = d && d.active ? (d.state === 'boss' ? '👑 BOSS' : `Wave ${d.wave}/${d.total}`) : '';
+    if (d && d.active) {
+      this.el.waveWrap.classList.remove('hidden');
+      this.el.wave.textContent = d.state === 'boss' ? '👑 BOSS' : `Wave ${d.wave}/${d.total}`;
+      this._renderPips(d);
+    } else this.el.waveWrap.classList.add('hidden');
     this.el.kills.textContent = `☠ ${game.kills}`;
     const wob = s.wobble;
     const label = wob <= 0.6 ? '🍵 Tipsy' : (wob <= 1.15 ? '🍺 Sloshed' : '🥴 Hammered');
@@ -357,6 +382,76 @@ export class UI {
     this.el.toastArea.appendChild(t); setTimeout(() => t.remove(), 1700);
   }
 
+  _renderPips(d) {
+    if (this._pipTotal !== d.total) {
+      this._pipTotal = d.total; this.el.wavePips.innerHTML = '';
+      for (let i = 0; i < d.total; i++) { const p = document.createElement('div'); p.className = 'pip'; this.el.wavePips.appendChild(p); }
+    }
+    const pips = this.el.wavePips.children;
+    const filled = d.state === 'boss' ? d.total : d.wave;
+    for (let i = 0; i < pips.length; i++) pips[i].classList.toggle('on', i < filled);
+  }
+
+  // ---- save slots ----
+  showSlots() { this._renderSlots(); this.el.slots.classList.remove('hidden'); }
+  _renderSlots() {
+    this.el.slotsRow.innerHTML = '';
+    for (let i = 0; i < 3; i++) {
+      const s = meta.slotSummary(i);
+      const card = document.createElement('div');
+      card.className = 'slot-card';
+      card.innerHTML = s.exists
+        ? `<div class="slot-name">Slot ${i + 1}</div><div class="slot-info">🪙 ${s.gold} · ${s.spells} spells${s.tavern ? ' · 🍺 owner' : ''}</div>
+           <button class="shop-btn big" data-slot="${i}">Continue</button>
+           <button class="shop-btn" data-slot="${i}" data-erase="1">Erase</button>`
+        : `<div class="slot-name">Slot ${i + 1}</div><div class="slot-info">— empty —</div><button class="shop-btn big" data-slot="${i}">New Game</button>`;
+      this.el.slotsRow.appendChild(card);
+    }
+  }
+
+  // ---- settings ----
+  showSettings() {
+    this.el.setVol.value = Math.round(this.game.audio.volume * 100);
+    this.el.setMute.checked = this.game.audio.muted;
+    this.el.setShake.checked = this.game.shakeEnabled !== false;
+    this.el.settings.classList.remove('hidden');
+  }
+
+  // ---- mini-game: serve drinks ----
+  showMinigame(durationS, onDone) {
+    this._mgScore = 0; this._mgDone = onDone; this._mgEnd = performance.now() + durationS * 1000;
+    this.el.mgScore.textContent = '0';
+    this.el.mgBoard.innerHTML = '';
+    for (let i = 0; i < 6; i++) {
+      const slot = document.createElement('div'); slot.className = 'mg-slot'; slot.dataset.i = i;
+      slot.addEventListener('click', () => this._mgServe(slot));
+      this.el.mgBoard.appendChild(slot);
+    }
+    this.el.minigame.classList.remove('hidden');
+    clearInterval(this._mgTick); clearInterval(this._mgFill);
+    this._mgTick = setInterval(() => {
+      const left = Math.max(0, (this._mgEnd - performance.now()) / 1000);
+      this.el.mgTimer.textContent = `${left.toFixed(1)}s`;
+      if (left <= 0) this._mgFinish();
+    }, 100);
+    this._mgFill = setInterval(() => {
+      const slots = [...this.el.mgBoard.children].filter(s => !s.classList.contains('full'));
+      if (slots.length) { const s = slots[Math.floor(Math.random() * slots.length)]; s.classList.add('full'); s.textContent = '🍺'; }
+    }, 700);
+  }
+  _mgServe(slot) {
+    if (!slot.classList.contains('full')) return;
+    slot.classList.remove('full'); slot.textContent = '';
+    this._mgScore++; this.el.mgScore.textContent = this._mgScore;
+    this.game.audio.play('xp');
+  }
+  _mgFinish() {
+    clearInterval(this._mgTick); clearInterval(this._mgFill);
+    this.el.minigame.classList.add('hidden');
+    const cb = this._mgDone; this._mgDone = null;
+    if (cb) cb(this._mgScore);
+  }
+
   bannerWave(w, total, isBoss) {
     const el = this.el.banner;
     el.classList.remove('boss');
@@ -393,6 +488,8 @@ export class UI {
     else if (act === 'rest') ok = meta.rest();
     else if (act === 'buygear') ok = meta.buyEquip(slot, id);
     else if (act === 'gear') ok = meta.equipItem(slot, id);
+    else if (act === 'collect') { const r = meta.collectTavern(); ok = r > 0; if (ok) g.ui.toast(`Collected ${r}🪙`); }
+    else if (act === 'tavup') ok = meta.buyTavernUpgrade(id);
     else if (act === 'claim') { const r = meta.claimQuest(); ok = r > 0; if (ok) g.ui.toast(`Quest reward: +${r}🪙`); }
     if (g) g.audio.play(ok ? 'click' : 'hiccup');
     this.setGold(meta.gold());
@@ -401,7 +498,7 @@ export class UI {
 
   _renderShop() {
     const kind = this._shopKind;
-    const titles = { skilltree: '✦ Spell Table', cauldron: '🜲 Cauldron', room: '🛏 Your Room', manager: '🍺 Tavern Manager', wardrobe: '🎽 Wardrobe', stage: '🗺 Choose a Stage' };
+    const titles = { skilltree: '✦ Spell Table', cauldron: '🜲 Cauldron', room: '🛏 Your Room', manager: '🍺 Tavern Manager', wardrobe: '🎽 Wardrobe', stage: '🗺 Choose a Stage', ledger: '📒 Tavern Ledger' };
     this.el.shopTitle.textContent = titles[kind] || 'Tavern';
     let html = '';
     if (kind === 'skilltree') html = this._renderSkillTree();
@@ -410,7 +507,25 @@ export class UI {
     else if (kind === 'manager') html = this._renderManager();
     else if (kind === 'wardrobe') html = this._renderWardrobe();
     else if (kind === 'stage') html = this._renderStages();
+    else if (kind === 'ledger') html = this._renderLedger();
     this.el.shopBody.innerHTML = html;
+  }
+
+  _renderLedger() {
+    if (!meta.tavernOwned()) return '<p class="shop-sub">Old Tomas\'s ledger. You just <b>work</b> here for now — avenge him (clear a stage) and the Tipsy Toad becomes yours to run.</p>';
+    const bank = meta.tavernBank(), cap = meta.tavernCap(), rate = meta.tavernRate();
+    let h = `<p class="shop-sub">Your tavern earns <b>${rate}🪙/min</b> even while you\'re away (banked up to <b>${cap}🪙</b>).</p>
+      <div class="loot-box" style="max-width:340px;margin:0 auto 14px">
+        <div class="loot-row"><span>Banked coin</span><b>${bank} / ${cap}🪙</b></div>
+        <div class="shop-acts"><button class="shop-btn big" data-act="collect" ${bank > 0 ? '' : 'disabled'}>Collect ${bank}🪙</button></div>
+      </div>
+      <div class="shop-grid">`;
+    for (const u of meta.TAVERN_UPGRADES) {
+      const lvl = meta.tavernUpgradeLevel(u.id), cost = meta.tavernUpgradeCost(u.id);
+      h += `<div class="shop-card"><div class="shop-name">${u.name} <span class="lvtag">Lv${lvl}</span></div><div class="shop-desc">${u.desc}</div><div class="shop-acts"><button class="shop-btn" data-act="tavup" data-id="${u.id}" ${meta.canAfford(cost) ? '' : 'disabled'}>Buy ${cost}🪙</button></div></div>`;
+    }
+    h += '</div>';
+    return h;
   }
 
   _renderStages() {

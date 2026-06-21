@@ -24,13 +24,15 @@
   <div id="hud" class="hidden">
     <div class="hud-top">
       <div class="bars">
-        <div class="bar hp"><div class="bar-fill" id="hp-fill"></div><span class="bar-label" id="hp-label">HP</span></div>
-        <div class="bar mana"><div class="bar-fill" id="mana-fill"></div><span class="bar-label" id="mana-label">Mana</span></div>
-        <div class="bar xp"><div class="bar-fill" id="xp-fill"></div><span class="bar-label" id="xp-label">Lv 1</span></div>
+        <div class="vitals">
+          <div class="vital heart" id="hp-vital"><div class="vital-fill" id="hp-fill"></div><span class="vital-num" id="hp-label">100</span></div>
+          <div class="vital elixir" id="mana-vital"><div class="vital-fill" id="mana-fill"></div><span class="vital-num" id="mana-label">100</span></div>
+          <div class="xpwrap"><div class="bar xp"><div class="bar-fill" id="xp-fill"></div><span class="bar-label" id="xp-label">Lv 1</span></div></div>
+        </div>
+        <div id="wave-wrap" class="hidden"><span id="wave">Wave 1/6</span><div id="wave-pips"></div></div>
       </div>
       <div class="stats">
         <div class="stat" id="gold">🪙 0</div>
-        <div class="stat" id="wave">Wave 1/6</div>
         <div class="stat" id="timer">0:00</div>
         <div class="stat" id="kills">☠ 0</div>
         <div class="stat" id="sobriety" title="How steady the wizard is. Lower = wonkier.">🍺 Sloshed</div>
@@ -92,8 +94,10 @@
     <h1 class="game-title">WONKY<span>WIZARD</span></h1>
     <p class="tagline">A sloshed sorcerer. A meddling spirit. One very long night.</p>
     <div class="menu">
-      <button class="btn big" id="btn-start">▸ Possess the Wizard</button>
+      <button class="btn big" id="btn-start">▸ Play</button>
       <button class="btn" id="btn-how">How to Play</button>
+      <button class="btn" id="btn-settings">Settings</button>
+      <button class="btn" id="btn-credits">Credits</button>
     </div>
     <div id="howto" class="howto hidden">
       <h3>How to Play</h3>
@@ -116,6 +120,48 @@
     <h1 class="end-title" id="end-title">The Wizard Passed Out</h1>
     <div class="end-stats" id="end-stats"></div>
     <button class="btn big" id="btn-again">▸ Possess Him Again</button>
+  </div>
+
+  <!-- ===== Save slots ===== -->
+  <div id="slots" class="overlay hidden">
+    <h2 class="levelup-title">Choose a Save Slot</h2>
+    <div class="slots-row" id="slots-row"></div>
+    <button class="btn" id="slots-back">◂ Back</button>
+  </div>
+
+  <!-- ===== Settings ===== -->
+  <div id="settings" class="overlay hidden">
+    <div class="shop-box" style="max-width:460px">
+      <div class="shop-head"><h2>⚙ Settings</h2></div>
+      <div class="set-row"><label for="set-vol">Volume</label><input type="range" id="set-vol" min="0" max="100" value="50"></div>
+      <div class="set-row"><label for="set-mute">Mute</label><input type="checkbox" id="set-mute"></div>
+      <div class="set-row"><label for="set-shake">Screen shake</label><input type="checkbox" id="set-shake" checked></div>
+      <div class="set-row"><button class="shop-btn" id="set-erase">Erase this save slot</button></div>
+      <button class="btn" id="settings-close">Close ▸</button>
+    </div>
+  </div>
+
+  <!-- ===== Credits ===== -->
+  <div id="credits" class="overlay hidden">
+    <div class="shop-box" style="max-width:520px;text-align:center">
+      <div class="shop-head" style="justify-content:center"><h2>Credits</h2></div>
+      <div class="credits-body">
+        <p><b>WONKY WIZARD</b></p>
+        <p>Design, code & wonk — <b>you</b>, with Claude.</p>
+        <p>Engine: <b>three.js</b> · Sound: synthesized WebAudio · Art: humble primitives.</p>
+        <p>Gesture magic via the <b>$1 Unistroke Recognizer</b> (Wobbrock et al.).</p>
+        <p style="color:var(--ink-dim)">Thanks for playing. Mind the furniture. 🍺</p>
+      </div>
+      <button class="btn" id="credits-close">Close ▸</button>
+    </div>
+  </div>
+
+  <!-- ===== Tavern mini-game (serve drinks) ===== -->
+  <div id="minigame" class="overlay hidden">
+    <h2 class="levelup-title" id="mg-title">Serve the Patrons!</h2>
+    <p class="levelup-sub" id="mg-sub">Tap the full mugs before they overflow. <span id="mg-timer"></span></p>
+    <div class="mg-board" id="mg-board"></div>
+    <div class="mg-score">Served: <b id="mg-score">0</b></div>
   </div>
 
   <!-- ===== Spell drawing guide ===== -->

@@ -1,8 +1,5 @@
-// meta.js — persistent meta-progression (saved to localStorage): gold, owned &
-// leveled spells, learned combos, the 3-spell loadout, the room, and quests.
-// This is the "between runs" economy that the tavern hub edits.
-
-const KEY = 'wonkywizard.save.v1';
+// meta.js — persistent meta-progression (3 save slots in localStorage): gold,
+// spells/combos/loadout, room, equipment, quests, and the idle tavern tycoon.
 
 export const SPELL_META = {
   fireball:  { name: 'Fireball',     glyph: '△', starter: true },
@@ -79,6 +76,17 @@ export const QUESTS = [
   { id: 'q_clear',  text: 'Clear a whole stage',          type: 'win',   goal: 1,   reward: 350 },
 ];
 
+// ---- idle / tycoon: the Tipsy Toad earns coin while patrons drink ----
+export const TAVERN_BASE_RATE = 3;   // gold / minute, before upgrades
+export const TAVERN_BASE_CAP = 120;  // max gold banked while away
+export const TAVERN_UPGRADES = [
+  { id: 'bar',    name: 'Polished Bar',   baseCost: 110, rate: 2, desc: '+2 gold/min' },
+  { id: 'tables', name: 'More Tables',    baseCost: 150, rate: 3, desc: '+3 gold/min' },
+  { id: 'bard',   name: 'Hire a Bard',    baseCost: 220, rate: 5, desc: '+5 gold/min' },
+  { id: 'cellar', name: 'Bigger Cellar',  baseCost: 180, cap: 150, desc: '+150 coin storage' },
+  { id: 'rep',    name: 'Good Reputation', baseCost: 300, rate: 8, desc: '+8 gold/min' },
+];
+
 function defaultSave() {
   return {
     gold: 0,
@@ -89,16 +97,33 @@ function defaultSave() {
     room: { owned: false, decor: {} },
     equipOwned: { hat_none: true, robe_none: true, staff_none: true, charm_none: true },
     equipped: { hat: 'hat_none', robe: 'robe_none', staff: 'staff_none', charm: 'charm_none' },
+    tavern: { owned: false, bank: 0, lastSeen: Date.now(), upgrades: {} },
     questIdx: 0, questDone: false,
     rested: false,
   };
 }
 
 let state = defaultSave();
+let activeSlot = 0;
+const slotKey = (i) => `wonkywizard.save.v2.slot${i}`;
+
+export function useSlot(i) { activeSlot = i; load(); return state; }
+export function currentSlot() { return activeSlot; }
+
+export function slotSummary(i) {
+  try {
+    const raw = localStorage.getItem(slotKey(i));
+    if (!raw) return { exists: false };
+    const s = JSON.parse(raw);
+    const ownedSpells = Object.keys(s.owned || {}).length;
+    return { exists: true, gold: s.gold || 0, spells: ownedSpells, tavern: !!(s.tavern && s.tavern.owned) };
+  } catch (e) { return { exists: false }; }
+}
+export function eraseSlot(i) { try { localStorage.removeItem(slotKey(i)); } catch (e) {} if (i === activeSlot) state = defaultSave(); }
 
 export function load() {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(slotKey(activeSlot));
     if (raw) {
       const s = JSON.parse(raw);
       state = Object.assign(defaultSave(), s);
@@ -111,11 +136,18 @@ export function load() {
       if (state.loadout.length === 0) state.loadout = ['fireball', 'gust'];
       state.equipOwned = Object.assign({ hat_none: true, robe_none: true, staff_none: true, charm_none: true }, state.equipOwned || {});
       state.equipped = Object.assign({ hat: 'hat_none', robe: 'robe_none', staff: 'staff_none', charm: 'charm_none' }, state.equipped || {});
+      state.tavern = Object.assign({ owned: false, bank: 0, lastSeen: Date.now(), upgrades: {} }, state.tavern || {});
+      // offline earnings since last seen (capped)
+      const dt = Math.max(0, (Date.now() - (state.tavern.lastSeen || Date.now())) / 1000);
+      if (state.tavern.owned) state.tavern.bank = Math.min(tavernCap(), state.tavern.bank + tavernRate() / 60 * dt);
+      state.tavern.lastSeen = Date.now();
+    } else {
+      state = defaultSave();
     }
   } catch (e) { state = defaultSave(); }
   return state;
 }
-export function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+export function save() { try { state.tavern.lastSeen = Date.now(); localStorage.setItem(slotKey(activeSlot), JSON.stringify(state)); } catch (e) {} }
 export function get() { return state; }
 
 export const gold = () => state.gold;
@@ -170,6 +202,24 @@ export function buyDecor(id) {
 export function rest() { if (!state.room.owned || state.rested) return false; state.rested = true; save(); return true; }
 export const isRested = () => state.rested;
 export function consumeRest() { const r = state.rested; if (r) { state.rested = false; save(); } return r; }
+
+// ---- idle tavern tycoon ----
+export const tavernOwned = () => state.tavern.owned;
+export function setTavernOwned(v) { state.tavern.owned = v; if (v) state.tavern.lastSeen = Date.now(); save(); }
+export const tavernUpgradeLevel = (id) => state.tavern.upgrades[id] || 0;
+export function tavernUpgradeCost(id) { const u = TAVERN_UPGRADES.find(x => x.id === id); if (!u) return 0; return Math.round(u.baseCost * Math.pow(1.6, tavernUpgradeLevel(id))); }
+export function tavernRate() { let r = TAVERN_BASE_RATE; for (const u of TAVERN_UPGRADES) if (u.rate) r += u.rate * tavernUpgradeLevel(u.id); return r; }
+export function tavernCap() { let c = TAVERN_BASE_CAP; for (const u of TAVERN_UPGRADES) if (u.cap) c += u.cap * tavernUpgradeLevel(u.id); return c; }
+export const tavernBank = () => Math.floor(state.tavern.bank);
+export function accrueIdle(dtSec) { if (!state.tavern.owned) return; state.tavern.bank = Math.min(tavernCap(), state.tavern.bank + tavernRate() / 60 * dtSec); }
+export function collectTavern() { const g = Math.floor(state.tavern.bank); if (g <= 0) return 0; state.gold += g; state.tavern.bank -= g; save(); return g; }
+export function buyTavernUpgrade(id) {
+  const u = TAVERN_UPGRADES.find(x => x.id === id);
+  if (!u || !state.tavern.owned) return false;
+  const c = tavernUpgradeCost(id);
+  if (!canAfford(c)) return false;
+  state.gold -= c; state.tavern.upgrades[id] = tavernUpgradeLevel(id) + 1; save(); return true;
+}
 
 // ---- equipment ----
 function findItem(slot, id) { return (EQUIPMENT[slot] || []).find(x => x.id === id); }

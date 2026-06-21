@@ -398,6 +398,12 @@ export class SpellSystem {
     const range = game.stats.gustRange;
     const force = game.stats.gustForce;
     const origin = game.wizard.pos.clone();
+    // gust also blasts YOU forward (mobility) — whoosh out the back
+    game.wizard.vel.addScaledVector(dir, game.stats.gustSelfPush);
+    game.wizard.leanV.x += dir.x * 3; game.wizard.leanV.z += dir.z * 3;
+    for (let i = 0; i < 10; i++) {
+      game.particles.spawn({ pos: origin.clone().setY(0.8 + Math.random()).addScaledVector(dir, -0.6), color: 0xeafff0, vel: dir.clone().multiplyScalar(-(8 + Math.random() * 6)).setY(Math.random()), size: 0.28, life: 0.4 });
+    }
     for (let i = 0; i < 16; i++) {
       const spread = (Math.random() - 0.5) * 0.7;
       const d = dir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), spread);

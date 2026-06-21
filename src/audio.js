@@ -6,6 +6,7 @@ export class AudioEngine {
     this.master = null;
     this.enabled = true;
     this.muted = false;
+    this.volume = 0.5;
   }
 
   // Must be called from a user gesture (click/keydown) to satisfy autoplay rules.
@@ -15,13 +16,15 @@ export class AudioEngine {
       if (!AC) { this.enabled = false; return; }
       this.ctx = new AC();
       this.master = this.ctx.createGain();
-      this.master.gain.value = 0.5;
+      this.master.gain.value = this.volume;
       this.master.connect(this.ctx.destination);
     }
     if (this.ctx.state === 'suspended') this.ctx.resume();
   }
 
-  setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.5; }
+  _applyGain() { if (this.master) this.master.gain.value = this.muted ? 0 : this.volume; }
+  setMuted(m) { this.muted = m; this._applyGain(); }
+  setVolume(v) { this.volume = Math.max(0, Math.min(1, v)); this._applyGain(); }
 
   _now() { return this.ctx.currentTime; }
 

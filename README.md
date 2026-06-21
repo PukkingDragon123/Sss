@@ -6,9 +6,10 @@
 > Draw arcane hand-signs to sling spells and survive the night.
 
 **Plays on desktop and mobile** (virtual joystick + draw-to-cast). Includes an
-animated menu, **3 save slots**, settings & credits, an **idle/tycoon** layer for
-running your tavern, a multi-room hub with a separate bedroom & kitchen, and a
-serve-drinks mini-game.
+animated menu (live fight on the right), **3 save slots**, settings & credits, an
+**idle/tycoon** layer for running your tavern, a multi-room hub (separate bedroom
+& kitchen), **looted RPG gear** with rarity/levels + a Blacksmith, and tavern
+mini-games (serve drinks / wash dishes / cook).
 
 A self-contained 3D browser game: **floppy ragdoll-physics** characters (heavily
 inspired by **Human: Fall Flat** — dangling verlet-physics limbs, soft pastel

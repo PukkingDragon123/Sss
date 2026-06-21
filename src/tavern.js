@@ -58,7 +58,7 @@ export class Tavern {
     const bar = new THREE.Mesh(new THREE.BoxGeometry(2, 1.2, 12), barMat);
     bar.position.set(-9.2, 0.6, -4); bar.castShadow = true; bar.receiveShadow = true; g.add(bar);
 
-    // ---- knockable furniture ----
+    // ---- a little furniture in the MAIN HALL only (kept clear of stations) ----
     const woodMat = new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.9 });
     const mugMat = new THREE.MeshStandardMaterial({ color: 0x9a6a3a, roughness: 0.7 });
     const addProp = (mesh, x, z, r, mass = 1) => {
@@ -67,28 +67,23 @@ export class Tavern {
       g.add(mesh);
       this.props.push({ mesh, home: new THREE.Vector3(x, mesh.position.y, z), homeY: mesh.position.y, r, knocked: false, vel: new THREE.Vector3(), fall: 0, axis: new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize(), mass });
     };
-    // round tables with a mug on top
-    const tablePos = [[-3, 2], [4, 0], [-2, -6], [5, -8], [-5, -10]];
-    for (const [x, z] of tablePos) {
-      const top = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 0.18, 16), woodMat); top.position.y = 1.0;
+    // a couple of tables near the entrance with mugs
+    for (const [x, z] of [[-4.5, 5], [4.5, 5]]) {
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.18, 16), woodMat); top.position.y = 1.0;
       const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.0, 8), woodMat); leg.position.y = 0.5; top.add(leg);
-      addProp(top, x, z, 1.2, 2.2);
+      addProp(top, x, z, 1.1, 2.2);
       const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.16, 0.34, 10), mugMat); mug.position.y = 1.3;
       addProp(mug, x + 0.4, z, 0.3, 0.3);
     }
-    // barrels & stools
-    for (const [x, z] of [[8, 4], [-7, 1], [7, -3], [-8, -8], [9, -11]]) {
+    // barrels stacked by the bar (decor)
+    for (const [x, z] of [[-10.6, -9], [-10.6, 1]]) {
       const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.6, 1.4, 12), woodMat); barrel.position.y = 0.7;
       addProp(barrel, x, z, 0.7, 1.6);
     }
-    for (const [x, z] of [[-2.4, 3], [3, 1.5], [-1, -5], [6, -7]]) {
-      const stool = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.4, 0.6, 10), woodMat); stool.position.y = 0.3;
-      addProp(stool, x, z, 0.45, 0.6);
-    }
 
-    // ---- patrons: same clay-wizard look as the hero, wandering the room ----
-    const robeColors = [0x7a8bd0, 0xcf6f6f, 0x6fb08a, 0xc9a24a, 0x9a6fb0, 0xc98a5a];
-    const patronPos = [[-6, 3], [2.5, -2], [-4, -4], [6.5, -5], [0.5, -9], [4, -11]];
+    // ---- patrons: clay-wizard look, milling about the MAIN HALL only ----
+    const robeColors = [0x7a8bd0, 0xcf6f6f, 0x6fb08a, 0xc9a24a];
+    const patronPos = [[-3, 4], [5, 3], [-5, 1], [2.5, -3]];
     patronPos.forEach((p, i) => {
       const person = this._buildPatron(robeColors[i % robeColors.length], i % 2 === 0);
       person.position.set(p[0], 0, p[1]);
@@ -179,6 +174,13 @@ export class Tavern {
       const desk = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.0, 0.9), wood); desk.position.y = 0.5; desk.castShadow = true; grp.add(desk);
       const book = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 0.45), new THREE.MeshStandardMaterial({ color: 0x7a3a2a, roughness: 0.7 })); book.position.set(-0.3, 1.06, 0); grp.add(book);
       for (let i = 0; i < 3; i++) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.06, 10), gold); c.position.set(0.4, 1.06 + i * 0.07, 0.1); grp.add(c); }
+    });
+    mk('blacksmith', 'the Blacksmith', -1, -6.5, (grp) => {
+      const iron = new THREE.MeshStandardMaterial({ color: 0x3a3a42, roughness: 0.6, metalness: 0.4 });
+      const stump = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.55, 0.8, 10), wood); stump.position.y = 0.4; stump.castShadow = true;
+      const anvilBase = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.9), iron); anvilBase.position.y = 0.95;
+      const anvilTop = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.18, 0.5), iron); anvilTop.position.y = 1.15; anvilTop.castShadow = true;
+      grp.add(stump, anvilBase, anvilTop);
     });
 
     // partition wall dividing the back rooms from the hall (doorway gap in the middle)
@@ -285,7 +287,7 @@ export class Tavern {
       const reached = n.pos.distanceTo(n.target) < 0.4;
       if (n.repathCd <= 0 || reached) {
         n.repathCd = 2.5 + Math.random() * 3.5;
-        n.target.set(-6 + Math.random() * 16, 0, -13 + Math.random() * 18); // open floor area
+        n.target.set(-4 + Math.random() * 11, 0, -6 + Math.random() * 11); // main hall only
       }
       // stroll toward it (but freeze briefly when annoyed)
       if (n.annoyedCd <= 0.6) {

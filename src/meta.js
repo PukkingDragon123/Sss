@@ -44,36 +44,58 @@ export const DECOR = [
 ];
 export const REST_BONUS = 30; // +max HP on your next run after resting
 
-// ---- equipment ----
-export const EQUIP_SLOTS = ['hat', 'robe', 'staff', 'charm'];
-export const EQUIPMENT = {
-  hat: [
-    { id: 'hat_none', name: 'Bare Head', cost: 0, mods: {} },
-    { id: 'hat_sturdy', name: 'Sturdy Hat', cost: 120, mods: { hpMax: 35 } },
-    { id: 'hat_mind', name: 'Mindcap', cost: 150, mods: { manaRegen: 7 } },
-  ],
-  robe: [
-    { id: 'robe_none', name: 'Tattered Robe', cost: 0, mods: {} },
-    { id: 'robe_arcane', name: 'Arcane Robe', cost: 170, mods: { damageMult: 0.15 } },
-    { id: 'robe_swift', name: 'Swift Robe', cost: 150, mods: { moveSpeed: 1.0 } },
-  ],
-  staff: [
-    { id: 'staff_none', name: 'Old Stick', cost: 0, mods: {} },
-    { id: 'staff_ember', name: 'Ember Staff', cost: 190, mods: { damageMult: 0.22 } },
-    { id: 'staff_quick', name: 'Quick Staff', cost: 190, mods: { cooldownMult: -0.12 } },
-  ],
-  charm: [
-    { id: 'charm_none', name: 'Lucky Coin', cost: 0, mods: {} },
-    { id: 'charm_magnet', name: 'Magnet Charm', cost: 120, mods: { pickupRadius: 1.6 } },
-    { id: 'charm_thorn', name: 'Thorn Charm', cost: 160, mods: { thorns: 12, hpMax: 15 } },
-  ],
+// ---- RPG equipment: looted instances with rarity + level ----
+export const GEAR_SLOTS = ['hat', 'robe', 'staff', 'charm'];
+export const RARITIES = {
+  common:    { name: 'Common',    mult: 1.0, color: '#cfcad6', extra: 0, weight: 54 },
+  rare:      { name: 'Rare',      mult: 1.7, color: '#6fb0ff', extra: 1, weight: 28 },
+  epic:      { name: 'Epic',      mult: 2.6, color: '#b97bff', extra: 1, weight: 13 },
+  legendary: { name: 'Legendary', mult: 3.8, color: '#ffcf5c', extra: 2, weight: 5 },
 };
+const SLOT_DEF = {
+  hat:   { noun: 'Hat',   primary: 'hpMax',      base: 16 },
+  robe:  { noun: 'Robe',  primary: 'damageMult', base: 0.08 },
+  staff: { noun: 'Staff', primary: 'damageMult', base: 0.12 },
+  charm: { noun: 'Charm', primary: 'manaRegen',  base: 3 },
+};
+const SECONDARY_BASE = { hpMax: 14, damageMult: 0.06, moveSpeed: 0.6, manaRegen: 2.5, pickupRadius: 0.6, thorns: 6, cooldownMult: -0.05 };
+const PREFIX = { common: ['Worn', 'Plain', 'Sturdy'], rare: ['Fine', 'Keen', 'Warded'], epic: ['Arcane', 'Runed', 'Gilded'], legendary: ['Mythic', 'Dragonbone', 'Ancient'] };
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+function roundStat(stat, v) { return (stat === 'damageMult' || stat === 'cooldownMult' || stat === 'moveSpeed' || stat === 'pickupRadius') ? Math.round(v * 100) / 100 : Math.round(v); }
+export function statLabel(stat, v) {
+  const sign = v > 0 ? '+' : '';
+  if (stat === 'damageMult') return `${sign}${Math.round(v * 100)}% dmg`;
+  if (stat === 'cooldownMult') return `${Math.round(v * 100)}% cooldown`;
+  if (stat === 'moveSpeed') return `${sign}${v} move`;
+  if (stat === 'pickupRadius') return `${sign}${v} pickup`;
+  if (stat === 'manaRegen') return `${sign}${v} mana/s`;
+  if (stat === 'hpMax') return `${sign}${v} HP`;
+  if (stat === 'thorns') return `${sign}${v} thorns`;
+  return `${sign}${v} ${stat}`;
+}
+export function rollRarity(boss) {
+  const entries = Object.entries(RARITIES);
+  let total = 0; for (const [, r] of entries) total += boss ? r.weight + r.mult * 6 : r.weight;
+  let x = Math.random() * total;
+  for (const [id, r] of entries) { x -= (boss ? r.weight + r.mult * 6 : r.weight); if (x <= 0) return id; }
+  return 'common';
+}
+export function genGear(slot, rarity, level) {
+  slot = slot || pick(GEAR_SLOTS); rarity = rarity || 'common'; level = Math.max(1, level || 1);
+  const def = SLOT_DEF[slot], rd = RARITIES[rarity], lm = 1 + (level - 1) * 0.12;
+  const mods = {}; mods[def.primary] = roundStat(def.primary, def.base * rd.mult * lm);
+  const pool = Object.keys(SECONDARY_BASE).filter(s => s !== def.primary);
+  for (let i = 0; i < rd.extra; i++) { const s = pool.splice(Math.floor(Math.random() * pool.length), 1)[0]; if (!s) break; mods[s] = roundStat(s, SECONDARY_BASE[s] * rd.mult * lm); }
+  return { id: 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), slot, rarity, level, mods, name: `${pick(PREFIX[rarity])} ${def.noun}` };
+}
 
 export const QUESTS = [
   { id: 'q_kill',   text: 'Vanquish 70 foes in one run', type: 'kills', goal: 70,  reward: 120 },
   { id: 'q_wave',   text: 'Reach wave 6 in any stage',    type: 'wave',  goal: 6,   reward: 150 },
   { id: 'q_boss',   text: 'Defeat any stage boss',        type: 'boss',  goal: 1,   reward: 300 },
   { id: 'q_clear',  text: 'Clear a whole stage',          type: 'win',   goal: 1,   reward: 350 },
+  { id: 'q_kill2',  text: 'Vanquish 120 foes in one run', type: 'kills', goal: 120, reward: 220 },
+  { id: 'q_wave2',  text: 'Survive to the boss wave',      type: 'wave',  goal: 6,   reward: 200 },
 ];
 
 // ---- idle / tycoon: the Tipsy Toad earns coin while patrons drink ----
@@ -95,8 +117,7 @@ function defaultSave() {
     combos: {},
     loadout: ['fireball', 'gust'],
     room: { owned: false, decor: {} },
-    equipOwned: { hat_none: true, robe_none: true, staff_none: true, charm_none: true },
-    equipped: { hat: 'hat_none', robe: 'robe_none', staff: 'staff_none', charm: 'charm_none' },
+    gear: [], equippedGear: { hat: null, robe: null, staff: null, charm: null },
     tavern: { owned: false, bank: 0, lastSeen: Date.now(), upgrades: {} },
     questIdx: 0, questDone: false,
     rested: false,
@@ -134,8 +155,8 @@ export function load() {
       state.room.decor = state.room.decor || {};
       state.loadout = Array.isArray(state.loadout) ? state.loadout.filter(x => state.owned[x]).slice(0, 3) : ['fireball', 'gust'];
       if (state.loadout.length === 0) state.loadout = ['fireball', 'gust'];
-      state.equipOwned = Object.assign({ hat_none: true, robe_none: true, staff_none: true, charm_none: true }, state.equipOwned || {});
-      state.equipped = Object.assign({ hat: 'hat_none', robe: 'robe_none', staff: 'staff_none', charm: 'charm_none' }, state.equipped || {});
+      state.gear = Array.isArray(state.gear) ? state.gear : [];
+      state.equippedGear = Object.assign({ hat: null, robe: null, staff: null, charm: null }, state.equippedGear || {});
       state.tavern = Object.assign({ owned: false, bank: 0, lastSeen: Date.now(), upgrades: {} }, state.tavern || {});
       // offline earnings since last seen (capped)
       const dt = Math.max(0, (Date.now() - (state.tavern.lastSeen || Date.now())) / 1000);
@@ -221,26 +242,40 @@ export function buyTavernUpgrade(id) {
   state.gold -= c; state.tavern.upgrades[id] = tavernUpgradeLevel(id) + 1; save(); return true;
 }
 
-// ---- equipment ----
-function findItem(slot, id) { return (EQUIPMENT[slot] || []).find(x => x.id === id); }
-export const ownsEquip = (id) => !!state.equipOwned[id];
-export const equippedId = (slot) => state.equipped[slot];
-export function buyEquip(slot, id) {
-  const it = findItem(slot, id);
-  if (!it || ownsEquip(id) || !canAfford(it.cost)) return false;
-  state.gold -= it.cost; state.equipOwned[id] = true; save(); return true;
+// ---- gear inventory (looted equipment) ----
+export const gearList = () => state.gear;
+export const gearById = (id) => state.gear.find(g => g.id === id);
+export const equippedGearId = (slot) => state.equippedGear[slot];
+export function addGear(inst) { state.gear.push(inst); save(); return inst; }
+// generate + grant a random drop (used when an enemy dies)
+export function dropGear(level, boss) { const inst = genGear(null, rollRarity(boss), level); return inst; }
+export function equipGear(id) {
+  const inst = gearById(id); if (!inst) return false;
+  state.equippedGear[inst.slot] = (state.equippedGear[inst.slot] === id) ? null : id; save(); return true;
 }
-export function equipItem(slot, id) {
-  if (!ownsEquip(id) || !findItem(slot, id)) return false;
-  state.equipped[slot] = id; save(); return true;
+export function gearValue(inst) { const r = RARITIES[inst.rarity]; return Math.round(20 * r.mult * inst.level); }
+export function salvageGear(id) {
+  const inst = gearById(id); if (!inst) return 0;
+  for (const s in state.equippedGear) if (state.equippedGear[s] === id) state.equippedGear[s] = null;
+  state.gear = state.gear.filter(g => g.id !== id);
+  const v = gearValue(inst); state.gold += v; save(); return v;
+}
+export function upgradeGearCost(inst) { return Math.round(40 * RARITIES[inst.rarity].mult * inst.level); }
+export function upgradeGear(id) {
+  const inst = gearById(id); if (!inst || inst.level >= 10) return false;
+  const cost = upgradeGearCost(inst); if (!canAfford(cost)) return false;
+  state.gold -= cost;
+  const factor = (1 + inst.level * 0.12) / (1 + (inst.level - 1) * 0.12);
+  for (const k in inst.mods) inst.mods[k] = roundStat(k, inst.mods[k] * factor);
+  inst.level++; save(); return true;
 }
 // total stat mods from all equipped gear
 export function equipMods() {
   const out = {};
-  for (const slot of EQUIP_SLOTS) {
-    const it = findItem(slot, state.equipped[slot]);
-    if (!it) continue;
-    for (const k in it.mods) out[k] = (out[k] || 0) + it.mods[k];
+  for (const slot of GEAR_SLOTS) {
+    const inst = gearById(state.equippedGear[slot]);
+    if (!inst) continue;
+    for (const k in inst.mods) out[k] = (out[k] || 0) + inst.mods[k];
   }
   return out;
 }

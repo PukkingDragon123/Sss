@@ -316,3 +316,27 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
 @keyframes mgpop{0%{transform:scale(.6);}100%{transform:scale(1);}}
 .mg-score{font-size:20px;font-weight:800;color:var(--gold);}
 #mg-timer{color:var(--hp);font-weight:800;}
+
+/* ===== Menu: panel on the left, live fight on the right ===== */
+#title{
+  align-items:flex-start;justify-content:center;text-align:left;
+  padding-left:clamp(20px,6vw,90px);
+  background:linear-gradient(to right, rgba(8,4,14,0.94) 0%, rgba(10,6,18,0.82) 26%, rgba(10,6,18,0.32) 48%, rgba(10,6,18,0) 64%);
+  backdrop-filter:none;
+}
+#title .game-title{transform:rotate(-3deg);}
+#title .menu{align-items:flex-start;}
+#title .tagline{max-width:42vw;}
+#title .howto{max-width:min(560px,80vw);}
+@media (max-width:760px),(pointer:coarse){
+  #title{align-items:center;text-align:center;padding-left:0;
+    background:radial-gradient(ellipse at center, rgba(20,10,32,0.5), rgba(8,4,14,0.92));}
+  #title .menu{align-items:center;}
+  #title .tagline{max-width:90vw;}
+}
+
+/* ===== Gear cards (RPG loot) ===== */
+.shop-card.gear{align-items:flex-start;text-align:left;}
+.gear-name{font-weight:800;font-size:14px;}
+.gear-rar{font-size:11px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.5px;}
+.shop-card.gear .shop-desc{min-height:auto;}

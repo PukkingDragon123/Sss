@@ -217,8 +217,8 @@ export class Enemies {
       game.particles.burst({ pos: e.mesh.position.clone().setY(0.7 * def.size), color: def.color, count: def.boss ? 44 : 12, speed: def.boss ? 11 : 6, size: 0.35 * def.size, life: 0.9, up: 3, blend: 'normal' });
       game.particles.burst({ pos: e.mesh.position.clone().setY(0.7 * def.size), color: 0xffffff, count: 6, speed: 7, size: 0.25, life: 0.5 });
       game.spawnXP(e.mesh.position.clone(), e.xp);
+      game.enemyDrop(e.mesh.position.clone(), def);
       if (def.boss) { this.bossAlive = false; game.particles.ring({ pos: e.mesh.position.clone(), color: 0xffd98a, r0: 1, r1: 16, life: 0.9 }); game.onBossDead(); }
-      else if (Math.random() < (def.size >= 1.4 ? 0.4 : 0.07)) game.spawnHeart(e.mesh.position.clone());
       game.kills++;
     }
   }

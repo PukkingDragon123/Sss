@@ -42,7 +42,7 @@ export class Game {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // soft Human-Fall-Flat shadows
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.12;
+    this.renderer.toneMappingExposure = 1.2;
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x7e7ec0);
@@ -107,11 +107,15 @@ export class Game {
     this.storyShowing = false;
 
     this.pickups = [];
-    this._pickupPool = { xp: [], heart: [] };
+    this._pickupPool = { xp: [], heart: [], mana: [], gear: [] };
     this._xpGeo = new THREE.OctahedronGeometry(0.28, 0);
     this._xpMat = new THREE.MeshStandardMaterial({ color: 0x6ee7a0, emissive: 0x1f7a47, roughness: 0.4 });
     this._heartGeo = new THREE.SphereGeometry(0.3, 10, 10);
     this._heartMat = new THREE.MeshStandardMaterial({ color: 0xff5d6c, emissive: 0x7a1f2a, roughness: 0.4 });
+    this._manaGeo = new THREE.CylinderGeometry(0.16, 0.22, 0.42, 8);
+    this._manaMat = new THREE.MeshStandardMaterial({ color: 0x56b8ff, emissive: 0x1c5a8a, roughness: 0.4 });
+    this._gearGeo = new THREE.BoxGeometry(0.38, 0.38, 0.38);
+    this._gearMat = new THREE.MeshStandardMaterial({ color: 0xffcf5c, emissive: 0x5a4400, roughness: 0.35, metalness: 0.4 });
 
     this._groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     this._ray = new THREE.Raycaster();
@@ -152,6 +156,10 @@ export class Game {
     this.scene.add(this.dir.target);
     this.ambient = new THREE.AmbientLight(0x3a4a6a, 0.45);
     this.scene.add(this.ambient);
+    // soft fill from the opposite side for nicer modelling (no shadow)
+    this.fill = new THREE.DirectionalLight(0xbfd0ff, 0.4);
+    this.fill.position.set(-24, 22, -16);
+    this.scene.add(this.fill);
 
     // floor + clearing (recoloured per stage)
     this.floorMat = new THREE.MeshStandardMaterial({ color: 0x2f4a32, roughness: 1 });
@@ -178,26 +186,42 @@ export class Game {
 
   _buildScatter(kind) {
     const grp = this.scatterGroup;
-    while (grp.children.length) { const c = grp.children.pop(); c.traverse((o) => { if (o.isMesh) o.geometry.dispose(); }); grp.remove(c); }
-    const ring = (build) => { for (let i = 0; i < 44; i++) { const a = (i / 44) * Math.PI * 2; const r = ARENA + 2.5 + (i % 3) * 1.5; const o = build(); o.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); o.scale.setScalar(0.85 + Math.random() * 0.7); grp.add(o); } };
+    for (let i = grp.children.length - 1; i >= 0; i--) { const c = grp.children[i]; c.traverse((o) => { if (o.isMesh) o.geometry.dispose(); }); grp.remove(c); }
+    const ring = (build) => { for (let i = 0; i < 46; i++) { const a = (i / 46) * Math.PI * 2; const r = ARENA + 2.5 + (i % 3) * 1.6; const o = build(); o.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); o.scale.setScalar(0.85 + Math.random() * 0.7); grp.add(o); } };
+    // interior clutter sprinkled across the clearing (this is the "foliage" that vanished)
+    const inside = (n, build, minR = 4, maxR = ARENA - 4) => { for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, r = minR + Math.random() * (maxR - minR); const o = build(); o.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); o.rotation.y = Math.random() * 6; o.scale.setScalar(0.7 + Math.random() * 0.8); grp.add(o); } };
+
     if (kind === 'trees') {
       const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3326, roughness: 0.95 });
       const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f6e3f, roughness: 0.9 });
       const leafMat2 = new THREE.MeshStandardMaterial({ color: 0x3a824a, roughness: 0.9 });
+      const bushMat = new THREE.MeshStandardMaterial({ color: 0x356b3e, roughness: 0.95 });
+      const capMat = new THREE.MeshStandardMaterial({ color: 0xc0556a, roughness: 0.8 });
+      const stalkMat = new THREE.MeshStandardMaterial({ color: 0xe8e0cc, roughness: 0.9 });
+      const rockMat = new THREE.MeshStandardMaterial({ color: 0x5a5e66, roughness: 1 });
       ring(() => { const t = new THREE.Group(); const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.75, 4, 8), trunkMat); tr.position.y = 2; tr.castShadow = true; const f1 = new THREE.Mesh(new THREE.ConeGeometry(2.2, 3.6, 9), leafMat); f1.position.y = 4.3; f1.castShadow = true; const f2 = new THREE.Mesh(new THREE.ConeGeometry(1.7, 2.8, 9), leafMat2); f2.position.y = 6; f2.castShadow = true; t.add(tr, f1, f2); return t; });
+      inside(10, () => { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.7 + Math.random() * 0.5, 0), bushMat); b.position.y = 0.5; b.castShadow = true; return b; });
+      inside(7, () => { const g = new THREE.Group(); const s = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.5, 7), stalkMat); s.position.y = 0.25; const c = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), capMat); c.position.y = 0.5; c.castShadow = true; g.add(s, c); return g; });
+      inside(6, () => { const r = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5 + Math.random() * 0.6, 0), rockMat); r.position.y = 0.3; r.castShadow = true; return r; });
     } else if (kind === 'rocks') {
       const rockMat = new THREE.MeshStandardMaterial({ color: 0x4a443e, roughness: 1 });
       const tipMat = new THREE.MeshStandardMaterial({ color: 0x5a524a, roughness: 1 });
+      const crystalMat = new THREE.MeshStandardMaterial({ color: 0x6fd0e8, emissive: 0x1a5a6a, roughness: 0.3 });
       ring(() => { const g = new THREE.Group(); const base = new THREE.Mesh(new THREE.ConeGeometry(1.6, 5 + Math.random() * 3, 7), rockMat); base.position.y = 2.5; base.castShadow = true; const tip = new THREE.Mesh(new THREE.ConeGeometry(0.6, 2, 6), tipMat); tip.position.y = 5; g.add(base, tip); return g; });
+      inside(10, () => { const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.6 + Math.random() * 0.7, 0), rockMat); r.position.y = 0.4; r.castShadow = true; return r; });
+      inside(6, () => { const c = new THREE.Mesh(new THREE.ConeGeometry(0.3, 1.0 + Math.random(), 5), crystalMat); c.position.y = 0.5; c.castShadow = true; return c; });
     } else if (kind === 'graves') {
       const stoneMat = new THREE.MeshStandardMaterial({ color: 0x6a6e7a, roughness: 1 });
       const deadMat = new THREE.MeshStandardMaterial({ color: 0x3a3026, roughness: 0.95 });
+      const boneMat = new THREE.MeshStandardMaterial({ color: 0xd8d2bc, roughness: 0.8 });
       ring(() => {
         const g = new THREE.Group();
         if (Math.random() < 0.6) { const s = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.2, 0.4), stoneMat); s.position.y = 1.1; s.rotation.z = (Math.random() - 0.5) * 0.3; s.castShadow = true; g.add(s); const top = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.4, 12, 1, false, 0, Math.PI), stoneMat); top.rotation.z = Math.PI / 2; top.position.y = 2.2; g.add(top); }
         else { const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 5, 7), deadMat); trunk.position.y = 2.5; trunk.castShadow = true; const b1 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, 2, 5), deadMat); b1.position.set(0.8, 4, 0); b1.rotation.z = -0.9; g.add(trunk, b1); }
         return g;
       });
+      inside(9, () => { const s = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.3, 0.3), stoneMat); s.position.y = 0.65; s.rotation.z = (Math.random() - 0.5) * 0.4; s.castShadow = true; return s; });
+      inside(6, () => { const c = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.07, 6, 12, Math.PI), boneMat); c.position.y = 0.1; c.castShadow = true; return c; });
     }
   }
 
@@ -251,9 +275,36 @@ export class Game {
   _getPickup(type) {
     const pool = this._pickupPool[type];
     if (pool.length) { const m = pool.pop(); m.visible = true; return m; }
-    const mesh = type === 'xp' ? new THREE.Mesh(this._xpGeo, this._xpMat) : new THREE.Mesh(this._heartGeo, this._heartMat);
+    const geo = type === 'xp' ? this._xpGeo : type === 'heart' ? this._heartGeo : type === 'mana' ? this._manaGeo : this._gearGeo;
+    const mat = type === 'xp' ? this._xpMat : type === 'heart' ? this._heartMat : type === 'mana' ? this._manaMat : this._gearMat;
+    const mesh = new THREE.Mesh(geo, mat);
     this.scene.add(mesh);
     return mesh;
+  }
+
+  spawnMana(pos) {
+    const mesh = this._getPickup('mana');
+    mesh.position.copy(pos).setY(0.5);
+    this.pickups.push({ mesh, type: 'mana', value: 40, vel: new THREE.Vector3(0, 5, 0), phase: 0, grounded: false });
+  }
+  spawnGear(pos, inst) {
+    const mesh = this._getPickup('gear');
+    mesh.position.copy(pos).setY(0.5);
+    this.pickups.push({ mesh, type: 'gear', gear: inst, vel: new THREE.Vector3((Math.random() - 0.5) * 3, 5, (Math.random() - 0.5) * 3), phase: 0, grounded: false });
+  }
+  // loot table when an enemy dies
+  enemyDrop(pos, def) {
+    const lvl = Math.max(1, this.level);
+    if (def.boss) { // bosses always drop a good piece + a potion
+      this.spawnGear(pos.clone(), meta.dropGear(lvl + 2, true));
+      this.spawnHeart(pos.clone().add(new THREE.Vector3(1, 0, 0)));
+      return;
+    }
+    const big = def.size >= 1.4;
+    const r = Math.random();
+    if (r < (big ? 0.30 : 0.06)) this.spawnHeart(pos);
+    else if (r < (big ? 0.50 : 0.13)) this.spawnMana(pos);
+    else if (r < (big ? 0.62 : 0.16)) this.spawnGear(pos, meta.dropGear(lvl, false));
   }
 
   spawnXP(pos, value) {
@@ -296,9 +347,11 @@ export class Game {
       it.mesh.position.y = 0.4 + Math.sin(it.phase) * 0.08;
       it.mesh.rotation.y += dt * 3;
 
-      if (d < 0.9) {
+      if (d < 1.0) {
         if (it.type === 'xp') { this.gainXP(it.value); this.audio.play('xp'); }
-        else { this.wizard.heal(it.value); this.audio.play('heal'); this.ui.toast(`+${it.value} HP`); }
+        else if (it.type === 'heart') { this.wizard.heal(it.value); this.audio.play('heal'); this.ui.toast(`❤ +${it.value} HP`); }
+        else if (it.type === 'mana') { this.wizard.mana = Math.min(this.stats.manaMax, this.wizard.mana + it.value); this.audio.play('heal'); this.ui.toast(`🧪 +${it.value} mana`); }
+        else if (it.type === 'gear') { meta.addGear(it.gear); meta.save(); this.audio.play('levelup'); this.ui.lootToast(it.gear); }
         it.mesh.visible = false;
         this._pickupPool[it.type].push(it.mesh);
         this.pickups.splice(i, 1);
@@ -484,7 +537,8 @@ export class Game {
 
   startMinigame() {
     this.state = 'menu';
-    this.ui.showMinigame(25, (score) => {
+    const kind = ['drinks', 'dishes', 'cooking'][Math.floor(Math.random() * 3)];
+    this.ui.showMinigame(kind, 25, (score) => {
       const earned = score * 4;
       meta.addGold(earned); meta.save();
       this.ui.setGold(meta.gold());
@@ -788,7 +842,10 @@ export class Game {
       return;
     }
     this.camTarget.lerp(this.wizard.pos, Math.min(1, dt * 6));
-    const desired = this.camTarget.clone().add(this.camOffset);
+    // on the title screen, bias the framing left so the fight sits on the RIGHT (menu is on the left)
+    const bx = this.state === 'title' ? -9 : 0;
+    const focus = this.camTarget.clone(); focus.x += bx;
+    const desired = focus.clone().add(this.camOffset);
     this.camera.position.lerp(desired, Math.min(1, dt * 6));
     if (this.shakeAmt > 0) {
       this.shakeAmt = Math.max(0, this.shakeAmt - dt * 4);
@@ -796,7 +853,7 @@ export class Game {
       this.camera.position.y += (Math.random() - 0.5) * this.shakeAmt;
       this.camera.position.z += (Math.random() - 0.5) * this.shakeAmt;
     }
-    this.camera.lookAt(this.camTarget.x, this.camTarget.y + 1.5, this.camTarget.z);
+    this.camera.lookAt(focus.x, focus.y + 1.5, focus.z);
   }
 
   // ---------- main loop ----------

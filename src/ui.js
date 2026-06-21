@@ -381,6 +381,13 @@ export class UI {
     t.className = 'toast crit'; t.textContent = `⚡ COMBO: ${name}!`;
     this.el.toastArea.appendChild(t); setTimeout(() => t.remove(), 1700);
   }
+  lootToast(gear) {
+    const rc = meta.RARITIES[gear.rarity];
+    const t = document.createElement('div');
+    t.className = 'toast'; t.style.color = rc.color; t.style.borderColor = rc.color;
+    t.textContent = `🎁 ${rc.name} ${gear.name}!`;
+    this.el.toastArea.appendChild(t); setTimeout(() => t.remove(), 1900);
+  }
 
   _renderPips(d) {
     if (this._pipTotal !== d.total) {
@@ -417,8 +424,18 @@ export class UI {
     this.el.settings.classList.remove('hidden');
   }
 
-  // ---- mini-game: serve drinks ----
-  showMinigame(durationS, onDone) {
+  // ---- tavern mini-games (serve drinks / wash dishes / cook) ----
+  showMinigame(kind, durationS, onDone) {
+    const KINDS = {
+      drinks:  { title: 'Serve the Patrons!', sub: 'Tap the full mugs before they overflow.', emoji: '🍺' },
+      dishes:  { title: 'Wash the Dishes!',   sub: 'Tap the dirty plates to scrub them clean.', emoji: '🍽️' },
+      cooking: { title: 'Cook the Orders!',   sub: 'Tap the pans before the food burns.', emoji: '🍳' },
+    };
+    const k = KINDS[kind] || KINDS.drinks;
+    this._mgEmoji = k.emoji;
+    this.el.mgTitle.textContent = k.title;
+    this.el.mgSub.innerHTML = `${k.sub} <span id="mg-timer"></span>`;
+    this.el.mgTimer = $('mg-timer');
     this._mgScore = 0; this._mgDone = onDone; this._mgEnd = performance.now() + durationS * 1000;
     this.el.mgScore.textContent = '0';
     this.el.mgBoard.innerHTML = '';
@@ -431,13 +448,13 @@ export class UI {
     clearInterval(this._mgTick); clearInterval(this._mgFill);
     this._mgTick = setInterval(() => {
       const left = Math.max(0, (this._mgEnd - performance.now()) / 1000);
-      this.el.mgTimer.textContent = `${left.toFixed(1)}s`;
+      if (this.el.mgTimer) this.el.mgTimer.textContent = `${left.toFixed(1)}s`;
       if (left <= 0) this._mgFinish();
     }, 100);
     this._mgFill = setInterval(() => {
       const slots = [...this.el.mgBoard.children].filter(s => !s.classList.contains('full'));
-      if (slots.length) { const s = slots[Math.floor(Math.random() * slots.length)]; s.classList.add('full'); s.textContent = '🍺'; }
-    }, 700);
+      if (slots.length) { const s = slots[Math.floor(Math.random() * slots.length)]; s.classList.add('full'); s.textContent = this._mgEmoji; }
+    }, 680);
   }
   _mgServe(slot) {
     if (!slot.classList.contains('full')) return;
@@ -486,10 +503,11 @@ export class UI {
     else if (act === 'buyroom') ok = meta.buyRoom();
     else if (act === 'buydecor') ok = meta.buyDecor(id);
     else if (act === 'rest') ok = meta.rest();
-    else if (act === 'buygear') ok = meta.buyEquip(slot, id);
-    else if (act === 'gear') ok = meta.equipItem(slot, id);
     else if (act === 'collect') { const r = meta.collectTavern(); ok = r > 0; if (ok) g.ui.toast(`Collected ${r}🪙`); }
     else if (act === 'tavup') ok = meta.buyTavernUpgrade(id);
+    else if (act === 'equipgear') ok = meta.equipGear(id);
+    else if (act === 'salvage') { const v = meta.salvageGear(id); ok = v > 0; if (ok) g.ui.toast(`Salvaged for ${v}🪙`); }
+    else if (act === 'upgradegear') ok = meta.upgradeGear(id);
     else if (act === 'claim') { const r = meta.claimQuest(); ok = r > 0; if (ok) g.ui.toast(`Quest reward: +${r}🪙`); }
     if (g) g.audio.play(ok ? 'click' : 'hiccup');
     this.setGold(meta.gold());
@@ -498,7 +516,7 @@ export class UI {
 
   _renderShop() {
     const kind = this._shopKind;
-    const titles = { skilltree: '✦ Spell Table', cauldron: '🜲 Cauldron', room: '🛏 Your Room', manager: '🍺 Tavern Manager', wardrobe: '🎽 Wardrobe', stage: '🗺 Choose a Stage', ledger: '📒 Tavern Ledger' };
+    const titles = { skilltree: '✦ Spell Table', cauldron: '🜲 Cauldron', room: '🛏 Your Room', manager: '🍺 Tavern Manager', wardrobe: '🎽 Wardrobe', stage: '🗺 Choose a Stage', ledger: '📒 Tavern Ledger', blacksmith: '🔨 Blacksmith' };
     this.el.shopTitle.textContent = titles[kind] || 'Tavern';
     let html = '';
     if (kind === 'skilltree') html = this._renderSkillTree();
@@ -508,6 +526,7 @@ export class UI {
     else if (kind === 'wardrobe') html = this._renderWardrobe();
     else if (kind === 'stage') html = this._renderStages();
     else if (kind === 'ledger') html = this._renderLedger();
+    else if (kind === 'blacksmith') html = this._renderBlacksmith();
     this.el.shopBody.innerHTML = html;
   }
 
@@ -541,22 +560,41 @@ export class UI {
     return h;
   }
 
+  _gearStats(g) { return Object.entries(g.mods).map(([k, v]) => meta.statLabel(k, v)).join(' · '); }
+  _gearCard(g, acts) {
+    const rc = meta.RARITIES[g.rarity];
+    return `<div class="shop-card gear" style="border-color:${rc.color}">
+      <div class="gear-name" style="color:${rc.color}">${g.name}</div>
+      <div class="gear-rar"><span style="color:${rc.color}">${rc.name}</span> · Lv ${g.level}</div>
+      <div class="shop-desc">${this._gearStats(g)}</div>
+      <div class="shop-acts">${acts}</div></div>`;
+  }
   _renderWardrobe() {
-    let h = '<p class="shop-sub">Buy and equip gear — bonuses apply on your next run.</p>';
-    for (const slot of meta.EQUIP_SLOTS) {
-      h += `<div class="ward-slot"><div class="ward-slot-name">${slot.toUpperCase()}</div><div class="shop-grid">`;
-      for (const it of meta.EQUIPMENT[slot]) {
-        const owned = meta.ownsEquip(it.id);
-        const on = meta.equippedId(slot) === it.id;
-        const mods = Object.entries(it.mods).map(([k, v]) => `${v > 0 ? '+' : ''}${k === 'cooldownMult' ? Math.round(v * 100) + '% CD' : k === 'damageMult' ? Math.round(v * 100) + '% dmg' : v + ' ' + k}`).join(', ') || 'plain';
-        let act;
-        if (on) act = '<button class="shop-btn on" disabled>✓ Worn</button>';
-        else if (owned) act = `<button class="shop-btn" data-act="gear" data-slot="${slot}" data-id="${it.id}">Wear</button>`;
-        else act = `<button class="shop-btn" data-act="buygear" data-slot="${slot}" data-id="${it.id}" ${meta.canAfford(it.cost) ? '' : 'disabled'}>Buy ${it.cost}🪙</button>`;
-        h += `<div class="shop-card ${owned ? '' : 'locked'}"><div class="shop-name">${it.name}</div><div class="shop-desc">${mods}</div><div class="shop-acts">${act}</div></div>`;
+    let h = '<p class="shop-sub">Equip looted gear — one piece per slot. Rarer & higher-level = stronger. Bonuses apply next run.</p>';
+    for (const slot of meta.GEAR_SLOTS) {
+      const eqId = meta.equippedGearId(slot);
+      const items = meta.gearList().filter(g => g.slot === slot);
+      h += `<div class="ward-slot"><div class="ward-slot-name">${slot.toUpperCase()}${eqId ? '' : ' — empty'}</div><div class="shop-grid">`;
+      if (!items.length) h += `<div class="shop-desc" style="opacity:.7">No ${slot} found yet — slay monsters to loot some.</div>`;
+      for (const g of items) {
+        const on = eqId === g.id;
+        const acts = `<button class="shop-btn ${on ? 'on' : ''}" data-act="equipgear" data-id="${g.id}">${on ? '✓ Worn' : 'Wear'}</button><button class="shop-btn" data-act="salvage" data-id="${g.id}">♻ ${meta.gearValue(g)}🪙</button>`;
+        h += this._gearCard(g, acts);
       }
       h += '</div></div>';
     }
+    return h;
+  }
+  _renderBlacksmith() {
+    let h = '<p class="shop-sub">Forge gear to a higher level (stronger stats), or salvage spares for coin.</p><div class="shop-grid">';
+    const items = meta.gearList();
+    if (!items.length) h += '<div class="shop-desc">No gear to forge yet — go find some loot!</div>';
+    for (const g of items) {
+      const cost = meta.upgradeGearCost(g), max = g.level >= 10;
+      const acts = `${max ? '<button class="shop-btn" disabled>MAX</button>' : `<button class="shop-btn" data-act="upgradegear" data-id="${g.id}" ${meta.canAfford(cost) ? '' : 'disabled'}>Forge ${cost}🪙</button>`}<button class="shop-btn" data-act="salvage" data-id="${g.id}">♻ ${meta.gearValue(g)}🪙</button>`;
+      h += this._gearCard(g, acts);
+    }
+    h += '</div>';
     return h;
   }
 

@@ -26,7 +26,7 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   text-align:center;padding:24px;gap:14px;
   background:radial-gradient(ellipse at center, rgba(20,10,32,0.55), rgba(8,4,14,0.92));
-  backdrop-filter:blur(2px);
+  /* no backdrop blur — keep the tavern crisp behind every menu */
 }
 
 .btn{
@@ -97,6 +97,9 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
 .bar.mana .bar-fill{background:linear-gradient(var(--mana),#1c6fb8);}
 .bar.xp{height:14px;}
 .bar.xp .bar-fill{background:linear-gradient(var(--xp),#2f9c63);}
+.bar.drunk{height:12px;margin-top:3px;}
+.bar.drunk .bar-fill{width:0%;background:linear-gradient(90deg,#ffd166,#e8702a);transition:width .2s ease;}
+.bar.drunk .bar-label{font-size:10px;opacity:.92;}
 .bar.job .bar-fill{background:linear-gradient(var(--gold),#c9881f);}
 .bar-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;text-shadow:0 1px 2px #000;letter-spacing:.5px;}
 .stats{display:flex;flex-direction:column;gap:6px;align-items:flex-end;}
@@ -116,6 +119,34 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
 
 #cast-hint{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);font-size:13px;color:var(--ink-dim);background:rgba(0,0,0,.35);padding:5px 12px;border-radius:10px;white-space:nowrap;}
 #cast-hint b{color:var(--gold);}
+
+/* DRINK button — the mana refill. pointer-events on (the HUD itself is off). */
+#btn-drink{position:absolute;right:18px;bottom:96px;pointer-events:auto;cursor:pointer;
+  font-family:inherit;font-weight:800;font-size:17px;color:#3a1f00;letter-spacing:.3px;
+  background:linear-gradient(#ffd873,#e89a2c);border:2px solid #fff3d0;border-radius:14px;
+  padding:11px 16px;box-shadow:0 5px 0 #9c641b,0 8px 18px rgba(0,0,0,.45);display:flex;align-items:center;gap:8px;}
+#btn-drink:active{transform:translateY(4px);box-shadow:0 1px 0 #9c641b;}
+#btn-drink .drink-key{font-size:12px;background:rgba(0,0,0,.22);border-radius:6px;padding:1px 7px;}
+#btn-drink.urge{animation:drinkpulse 1s ease-in-out infinite;}
+@keyframes drinkpulse{0%,100%{box-shadow:0 5px 0 #9c641b,0 0 0 0 rgba(255,180,60,.6);}50%{box-shadow:0 5px 0 #9c641b,0 0 0 12px rgba(255,180,60,0);}}
+
+/* ===== Drunk nausea overlay ===== */
+#nausea{position:fixed;inset:0;z-index:9;pointer-events:none;opacity:0;transition:opacity .35s ease;
+  --n:0;mix-blend-mode:soft-light;}
+#nausea .nausea-swirl{position:absolute;inset:-12%;
+  background:
+    radial-gradient(ellipse 60% 60% at 30% 40%, rgba(120,200,140,.55), transparent 60%),
+    radial-gradient(ellipse 55% 55% at 72% 64%, rgba(200,150,90,.5), transparent 62%),
+    radial-gradient(circle at 50% 50%, transparent 40%, rgba(10,18,8,.7) 100%);
+  filter:blur(calc(2px + var(--n) * 8px));
+  animation:nauseaSwim 7s ease-in-out infinite;}
+@keyframes nauseaSwim{
+  0%{transform:translate(-2%,1%) rotate(-2deg) scale(1.04);}
+  25%{transform:translate(3%,-2%) rotate(2deg) scale(1.08);}
+  50%{transform:translate(1%,3%) rotate(-1.5deg) scale(1.05);}
+  75%{transform:translate(-3%,-1%) rotate(2.5deg) scale(1.09);}
+  100%{transform:translate(-2%,1%) rotate(-2deg) scale(1.04);}
+}
 
 #toast-area{position:absolute;left:50%;top:30%;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;align-items:center;}
 .toast{background:var(--panel);border:1.5px solid var(--panel-edge);border-radius:12px;padding:8px 18px;font-weight:800;font-size:18px;color:var(--gold);
@@ -290,6 +321,10 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
 .vital.heart .vital-fill{background:linear-gradient(#ff7a88,#d2243a);}
 .vital.elixir{clip-path:path('M17,3 L29,3 L29,15 L40,36 C42,41 38,43 23,43 C8,43 4,41 6,36 L17,15 Z');background:#0e2236;}
 .vital.elixir .vital-fill{background:linear-gradient(#8fe0ff,#1c6fb8);}
+/* beer tankard = mana. Amber brew with a foam cap; it does NOT refill on its own. */
+.vital.beer{width:42px;clip-path:path('M5,7 L37,7 L35,42 C35,43 34,43 33,43 L9,43 C8,43 7,43 7,42 Z');background:#2a1808;border:0;}
+.vital.beer .vital-fill{background:linear-gradient(#ffd166,#c8841d);}
+.beer-foam{position:absolute;left:4px;right:4px;height:7px;border-radius:5px;background:#fff7e8;box-shadow:0 0 5px rgba(255,255,255,.7);z-index:1;pointer-events:none;transition:bottom .12s linear;}
 .xpwrap{flex:1;min-width:90px;align-self:center;}
 
 #wave-wrap{display:flex;align-items:center;gap:8px;margin-top:6px;font-weight:800;font-size:13px;color:var(--gold);}
@@ -309,13 +344,16 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
 .credits-body{line-height:1.7;text-align:center;}
 .credits-body b{color:var(--gold);}
 
-/* ===== Serve-drinks mini-game ===== */
-.mg-board{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:430px;margin:10px auto;}
-.mg-slot{width:120px;height:92px;border-radius:14px;background:rgba(0,0,0,.3);border:2px solid var(--panel-edge);display:flex;align-items:center;justify-content:center;font-size:46px;cursor:pointer;user-select:none;}
-.mg-slot.full{background:rgba(255,180,80,.25);border-color:var(--gold);animation:mgpop .2s ease;}
-@keyframes mgpop{0%{transform:scale(.6);}100%{transform:scale(1);}}
-.mg-score{font-size:20px;font-weight:800;color:var(--gold);}
-#mg-timer{color:var(--hp);font-weight:800;}
+/* ===== Bar-tending (physics beer pour) mini-game ===== */
+.mg-order{background:var(--panel);border:1.5px solid var(--panel-edge);border-radius:12px;padding:8px 16px;font-size:16px;max-width:min(520px,86vw);}
+.mg-order b{color:var(--gold);}
+.mg-stage{margin:6px 0;}
+#mg-canvas{background:linear-gradient(#241a18,#160f0e);border:2px solid var(--panel-edge);border-radius:16px;touch-action:none;max-width:92vw;height:auto;box-shadow:inset 0 0 40px rgba(0,0,0,.5);}
+.mg-controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center;}
+#mg-pour{touch-action:none;user-select:none;}
+#mg-pour:active{transform:translateY(4px);box-shadow:0 1px 0 #9c641b,0 3px 8px rgba(0,0,0,.45);}
+.mg-score{font-size:18px;font-weight:800;color:var(--gold);}
+.mg-score b{color:#fff;}
 
 /* ===== Menu: panel on the left, live fight on the right ===== */
 #title{
@@ -333,6 +371,19 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
     background:radial-gradient(ellipse at center, rgba(20,10,32,0.5), rgba(8,4,14,0.92));}
   #title .menu{align-items:center;}
   #title .tagline{max-width:90vw;}
+}
+
+/* Station menus (shop) dock to the LEFT so the beautiful tavern stays visible on
+   the right — and no blur. */
+#shop{
+  align-items:flex-start;justify-content:center;text-align:left;
+  padding-left:clamp(16px,4vw,64px);
+  background:linear-gradient(to right, rgba(8,4,14,0.95) 0%, rgba(10,6,18,0.86) 34%, rgba(10,6,18,0.30) 58%, rgba(10,6,18,0) 72%);
+}
+#shop .shop-box{margin:0;}
+@media (max-width:760px),(pointer:coarse){
+  #shop{align-items:center;text-align:center;padding-left:0;
+    background:radial-gradient(ellipse at center, rgba(20,10,32,0.55), rgba(8,4,14,0.94));}
 }
 
 /* ===== Gear cards (RPG loot) ===== */

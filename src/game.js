@@ -18,7 +18,8 @@ import { COMBO_META } from './meta.js';
 
 const DEFAULT_STATS = () => ({
   hpMax: 130, moveSpeed: 7.2, wobble: 1.0,
-  manaMax: 110, manaRegen: 17,
+  manaMax: 110, manaRegen: 0, // mana does NOT auto-regen — you must DRINK (Q) to refill it
+  drinkPower: 46,             // mana restored per gulp (charm gear adds to this)
   damageMult: 1, cooldownMult: 1,
   fireballDmg: 24, fireballRadius: 3.4,
   lightningDmg: 14, lightningChains: 3,
@@ -101,6 +102,9 @@ export class Game {
     this.bossActive = false;
     this.timeScale = 1;
     this.shakeAmt = 0;
+    this.drunkenness = 0;   // 0..1 — drives the nausea wobble & extra body sway. Rises when you DRINK.
+    this._drunkSurge = 0;   // a brief lurch right after a gulp
+    this._drinkCd = 0;      // anti-spam between gulps
     this.aimPoint = new THREE.Vector3(0, 0, 5);
     this.gestureAim = this.aimPoint.clone();
     this.storyQueue = [];
@@ -187,41 +191,77 @@ export class Game {
   _buildScatter(kind) {
     const grp = this.scatterGroup;
     for (let i = grp.children.length - 1; i >= 0; i--) { const c = grp.children[i]; c.traverse((o) => { if (o.isMesh) o.geometry.dispose(); }); grp.remove(c); }
-    const ring = (build) => { for (let i = 0; i < 46; i++) { const a = (i / 46) * Math.PI * 2; const r = ARENA + 2.5 + (i % 3) * 1.6; const o = build(); o.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); o.scale.setScalar(0.85 + Math.random() * 0.7); grp.add(o); } };
-    // interior clutter sprinkled across the clearing (this is the "foliage" that vanished)
-    const inside = (n, build, minR = 4, maxR = ARENA - 4) => { for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, r = minR + Math.random() * (maxR - minR); const o = build(); o.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); o.rotation.y = Math.random() * 6; o.scale.setScalar(0.7 + Math.random() * 0.8); grp.add(o); } };
+
+    // Two layers of decoration:
+    //  - treeLine(): a dense ring of big landmarks edging the clearing. Kept
+    //    just inside the arena (and within fog range) so it actually reads as a
+    //    forest/cave/graveyard wall instead of vanishing into the haze.
+    //  - inside(): foliage sprinkled across the playfield. CRUCIAL: it only sets
+    //    x/z and PRESERVES the y the build() chose, so nothing gets buried at 0.
+    const place = (o, x, z, jitterY) => { o.position.set(x, o.position.y + (jitterY || 0), z); o.rotation.y = Math.random() * 6.28; grp.add(o); };
+    const treeLine = (build, count = 64) => {
+      for (let i = 0; i < count; i++) {
+        const a = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.06;
+        const r = ARENA - 3 + (i % 3) * 2.2 + Math.random() * 1.5; // ~43-49: a visible wall, two rows deep
+        const o = build(); o.scale.setScalar(0.9 + Math.random() * 0.8);
+        place(o, Math.cos(a) * r, Math.sin(a) * r);
+      }
+    };
+    // scattered across the clearing, biased toward the centre (sqrt keeps it even, *0.86 pulls inward)
+    const inside = (n, build, minR = 3, maxR = ARENA - 7) => {
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = (minR + Math.sqrt(Math.random()) * (maxR - minR)) * 0.92;
+        const o = build(); o.scale.setScalar(0.75 + Math.random() * 0.7);
+        place(o, Math.cos(a) * r, Math.sin(a) * r);
+      }
+    };
 
     if (kind === 'trees') {
       const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3326, roughness: 0.95 });
       const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f6e3f, roughness: 0.9 });
       const leafMat2 = new THREE.MeshStandardMaterial({ color: 0x3a824a, roughness: 0.9 });
+      const leafMat3 = new THREE.MeshStandardMaterial({ color: 0x255a34, roughness: 0.9 });
       const bushMat = new THREE.MeshStandardMaterial({ color: 0x356b3e, roughness: 0.95 });
+      const fernMat = new THREE.MeshStandardMaterial({ color: 0x418a4a, roughness: 0.95 });
       const capMat = new THREE.MeshStandardMaterial({ color: 0xc0556a, roughness: 0.8 });
       const stalkMat = new THREE.MeshStandardMaterial({ color: 0xe8e0cc, roughness: 0.9 });
       const rockMat = new THREE.MeshStandardMaterial({ color: 0x5a5e66, roughness: 1 });
-      ring(() => { const t = new THREE.Group(); const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.75, 4, 8), trunkMat); tr.position.y = 2; tr.castShadow = true; const f1 = new THREE.Mesh(new THREE.ConeGeometry(2.2, 3.6, 9), leafMat); f1.position.y = 4.3; f1.castShadow = true; const f2 = new THREE.Mesh(new THREE.ConeGeometry(1.7, 2.8, 9), leafMat2); f2.position.y = 6; f2.castShadow = true; t.add(tr, f1, f2); return t; });
-      inside(10, () => { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.7 + Math.random() * 0.5, 0), bushMat); b.position.y = 0.5; b.castShadow = true; return b; });
-      inside(7, () => { const g = new THREE.Group(); const s = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.5, 7), stalkMat); s.position.y = 0.25; const c = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), capMat); c.position.y = 0.5; c.castShadow = true; g.add(s, c); return g; });
-      inside(6, () => { const r = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5 + Math.random() * 0.6, 0), rockMat); r.position.y = 0.3; r.castShadow = true; return r; });
+      const flowerMat = new THREE.MeshStandardMaterial({ color: 0xe8d24a, emissive: 0x4a4010, roughness: 0.7 });
+      const mkTree = () => { const t = new THREE.Group(); const h = 3.4 + Math.random() * 1.6; const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.75, h, 8), trunkMat); tr.position.y = h / 2; tr.castShadow = true; const lm = [leafMat, leafMat2, leafMat3][Math.floor(Math.random() * 3)]; const f1 = new THREE.Mesh(new THREE.ConeGeometry(2.2, 3.6, 9), lm); f1.position.y = h + 0.6; f1.castShadow = true; const f2 = new THREE.Mesh(new THREE.ConeGeometry(1.7, 2.8, 9), leafMat2); f2.position.y = h + 2.1; const f3 = new THREE.Mesh(new THREE.ConeGeometry(1.1, 2, 9), leafMat3); f3.position.y = h + 3.4; t.add(tr, f1, f2, f3); return t; };
+      treeLine(mkTree, 54);
+      inside(16, mkTree, 6, ARENA - 8);            // full trees dotted inside too
+      inside(34, () => { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.8 + Math.random() * 0.7, 0), Math.random() < 0.5 ? bushMat : fernMat); b.position.y = 0.55; b.castShadow = true; b.scale.y = 0.8; return b; });
+      inside(20, () => { const g = new THREE.Group(); const s = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.5, 7), stalkMat); s.position.y = 0.25; const c = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), capMat); c.position.y = 0.5; c.castShadow = true; g.add(s, c); return g; });
+      inside(16, () => { const r = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5 + Math.random() * 0.6, 0), rockMat); r.position.y = 0.32; r.castShadow = true; return r; });
+      inside(18, () => { const g = new THREE.Group(); for (let i = 0; i < 3; i++) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), flowerMat); fl.position.set((Math.random() - 0.5) * 0.6, 0.3 + Math.random() * 0.2, (Math.random() - 0.5) * 0.6); g.add(fl); } return g; });
     } else if (kind === 'rocks') {
       const rockMat = new THREE.MeshStandardMaterial({ color: 0x4a443e, roughness: 1 });
       const tipMat = new THREE.MeshStandardMaterial({ color: 0x5a524a, roughness: 1 });
-      const crystalMat = new THREE.MeshStandardMaterial({ color: 0x6fd0e8, emissive: 0x1a5a6a, roughness: 0.3 });
-      ring(() => { const g = new THREE.Group(); const base = new THREE.Mesh(new THREE.ConeGeometry(1.6, 5 + Math.random() * 3, 7), rockMat); base.position.y = 2.5; base.castShadow = true; const tip = new THREE.Mesh(new THREE.ConeGeometry(0.6, 2, 6), tipMat); tip.position.y = 5; g.add(base, tip); return g; });
-      inside(10, () => { const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.6 + Math.random() * 0.7, 0), rockMat); r.position.y = 0.4; r.castShadow = true; return r; });
-      inside(6, () => { const c = new THREE.Mesh(new THREE.ConeGeometry(0.3, 1.0 + Math.random(), 5), crystalMat); c.position.y = 0.5; c.castShadow = true; return c; });
+      const crystalMat = new THREE.MeshStandardMaterial({ color: 0x6fd0e8, emissive: 0x2a7a8a, roughness: 0.25 });
+      const mossMat = new THREE.MeshStandardMaterial({ color: 0x3a5a44, roughness: 1 });
+      const mkStalagmite = () => { const g = new THREE.Group(); const h = 5 + Math.random() * 4; const base = new THREE.Mesh(new THREE.ConeGeometry(1.6, h, 7), rockMat); base.position.y = h / 2; base.castShadow = true; const tip = new THREE.Mesh(new THREE.ConeGeometry(0.6, 2, 6), tipMat); tip.position.y = h; g.add(base, tip); return g; };
+      treeLine(mkStalagmite, 50);
+      inside(16, mkStalagmite, 6, ARENA - 8);
+      inside(30, () => { const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.7 + Math.random() * 0.8, 0), rockMat); r.position.y = 0.45; r.castShadow = true; return r; });
+      inside(22, () => { const g = new THREE.Group(); const n = 2 + Math.floor(Math.random() * 3); for (let i = 0; i < n; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.9 + Math.random(), 5), crystalMat); c.position.set((Math.random() - 0.5) * 0.5, 0.5, (Math.random() - 0.5) * 0.5); c.rotation.z = (Math.random() - 0.5) * 0.4; c.castShadow = true; g.add(c); } return g; });
+      inside(16, () => { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.6 + Math.random() * 0.5, 0), mossMat); m.position.y = 0.3; m.scale.y = 0.6; return m; });
     } else if (kind === 'graves') {
       const stoneMat = new THREE.MeshStandardMaterial({ color: 0x6a6e7a, roughness: 1 });
       const deadMat = new THREE.MeshStandardMaterial({ color: 0x3a3026, roughness: 0.95 });
       const boneMat = new THREE.MeshStandardMaterial({ color: 0xd8d2bc, roughness: 0.8 });
-      ring(() => {
+      const fenceMat = new THREE.MeshStandardMaterial({ color: 0x2a2a30, roughness: 0.7, metalness: 0.3 });
+      const mkLandmark = () => {
         const g = new THREE.Group();
-        if (Math.random() < 0.6) { const s = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.2, 0.4), stoneMat); s.position.y = 1.1; s.rotation.z = (Math.random() - 0.5) * 0.3; s.castShadow = true; g.add(s); const top = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.4, 12, 1, false, 0, Math.PI), stoneMat); top.rotation.z = Math.PI / 2; top.position.y = 2.2; g.add(top); }
-        else { const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 5, 7), deadMat); trunk.position.y = 2.5; trunk.castShadow = true; const b1 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, 2, 5), deadMat); b1.position.set(0.8, 4, 0); b1.rotation.z = -0.9; g.add(trunk, b1); }
+        if (Math.random() < 0.55) { const s = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.2, 0.4), stoneMat); s.position.y = 1.1; s.rotation.z = (Math.random() - 0.5) * 0.3; s.castShadow = true; g.add(s); const top = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.4, 12, 1, false, 0, Math.PI), stoneMat); top.rotation.z = Math.PI / 2; top.position.y = 2.2; g.add(top); }
+        else { const h = 4.5 + Math.random() * 2; const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.5, h, 7), deadMat); trunk.position.y = h / 2; trunk.castShadow = true; const b1 = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.2, 2, 5), deadMat); b1.position.set(0.8, h - 1, 0); b1.rotation.z = -0.9; const b2 = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.18, 1.6, 5), deadMat); b2.position.set(-0.7, h - 1.6, 0); b2.rotation.z = 0.9; g.add(trunk, b1, b2); }
         return g;
-      });
-      inside(9, () => { const s = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.3, 0.3), stoneMat); s.position.y = 0.65; s.rotation.z = (Math.random() - 0.5) * 0.4; s.castShadow = true; return s; });
-      inside(6, () => { const c = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.07, 6, 12, Math.PI), boneMat); c.position.y = 0.1; c.castShadow = true; return c; });
+      };
+      treeLine(mkLandmark, 50);
+      inside(26, () => { const s = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.3, 0.3), stoneMat); s.position.y = 0.65; s.rotation.z = (Math.random() - 0.5) * 0.4; s.castShadow = true; return s; });
+      inside(20, () => { const c = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.08, 6, 12, Math.PI), boneMat); c.position.y = 0.14; c.castShadow = true; return c; });
+      inside(16, () => { const g = new THREE.Group(); const cross = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.1, 0.12), deadMat); cross.position.y = 0.55; const arm = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 0.12), deadMat); arm.position.y = 0.8; g.add(cross, arm); return g; });
+      inside(14, () => { const f = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.9, 0.08), fenceMat); f.position.y = 0.45; f.castShadow = true; return f; });
     }
   }
 
@@ -494,6 +534,8 @@ export class Game {
     this.ui.setScreen('play');
     this.stats = DEFAULT_STATS();
     this.stats.wobble = 0.9;        // tipsy but steerable enough to shop
+    this.drunkenness = 0.45;        // you spawn here good and sloshed — hence the queasy nausea swim
+    this._drunkSurge = 0;
     this.tavern.reset();
     this.tavern.refreshDecor(meta);
     this.tavern.show(true);
@@ -537,12 +579,10 @@ export class Game {
 
   startMinigame() {
     this.state = 'menu';
-    const kind = ['drinks', 'dishes', 'cooking'][Math.floor(Math.random() * 3)];
-    this.ui.showMinigame(kind, 25, (score) => {
-      const earned = score * 4;
-      meta.addGold(earned); meta.save();
+    this.ui.showBar((tips) => {
+      meta.addGold(tips); meta.save();
       this.ui.setGold(meta.gold());
-      this.ui.toast(`🍺 Earned ${earned}🪙 in tips!`);
+      this.ui.toast(`🍺 Shift over — ${tips}🪙 in tips!`);
       this.state = 'play';
     });
   }
@@ -553,6 +593,7 @@ export class Game {
   }
   closeShop() {
     if (this.state !== 'menu') return;
+    if (this.ui._bar) return; // the bar shift has its own Clock-out button
     this._shopKind = null;
     this.ui.closeShop();
     this.tavern.refreshDecor(meta);
@@ -587,6 +628,7 @@ export class Game {
     this.recognizer = new Recognizer();
     for (const id of this.loadout) { const g = SPELLS[id].gesture; this.recognizer.add(g, TEMPLATES[g]); }
     this.elapsed = 0; this.level = 1; this.xp = 0; this.xpNeed = this._xpForLevel(1);
+    this.drunkenness = 0.22; this._drunkSurge = 0; this._drinkCd = 0; // arrive with a light buzz; drinking ramps it up
     this.kills = 0; this.chores = 0; this.pendingLevels = 0; this.bossActive = false;
     this.bossKilled = false; this._stageCleared = false; this.bossCine = 0;
     this._endState = null; this._exiting = false; this._lastCast = null;
@@ -615,7 +657,7 @@ export class Game {
     const m = meta.equipMods();
     const s = this.stats;
     if (m.hpMax) s.hpMax += m.hpMax;
-    if (m.manaRegen) s.manaRegen += m.manaRegen;
+    if (m.manaRegen) s.drinkPower += m.manaRegen * 2.2; // gear "mana" rolls now boost how much each gulp restores
     if (m.moveSpeed) s.moveSpeed += m.moveSpeed;
     if (m.pickupRadius) s.pickupRadius += m.pickupRadius;
     if (m.thorns) s.thorns += m.thorns;
@@ -667,12 +709,35 @@ export class Game {
   }
   toggleMute() { this.audio.resume(); this.audio.setMuted(!this.audio.muted); this.ui.setMuteIcon(this.audio.muted); }
 
+  // ---- DRINK: the only way to refill mana. Costs sobriety — you get woozier. ----
+  drink() {
+    if (this.state !== 'play' || this.phase !== 'arena' || !this.wizard.alive) return;
+    if (this._drinkCd > 0) return;
+    const w = this.wizard, s = this.stats;
+    if (w.mana >= s.manaMax - 0.5) { this.ui.toast('🍺 Mug\'s already brimming'); return; }
+    this._drinkCd = 0.45;
+    w.mana = Math.min(s.manaMax, w.mana + s.drinkPower);
+    // the gulp makes the spirit's puppet woozier — the core risk/reward
+    this.drunkenness = Math.min(1, this.drunkenness + 0.26);
+    this._drunkSurge = 1;
+    w.bob -= 0.6; w.leanV.x += (Math.random() - 0.5) * 5; w.leanV.z += (Math.random() - 0.5) * 5;
+    this.audio.play('heal');
+    const hp = w.handPosition(); hp.y = 2.1;
+    this.particles.burst({ pos: hp, color: 0xf6e3a0, count: 9, speed: 2.4, size: 0.18, life: 0.7, grav: 2, blend: 'normal' });
+    this.ui.toast('🍺 *gulp* — mana up, room spinning');
+  }
+
+  _maybeDrink() { // touch/desktop drink button + Q key route here
+    this.drink();
+  }
+
   // ---------- input ----------
   _handleInput() {
     const events = this.input.drain();
     for (const e of events) {
       if (e.type === 'mute') { this.toggleMute(); continue; }
       if (e.type === 'guide') { this.toggleGuide(); continue; }
+      if (e.type === 'drink') { this.drink(); continue; }
       if (e.type === 'interact') { if (this.state === 'menu') this.closeShop(); else this.interact(); continue; }
 
       if (this.storyShowing) {
@@ -854,6 +919,14 @@ export class Game {
       this.camera.position.z += (Math.random() - 0.5) * this.shakeAmt;
     }
     this.camera.lookAt(focus.x, focus.y + 1.5, focus.z);
+    // drunk nausea: a queasy camera roll + slow swim, strongest right after a gulp
+    const dz = Math.min(1.2, (this.drunkenness || 0) + (this._drunkSurge || 0) * 0.7);
+    if (dz > 0.01) {
+      const t = performance.now() / 1000;
+      this.camera.rotation.z += (Math.sin(t * 1.25) * 0.030 + Math.sin(t * 0.66) * 0.016) * dz;
+      this.camera.position.x += Math.sin(t * 0.9) * 0.28 * dz;
+      this.camera.position.y += Math.sin(t * 1.7 + 1) * 0.20 * dz;
+    }
   }
 
   // ---------- main loop ----------
@@ -894,6 +967,10 @@ export class Game {
 
   _updateArena(sdt) {
     this.elapsed += sdt;
+    // you slowly sober up between gulps; the post-gulp lurch fades fast
+    this.drunkenness = Math.max(0, this.drunkenness - sdt * 0.05);
+    if (this._drunkSurge > 0) this._drunkSurge = Math.max(0, this._drunkSurge - sdt * 1.6);
+    if (this._drinkCd > 0) this._drinkCd = Math.max(0, this._drinkCd - sdt);
     this.director.update(sdt, this);
     this.wizard.update(sdt, this);
     this.enemies.update(sdt, this);

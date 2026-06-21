@@ -308,13 +308,14 @@ export class Wizard {
       this.yaw += d * Math.min(1, dt * 10);
     }
 
-    // ---- drunken sway + hiccups ----
-    this.drunk += dt * (1.5 + s.wobble);
+    // ---- drunken sway + hiccups (amplified by how sloshed the spirit is) ----
+    const dWob = 1 + (game.drunkenness || 0) * 1.4; // DRINK -> woozier puppet
+    this.drunk += dt * (1.5 + s.wobble * dWob);
     this.hiccupIn -= dt;
     if (this.hiccupIn <= 0 && this.alive) {
-      this.hiccupIn = 4 + Math.random() * 6;
-      this.leanV.x += (Math.random() - 0.5) * 9 * s.wobble;
-      this.leanV.z += (Math.random() - 0.5) * 9 * s.wobble;
+      this.hiccupIn = (4 + Math.random() * 6) / dWob; // hiccup more often when drunk
+      this.leanV.x += (Math.random() - 0.5) * 9 * s.wobble * dWob;
+      this.leanV.z += (Math.random() - 0.5) * 9 * s.wobble * dWob;
       this.bob -= 1.4;
       // a hiccup also flings the arms
       this.armL.p2p.y -= 0.25; this.armR.p2p.y -= 0.25;
@@ -323,7 +324,7 @@ export class Wizard {
     }
 
     // ---- spring lean (movement lurch + drunk sway) ----
-    const swayAmp = 0.16 * s.wobble;
+    const swayAmp = 0.16 * s.wobble * dWob;
     const targetX = -this.vel.x * 0.05 + Math.sin(this.drunk) * swayAmp + Math.sin(this.drunk * 0.37) * swayAmp * 0.6;
     const targetZ = this.vel.z * 0.05 + Math.cos(this.drunk * 0.9) * swayAmp + Math.cos(this.drunk * 0.23) * swayAmp * 0.6;
     [this.lean.x, this.leanV.x] = spring(this.lean.x, this.leanV.x, targetX, 70, 7, dt);
@@ -394,9 +395,9 @@ export class Wizard {
       this.skinMat.emissive.setRGB(0, 0, 0);
     }
 
-    // ---- shield + mana regen ----
+    // ---- shield (mana does NOT auto-regen — drink to refill it) ----
     if (this.shieldT > 0) { this.shieldT -= dt; if (this.shieldT <= 0) this.shield = 0; }
-    this.mana = Math.min(s.manaMax, this.mana + s.manaRegen * dt);
+    if (s.manaRegen > 0) this.mana = Math.min(s.manaMax, this.mana + s.manaRegen * dt); // 0 by default
   }
 }
 

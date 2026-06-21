@@ -26,8 +26,11 @@
       <div class="bars">
         <div class="vitals">
           <div class="vital heart" id="hp-vital"><div class="vital-fill" id="hp-fill"></div><span class="vital-num" id="hp-label">100</span></div>
-          <div class="vital elixir" id="mana-vital"><div class="vital-fill" id="mana-fill"></div><span class="vital-num" id="mana-label">100</span></div>
-          <div class="xpwrap"><div class="bar xp"><div class="bar-fill" id="xp-fill"></div><span class="bar-label" id="xp-label">Lv 1</span></div></div>
+          <div class="vital beer" id="mana-vital" title="Mana. It does NOT refill on its own — DRINK (Q) to top it up."><div class="vital-fill" id="mana-fill"></div><div class="beer-foam" id="mana-foam"></div><span class="vital-num" id="mana-label">100</span></div>
+          <div class="xpwrap">
+            <div class="bar xp"><div class="bar-fill" id="xp-fill"></div><span class="bar-label" id="xp-label">Lv 1</span></div>
+            <div class="bar drunk" id="drunk-wrap" title="How spinny the room is. Drinking fills it; it eases off over time."><div class="bar-fill" id="drunk-fill"></div><span class="bar-label">🥴 Spins</span></div>
+          </div>
         </div>
         <div id="wave-wrap" class="hidden"><span id="wave">Wave 1/6</span><div id="wave-pips"></div></div>
       </div>
@@ -66,11 +69,13 @@
       <div class="spell-chip hidden" data-spell="heal"><span class="glyph">∨</span><span class="name">Heal</span><span class="key">5</span></div>
     </div>
 
+    <button id="btn-drink" class="hidden" title="Drink to refill mana (Q)">🍺 Drink<span class="drink-key">Q</span></button>
+
     <div id="banner"></div>
     <div id="toast-area"></div>
     <div id="interact-prompt" class="hidden"></div>
     <button id="btn-interact" class="hidden">✋ Interact</button>
-    <div id="cast-hint">Hold <b>Right-Mouse</b> and draw a glyph to cast · <b>WASD</b> to stagger about · mouse to aim</div>
+    <div id="cast-hint">Hold <b>Right-Mouse</b> and draw a glyph to cast · <b>WASD</b> to stagger · <b>Q</b> to drink (refills mana, makes you woozy)</div>
   </div>
 
   <!-- ===== Story / dialogue popup ===== -->
@@ -107,8 +112,9 @@
         <li><b>Pick a stage</b> at the door: 🌲 Forest, 🦇 Cave, or ⚰ Graveyard — each has <b>5 waves + a boss</b> (Goblin King, Spider Queen, Skeleton King). Enemies pour out of portals.</li>
         <li><b>Move:</b> <b>WASD</b>/arrows or <b>drag the left side</b> on phone.</li>
         <li><b>Cast:</b> hold <b>Right-Mouse</b> (or draw on the <b>right</b> on phone) and trace a glyph. Cleaner = more damage; <b>perfect = CRIT</b>. Or tap a spell / press <b>1–3</b>.</li>
+        <li><b>Mana = beer.</b> It does <b>NOT</b> refill on its own — press <b>Q</b> (or tap 🍺) to <b>drink</b>. Each gulp tops up mana but makes the room <b>spin</b> (wonkier aim, woozy screen). Drink wisely!</li>
         <li><b>Combos:</b> draw two equipped glyphs in a row — e.g. <b>△ then —</b> = 🔥 Fire Tornado (learn them at the Cauldron).</li>
-        <li>Clear a stage for loot, then come back and gear up for the next!</li>
+        <li>Back at the tavern, work a <b>bar shift</b> (the Kitchen): accept orders and <b>pour beer</b> to the line for tips. Clear a stage for loot, then gear up!</li>
       </ul>
       <button class="btn" id="btn-how-close">Got it</button>
     </div>
@@ -156,12 +162,21 @@
     </div>
   </div>
 
-  <!-- ===== Tavern mini-game (serve drinks) ===== -->
+  <!-- ===== Tavern serving: physics beer-pour bar mini-game ===== -->
   <div id="minigame" class="overlay hidden">
-    <h2 class="levelup-title" id="mg-title">Serve the Patrons!</h2>
-    <p class="levelup-sub" id="mg-sub">Tap the full mugs before they overflow. <span id="mg-timer"></span></p>
-    <div class="mg-board" id="mg-board"></div>
-    <div class="mg-score">Served: <b id="mg-score">0</b></div>
+    <h2 class="levelup-title" id="mg-title">Tend the Bar</h2>
+    <p class="levelup-sub" id="mg-sub"></p>
+    <div id="mg-order" class="mg-order hidden"></div>
+    <div class="mg-stage">
+      <canvas id="mg-canvas" width="400" height="440"></canvas>
+    </div>
+    <div class="mg-controls">
+      <button class="btn big" id="mg-pour">🍺 Hold to Pour</button>
+      <button class="btn" id="mg-serve">Serve ▸</button>
+      <button class="btn" id="mg-accept">Accept Order ▸</button>
+    </div>
+    <div class="mg-score">Tips: <b id="mg-score">0</b>🪙 · Served <b id="mg-served">0</b>/<b id="mg-total">4</b></div>
+    <button class="btn" id="mg-quit">Clock out ▸</button>
   </div>
 
   <!-- ===== Spell drawing guide ===== -->
@@ -186,6 +201,9 @@
   </div>
 
   <div id="blackout"></div>
+
+  <!-- drunk nausea: a queasy swimming overlay; strength is set from JS each frame -->
+  <div id="nausea"><div class="nausea-swirl"></div></div>
 
   <script type="module" src="src/main.js"></script>
 </body>

@@ -7,9 +7,10 @@
 
 **Plays on desktop and mobile** (virtual joystick + draw-to-cast). Includes an
 animated menu (live fight on the right), **3 save slots**, settings & credits, an
-**idle/tycoon** layer for running your tavern, a multi-room hub (separate bedroom
-& kitchen), **looted RPG gear** with rarity/levels + a Blacksmith, and tavern
-mini-games (serve drinks / wash dishes / cook).
+**idle/tycoon** layer for running your **two-floor** tavern (a minstrels' gallery
+over the bar), a multi-room hub (your room starts bare but for a bed), **looted
+RPG gear** with rarity/levels + a Blacksmith, a **drink-to-refill-mana** drunk
+system with a queasy nausea effect, and a **physics beer-pouring bar shift** for tips.
 
 A self-contained 3D browser game: **floppy ragdoll-physics** characters (heavily
 inspired by **Human: Fall Flat** — dangling verlet-physics limbs, soft pastel
@@ -66,9 +67,16 @@ You are the **spirit**; the wizard is your wobbly puppet. The night runs in two 
 | Move | **WASD** / arrows | **drag the left side** (virtual stick) |
 | Aim | **mouse** | auto-aims nearest foe |
 | **Cast** | hold **Right-Mouse** + draw a glyph | **draw on the right side**, or tap a spell |
+| **Drink** (refill mana) | **Q** | tap the 🍺 button |
 | Quick-cast | keys **1 – 5** | tap a spell chip |
 | Pause / Mute | **P**/**Esc**, **M** | on-screen ⏸ / 🔊 |
 | Spell guide | **H** | 📖 button |
+
+**Mana is beer, and beer does not refill itself.** Spells cost mana; the only way
+to get it back mid-fight is to **drink** (**Q** / 🍺). Every gulp tops up the
+tankard but cranks up the **drunkenness meter** — the screen swims with a queasy
+nausea, the wizard wobbles harder, and your glyphs get sloppier. You sober up
+slowly over time. Risk vs. reward: chug to keep casting, or stay steady to aim.
 
 **The Tavern is a hub.** Between runs, wobble up to the glowing stations and press
 **E** (tap ✋): the **Spell Table** (a skill tree — unlock & upgrade spells, then
@@ -109,12 +117,18 @@ unleash it toward where you were aiming.
 ### The loop
 
 - Foes **swarm** from the dark. Spells leave glowing **XP motes** — soak them up.
+- Spells cost **mana**; **drink** (**Q** / 🍺) to refill it, at the cost of getting
+  woozier. Hearts and 🧪 motes drop from foes too.
 - **Level up** to pick a **boon** (more damage, bigger booms, +1 chain, "Liquid
-  Courage" for risky power, "Sip of Coffee" to sober up, etc.).
+  Courage" for risky power, "Sip of Coffee" to sober up, "Deep Flask" for bigger
+  gulps, etc.).
 - The landlady keeps assigning **chores** — a marker shows where. Cast the right
   kind of spell near it (e.g. **◯ Frost Splash** to wash dishes / douse the
   hearth, **— Gust** to sweep) to finish them for bonus XP.
 - Survive the night and slay the final boss — **The Tab Collector** — to win.
+- **Between runs**, work a **bar shift** at the tavern: accept a patron's order
+  and **pour beer to their line** in a physics pour mini-game — a clean pour
+  (mind the foam, don't overflow) earns the fattest tip.
 
 ---
 

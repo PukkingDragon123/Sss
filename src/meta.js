@@ -68,7 +68,7 @@ export function statLabel(stat, v) {
   if (stat === 'cooldownMult') return `${Math.round(v * 100)}% cooldown`;
   if (stat === 'moveSpeed') return `${sign}${v} move`;
   if (stat === 'pickupRadius') return `${sign}${v} pickup`;
-  if (stat === 'manaRegen') return `${sign}${v} mana/s`;
+  if (stat === 'manaRegen') return `${sign}${Math.round(v * 2.2)} per gulp`;
   if (stat === 'hpMax') return `${sign}${v} HP`;
   if (stat === 'thorns') return `${sign}${v} thorns`;
   return `${sign}${v} ${stat}`;

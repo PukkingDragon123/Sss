@@ -47,8 +47,10 @@ export class UI {
     this.game = null;
     this.el = {
       hud: $('hud'), hpFill: $('hp-fill'), hpLabel: $('hp-label'),
-      manaFill: $('mana-fill'), manaLabel: $('mana-label'),
+      manaFill: $('mana-fill'), manaLabel: $('mana-label'), manaFoam: $('mana-foam'),
       xpFill: $('xp-fill'), xpLabel: $('xp-label'),
+      drunkWrap: $('drunk-wrap'), drunkFill: $('drunk-fill'),
+      nausea: $('nausea'), btnDrink: $('btn-drink'),
       timer: $('timer'), kills: $('kills'), sobriety: $('sobriety'),
       jobTracker: $('job-tracker'), jobDesc: $('job-desc'), jobFill: $('job-fill'),
       toastArea: $('toast-area'),
@@ -60,7 +62,9 @@ export class UI {
       settings: $('settings'), settingsClose: $('settings-close'), setVol: $('set-vol'), setMute: $('set-mute'), setShake: $('set-shake'), setErase: $('set-erase'),
       credits: $('credits'), creditsClose: $('credits-close'),
       waveWrap: $('wave-wrap'), wavePips: $('wave-pips'),
-      minigame: $('minigame'), mgBoard: $('mg-board'), mgScore: $('mg-score'), mgTimer: $('mg-timer'), mgTitle: $('mg-title'), mgSub: $('mg-sub'),
+      minigame: $('minigame'), mgScore: $('mg-score'), mgTitle: $('mg-title'), mgSub: $('mg-sub'),
+      mgOrder: $('mg-order'), mgCanvas: $('mg-canvas'), mgPour: $('mg-pour'), mgServe: $('mg-serve'),
+      mgAccept: $('mg-accept'), mgServed: $('mg-served'), mgTotal: $('mg-total'), mgQuit: $('mg-quit'),
       end: $('end'), endTitle: $('end-title'), endStats: $('end-stats'), btnAgain: $('btn-again'),
       loading: $('loading'),
       bars: document.querySelector('.bars'), spellbook: $('spellbook'), castHint: $('cast-hint'),
@@ -104,6 +108,7 @@ export class UI {
     this.el.btnGuide.addEventListener('click', () => { game.audio.play('click'); game.toggleGuide(); });
     this.el.btnGuideClose.addEventListener('click', () => { game.audio.play('click'); game.toggleGuide(); });
     this.el.btnInteract.addEventListener('click', () => game.interact());
+    if (this.el.btnDrink) this.el.btnDrink.addEventListener('click', () => game.drink());
     this.el.shopClose.addEventListener('click', () => { game.audio.play('click'); game.closeShop(); });
     // shop buttons are delegated (the body is re-rendered on every action)
     this.el.shopBody.addEventListener('click', (e) => {
@@ -167,6 +172,16 @@ export class UI {
 
   hideLoading() { this.el.loading.classList.add('hidden'); }
 
+  // drunk nausea: fade a swimming, blurry vignette in proportion to how sloshed
+  // the spirit is. Lives over the canvas but under the menus.
+  _updateNausea(game) {
+    const el = this.el.nausea; if (!el) return;
+    const d = Math.min(1.25, (game.drunkenness || 0) + (game._drunkSurge || 0) * 0.6);
+    const active = (game.state === 'play' || game.state === 'paused' || game.storyShowing) && d > 0.02;
+    el.style.opacity = active ? Math.min(0.92, 0.18 + d * 0.7).toFixed(3) : '0';
+    el.style.setProperty('--n', d.toFixed(3));
+  }
+
   // toggle which HUD bits show for the tavern hub vs the forest fight
   setPhase(phase, isTouch) {
     const tavern = phase === 'tavern';
@@ -178,11 +193,12 @@ export class UI {
     this.el.kills.classList.toggle('hidden', tavern);
     this.el.tavernHud.classList.add('hidden');
     this.el.btnGuide.classList.toggle('hidden', tavern);
+    if (this.el.btnDrink) this.el.btnDrink.classList.toggle('hidden', tavern); // drink only in the fight
     if (!tavern) { this.el.interactPrompt.classList.add('hidden'); this.el.btnInteract.classList.add('hidden'); }
     if (tavern) {
       this.el.castHint.innerHTML = isTouch ? 'Drag the <b>left side</b> to wander · tap glowing stations to use them' : 'Walk up to glowing stations and press <b>E</b> · head to the <b>door</b> to start a run';
     } else {
-      this.el.castHint.innerHTML = isTouch ? 'Left = move · <b>draw a glyph</b> on the right to cast · or tap a spell' : 'Hold <b>Right-Mouse</b> and draw a glyph · <b>WASD</b> move · keys <b>1–3</b> · 📖 guide';
+      this.el.castHint.innerHTML = isTouch ? 'Left = move · <b>draw a glyph</b> on the right to cast · 🍺 to drink (refill mana)' : 'Hold <b>Right-Mouse</b> and draw a glyph · <b>WASD</b> move · <b>Q</b> drink to refill mana · keys <b>1–3</b>';
     }
   }
 
@@ -240,6 +256,7 @@ export class UI {
   // ---- HUD ----
   updateHUD(game) {
     this.updateJoystick(game.input);
+    this._updateNausea(game); // queasy overlay — runs in the tavern AND the fight
     if (game.phase === 'tavern') { // hub: show gold + interaction prompt only
       this.updatePrompt(game.state === 'play' ? game.nearStation : null, game.input.isTouch);
       return;
@@ -250,10 +267,13 @@ export class UI {
     this.el.hpLabel.textContent = `${Math.ceil(Math.max(0, w.hp))}${w.shield > 0 ? '+' + Math.ceil(w.shield) : ''}`;
     const manaPct = Math.max(0, w.mana / s.manaMax) * 100;
     this.el.manaFill.style.height = manaPct + '%';
+    if (this.el.manaFoam) this.el.manaFoam.style.bottom = `calc(${manaPct}% - 4px)`;
     this.el.manaLabel.textContent = `${Math.floor(w.mana)}`;
+    if (this.el.btnDrink) this.el.btnDrink.classList.toggle('urge', manaPct < 30);
     const xpPct = (game.xp / game.xpNeed) * 100;
     this.el.xpFill.style.width = xpPct + '%';
     this.el.xpLabel.textContent = `Lv ${game.level}`;
+    if (this.el.drunkFill) this.el.drunkFill.style.width = Math.min(100, (game.drunkenness || 0) * 100) + '%';
 
     const mm = Math.floor(game.elapsed / 60), ss = Math.floor(game.elapsed % 60);
     this.el.timer.textContent = `${mm}:${ss.toString().padStart(2, '0')}`;
@@ -424,49 +444,185 @@ export class UI {
     this.el.settings.classList.remove('hidden');
   }
 
-  // ---- tavern mini-games (serve drinks / wash dishes / cook) ----
-  showMinigame(kind, durationS, onDone) {
-    const KINDS = {
-      drinks:  { title: 'Serve the Patrons!', sub: 'Tap the full mugs before they overflow.', emoji: '🍺' },
-      dishes:  { title: 'Wash the Dishes!',   sub: 'Tap the dirty plates to scrub them clean.', emoji: '🍽️' },
-      cooking: { title: 'Cook the Orders!',   sub: 'Tap the pans before the food burns.', emoji: '🍳' },
+  // ---- Tavern serving: a physics beer-pour bar shift ----
+  // Accept an order (a target fill), hold to pour, watch the foam build, then
+  // serve. Tips scale with how close the settled beer is to the patron's line.
+  showBar(onDone) {
+    const M = this._bar = {
+      done: onDone, served: 0, total: 4, tips: 0,
+      liquid: 0, foam: 0, pouring: false, spilled: 0, overflow: 0,
+      target: 0, tol: 0, phase: 'order', // order -> pour -> served
+      patron: 0, last: performance.now(), wobble: 0, anim: 0,
     };
-    const k = KINDS[kind] || KINDS.drinks;
-    this._mgEmoji = k.emoji;
-    this.el.mgTitle.textContent = k.title;
-    this.el.mgSub.innerHTML = `${k.sub} <span id="mg-timer"></span>`;
-    this.el.mgTimer = $('mg-timer');
-    this._mgScore = 0; this._mgDone = onDone; this._mgEnd = performance.now() + durationS * 1000;
+    this.el.mgTitle.textContent = '🍺 Tend the Bar';
+    this.el.mgSub.innerHTML = 'A patron wants a pint. <b>Accept the order</b>, then <b>hold to pour</b> — fill to their line without spilling the foam over the rim. The cleaner the pour, the bigger the tip.';
     this.el.mgScore.textContent = '0';
-    this.el.mgBoard.innerHTML = '';
-    for (let i = 0; i < 6; i++) {
-      const slot = document.createElement('div'); slot.className = 'mg-slot'; slot.dataset.i = i;
-      slot.addEventListener('click', () => this._mgServe(slot));
-      this.el.mgBoard.appendChild(slot);
-    }
+    this.el.mgServed.textContent = '0';
+    this.el.mgTotal.textContent = M.total;
     this.el.minigame.classList.remove('hidden');
-    clearInterval(this._mgTick); clearInterval(this._mgFill);
-    this._mgTick = setInterval(() => {
-      const left = Math.max(0, (this._mgEnd - performance.now()) / 1000);
-      if (this.el.mgTimer) this.el.mgTimer.textContent = `${left.toFixed(1)}s`;
-      if (left <= 0) this._mgFinish();
-    }, 100);
-    this._mgFill = setInterval(() => {
-      const slots = [...this.el.mgBoard.children].filter(s => !s.classList.contains('full'));
-      if (slots.length) { const s = slots[Math.floor(Math.random() * slots.length)]; s.classList.add('full'); s.textContent = this._mgEmoji; }
-    }, 680);
+    this._barNewOrder();
+
+    // pour control: hold the button (mouse or touch); release anywhere to stop
+    const down = (e) => { if (this._bar && this._bar.phase === 'pour') { this._bar.pouring = true; if (e && e.preventDefault) e.preventDefault(); } };
+    const upp = () => { if (this._bar) this._bar.pouring = false; };
+    this._barDown = down; this._barUp = upp;
+    this.el.mgPour.addEventListener('pointerdown', down);
+    window.addEventListener('pointerup', upp);
+    this.el.mgPour.addEventListener('pointercancel', upp);
+    this.el.mgServe.onclick = () => this._barServe();
+    this.el.mgAccept.onclick = () => this._barAccept();
+    this.el.mgQuit.onclick = () => this._barFinish();
+    if (!this._barLoopBound) { this._barLoopBound = this._barLoop.bind(this); }
+    cancelAnimationFrame(this._barRaf);
+    this._barRaf = requestAnimationFrame(this._barLoopBound);
   }
-  _mgServe(slot) {
-    if (!slot.classList.contains('full')) return;
-    slot.classList.remove('full'); slot.textContent = '';
-    this._mgScore++; this.el.mgScore.textContent = this._mgScore;
-    this.game.audio.play('xp');
+
+  _barNewOrder() {
+    const M = this._bar; if (!M) return;
+    M.phase = 'order'; M.liquid = 0; M.foam = 0; M.pouring = false; M.overflow = 0; M.spilled = 0;
+    M.patron++;
+    M.target = 0.62 + Math.random() * 0.26;          // where the beer line should land
+    M.tol = 0.06;                                     // perfect band
+    this.el.mgOrder.classList.remove('hidden');
+    this.el.mgOrder.innerHTML = `Patron #${M.patron}: “Fill 'er to the line — about <b>${Math.round(M.target * 100)}%</b>, barkeep.”`;
+    this.el.mgAccept.classList.remove('hidden');
+    this.el.mgPour.classList.add('hidden');
+    this.el.mgServe.classList.add('hidden');
   }
-  _mgFinish() {
-    clearInterval(this._mgTick); clearInterval(this._mgFill);
+  _barAccept() {
+    const M = this._bar; if (!M || M.phase !== 'order') return;
+    this.game.audio.play('click');
+    M.phase = 'pour';
+    this.el.mgOrder.innerHTML = `Pour to the <b>red line</b> (~${Math.round(M.target * 100)}%). Foam counts — don't overflow!`;
+    this.el.mgAccept.classList.add('hidden');
+    this.el.mgPour.classList.remove('hidden');
+    this.el.mgServe.classList.remove('hidden');
+  }
+  _barServe() {
+    const M = this._bar; if (!M || M.phase !== 'pour') return;
+    M.pouring = false; M.phase = 'served';
+    const level = M.liquid + M.foam;                  // total height in the glass
+    const miss = Math.abs(level - M.target);
+    let tip;
+    if (M.overflow > 0.04) { tip = 1; this.game.audio.play('hiccup'); }       // sloppy mess
+    else if (miss <= M.tol) { tip = 12; this.game.audio.play('levelup'); this.critToast(); } // bang on
+    else if (miss <= 0.16) { tip = 7; this.game.audio.play('xp'); }
+    else { tip = 3; this.game.audio.play('xp'); }
+    M.tips += tip; M.served++;
+    this.el.mgScore.textContent = M.tips;
+    this.el.mgServed.textContent = M.served;
+    this.toast(`🍺 +${tip}🪙 tip`);
+    if (M.served >= M.total) { setTimeout(() => this._barFinish(), 650); return; }
+    setTimeout(() => this._barNewOrder(), 850);
+  }
+  _barFinish() {
+    const M = this._bar; if (!M) { this.el.minigame.classList.add('hidden'); return; }
+    cancelAnimationFrame(this._barRaf);
+    window.removeEventListener('pointerup', this._barUp);
+    this.el.mgPour.removeEventListener('pointerdown', this._barDown);
+    this.el.mgPour.removeEventListener('pointercancel', this._barUp);
     this.el.minigame.classList.add('hidden');
-    const cb = this._mgDone; this._mgDone = null;
-    if (cb) cb(this._mgScore);
+    this.el.mgOrder.classList.add('hidden');
+    const cb = M.done; this._bar = null;
+    if (cb) cb(M.tips);
+  }
+
+  _barLoop() {
+    const M = this._bar; if (!M) return;
+    const now = performance.now();
+    let dt = (now - M.last) / 1000; M.last = now; if (dt > 0.05) dt = 0.05;
+    M.anim += dt;
+
+    if (M.phase === 'pour') {
+      if (M.pouring) {
+        M.liquid += 0.34 * dt;                        // beer flows in
+        // foam builds faster the harder the stream hits existing beer
+        M.foam += (0.10 + M.liquid * 0.20) * dt;
+      } else {
+        // foam settles into liquid when you stop pouring (the satisfying part)
+        const settle = Math.min(M.foam, 0.18 * dt);
+        M.foam -= settle; M.liquid += settle * 0.45;
+      }
+      // overflow once the glass is full
+      const level = M.liquid + M.foam;
+      if (level > 1) { M.overflow += (level - 1); M.foam = Math.max(0, M.foam - (level - 1)); M.liquid = Math.min(M.liquid, 1); }
+    } else if (M.phase === 'served') {
+      const settle = Math.min(M.foam, 0.25 * dt); M.foam -= settle; M.liquid += settle * 0.4;
+    }
+    M.wobble = Math.sin(M.anim * 3) * 0.5 + 0.5;
+    this._barRender();
+    this._barRaf = requestAnimationFrame(this._barLoopBound);
+  }
+
+  _barRender() {
+    const M = this._bar, cv = this.el.mgCanvas; if (!M || !cv) return;
+    const ctx = cv.getContext('2d'); const W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+
+    // glass geometry
+    const gx = W / 2, gw = 150, gh = 300, gy = H - gh - 30;
+    const left = gx - gw / 2, right = gx + gw / 2, bottom = gy + gh;
+    const innerL = left + 10, innerR = right - 10, innerW = innerR - innerL;
+    const innerTop = gy + 12, innerBot = bottom - 12, innerH = innerBot - innerTop;
+
+    // pouring stream from a tap above
+    if (M.phase === 'pour' && M.pouring) {
+      ctx.fillStyle = 'rgba(255,206,90,0.9)';
+      const sx = gx + Math.sin(M.anim * 12) * 3;
+      ctx.fillRect(sx - 5, 8, 10, gy - 8 - (M.liquid + M.foam) * innerH);
+      // splash droplets
+      ctx.fillStyle = 'rgba(255,240,200,0.8)';
+      for (let i = 0; i < 5; i++) { const a = M.anim * 9 + i; ctx.beginPath(); ctx.arc(sx + Math.sin(a) * 14, gy - (M.liquid + M.foam) * innerH + Math.abs(Math.cos(a)) * 10, 2.5, 0, 6.28); ctx.fill(); }
+    }
+    // the tap
+    ctx.fillStyle = '#3a3a42'; ctx.fillRect(gx - 26, 0, 52, 16); ctx.fillRect(gx - 6, 14, 12, 8);
+
+    // liquid + foam inside the glass (clip to inner glass)
+    ctx.save();
+    ctx.beginPath(); ctx.moveTo(innerL, innerTop); ctx.lineTo(innerR, innerTop); ctx.lineTo(innerR, innerBot); ctx.lineTo(innerL, innerBot); ctx.closePath(); ctx.clip();
+    const liqTop = innerBot - Math.min(1, M.liquid) * innerH;
+    const grad = ctx.createLinearGradient(0, liqTop, 0, innerBot);
+    grad.addColorStop(0, '#ffd166'); grad.addColorStop(1, '#c8841d');
+    ctx.fillStyle = grad; ctx.fillRect(innerL, liqTop, innerW, innerBot - liqTop);
+    // rising bubbles
+    ctx.fillStyle = 'rgba(255,247,230,0.5)';
+    for (let i = 0; i < 8; i++) { const t = (M.anim * 0.4 + i / 8) % 1; const by = innerBot - t * Math.min(1, M.liquid) * innerH; ctx.beginPath(); ctx.arc(innerL + ((i * 37) % innerW), by, 1.6 + (i % 3) * 0.6, 0, 6.28); ctx.fill(); }
+    // foam head
+    const foamH = Math.min(1, M.foam) * innerH;
+    if (foamH > 0.5) {
+      const foamTop = liqTop - foamH;
+      ctx.fillStyle = '#fff7e8'; ctx.fillRect(innerL, foamTop, innerW, foamH);
+      ctx.fillStyle = '#fffdf6';
+      for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.arc(innerL + 8 + i * (innerW / 6.5), foamTop + Math.sin(M.anim * 2 + i) * 2.5, 7, 0, 6.28); ctx.fill(); }
+    }
+    ctx.restore();
+
+    // target line + tolerance band
+    const tY = innerBot - M.target * innerH;
+    ctx.fillStyle = 'rgba(120,240,150,0.18)'; ctx.fillRect(left - 6, tY - M.tol * innerH, gw + 12, M.tol * 2 * innerH);
+    ctx.strokeStyle = '#ff5d6c'; ctx.lineWidth = 2; ctx.setLineDash([7, 5]);
+    ctx.beginPath(); ctx.moveTo(left - 6, tY); ctx.lineTo(right + 6, tY); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#ff8a98'; ctx.font = 'bold 13px "Trebuchet MS",sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('fill to here', right + 10, tY + 4);
+
+    // glass outline (drawn on top)
+    ctx.strokeStyle = 'rgba(220,235,255,0.85)'; ctx.lineWidth = 5;
+    ctx.strokeRect(left, gy, gw, gh);
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2; ctx.strokeRect(left + 6, gy + 6, gw - 12, gh - 12);
+    // handle
+    ctx.strokeStyle = 'rgba(220,235,255,0.8)'; ctx.lineWidth = 9;
+    ctx.beginPath(); ctx.arc(right + 18, gy + gh * 0.5, 30, -1.1, 1.1); ctx.stroke();
+
+    // spill over the rim
+    if (M.overflow > 0.001) {
+      ctx.fillStyle = 'rgba(255,206,90,0.8)';
+      for (let i = 0; i < 6; i++) { const a = M.anim * 6 + i; ctx.beginPath(); ctx.arc(left + (i % 2 ? -4 : gw + 4), gy + 10 + ((M.anim * 60 + i * 30) % gh), 3 + (i % 2), 0, 6.28); ctx.fill(); }
+      ctx.fillStyle = '#ff6a6a'; ctx.textAlign = 'center'; ctx.font = 'bold 15px "Trebuchet MS",sans-serif';
+      ctx.fillText('SPILLING!', gx, gy - 8);
+    }
+    // readout
+    ctx.fillStyle = '#ffe6a8'; ctx.textAlign = 'center'; ctx.font = 'bold 15px "Trebuchet MS",sans-serif';
+    ctx.fillText(`Filled: ${Math.round(Math.min(1, M.liquid + M.foam) * 100)}%`, gx, bottom + 22);
   }
 
   bannerWave(w, total, isBoss) {

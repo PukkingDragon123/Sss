@@ -175,8 +175,7 @@ export class RunMap {
       mk.add(orb, core, hat, light);
       this.marker = mk; this.group.add(mk);
     }
-    // park the marker just below row 0
-    const m0 = this.rows[0][0];
+    // park the spirit marker just below row 0, ready to set off
     this.marker.position.set(0, 1.1, Z0 + ROW_GAP * 0.7);
     this._built = true;
   }

@@ -343,8 +343,9 @@ export class Wizard {
     this.legL.rotation.x = Math.sin(this.bob) * 0.5 * Math.min(1, sp / 3);
     this.legR.rotation.x = -Math.sin(this.bob) * 0.5 * Math.min(1, sp / 3);
 
-    // ---- apply body transforms ----
-    this.root.position.set(this.pos.x, bobY, this.pos.z);
+    // ---- apply body transforms (floorY lets him climb the tavern's upper deck) ----
+    this.floorY = game.floorHeightAt ? game.floorHeightAt(this.pos.x, this.pos.z) : 0;
+    this.root.position.set(this.pos.x, this.floorY + bobY, this.pos.z);
     this.leaner.rotation.set(this.lean.z, 0, -this.lean.x);
     this.facer.rotation.y = this.yaw;
     this.head.rotation.set((this.headLean.z - this.lean.z) * 0.8, 0, -(this.headLean.x - this.lean.x) * 0.8);

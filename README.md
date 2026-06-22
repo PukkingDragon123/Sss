@@ -85,11 +85,18 @@ slowly over time. Risk vs. reward: chug to keep casting, or stay steady to aim.
 (bounty quests), and your **Room** (rest for a bonus, buy decorations). At the
 **door** you pick a **stage**.
 
-**Stages & waves.** Three stages — 🌲 **Forest**, 🦇 **Cave**, ⚰ **Graveyard** —
-each with its own monsters, a **5-wave + boss** structure, enemies that **pour
-out of portals**, and a **boss reveal** cinematic. Bosses: the Goblin King, the
-Spider Queen, and the Skeleton King. Runs award **gold** (results/loot screen)
-and everything is **saved** to your browser.
+**Stages & the journey map.** Three stages — 🌲 **Forest**, 🦇 **Cave**,
+⚰ **Graveyard** — each is a **branching 3D journey map** (Slay-the-Spire-style):
+click glowing nodes to plot your path through ⚔️ skirmishes, 💀 elites,
+💰 treasure, 🔥 campfires and 🛒 pop-up shops up to the 👑 **boss**. **Your HP,
+level, XP, gold and boons all carry between nodes** — it's a roguelite run, not a
+one-off fight. Bosses: the Goblin King, the Spider Queen, and the Skeleton King.
+Every node pays **gold**; clearing the boss conquers the haunt. Everything is
+**saved** to your browser.
+
+**Your room & the upper floor.** Climb the ramp to the tavern's **walkable second
+floor**. Your room starts bare but for a bed — **craft & place** furniture on a
+top-down build grid (spend gold); a comfier room gives a bigger rest bonus.
 
 **Combos:** draw two equipped glyphs in quick succession to unleash a learned
 combo — e.g. **△ then —** = 🔥 Fire Tornado, **◯ then ϟ** = Ice Storm, **∨ then ★**
@@ -142,6 +149,7 @@ src/
   game.js         # the conductor: phases, state machine, main loop, camera
   wizard.js       # the wonky spring + verlet-ragdoll wizard rig
   tavern.js       # the opening drunk-walk level (props, patrons, the door)
+  runmap.js       # the Slay-the-Spire-style branching journey map (3D)
   enemies.js      # the 5 monsters, wobbly AI, pooling
   spells.js       # the 5 spells, projectiles, chain lightning, effects
   recognizer.js   # $1 unistroke gesture recognizer
@@ -154,14 +162,16 @@ src/
   audio.js        # fully synthesized WebAudio SFX
 test/
   sanity.mjs      # node tests for the recognizer + upgrade roller
+  mapgen.mjs      # graph tests for the journey map (connectivity/reachability)
 ```
 
 ## 🧪 Tests
 
-The pure logic (gesture recognition, upgrade rolling) has node-runnable checks:
+The pure logic (gesture recognition, upgrade rolling, and the journey-map graph
+generation) has node-runnable checks:
 
 ```bash
-node test/sanity.mjs    # or: npm test
+npm test    # runs test/sanity.mjs + test/mapgen.mjs
 ```
 
 ## 🛠️ Design notes

@@ -25,8 +25,77 @@ export class Tavern {
     this._build();
     this._buildAmbience();
     this._buildUpperFloor();
+    this._buildWalkBalcony();
     this._buildStations();
     this._buildDecor();
+    this.roomGroup = new THREE.Group(); this.group.add(this.roomGroup); // player-placed furniture
+  }
+
+  // ---- a WALKABLE second floor: an east balcony reached by a ramp ----
+  // floorHeightAt() tells the wizard how high the floor is under him, so he can
+  // actually climb up and stroll the upper deck.
+  floorHeightAt(x, z) {
+    if (x <= 8.6 || x >= 11.6) return 0;
+    if (z >= -8.8 && z <= 3.5) return 3.4;                       // the deck
+    if (z > 3.5 && z <= 6.7) return 3.4 * (6.7 - z) / 3.2;       // the ramp down to the floor
+    return 0;
+  }
+  _buildWalkBalcony() {
+    const g = this.group;
+    const wood = new THREE.MeshStandardMaterial({ color: 0x6a4426, roughness: 0.9 });
+    const woodD = new THREE.MeshStandardMaterial({ color: 0x4a3018, roughness: 0.9 });
+    const Y = 3.25;
+    // deck (top surface ~3.4) along the east wall
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.3, 12.3), woodD); deck.position.set(10.1, Y, -2.6); deck.castShadow = true; deck.receiveShadow = true; g.add(deck);
+    // ramp down to the floor at the south end
+    const ramp = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.25, 3.6), wood); ramp.position.set(10.1, Y / 2 + 0.05, 5.1); ramp.rotation.x = Math.atan2(Y, 3.2); ramp.castShadow = true; g.add(ramp);
+    // support posts
+    for (const z of [-8, -3, 2]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, Y, 8), wood); p.position.set(8.9, Y / 2, z); p.castShadow = true; g.add(p); }
+    // railings: west edge + north end (leave the ramp mouth open)
+    const railMat = wood;
+    const wRail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 12), railMat); wRail.position.set(8.75, Y + 0.7, -2.6); g.add(wRail);
+    for (let i = 0; i <= 12; i++) { const bal = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.62, 6), railMat); bal.position.set(8.75, Y + 0.4, -8.5 + i); g.add(bal); }
+    const nRail = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.12, 0.1), railMat); nRail.position.set(10.1, Y + 0.7, -8.7); g.add(nRail);
+    // upstairs dressing: a rug, a small table, a couple of barrels, a warm lantern
+    const rug = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.04, 4), new THREE.MeshStandardMaterial({ color: 0x4a2f6a, roughness: 0.95 })); rug.position.set(10.1, Y + 0.16, -5); g.add(rug);
+    const tbl = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.14, 14), wood); tbl.position.set(10.2, Y + 0.7, -5); tbl.castShadow = true; const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.7, 8), wood); leg.position.set(10.2, Y + 0.35, -5); g.add(tbl, leg);
+    for (const z of [-7.6, 0.5]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.46, 0.95, 12), wood); b.position.set(10.6, Y + 0.5, z); b.castShadow = true; g.add(b); }
+    const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), new THREE.MeshBasicMaterial({ color: 0xffb35c, transparent: true, opacity: 0.9 })); lantern.position.set(10.2, Y + 1.0, -5); g.add(lantern);
+    const upLight = new THREE.PointLight(0xffb060, 0.8, 8); upLight.position.set(10.2, Y + 1.2, -3); upLight.castShadow = false; g.add(upLight);
+  }
+
+  // ---- player's buildable room: render placed items on a back-right grid ----
+  get _roomGrid() { return { ox: 3.4, oz: -14.0, cell: 1.25 }; }
+  refreshRoom(meta) {
+    const grp = this.roomGroup;
+    for (let i = grp.children.length - 1; i >= 0; i--) { const c = grp.children[i]; c.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); grp.remove(c); }
+    const G = this._roomGrid;
+    for (const p of meta.placedItems()) {
+      const m = this._buildPlaced(p.id); if (!m) continue;
+      m.position.set(G.ox + p.gx * G.cell, 0, G.oz + p.gy * G.cell);
+      m.rotation.y = (p.gx * 1.7 + p.gy) % 6.28;
+      grp.add(m);
+    }
+  }
+  _buildPlaced(id) {
+    const M = (c, r = 0.85, m = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
+    const wood = M(0x7a5230, 0.9), gold = M(0xffd98a, 0.45, 0.4), iron = M(0x33323a, 0.6, 0.3);
+    const g = new THREE.Group();
+    const add = (mesh) => { mesh.castShadow = true; g.add(mesh); return mesh; };
+    switch (id) {
+      case 'rug': { const r = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.04, 1.1), M(0x9a3a4a, 0.95)); r.position.y = 0.02; r.receiveShadow = true; g.add(r); break; }
+      case 'chair': { const seat = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 0.5), wood)); seat.position.y = 0.5; const back = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.1), wood)); back.position.set(0, 0.8, -0.2); for (const [x, z] of [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]]) { const l = add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.5, 6), wood)); l.position.set(x, 0.25, z); } break; }
+      case 'table': { const top = add(new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.12, 14), wood)); top.position.y = 0.7; const leg = add(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.7, 8), wood)); leg.position.y = 0.35; break; }
+      case 'lamp': { const pole = add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 1.3, 8), iron)); pole.position.y = 0.65; const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 10), new THREE.MeshBasicMaterial({ color: 0xffd98a, transparent: true, opacity: 0.95 })); bulb.position.y = 1.4; g.add(bulb); const li = new THREE.PointLight(0xffcf8a, 0.7, 6); li.position.y = 1.4; li.castShadow = false; g.add(li); break; }
+      case 'plant': { const pot = add(new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.2, 0.4, 10), M(0x8a5a2b))); pot.position.y = 0.2; const leaf = add(new THREE.Mesh(new THREE.SphereGeometry(0.4, 10, 8), M(0x3a824a))); leaf.position.y = 0.65; break; }
+      case 'shelf': { const frame = add(new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.6, 0.4), M(0x4a3322))); frame.position.y = 0.8; for (let i = 0; i < 6; i++) { const b = add(new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.4, 0.34), M([0xb04a4a, 0x4a7ab0, 0x6fb08a, 0xc9a24a][i % 4]))); b.position.set(-0.3 + (i % 3) * 0.3, 0.6 + Math.floor(i / 3) * 0.55, 0.05); } break; }
+      case 'brew': { const pot = add(new THREE.Mesh(new THREE.SphereGeometry(0.45, 14, 12, 0, Math.PI * 2, 0, Math.PI * 0.6), iron)); pot.rotation.x = Math.PI; pot.position.y = 0.55; const brew = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.08, 14), new THREE.MeshBasicMaterial({ color: 0x9bff7a, transparent: true, opacity: 0.8 })); brew.position.y = 0.72; g.add(brew); break; }
+      case 'dummy': { const post = add(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.2, 8), wood)); post.position.y = 0.6; const body = add(new THREE.Mesh(new THREE.CapsuleGeometry(0.25, 0.4, 4, 8), M(0xb08a5a))); body.position.y = 1.1; const arms = add(new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.12, 0.12), wood)); arms.position.y = 1.2; break; }
+      case 'trophy': { const plinth = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), M(0x6a6e7a, 1))); plinth.position.y = 0.25; const cup = add(new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.1, 0.3, 12), gold)); cup.position.y = 0.65; const ball = add(new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), gold)); ball.position.y = 0.86; break; }
+      case 'chest': { const base = add(new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.4, 0.45), wood)); base.position.y = 0.2; const lid = add(new THREE.Mesh(new THREE.CylinderGeometry(0.225, 0.225, 0.7, 12, 1, false, 0, Math.PI), wood)); lid.rotation.z = Math.PI / 2; lid.position.y = 0.4; const lock = add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.06), gold)); lock.position.set(0, 0.34, 0.24); break; }
+      default: return null;
+    }
+    return g;
   }
 
   _build() {

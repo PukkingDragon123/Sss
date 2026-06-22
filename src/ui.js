@@ -717,6 +717,17 @@ export class UI {
   _shopAction(act, id, slot) {
     const g = this._shopGame;
     if (act === 'startrun') { g.startRun(id); return; }
+    if (act === 'selbuild') { this._buildSel = (this._buildSel === id ? null : id); if (g) g.audio.play('click'); this._renderShop(); return; }
+    if (act === 'place') {
+      const [gx, gy] = id.split('_').map(Number);
+      let ok;
+      if (meta.cellOccupied(gx, gy)) ok = meta.removeAt(gx, gy);
+      else ok = this._buildSel ? meta.placeItem(this._buildSel, gx, gy) : false;
+      if (g) { g.audio.play(ok ? 'click' : 'hiccup'); if (ok && g.tavern.refreshRoom) g.tavern.refreshRoom(meta); }
+      this.setGold(meta.gold());
+      this._renderShop();
+      return;
+    }
     let ok = false;
     if (act === 'unlock') ok = meta.unlockSpell(id);
     else if (act === 'upgrade') ok = meta.upgradeSpell(id);
@@ -770,7 +781,7 @@ export class UI {
   }
 
   _renderStages() {
-    let h = '<p class="shop-sub">Pick where to haunt. Each stage has 5 waves and a boss. Bring your best 3 spells!</p><div class="shop-grid">';
+    let h = '<p class="shop-sub">Pick where to haunt. Each is a branching <b>journey map</b> — choose your path of fights, loot and campfires to the boss. Bring your best 3 spells!</p><div class="shop-grid">';
     for (const id of Object.keys(STAGES)) {
       const s = STAGES[id];
       h += `<div class="shop-card">
@@ -869,19 +880,34 @@ export class UI {
 
   _renderRoom() {
     if (!meta.roomOwned()) {
-      return `<p class="shop-sub">A room of your own — rest before a run and decorate it.</p>
+      return `<p class="shop-sub">A room of your own — rest before a run, then <b>craft &amp; place</b> furniture to make it yours.</p>
         <div class="shop-acts"><button class="shop-btn big" data-act="buyroom" ${meta.canAfford(meta.ROOM_COST) ? '' : 'disabled'}>Buy Room · ${meta.ROOM_COST}🪙</button></div>`;
     }
-    let h = `<p class="shop-sub">Rest for a <b>+30 max HP</b> bonus on your next run, and buy decorations.</p>
-      <div class="shop-acts"><button class="shop-btn big ${meta.isRested() ? 'on' : ''}" data-act="rest" ${meta.isRested() ? 'disabled' : ''}>${meta.isRested() ? '✓ Rested' : 'Rest (sleep)'}</button></div>
-      <div class="shop-grid">`;
-    for (const d of meta.DECOR) {
-      const owned = meta.ownsDecor(d.id);
-      h += `<div class="shop-card ${owned ? '' : 'locked'}">
-        <div class="shop-name">${d.name}</div>
-        <div class="shop-acts">${owned ? '<button class="shop-btn on" disabled>✓ Placed</button>' : `<button class="shop-btn" data-act="buydecor" data-id="${d.id}" ${meta.canAfford(d.cost) ? '' : 'disabled'}>Buy ${d.cost}🪙</button>`}</div></div>`;
+    const comfort = meta.roomComfort();
+    const restAmt = meta.REST_BONUS + comfort * 4;
+    let h = `<p class="shop-sub">Your room starts bare. <b>Pick furniture</b>, then <b>tap a tile</b> to place it (tap a placed tile to sell it back). Comfier room → bigger rest bonus.</p>
+      <div class="shop-acts"><button class="shop-btn big ${meta.isRested() ? 'on' : ''}" data-act="rest" ${meta.isRested() ? 'disabled' : ''}>${meta.isRested() ? `✓ Rested (+${restAmt} HP)` : `Rest — +${restAmt} max HP next run`}</button></div>
+      <div class="build-stats">🛋 Comfort <b>${comfort}</b></div>`;
+    // top-down build grid
+    h += '<div class="build-grid">';
+    for (let gy = 0; gy < meta.ROOM_GH; gy++) {
+      for (let gx = 0; gx < meta.ROOM_GW; gx++) {
+        const item = meta.placedItems().find(p => p.gx === gx && p.gy === gy);
+        const b = item ? meta.buildableById(item.id) : null;
+        h += `<button class="build-cell ${item ? 'filled' : ''}" data-act="place" data-id="${gx}_${gy}" title="${b ? b.name + ' — tap to sell' : 'empty tile'}">${b ? b.icon : ''}</button>`;
+      }
     }
     h += '</div>';
+    // catalog
+    h += '<div class="build-cat">';
+    for (const b of meta.BUILDABLES) {
+      const sel = this._buildSel === b.id;
+      const afford = meta.canAfford(b.cost);
+      h += `<button class="build-item ${sel ? 'sel' : ''}" data-act="selbuild" data-id="${b.id}" ${afford ? '' : 'disabled'}>
+        <span class="bi-icon">${b.icon}</span><span class="bi-name">${b.name}</span><span class="bi-cost">${b.cost}🪙</span></button>`;
+    }
+    h += '</div>';
+    if (this._buildSel) { const sb = meta.buildableById(this._buildSel); if (sb) h += `<p class="build-hint">Placing <b>${sb.icon} ${sb.name}</b> — tap an empty tile. <span data-act="selbuild" data-id="${this._buildSel}" style="text-decoration:underline;cursor:pointer">cancel</span></p>`; }
     return h;
   }
 

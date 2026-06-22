@@ -76,16 +76,23 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
 .levelup-sub{color:var(--ink-dim);margin:.2em 0 1em;}
 .cards{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;max-width:980px;}
 .card{
-  width:230px;min-height:230px;background:var(--panel);
-  border:2px solid var(--panel-edge);border-radius:18px;padding:18px;
-  display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;
-  transition:transform .1s ease, border-color .1s ease, box-shadow .1s ease;
+  position:relative;width:230px;min-height:230px;
+  background:linear-gradient(165deg, rgba(46,34,68,.96), rgba(24,16,38,.96));
+  border:2px solid var(--panel-edge);border-radius:18px;padding:20px 18px 18px;
+  display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;overflow:hidden;
+  transition:transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+  animation:cardIn .32s cubic-bezier(.2,.9,.3,1.4) both;
 }
-.card:hover{transform:translateY(-6px) rotate(-1deg);border-color:var(--gold);box-shadow:0 14px 34px rgba(0,0,0,.5);}
-.card .card-icon{font-size:46px;line-height:1;filter:drop-shadow(0 0 10px rgba(155,123,255,.6));}
-.card .card-name{font-weight:800;color:var(--gold);font-size:19px;}
-.card .card-desc{color:var(--ink-dim);font-size:14px;line-height:1.4;}
-.card .card-tag{margin-top:auto;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--magic);}
+.card::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--magic),var(--gold));opacity:.9;}
+.card:nth-child(2){animation-delay:.06s;}
+.card:nth-child(3){animation-delay:.12s;}
+@keyframes cardIn{from{opacity:0;transform:translateY(26px) scale(.92);}to{opacity:1;transform:none;}}
+.card:hover{transform:translateY(-8px) rotate(-1deg) scale(1.03);border-color:var(--gold);box-shadow:0 18px 40px rgba(0,0,0,.55),0 0 24px rgba(155,123,255,.35);}
+.card .card-icon{font-size:50px;line-height:1;filter:drop-shadow(0 0 12px rgba(155,123,255,.7));}
+.card .card-name{font-weight:800;color:var(--gold);font-size:20px;text-align:center;}
+.card .card-desc{color:var(--ink);opacity:.86;font-size:14px;line-height:1.45;text-align:center;}
+.card .card-tag{margin-top:auto;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--magic);
+  background:rgba(155,123,255,.14);border:1px solid rgba(155,123,255,.3);border-radius:20px;padding:3px 12px;}
 
 /* ===== HUD ===== */
 #hud{position:fixed;inset:0;z-index:10;pointer-events:none;}
@@ -343,6 +350,26 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
 .set-row input[type=range]{width:55%;}
 .credits-body{line-height:1.7;text-align:center;}
 .credits-body b{color:var(--gold);}
+
+/* ===== Room build / place editor ===== */
+.build-stats{font-size:14px;color:var(--ink-dim);margin:4px 0 8px;}
+.build-stats b{color:var(--gold);}
+.build-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;max-width:340px;margin:0 auto 12px;
+  background:rgba(0,0,0,.3);border:1.5px solid var(--panel-edge);border-radius:12px;padding:8px;}
+.build-cell{aspect-ratio:1;border:1.5px dashed rgba(255,255,255,.16);border-radius:8px;background:rgba(255,255,255,.03);
+  font-size:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .1s,border-color .1s;}
+.build-cell:hover{border-color:var(--gold);background:rgba(255,200,90,.12);}
+.build-cell.filled{border-style:solid;border-color:var(--panel-edge);background:rgba(255,255,255,.08);}
+.build-cat{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+.build-item{display:flex;flex-direction:column;align-items:center;gap:2px;width:84px;padding:7px 4px;cursor:pointer;
+  background:var(--panel);border:1.5px solid var(--panel-edge);border-radius:10px;font-family:inherit;color:var(--ink);transition:transform .08s,border-color .1s;}
+.build-item:hover{transform:translateY(-2px);}
+.build-item.sel{border-color:var(--gold);box-shadow:0 0 0 2px rgba(255,200,90,.4);}
+.build-item[disabled]{opacity:.4;cursor:not-allowed;}
+.bi-icon{font-size:22px;}
+.bi-name{font-size:11px;font-weight:700;text-align:center;line-height:1.1;}
+.bi-cost{font-size:11px;color:var(--gold);font-weight:800;}
+.build-hint{font-size:13px;color:var(--magic);margin-top:8px;}
 
 /* ===== Journey map HUD bar ===== */
 #map-bar{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:11;

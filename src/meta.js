@@ -44,6 +44,37 @@ export const DECOR = [
 ];
 export const REST_BONUS = 30; // +max HP on your next run after resting
 
+// ---- Room build/place: a top-down grid you furnish with gold ("craft & place") ----
+export const ROOM_GW = 6, ROOM_GH = 4;
+export const BUILDABLES = [
+  { id: 'rug',     name: 'Woven Rug',       icon: '🟫', cost: 55,  comfort: 1 },
+  { id: 'chair',   name: 'Armchair',        icon: '🪑', cost: 60,  comfort: 1 },
+  { id: 'table',   name: 'Oak Table',       icon: '🛏', cost: 80,  comfort: 1 },
+  { id: 'lamp',    name: 'Mage Lamp',       icon: '🏮', cost: 75,  comfort: 1 },
+  { id: 'plant',   name: 'Potted Mandrake', icon: '🪴', cost: 70,  comfort: 1 },
+  { id: 'shelf',   name: 'Bookshelf',       icon: '📚', cost: 120, comfort: 2 },
+  { id: 'brew',    name: 'Brew Stand',      icon: '⚗️', cost: 150, comfort: 2 },
+  { id: 'dummy',   name: 'Training Dummy',  icon: '🎯', cost: 140, comfort: 2 },
+  { id: 'trophy',  name: 'Trophy Plinth',   icon: '🏆', cost: 160, comfort: 3 },
+  { id: 'chest',   name: 'Treasure Chest',  icon: '🧰', cost: 180, comfort: 3 },
+];
+export const buildableById = (id) => BUILDABLES.find(b => b.id === id);
+export const placedItems = () => (state.room.placed || (state.room.placed = []));
+export const cellOccupied = (gx, gy) => placedItems().some(p => p.gx === gx && p.gy === gy);
+export function placeItem(id, gx, gy) {
+  const b = buildableById(id); if (!b) return false;
+  if (gx < 0 || gy < 0 || gx >= ROOM_GW || gy >= ROOM_GH) return false;
+  if (cellOccupied(gx, gy) || !canAfford(b.cost)) return false;
+  state.gold -= b.cost; placedItems().push({ id, gx, gy }); save(); return true;
+}
+export function removeAt(gx, gy) {
+  const arr = placedItems(); const i = arr.findIndex(p => p.gx === gx && p.gy === gy);
+  if (i < 0) return false;
+  const b = buildableById(arr[i].id); if (b) state.gold += Math.floor(b.cost * 0.5); // half refund
+  arr.splice(i, 1); save(); return true;
+}
+export const roomComfort = () => placedItems().reduce((s, p) => { const b = buildableById(p.id); return s + (b ? b.comfort : 0); }, 0);
+
 // ---- RPG equipment: looted instances with rarity + level ----
 export const GEAR_SLOTS = ['hat', 'robe', 'staff', 'charm'];
 export const RARITIES = {

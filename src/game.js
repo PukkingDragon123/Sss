@@ -438,6 +438,9 @@ export class Game {
 
   notifySpell(tags, pos) { this.jobs.onSpell(tags, pos, this); }
 
+  // floor height under a point — only the tavern has an upper deck to climb
+  floorHeightAt(x, z) { return this.phase === 'tavern' ? this.tavern.floorHeightAt(x, z) : 0; }
+
   // ---------- story queue ----------
   showStory(speaker, lines, onComplete) {
     this.storyQueue.push({ speaker, lines, onComplete });
@@ -527,12 +530,23 @@ export class Game {
     this.ui.setMuteIcon(this.audio.muted);
 
     if (!this._opened) {
-      // opening cinematic (first launch)
+      // opening cinematic (first launch): a distinct dark "possession" scene —
+      // the wizard alone in the void as the spirit pours into him.
       this._opened = true;
       this._openingCine = true;
       this.cineT = 0;
+      this.phase = 'intro'; this.state = 'story';
+      this.stats = DEFAULT_STATS();
+      this.arenaGroup.visible = false; this.tavern.show(false); this.runmap.show(false);
+      this.wizard.reset(this.stats); this.wizard.setVisible(true); this.wizard.pos.set(0, 0, 0);
+      this.scene.background.setHex(0x05040a);
+      this.scene.fog.color.setHex(0x06050c); this.scene.fog.density = 0.035;
+      this.hemi.intensity = 0.25; this.dir.intensity = 0.6; this.ambient.intensity = 0.2;
       this.ui.setScreen('cinematic');
-      this.showStory(OPENING.speaker, OPENING.lines, () => { this._openingCine = false; this.enterTavern(); });
+      this.showStory(OPENING.speaker, OPENING.lines, () => {
+        this.ui.fadeBlack(true);
+        setTimeout(() => { this._openingCine = false; this.enterTavern(); }, 520);
+      });
     } else {
       this.enterTavern();
     }
@@ -553,6 +567,7 @@ export class Game {
     this._drunkSurge = 0;
     this.tavern.reset();
     this.tavern.refreshDecor(meta);
+    this.tavern.refreshRoom(meta);
     this.tavern.show(true);
     this.arenaGroup.visible = false;
     this.runmap.show(false);
@@ -635,7 +650,7 @@ export class Game {
   _startRunMap(stage) {
     this.stage = stage;
     this.stats = DEFAULT_STATS();
-    if (meta.consumeRest()) this.stats.hpMax += 30; // a good night's rest
+    if (meta.consumeRest()) this.stats.hpMax += meta.REST_BONUS + meta.roomComfort() * 4; // a good night's rest, comfier room = more
     this._applyEquipment();
     this.loadout = meta.getLoadout();
     this.unlocked = new Set(this.loadout);
@@ -992,12 +1007,17 @@ export class Game {
 
   // ---------- camera ----------
   _updateCamera(dt) {
-    // opening cinematic: slow sweeping orbit over the world
+    // opening cinematic: an intimate orbit as the spirit pours into the wizard
     if (this._openingCine) {
       this.cineT += dt;
-      const a = this.cineT * 0.25;
-      this.camera.position.lerp(new THREE.Vector3(Math.sin(a) * 26, 16 + Math.sin(a * 0.5) * 4, Math.cos(a) * 26), Math.min(1, dt * 2));
-      this.camera.lookAt(this.wizard.pos.x, 1.5, this.wizard.pos.z);
+      const a = this.cineT * 0.4;
+      this.camera.position.lerp(new THREE.Vector3(Math.sin(a) * 8, 4.2 + Math.sin(a * 0.7) * 1.2, Math.cos(a) * 8), Math.min(1, dt * 2.5));
+      this.camera.lookAt(0, 1.6, 0);
+      // wisps of spirit spiralling into him
+      if (this.particles && Math.random() < 0.7) {
+        const ang = this.cineT * 5 + Math.random() * 6.28, r = 2.4 + Math.random() * 1.6;
+        this.particles.burst({ pos: new THREE.Vector3(Math.cos(ang) * r, 0.4 + Math.random() * 3, Math.sin(ang) * r), color: 0x9b7bff, count: 1, speed: 0.4, size: 0.16, life: 1.0, grav: -1.2, blend: 'add' });
+      }
       return;
     }
     // tavern intro: a slow cinematic orbit of the room before you take control
@@ -1029,6 +1049,7 @@ export class Game {
     // on the title screen, bias the framing left so the fight sits on the RIGHT (menu is on the left)
     const bx = this.state === 'title' ? -9 : 0;
     const focus = this.camTarget.clone(); focus.x += bx;
+    if (this.phase === 'tavern') focus.y += (this.wizard.floorY || 0); // rise with him onto the upper deck
     const desired = focus.clone().add(this.camOffset);
     this.camera.position.lerp(desired, Math.min(1, dt * 6));
     if (this.shakeAmt > 0) {
@@ -1075,6 +1096,10 @@ export class Game {
       this._updateMap(dt);
     } else if (this.state === 'title' && !this._openingCine) {
       this._updateDemo(dt);
+    } else if (this._openingCine) {
+      // possession scene: the wizard sways in the void, the spirit swirling in
+      this.wizard.update(dt, this);
+      this.particles.update(dt);
     } else {
       // keep particles/wizard idle-breathing alive in menus for life
       this.particles.update(dt);

@@ -16,6 +16,7 @@ export class Input {
     this.points = [];
     this.events = [];
     this.enabled = true;
+    this.pointMode = false; // when true, taps/clicks emit 'select' (used by the journey map)
 
     this.isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     this.joy = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, dx: 0, dz: 0 };
@@ -52,6 +53,13 @@ export class Input {
       setPointer(e);
       const touch = e.pointerType === 'touch';
       if (touch) this.isTouch = true;
+
+      // map / point-select mode: a tap anywhere picks a node (no joystick, no draw)
+      if (this.pointMode && (touch || e.button === 0)) {
+        this.events.push({ type: 'select', x: e.clientX, y: e.clientY });
+        e.preventDefault();
+        return;
+      }
 
       if (touch) {
         // left half drives the joystick, right half draws glyphs

@@ -173,6 +173,7 @@ export function get() { return state; }
 
 export const gold = () => state.gold;
 export function addGold(n) { state.gold += n; save(); }
+export function spendGold(n) { if (state.gold < n) return false; state.gold -= n; save(); return true; }
 export const owns = (id) => !!state.owned[id];
 export const spellLevel = (id) => state.level[id] || 0;
 export const learned = (id) => !!state.combos[id];

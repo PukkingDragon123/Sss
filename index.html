@@ -71,6 +71,12 @@
 
     <button id="btn-drink" class="hidden" title="Drink to refill mana (Q)">🍺 Drink<span class="drink-key">Q</span></button>
 
+    <div id="map-bar" class="hidden">
+      <div class="map-title">⤴ Choose your path</div>
+      <div class="map-node-info" id="map-node-info">Tap a glowing node to set off.</div>
+      <div class="map-legend">⚔️ Skirmish &nbsp;·&nbsp; 💀 Elite &nbsp;·&nbsp; 💰 Treasure &nbsp;·&nbsp; 🔥 Campfire &nbsp;·&nbsp; 🛒 Shop &nbsp;·&nbsp; 👑 Boss</div>
+    </div>
+
     <div id="banner"></div>
     <div id="toast-area"></div>
     <div id="interact-prompt" class="hidden"></div>
@@ -177,6 +183,15 @@
     </div>
     <div class="mg-score">Tips: <b id="mg-score">0</b>🪙 · Served <b id="mg-served">0</b>/<b id="mg-total">4</b></div>
     <button class="btn" id="mg-quit">Clock out ▸</button>
+  </div>
+
+  <!-- ===== Map node event (treasure / campfire / shop) ===== -->
+  <div id="node-event" class="overlay hidden">
+    <div class="shop-box" style="max-width:500px">
+      <div class="shop-head"><h2 id="ne-title">Event</h2><div id="ne-gold">🪙 0</div></div>
+      <p class="ne-blurb" id="ne-blurb"></p>
+      <div id="ne-body"></div>
+    </div>
   </div>
 
   <!-- ===== Spell drawing guide ===== -->

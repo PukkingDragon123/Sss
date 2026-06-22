@@ -66,6 +66,32 @@ export const UPGRADES = [
   { id: 'thorns', name: 'Prickly Aura',   icon: '🌵', tag: 'Defense', weight: 5,
     desc: 'Enemies take damage when they bonk you.',
     apply: g => { g.stats.thorns += 12; } },
+
+  // ----- richer "build-defining" boons -----
+  { id: 'bloodthirst', name: 'Bloodthirst', icon: '🩸', tag: 'Lifesteal', weight: 6,
+    desc: 'Heal +4 HP for every foe you slay.',
+    apply: g => { g.stats.lifeOnKill += 4; } },
+  { id: 'tipsytally', name: 'Tipsy Tally',  icon: '🍻', tag: 'Mana', weight: 6,
+    desc: '+6 mana per kill — fight your way to a refill.',
+    apply: g => { g.stats.manaOnKill += 6; } },
+  { id: 'reckless', name: 'Reckless Hex',  icon: '💢', tag: 'Risk', weight: 5,
+    desc: '+45% damage, but −25 max HP. Live fast.',
+    apply: g => { g.stats.damageMult += 0.45; g.stats.hpMax = Math.max(40, g.stats.hpMax - 25); g.wizard.hp = Math.min(g.wizard.hp, g.stats.hpMax); } },
+  { id: 'angrydrunk', name: 'Drunken Fury', icon: '😤', tag: 'Risk', weight: 5,
+    desc: 'The drunker you are, the harder you hit (up to +60%).',
+    apply: g => { g.stats.angryDrunk = 1; } },
+  { id: 'critup', name: 'Killer Instinct', icon: '🎯', tag: 'Power', weight: 6,
+    desc: 'Perfect-glyph CRITs hit for ×2.6 instead of ×2.',
+    apply: g => { g.stats.critMult = (g.stats.critMult || 2) + 0.6; } },
+  { id: 'study', name: 'Quick Study',     icon: '📚', tag: 'Utility', weight: 6,
+    desc: '+30% XP from every mote.',
+    apply: g => { g.stats.xpMult = (g.stats.xpMult || 1) + 0.3; } },
+  { id: 'hollowleg', name: 'Hollow Leg',  icon: '🦵', tag: 'Control', weight: 5,
+    desc: 'Hold your drink: gulps make you 35% less woozy.',
+    apply: g => { g.stats.drinkChaos = Math.max(0.3, (g.stats.drinkChaos || 1) - 0.35); } },
+  { id: 'biggulp', name: 'Big Gulp',      icon: '🍺', tag: 'Mana', weight: 6,
+    desc: 'Each drink restores +22 more mana.',
+    apply: g => { g.stats.drinkPower += 22; } },
 ];
 
 // Pick n distinct upgrades that are currently available, weighted.

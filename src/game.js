@@ -12,6 +12,7 @@ import { UI } from './ui.js';
 import { Director, STAGES, OPENING, TAVERN_INTRO, BLACKOUT_LINES } from './story.js';
 import { Jobs } from './jobs.js';
 import { Tavern } from './tavern.js';
+import { RunMap, NODE_META } from './runmap.js';
 import { rollUpgrades } from './upgrades.js';
 import * as meta from './meta.js';
 import { COMBO_META } from './meta.js';
@@ -29,6 +30,8 @@ const DEFAULT_STATS = () => ({
   spikeDmg: 30, novaDmg: 26, novaRadius: 6,
   acidDmg: 40, shieldAmount: 60, quakeDmg: 30, quakeRadius: 6, orbDmg: 60, orbRadius: 4.2,
   pickupRadius: 2.6, hpRegen: 1.0, thorns: 0,
+  // run-boon hooks (level-up cards): on-kill sustain, crit & drunk scaling, etc.
+  lifeOnKill: 0, manaOnKill: 0, xpMult: 1, critMult: 2, angryDrunk: 0, drinkChaos: 1,
 });
 
 export class Game {
@@ -62,6 +65,7 @@ export class Game {
     this.spells = new SpellSystem(this.scene);
     this.jobs = new Jobs(this.scene);
     this.tavern = new Tavern(this.scene);
+    this.runmap = new RunMap(this.scene);
     this.wizard = new Wizard(this.scene);
     this.director = new Director();
     this.ui = new UI();
@@ -288,7 +292,15 @@ export class Game {
   // ---------- progression helpers ----------
   _xpForLevel(lvl) { return Math.floor(5 + (lvl - 1) * 4 + Math.pow(Math.max(0, lvl - 1), 1.6) * 1.6); }
 
+  // sustain & rewards when a foe dies (on-kill boons)
+  onKill(e, def) {
+    const s = this.stats;
+    if (s.lifeOnKill) this.wizard.heal(s.lifeOnKill);
+    if (s.manaOnKill) this.wizard.mana = Math.min(s.manaMax, this.wizard.mana + s.manaOnKill);
+  }
+
   gainXP(n) {
+    n = Math.round(n * (this.stats.xpMult || 1));
     this.xp += n;
     while (this.xp >= this.xpNeed) {
       this.xp -= this.xpNeed;
@@ -309,6 +321,14 @@ export class Game {
       if (this.pendingLevels > 0) this._openLevelUp();
       else this.state = 'play';
     });
+  }
+
+  // a one-off boon pick (used by the campfire "Study" option on the map)
+  offerUpgrade(onPicked) {
+    this.state = 'levelup';
+    this.audio.play('levelup');
+    const choices = rollUpgrades(this, 3);
+    this.ui.showLevelUp(choices, (u) => { u.apply(this); if (onPicked) onPicked(); });
   }
 
   // ---------- pickups ----------
@@ -457,41 +477,36 @@ export class Game {
   }
 
   onBossDead() {
-    this.bossActive = false; this.bossKilled = true; this._stageCleared = true;
-    this.showStory('The Spirit', [`${this.stage.bossName} falls! ${this.stage.name} is cleared. Pockets full, let\'s stagger home.`]);
-    this._win();
-  }
-
-  _win() {
-    if (this.state === 'win' || this.state === 'gameover') return;
-    this._endState = 'win';
+    this.bossActive = false; this.bossKilled = true;
+    this.showStory('The Spirit', [`${this.stage.bossName} falls! ${this.stage.name} is conquered. Let's stagger home rich.`]);
+    this._endState = 'cleared';
     this.audio.play('win');
   }
-  _lose() {
+
+  _winRun() {
+    if (this.state === 'win' || this.state === 'gameover') return;
+    this.state = 'win';
+    this._showEnd(true);
+  }
+  _loseRun() {
     if (this.state === 'win' || this.state === 'gameover') return;
     this.state = 'gameover';
     this.audio.play('gameover');
     this._showEnd(false);
   }
+  // backwards-compat alias used by the wizard-death check
+  _lose() { this._loseRun(); }
+
   _showEnd(win) {
-    const t = Math.floor(this.elapsed);
-    const m = Math.floor(t / 60), s = t % 60;
-    const wave = this.director ? this.director.wave : 0;
     if (win && !meta.tavernOwned()) { meta.setTavernOwned(true); this._justInherited = true; } // avenge -> inherit
-    // ---- loot ----
-    const base = 20;
-    const kill = this.kills * 2;
-    const waveB = wave * 18;
-    const winB = win ? 200 : 0;
-    const total = base + kill + waveB + winB;
-    meta.addGold(total);
-    const questDone = meta.evaluateQuest({ kills: this.kills, time: t, wave, bossKilled: this.bossKilled, win });
+    const earned = Math.max(0, meta.gold() - (this.runGoldStart || 0));
+    const questDone = meta.evaluateQuest({ kills: this.kills, time: Math.floor(this.elapsed), wave: this.nodesCleared, bossKilled: this.bossKilled, win });
     meta.save();
     this.ui.closeModals();
     this.ui.setScreen('end');
     this.ui.showResults(win, {
-      time: `${m}:${s.toString().padStart(2, '0')}`, kills: this.kills, level: this.level, wave, stage: this.stage ? this.stage.name : '',
-      loot: { base, kill, wave: waveB, win: winB, total }, gold: meta.gold(), questDone,
+      nodes: this.nodesCleared, kills: this.kills, level: this.level, stage: this.stage ? this.stage.name : '',
+      earned, gold: meta.gold(), questDone,
     });
   }
 
@@ -540,7 +555,10 @@ export class Game {
     this.tavern.refreshDecor(meta);
     this.tavern.show(true);
     this.arenaGroup.visible = false;
+    this.runmap.show(false);
+    this.input.pointMode = false;
     this.wizard.reset(this.stats);
+    this.wizard.setVisible(true);
     this.wizard.pos.copy(this.tavern.start);
     this.aimPoint.set(this.tavern.door.x, 0, this.tavern.door.z);
     this.camOffset.set(0, 18, 16);
@@ -592,8 +610,7 @@ export class Game {
     this.beginRun(stageId);
   }
   closeShop() {
-    if (this.state !== 'menu') return;
-    if (this.ui._bar) return; // the bar shift has its own Clock-out button
+    if (this.state !== 'menu' || !this._shopKind) return; // bar shift & node events have their own buttons
     this._shopKind = null;
     this.ui.closeShop();
     this.tavern.refreshDecor(meta);
@@ -601,6 +618,7 @@ export class Game {
     this.state = 'play';
   }
 
+  // Leave the tavern -> black out -> wake on the journey MAP for this haunt.
   beginRun(stageId) {
     if (this._exiting) return;
     this._exiting = true;
@@ -609,48 +627,139 @@ export class Game {
     this.state = 'blackout';
     this.ui.fadeBlack(true);
     setTimeout(() => {
-      this.showStory(BLACKOUT_LINES.speaker, BLACKOUT_LINES.lines, () => this.enterArena(this._pendingStage));
+      this.showStory(BLACKOUT_LINES.speaker, BLACKOUT_LINES.lines, () => this._startRunMap(this._pendingStage));
     }, 1250);
   }
 
-  // ---- a stage run ----
-  enterArena(stage) {
-    stage = stage || STAGES.forest;
+  // initialise run-wide state (persists across every node of the journey)
+  _startRunMap(stage) {
     this.stage = stage;
-    this.phase = 'arena';
     this.stats = DEFAULT_STATS();
     if (meta.consumeRest()) this.stats.hpMax += 30; // a good night's rest
     this._applyEquipment();
     this.loadout = meta.getLoadout();
     this.unlocked = new Set(this.loadout);
     this.activeCombos = meta.activeCombos(this.unlocked);
-    // per-run recognizer: only the 3 equipped glyphs -> robust recognition
     this.recognizer = new Recognizer();
     for (const id of this.loadout) { const g = SPELLS[id].gesture; this.recognizer.add(g, TEMPLATES[g]); }
-    this.elapsed = 0; this.level = 1; this.xp = 0; this.xpNeed = this._xpForLevel(1);
-    this.drunkenness = 0.22; this._drunkSurge = 0; this._drinkCd = 0; // arrive with a light buzz; drinking ramps it up
-    this.kills = 0; this.chores = 0; this.pendingLevels = 0; this.bossActive = false;
-    this.bossKilled = false; this._stageCleared = false; this.bossCine = 0;
+    this.level = 1; this.xp = 0; this.xpNeed = this._xpForLevel(1);
+    this.kills = 0; this.chores = 0; this.pendingLevels = 0;
+    this.drunkenness = 0.2; this._drunkSurge = 0; this._drinkCd = 0;
+    this.runGoldStart = meta.gold();   // to tally what the run earned
+    this.nodesCleared = 0; this.bossKilled = false;
+    this.wizard.reset(this.stats);     // full HP/mana — the only full reset of the run
+    this.enemies.clear(); this.spells.reset(); this._clearPickups();
+    this.ui.setLoadout(this.loadout);
+    this.runmap.generate(stage);
+    this.runmap.setCurrent(-1);
+    this._enterMap(true);
+  }
+
+  // show the journey map and hand control to the path-picker
+  _enterMap(intro) {
+    this.phase = 'map'; this.state = 'map';
+    this._exiting = false; this.bossActive = false; this.bossCine = 0; this._endState = null;
+    this.enemies.clear(); this.spells.reset(); this._clearPickups();
+    this.tavern.show(false); this.arenaGroup.visible = false; this.runmap.show(true);
+    this.wizard.setVisible(false);               // the spirit-orb marker stands in for him on the road
+    this._applyStageTheme(this.stage);          // fog/colours match the haunt
+    this.input.pointMode = true;                 // taps select nodes
+    this.ui.setPhase('map', this.input.isTouch);
+    this.ui.setScreen('map');
+    this.ui.setGold(meta.gold());
+    this.ui.closeModals();
+    this.ui.fadeBlack(false);
+    this.ui.mapInfo(null);
+    if (intro) {
+      this.state = 'story';
+      this.showStory('The Spirit', [
+        `${this.stage.name}. The road forks ahead, winding up into the murk.`,
+        'Pick our path one step at a time — fights, loot, a campfire to mend… and that crown up top? That\'s our quarry.',
+      ], () => { this.state = 'map'; });
+    }
+  }
+
+  // travel the spirit to a chosen node, then resolve what's there
+  travelTo(idx) {
+    if (this.state !== 'map' || !this.runmap.isReachable(idx)) return;
+    const node = this.runmap.node(idx);
+    this.state = 'traveling';
+    this.input.pointMode = false;
+    this.audio.play('click');
+    this.runmap.travelTo(idx, () => this._resolveNode(node));
+  }
+
+  _resolveNode(node) {
+    this._currentNode = node;
+    if (node.type === 'fight' || node.type === 'elite' || node.type === 'boss') {
+      this._enterArenaNode(node);
+    } else {
+      // non-combat node: a quick event, then back to the map
+      this.state = 'menu';
+      this.ui.showNodeEvent(node, this, () => { this._afterNode(node); });
+    }
+  }
+
+  _enterArenaNode(node) {
+    this.phase = 'arena';
+    this._currentNode = node;
+    this.input.pointMode = false;
+    this.bossActive = false; this.bossKilled = false; this.bossCine = 0;
     this._endState = null; this._exiting = false; this._lastCast = null;
-    this.enemies.clear();
-    this.spells.reset();
-    this._clearPickups();
-    this.director.reset();
-    this.wizard.reset(this.stats);
-    this.wizard.pos.set(0, 0, 0);
-    this.tavern.show(false);
-    this.arenaGroup.visible = true;
+    this.elapsed = 0;
+    this.drunkenness = Math.min(this.drunkenness, 0.3);
+    this.wizard.mana = this.stats.manaMax;     // stocked up before the fight (HP persists!)
+    this.wizard.pos.set(0, 0, 0); this.wizard.vel.set(0, 0, 0); this.wizard.alive = true;
+    this.enemies.clear(); this.spells.reset(); this._clearPickups(); this.director.reset();
+    this.runmap.show(false); this.tavern.show(false); this.arenaGroup.visible = true;
+    this.wizard.setVisible(true);
     this.camOffset.set(0, 27, 22);
-    this._applyStageTheme(stage);
+    this._applyStageTheme(this.stage);
     this.ui.setPhase('arena', this.input.isTouch);
     this.ui.setLoadout(this.loadout);
-    this.ui.hideJob();
-    this.ui.fadeBlack(false);
+    this.ui.hideJob(); this.ui.fadeBlack(false);
     this.state = 'play';
-    this.director.start(stage);
-    this.showStory('The Spirit', stage.intro, () => {
-      if (!this._guideShown) { this._guideShown = true; this._guideOpen = true; this.ui.showGuide(); this.state = 'paused'; }
-    });
+    const enc = node.type === 'boss' ? { waves: 0, boss: true, hpScale: 1 }
+      : node.type === 'elite' ? { waves: 2, boss: false, hpScale: 1.5, sizeMult: 1.15 }
+      : { waves: 2, boss: false, hpScale: 1, sizeMult: 1 };
+    this.director.start(this.stage, enc);
+    if (!this._guideShown) {
+      this._guideShown = true;
+      this.showStory('The Spirit', this.stage.intro, () => { this._guideOpen = true; this.ui.showGuide(); this.state = 'paused'; });
+    } else if (node.type === 'boss') {
+      this.ui.toast('👑 The boss awaits…');
+    }
+  }
+
+  // called by the Director when a non-boss encounter is fully cleared
+  onEncounterCleared() {
+    if (this.state === 'gameover') return;
+    this._endState = 'cleared';
+  }
+
+  _afterNode(node) {
+    this.runmap.setCurrent(node.i);   // mark done + unlock the next row
+    this.nodesCleared++;
+    // gold reward by node type (combat already added kill gold)
+    const reward = { fight: 18, elite: 45, treasure: 60, rest: 0, shop: 0, boss: 220 }[node.type] || 0;
+    if (reward > 0) { meta.addGold(reward); }
+    if (node.type === 'elite' || node.type === 'boss') { meta.dropGear && meta.addGear(meta.dropGear(this.level + (node.type === 'boss' ? 3 : 1), node.type === 'boss')); }
+    meta.save();
+    this.ui.setGold(meta.gold());
+    if (node.type === 'boss') { this._winRun(); return; }
+    this._enterMap(false);
+  }
+
+  _applyEquipment() {
+    const m = meta.equipMods();
+    const s = this.stats;
+    if (m.hpMax) s.hpMax += m.hpMax;
+    if (m.manaRegen) s.drinkPower += m.manaRegen * 2.2; // gear "mana" rolls now boost how much each gulp restores
+    if (m.moveSpeed) s.moveSpeed += m.moveSpeed;
+    if (m.pickupRadius) s.pickupRadius += m.pickupRadius;
+    if (m.thorns) s.thorns += m.thorns;
+    if (m.damageMult) s.damageMult += m.damageMult;
+    if (m.cooldownMult) s.cooldownMult *= (1 + m.cooldownMult);
   }
 
   _applyEquipment() {
@@ -718,7 +827,7 @@ export class Game {
     this._drinkCd = 0.45;
     w.mana = Math.min(s.manaMax, w.mana + s.drinkPower);
     // the gulp makes the spirit's puppet woozier — the core risk/reward
-    this.drunkenness = Math.min(1, this.drunkenness + 0.26);
+    this.drunkenness = Math.min(1, this.drunkenness + 0.26 * (s.drinkChaos || 1));
     this._drunkSurge = 1;
     w.bob -= 0.6; w.leanV.x += (Math.random() - 0.5) * 5; w.leanV.z += (Math.random() - 0.5) * 5;
     this.audio.play('heal');
@@ -738,6 +847,7 @@ export class Game {
       if (e.type === 'mute') { this.toggleMute(); continue; }
       if (e.type === 'guide') { this.toggleGuide(); continue; }
       if (e.type === 'drink') { this.drink(); continue; }
+      if (e.type === 'select') { if (this.state === 'map') { const i = this.runmap.pick(e.x, e.y, this.camera); if (i >= 0) this.travelTo(i); } continue; }
       if (e.type === 'interact') { if (this.state === 'menu') this.closeShop(); else this.interact(); continue; }
 
       if (this.storyShowing) {
@@ -898,6 +1008,15 @@ export class Game {
       this.camera.lookAt(this.wizard.pos.x, 1.4, this.wizard.pos.z);
       return;
     }
+    // journey map: float behind the spirit, gazing up the winding road toward the boss
+    if (this.phase === 'map') {
+      const mk = this.runmap.marker ? this.runmap.marker.position : new THREE.Vector3();
+      const desired = new THREE.Vector3(mk.x * 0.35, 12.5, mk.z + 15.5);
+      this.camera.position.lerp(desired, Math.min(1, dt * 3));
+      const look = new THREE.Vector3(mk.x * 0.2, 1.5, mk.z - 9);
+      this.camera.lookAt(look.x, look.y, look.z);
+      return;
+    }
     // boss reveal: pull out and frame the boss as it emerges
     if (this.bossCine > 0 && this._bossEnemy && this._bossEnemy.alive) {
       const bp = this._bossEnemy.mesh.position;
@@ -952,6 +1071,8 @@ export class Game {
     if (this.state === 'play') {
       if (this.phase === 'tavern') this._updateTavern(sdt);
       else this._updateArena(sdt);
+    } else if (this.state === 'map' || this.state === 'traveling' || (this.state === 'story' && this.phase === 'map')) {
+      this._updateMap(dt);
     } else if (this.state === 'title' && !this._openingCine) {
       this._updateDemo(dt);
     } else {
@@ -989,9 +1110,10 @@ export class Game {
     }
     if (this.stats.hpRegen > 0 && this.wizard.alive) this.wizard.heal(this.stats.hpRegen * sdt);
 
-    if (!this.wizard.alive) this._lose();
+    if (!this.wizard.alive) this._loseRun();
     if (this.pendingLevels > 0 && this.state === 'play') this._openLevelUp();
-    if (this._endState === 'win' && !this.storyShowing && this.state === 'play') { this.state = 'win'; this._showEnd(true); }
+    // encounter cleared -> back to the map (or win the run if that was the boss)
+    if (this._endState === 'cleared' && !this.storyShowing && this.state === 'play') { this._endState = null; this._afterNode(this._currentNode); }
   }
 
   _updateTavern(sdt) {
@@ -1001,17 +1123,29 @@ export class Game {
     if (meta.tavernOwned()) meta.accrueIdle(sdt); // tycoon ticks while you potter about
   }
 
+  // ---- the journey map ----
+  _updateMap(dt) {
+    this.runmap.update(dt, this);
+    this.particles.update(dt);
+    if (this.state === 'map') {
+      const idx = this.runmap.hover(this.input.ndc, this.camera);
+      this.ui.mapInfo(idx >= 0 ? this.runmap.node(idx) : null);
+    }
+  }
+
   // ---- animated title screen: a drunk wizard auto-blasting waves of foes ----
   enterDemo() {
     this.phase = 'arena';
     this.tavernReady = true; this._openingCine = false; this.bossCine = 0;
     this.stats = DEFAULT_STATS();
     this.tavern.show(false);
+    this.runmap.show(false);
     this.arenaGroup.visible = true;
     this._applyStageTheme(STAGES.forest);
     this.camOffset.set(0, 26, 22);
     this.enemies.clear(); this.spells.reset(); this._clearPickups();
     this.wizard.reset(this.stats);
+    this.wizard.setVisible(true);
     this.recognizer = new Recognizer();
     this.recognizer.add('triangle', TEMPLATES.triangle);
     this._demoSpawn = 0.5; this._demoCast = 1; this._demoMove = 0;

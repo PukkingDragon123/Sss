@@ -220,6 +220,7 @@ export class Enemies {
       game.enemyDrop(e.mesh.position.clone(), def);
       if (def.boss) { this.bossAlive = false; game.particles.ring({ pos: e.mesh.position.clone(), color: 0xffd98a, r0: 1, r1: 16, life: 0.9 }); game.onBossDead(); }
       game.kills++;
+      if (game.onKill) game.onKill(e, def);
     }
   }
 

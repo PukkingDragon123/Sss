@@ -197,6 +197,8 @@ export class Wizard {
     this._armReady = false;
   }
 
+  setVisible(v) { this.root.visible = v; this.armGroup.visible = v; }
+
   spendMana(n) { if (this.mana >= n) { this.mana -= n; return true; } return false; }
   heal(n) { this.hp = Math.min(this._maxHp, this.hp + n); }
   addShield(n, dur) { this.shield = Math.max(this.shield, n); this.shieldT = Math.max(this.shieldT, dur); }

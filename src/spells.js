@@ -70,7 +70,9 @@ export class SpellSystem {
     // skill-tree level scales it further
     const accuracy = opts.accuracy == null ? 1 : opts.accuracy;
     this.crit = !!opts.crit;
-    this.power = accuracy * (this.crit ? 2 : 1) * spellDmgMult(id);
+    const critMult = game.stats.critMult || 2;
+    const drunkBonus = game.stats.angryDrunk ? (1 + (game.drunkenness || 0) * 0.6) : 1; // Drunken Fury
+    this.power = accuracy * (this.crit ? critMult : 1) * spellDmgMult(id) * drunkBonus;
 
     this.cd[id] = def.cd * this.cdMult[id] * game.stats.cooldownMult;
     const origin = game.wizard.handPosition();

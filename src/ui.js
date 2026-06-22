@@ -4,6 +4,7 @@ import { SPELL_ORDER, SPELLS } from './spells.js';
 import { TEMPLATES } from './recognizer.js';
 import * as meta from './meta.js';
 import { STAGES } from './story.js';
+import { NODE_META } from './runmap.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -71,6 +72,8 @@ export class UI {
       gold: $('gold'), wave: $('wave'), banner: $('banner'), interactPrompt: $('interact-prompt'), btnInteract: $('btn-interact'),
       shop: $('shop'), shopTitle: $('shop-title'), shopGold: $('shop-gold'), shopBody: $('shop-body'), shopClose: $('shop-close'),
       tavernHud: $('tavern-hud'), ruckusCount: $('ruckus-count'),
+      mapBar: $('map-bar'), mapNodeInfo: $('map-node-info'),
+      nodeEvent: $('node-event'), neTitle: $('ne-title'), neGold: $('ne-gold'), neBlurb: $('ne-blurb'), neBody: $('ne-body'),
       btnGuide: $('btn-guide'), btnPause: $('btn-pause'), btnMute: $('btn-mute'),
       joystick: $('joystick'), joyKnob: $('joy-knob'), blackout: $('blackout'),
       glyphGuide: $('glyph-guide'), guideCards: $('guide-cards'), btnGuideClose: $('btn-guide-close'),
@@ -114,6 +117,11 @@ export class UI {
     this.el.shopBody.addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]');
       if (b) this._shopAction(b.dataset.act, b.dataset.id, b.dataset.slot);
+    });
+    // map node-event buttons (also delegated)
+    if (this.el.neBody) this.el.neBody.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-ne]');
+      if (b && !b.disabled) this._neAction(b.dataset.ne, b.dataset.id);
     });
   }
 
@@ -182,24 +190,32 @@ export class UI {
     el.style.setProperty('--n', d.toFixed(3));
   }
 
-  // toggle which HUD bits show for the tavern hub vs the forest fight
+  // toggle which HUD bits show for the tavern hub / journey map / fight
   setPhase(phase, isTouch) {
-    const tavern = phase === 'tavern';
-    this.el.bars.classList.toggle('hidden', tavern);
-    this.el.spellbook.classList.toggle('hidden', tavern);
-    this.el.sobriety.classList.toggle('hidden', tavern);
-    this.el.timer.classList.toggle('hidden', tavern);
-    this.el.waveWrap.classList.toggle('hidden', tavern);
-    this.el.kills.classList.toggle('hidden', tavern);
+    const arena = phase === 'arena', map = phase === 'map', tavern = phase === 'tavern';
+    this.el.bars.classList.toggle('hidden', tavern);      // vitals show in the fight & on the map
+    this.el.spellbook.classList.toggle('hidden', !arena);
+    this.el.sobriety.classList.toggle('hidden', !arena);
+    this.el.timer.classList.toggle('hidden', !arena);
+    this.el.kills.classList.toggle('hidden', !arena);
+    this.el.waveWrap.classList.add('hidden');
     this.el.tavernHud.classList.add('hidden');
-    this.el.btnGuide.classList.toggle('hidden', tavern);
-    if (this.el.btnDrink) this.el.btnDrink.classList.toggle('hidden', tavern); // drink only in the fight
-    if (!tavern) { this.el.interactPrompt.classList.add('hidden'); this.el.btnInteract.classList.add('hidden'); }
-    if (tavern) {
-      this.el.castHint.innerHTML = isTouch ? 'Drag the <b>left side</b> to wander · tap glowing stations to use them' : 'Walk up to glowing stations and press <b>E</b> · head to the <b>door</b> to start a run';
-    } else {
-      this.el.castHint.innerHTML = isTouch ? 'Left = move · <b>draw a glyph</b> on the right to cast · 🍺 to drink (refill mana)' : 'Hold <b>Right-Mouse</b> and draw a glyph · <b>WASD</b> move · <b>Q</b> drink to refill mana · keys <b>1–3</b>';
-    }
+    this.el.btnGuide.classList.toggle('hidden', !arena);
+    if (this.el.btnDrink) this.el.btnDrink.classList.toggle('hidden', !arena); // drink only in the fight
+    if (this.el.mapBar) this.el.mapBar.classList.toggle('hidden', !map);
+    if (this.el.drunkWrap) this.el.drunkWrap.classList.toggle('hidden', !arena);
+    if (!arena) { this.el.interactPrompt.classList.add('hidden'); this.el.btnInteract.classList.add('hidden'); }
+    if (tavern) this.el.castHint.innerHTML = isTouch ? 'Drag the <b>left side</b> to wander · tap glowing stations to use them' : 'Walk up to glowing stations and press <b>E</b> · head to the <b>door</b> to start a run';
+    else if (map) this.el.castHint.innerHTML = isTouch ? 'Tap a <b>glowing node</b> to travel there' : 'Click a <b>glowing node</b> to travel · plan your route to the 👑';
+    else this.el.castHint.innerHTML = isTouch ? 'Left = move · <b>draw a glyph</b> on the right to cast · 🍺 to drink (refill mana)' : 'Hold <b>Right-Mouse</b> and draw a glyph · <b>WASD</b> move · <b>Q</b> drink to refill mana · keys <b>1–3</b>';
+  }
+
+  // update the map's hovered-node info bar
+  mapInfo(node) {
+    if (!this.el.mapNodeInfo) return;
+    if (!node) { this.el.mapNodeInfo.innerHTML = 'Tap a glowing node to set off.'; return; }
+    const m = NODE_META[node.type] || { icon: '•', label: node.type, blurb: '' };
+    this.el.mapNodeInfo.innerHTML = `${m.icon} <b>${m.label}</b> — ${m.blurb}`;
   }
 
   // hub prompt: show what the wizard can interact with
@@ -250,7 +266,7 @@ export class UI {
   setScreen(name) {
     this.el.title.classList.toggle('hidden', name !== 'title');
     this.el.end.classList.toggle('hidden', name !== 'end');
-    this.el.hud.classList.toggle('hidden', !(name === 'play'));
+    this.el.hud.classList.toggle('hidden', !(name === 'play' || name === 'map'));
   }
 
   // ---- HUD ----
@@ -380,20 +396,70 @@ export class UI {
 
   // ---- Results / loot ----
   showResults(win, info) {
-    this.el.endTitle.textContent = win ? `${info.stage} — Cleared!` : 'The Wizard Passed Out';
-    const L = info.loot;
-    const row = (label, v) => v ? `<div class="loot-row"><span>${label}</span><b>+${v}🪙</b></div>` : '';
+    this.el.endTitle.textContent = win ? `${info.stage} — Conquered!` : 'The Wizard Passed Out';
     this.el.endStats.innerHTML = `
-      <div class="end-summary">${info.stage} · Wave ${info.wave} · ⏱ ${info.time} · ☠ ${info.kills} · Lv ${info.level}</div>
+      <div class="end-summary">${info.stage} · 🗺 ${info.nodes} nodes · ☠ ${info.kills} · Lv ${info.level}</div>
       <div class="loot-box">
-        ${row('Survival', L.base)}${row('Foes slain', L.kill)}${row('Waves', L.wave)}${row('Victory', L.win)}
-        <div class="loot-row loot-total"><span>Loot earned</span><b>+${L.total}🪙</b></div>
+        <div class="loot-row loot-total"><span>${win ? 'Conquest spoils' : 'Gold gathered'}</span><b>+${info.earned}🪙</b></div>
       </div>
       <div class="loot-purse">Purse: <b>${info.gold}🪙</b></div>
       ${info.questDone ? '<div style="color:var(--xp);font-weight:800">✓ Quest complete! Claim it from the Manager.</div>' : ''}
-      <div style="margin-top:6px;color:var(--ink-dim)">${win ? 'Spend your loot at the tavern, then pick your next haunt!' : 'Dust yourself off and try again — you keep your loot.'}</div>`;
+      <div style="margin-top:6px;color:var(--ink-dim)">${win ? 'Spend your spoils at the tavern, then pick your next haunt!' : 'You keep every coin you earned. Regroup and try again.'}</div>`;
     this.el.btnAgain.textContent = '▸ Return to the Tavern';
     this.el.end.classList.remove('hidden');
+  }
+
+  // ---- Map node event: treasure / campfire / shop ----
+  showNodeEvent(node, game, onDone) {
+    this._neNode = node; this._neGame = game; this._neDone = onDone;
+    const m = NODE_META[node.type] || { icon: '•', label: node.type, blurb: '' };
+    this.el.neTitle.textContent = `${m.icon} ${m.label}`;
+    this.el.neGold.textContent = `🪙 ${meta.gold()}`;
+    this.el.neBlurb.textContent = m.blurb;
+    this._renderNodeEvent();
+    this.el.nodeEvent.classList.remove('hidden');
+  }
+  _shopWares() {
+    return [
+      { id: 'heal', label: '❤️ Healing Tonic — heal 55 HP', cost: 35, fn: g => { g.wizard.heal(55); this.toast('❤️ +55 HP'); } },
+      { id: 'mana', label: '🍺 Stout Keg — refill mana & sober up', cost: 20, fn: g => { g.wizard.mana = g.stats.manaMax; g.drunkenness = Math.max(0, g.drunkenness - 0.35); this.toast('🍺 Topped up'); } },
+      { id: 'maxhp', label: '🍖 Hearty Meal — +25 max HP & heal 25', cost: 55, fn: g => { g.stats.hpMax += 25; g.wizard._maxHp = g.stats.hpMax; g.wizard.heal(25); this.toast('🍖 +25 max HP'); } },
+      { id: 'gear', label: '🎁 Mystery Gear', cost: 75, fn: g => { const inst = meta.dropGear(g.level + 1, false); meta.addGear(inst); this.lootToast(inst); } },
+    ];
+  }
+  _renderNodeEvent() {
+    const node = this._neNode, g = this._neGame;
+    let html = '';
+    if (node.type === 'treasure') {
+      html = `<div class="ne-opts"><button class="shop-btn" data-ne="take">Crack it open ▸ &nbsp;(+60🪙 &amp; a trinket)</button></div>`;
+    } else if (node.type === 'rest') {
+      const heal = Math.round(g.stats.hpMax * 0.45);
+      html = `<div class="ne-opts">
+        <button class="shop-btn" data-ne="rest">🔥 Rest — recover ${heal} HP</button>
+        <button class="shop-btn" data-ne="study">📜 Study — choose a boon</button>
+      </div>`;
+    } else if (node.type === 'shop') {
+      const wares = this._shopWares();
+      html = '<div class="ne-shop">' + wares.map(it => `<button class="shop-btn" data-ne="buy" data-id="${it.id}" ${meta.gold() < it.cost ? 'disabled' : ''}>${it.label} <span class="ne-cost">${it.cost}🪙</span></button>`).join('') + '</div>'
+        + `<button class="shop-btn ne-leave" data-ne="leave">Leave the shop ▸</button>`;
+    }
+    this.el.neBody.innerHTML = html;
+  }
+  _neAction(act, id) {
+    const g = this._neGame; if (!g) return;
+    g.audio.play('click');
+    if (act === 'rest') { g.wizard.heal(g.stats.hpMax * 0.45); this.toast('🔥 A moment of rest'); this._neComplete(); }
+    else if (act === 'study') { this.el.nodeEvent.classList.add('hidden'); g.offerUpgrade(() => this._neComplete()); }
+    else if (act === 'buy') {
+      const it = this._shopWares().find(w => w.id === id);
+      if (it && meta.spendGold(it.cost)) { it.fn(g); meta.save(); this.el.neGold.textContent = `🪙 ${meta.gold()}`; this.setGold(meta.gold()); this._renderNodeEvent(); }
+    }
+    else { this._neComplete(); } // 'take' / 'leave'
+  }
+  _neComplete() {
+    this.el.nodeEvent.classList.add('hidden');
+    const cb = this._neDone; this._neDone = null; this._neGame = null;
+    if (cb) cb();
   }
 
   comboToast(name) {

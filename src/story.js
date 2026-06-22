@@ -50,22 +50,23 @@ export const STAGES = {
   },
 };
 
-const TOTAL_WAVES = 6; // waves 1–5 = mobs, wave 6 = boss
 const SPAWN_CAP = 100;
 
 export class Director {
   constructor() { this.reset(); }
-  reset() { this.stage = null; this.active = false; this.wave = 0; this.total = TOTAL_WAVES; this.state = 'idle'; this.timer = 0; this.toSpawn = 0; this.spawnTimer = 0; }
+  reset() { this.stage = null; this.active = false; this.wave = 0; this.total = 0; this.state = 'idle'; this.timer = 0; this.toSpawn = 0; this.spawnTimer = 0; this.enc = null; }
 
-  start(stage) {
+  // enc: { waves, boss, hpScale } — drives one map-node encounter
+  start(stage, enc) {
     this.stage = stage; this.active = true;
-    this.wave = 0; this.total = TOTAL_WAVES; this.state = 'breather'; this.timer = 2.2;
+    this.enc = enc || { waves: 5, boss: true, hpScale: 1 };
+    this.wave = 0; this.total = this.enc.waves; this.state = 'breather'; this.timer = 1.8;
     this.toSpawn = 0; this.spawnTimer = 0;
   }
 
   remaining() { return this.toSpawn; }
 
-  _waveCount(w) { return 5 + w * 2; }
+  _waveCount(w) { return Math.round((4 + w * 2) * (this.enc.sizeMult || 1)); }
   _pickType() {
     const w = this.wave;
     const opts = this.stage.roster.filter(r => w >= r.w);
@@ -82,26 +83,29 @@ export class Director {
       this.spawnTimer -= dt;
       if (this.toSpawn > 0 && this.spawnTimer <= 0 && game.enemies.count() < SPAWN_CAP) {
         this.spawnTimer = 0.35;
-        game.enemies.spawn(this._pickType(), 1 + this.wave * 0.1, game.wizard.pos, game);
+        game.enemies.spawn(this._pickType(), (this.enc.hpScale || 1) + this.wave * 0.1, game.wizard.pos, game);
         this.toSpawn--;
       }
       if (this.toSpawn <= 0) this.state = 'clearing';
     } else if (this.state === 'clearing') {
-      if (game.enemies.countNonBoss() === 0) { this.state = 'breather'; this.timer = 2.6; }
+      if (game.enemies.countNonBoss() === 0) { this.state = 'breather'; this.timer = 2.2; }
     }
     // 'boss' state: just wait for the boss to die (game.onBossDead -> win)
   }
 
   _beginWave(game) {
     this.wave++;
-    if (this.wave >= this.total) { this._beginBoss(game); return; }
+    if (this.wave > this.total) {
+      if (this.enc.boss) { this._beginBoss(game); }
+      else { this.active = false; this.state = 'cleared'; if (game.onEncounterCleared) game.onEncounterCleared(); }
+      return;
+    }
     this.toSpawn = this._waveCount(this.wave);
     this.spawnTimer = 0.2;
     this.state = 'spawning';
     game.announceWave(this.wave, this.total, false);
   }
   _beginBoss(game) {
-    this.wave = this.total;
     this.state = 'boss';
     game.announceWave(this.total, this.total, true);
     game.startBossCinematic(this.stage);

@@ -47,24 +47,32 @@ export const REST_BONUS = 30; // +max HP on your next run after resting
 // ---- Room build/place: a top-down grid you furnish with gold ("craft & place") ----
 export const ROOM_GW = 6, ROOM_GH = 4;
 export const BUILDABLES = [
+  // functional stations — walk up to a placed one to use it
+  { id: 'spelltable', name: 'Spell Table',  icon: '✦',  cost: 60,  comfort: 0, station: 'skilltree' },
+  { id: 'questboard', name: 'Quest Board',  icon: '📜', cost: 70,  comfort: 0, station: 'manager' },
+  { id: 'ledger',     name: 'Ledger Desk',  icon: '📒', cost: 90,  comfort: 0, station: 'ledger' },
+  { id: 'wardrobe',   name: 'Wardrobe',     icon: '🎽', cost: 110, comfort: 0, station: 'wardrobe' },
+  { id: 'cauldron',   name: 'Cauldron',     icon: '🜲', cost: 120, comfort: 0, station: 'cauldron' },
+  { id: 'anvil',      name: 'Anvil',        icon: '🔨', cost: 140, comfort: 0, station: 'blacksmith' },
+  // comforts — raise your rest bonus
   { id: 'rug',     name: 'Woven Rug',       icon: '🟫', cost: 55,  comfort: 1 },
   { id: 'chair',   name: 'Armchair',        icon: '🪑', cost: 60,  comfort: 1 },
-  { id: 'table',   name: 'Oak Table',       icon: '🛏', cost: 80,  comfort: 1 },
+  { id: 'table',   name: 'Oak Table',       icon: '🟤', cost: 80,  comfort: 1 },
   { id: 'lamp',    name: 'Mage Lamp',       icon: '🏮', cost: 75,  comfort: 1 },
   { id: 'plant',   name: 'Potted Mandrake', icon: '🪴', cost: 70,  comfort: 1 },
   { id: 'shelf',   name: 'Bookshelf',       icon: '📚', cost: 120, comfort: 2 },
-  { id: 'brew',    name: 'Brew Stand',      icon: '⚗️', cost: 150, comfort: 2 },
-  { id: 'dummy',   name: 'Training Dummy',  icon: '🎯', cost: 140, comfort: 2 },
   { id: 'trophy',  name: 'Trophy Plinth',   icon: '🏆', cost: 160, comfort: 3 },
   { id: 'chest',   name: 'Treasure Chest',  icon: '🧰', cost: 180, comfort: 3 },
 ];
 export const buildableById = (id) => BUILDABLES.find(b => b.id === id);
 export const placedItems = () => (state.room.placed || (state.room.placed = []));
 export const cellOccupied = (gx, gy) => placedItems().some(p => p.gx === gx && p.gy === gy);
+export const stationBuilt = (id) => placedItems().some(p => p.id === id);
 export function placeItem(id, gx, gy) {
   const b = buildableById(id); if (!b) return false;
   if (gx < 0 || gy < 0 || gx >= ROOM_GW || gy >= ROOM_GH) return false;
   if (cellOccupied(gx, gy) || !canAfford(b.cost)) return false;
+  if (b.station && stationBuilt(id)) return false; // only one of each station
   state.gold -= b.cost; placedItems().push({ id, gx, gy }); save(); return true;
 }
 export function removeAt(gx, gy) {
@@ -252,7 +260,7 @@ export function buyDecor(id) {
   if (!d || !state.room.owned || state.room.decor[id] || !canAfford(d.cost)) return false;
   state.gold -= d.cost; state.room.decor[id] = true; save(); return true;
 }
-export function rest() { if (!state.room.owned || state.rested) return false; state.rested = true; save(); return true; }
+export function rest() { if (state.rested) return false; state.rested = true; save(); return true; } // the room is always yours now
 export const isRested = () => state.rested;
 export function consumeRest() { const r = state.rested; if (r) { state.rested = false; save(); } return r; }
 

@@ -14,10 +14,10 @@ export const OPENING = {
 export const TAVERN_INTRO = {
   speaker: 'The Spirit',
   lines: [
-    'This is the Tipsy Toad. Old Barkeep Tomas takes in strays — drunks, spirits, possessed wizards. He gave us a bed and a job.',
+    'This is the Tipsy Toad. Old Barkeep Tomas took us in — drunks, spirits, possessed wizards — and gave us a bed upstairs and a job down here.',
     'But last night, monsters dragged poor Tomas into the dark and didn\'t bring him back. We are going to make them regret that.',
-    'For now, you work here: tend the Spell Table, brew at the Cauldron, dress at the Wardrobe, take bounties from the Manager, and earn tips in the Kitchen.',
-    'When you\'re ready, lurch out the door, pick a haunt, and hunt the beasts that took him. Avenge Tomas — and the Toad is yours.',
+    'Down here it\'s just the bar: lurch to the bar to earn tips, or out the glowing door to venture. Up the stairs is YOUR room — bare for now.',
+    'In your room, tap BUILD to craft & place a Spell Table, Cauldron, Wardrobe, Anvil and more — then use them right there. Avenge Tomas, and the Toad is yours.',
   ],
 };
 

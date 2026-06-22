@@ -438,8 +438,8 @@ export class Game {
 
   notifySpell(tags, pos) { this.jobs.onSpell(tags, pos, this); }
 
-  // floor height under a point — only the tavern has an upper deck to climb
-  floorHeightAt(x, z) { return this.phase === 'tavern' ? this.tavern.floorHeightAt(x, z) : 0; }
+  // floor is flat now (the room is a separate scene, not an in-scene deck)
+  floorHeightAt() { return 0; }
 
   // ---------- story queue ----------
   showStory(speaker, lines, onComplete) {
@@ -537,7 +537,7 @@ export class Game {
       this.cineT = 0;
       this.phase = 'intro'; this.state = 'story';
       this.stats = DEFAULT_STATS();
-      this.arenaGroup.visible = false; this.tavern.show(false); this.runmap.show(false);
+      this.arenaGroup.visible = false; this.tavern.show(false); this.tavern.showRoom(false); this.runmap.show(false);
       this.wizard.reset(this.stats); this.wizard.setVisible(true); this.wizard.pos.set(0, 0, 0);
       this.scene.background.setHex(0x05040a);
       this.scene.fog.color.setHex(0x06050c); this.scene.fog.density = 0.035;
@@ -566,9 +566,9 @@ export class Game {
     this.drunkenness = 0.45;        // you spawn here good and sloshed — hence the queasy nausea swim
     this._drunkSurge = 0;
     this.tavern.reset();
-    this.tavern.refreshDecor(meta);
     this.tavern.refreshRoom(meta);
     this.tavern.show(true);
+    this.tavern.showRoom(false);
     this.arenaGroup.visible = false;
     this.runmap.show(false);
     this.input.pointMode = false;
@@ -600,14 +600,55 @@ export class Game {
   }
 
   interact() {
-    if (this.state !== 'play' || this.phase !== 'tavern' || !this.nearStation) return;
-    let t = this.nearStation.type;
+    if (this.state !== 'play' || !this.nearStation) return;
+    const s = this.nearStation, t = s.type;
     this.audio.play('click');
-    if (t === 'work') { this.startMinigame(); return; }
-    if (t === 'door') t = 'stage';
-    this._shopKind = t;
-    this.state = 'menu';
-    this.ui.openShop(t, this);
+    if (this.phase === 'tavern') {
+      if (t === 'door') { this._openShop('stage'); return; }
+      if (t === 'stairs') { this.goUpstairs(); return; }
+      if (t === 'serve') { this.startMinigame(); return; }
+    } else if (this.phase === 'room') {
+      if (t === 'down') { this.goDownstairs(); return; }
+      if (t === 'rest') { this.restAtBed(); return; }
+      if (t === 'station') { this._openShop(s.kind); return; }
+    }
+  }
+
+  _openShop(kind) { this._shopKind = kind; this.state = 'menu'; this.ui.openShop(kind, this); }
+  openBuild() { if (this.state === 'play' && this.phase === 'room') { this.audio.play('click'); this._openShop('build'); } }
+  restAtBed() { if (meta.rest()) this.ui.toast('🛏 Rested — you\'ll wake with +HP for the next run'); else this.ui.toast('🛏 Already well-rested'); }
+
+  // ---- stairs: a quick loading transition between the bar and your room ----
+  goUpstairs() {
+    if (this.state !== 'play') return;
+    this.state = 'loading';
+    this.ui.showLoadScene('Up the creaky stairs…');
+    setTimeout(() => { this.enterRoom(); this.ui.hideLoadScene(); }, 900);
+  }
+  goDownstairs() {
+    if (this.state !== 'play') return;
+    this.state = 'loading';
+    this.ui.showLoadScene('Back down to the bar…');
+    setTimeout(() => { this.enterTavern(); this.ui.hideLoadScene(); }, 900);
+  }
+
+  // ---- your room: a separate scene; build & place facilities here ----
+  enterRoom() {
+    this.phase = 'room'; this.state = 'play';
+    this.nearStation = null; this.input.pointMode = false;
+    this.tavern.refreshRoom(meta);
+    this.tavern.show(false); this.tavern.showRoom(true);
+    this.arenaGroup.visible = false; this.runmap.show(false);
+    this.wizard.setVisible(true);
+    this.stats = DEFAULT_STATS(); this.stats.wobble = 0.9;
+    this.wizard.reset(this.stats);
+    this.wizard.pos.copy(this.tavern.roomStart);
+    this.aimPoint.set(this.tavern.roomStart.x, 0, this.tavern.roomStart.z - 3);
+    this.camOffset.set(0, 13, 13);
+    this._setMood('tavern');
+    this.ui.setPhase('room', this.input.isTouch);
+    this.ui.setScreen('play');
+    this.ui.setGold(meta.gold());
   }
 
   startMinigame() {
@@ -628,7 +669,7 @@ export class Game {
     if (this.state !== 'menu' || !this._shopKind) return; // bar shift & node events have their own buttons
     this._shopKind = null;
     this.ui.closeShop();
-    this.tavern.refreshDecor(meta);
+    this.tavern.refreshRoom(meta);   // reflect any newly built/sold furniture
     this.ui.setGold(meta.gold());
     this.state = 'play';
   }
@@ -675,7 +716,7 @@ export class Game {
     this.phase = 'map'; this.state = 'map';
     this._exiting = false; this.bossActive = false; this.bossCine = 0; this._endState = null;
     this.enemies.clear(); this.spells.reset(); this._clearPickups();
-    this.tavern.show(false); this.arenaGroup.visible = false; this.runmap.show(true);
+    this.tavern.show(false); this.tavern.showRoom(false); this.arenaGroup.visible = false; this.runmap.show(true);
     this.wizard.setVisible(false);               // the spirit-orb marker stands in for him on the road
     this._applyStageTheme(this.stage);          // fog/colours match the haunt
     this.input.pointMode = true;                 // taps select nodes
@@ -726,7 +767,7 @@ export class Game {
     this.wizard.mana = this.stats.manaMax;     // stocked up before the fight (HP persists!)
     this.wizard.pos.set(0, 0, 0); this.wizard.vel.set(0, 0, 0); this.wizard.alive = true;
     this.enemies.clear(); this.spells.reset(); this._clearPickups(); this.director.reset();
-    this.runmap.show(false); this.tavern.show(false); this.arenaGroup.visible = true;
+    this.runmap.show(false); this.tavern.show(false); this.tavern.showRoom(false); this.arenaGroup.visible = true;
     this.wizard.setVisible(true);
     this.camOffset.set(0, 27, 22);
     this._applyStageTheme(this.stage);
@@ -1091,6 +1132,7 @@ export class Game {
 
     if (this.state === 'play') {
       if (this.phase === 'tavern') this._updateTavern(sdt);
+      else if (this.phase === 'room') this._updateRoom(sdt);
       else this._updateArena(sdt);
     } else if (this.state === 'map' || this.state === 'traveling' || (this.state === 'story' && this.phase === 'map')) {
       this._updateMap(dt);
@@ -1148,6 +1190,13 @@ export class Game {
     if (meta.tavernOwned()) meta.accrueIdle(sdt); // tycoon ticks while you potter about
   }
 
+  _updateRoom(sdt) {
+    this.wizard.update(sdt, this);
+    this.tavern.updateRoom(sdt, this);
+    this.particles.update(sdt);
+    if (meta.tavernOwned()) meta.accrueIdle(sdt);
+  }
+
   // ---- the journey map ----
   _updateMap(dt) {
     this.runmap.update(dt, this);
@@ -1164,6 +1213,7 @@ export class Game {
     this.tavernReady = true; this._openingCine = false; this.bossCine = 0;
     this.stats = DEFAULT_STATS();
     this.tavern.show(false);
+    this.tavern.showRoom(false);
     this.runmap.show(false);
     this.arenaGroup.visible = true;
     this._applyStageTheme(STAGES.forest);

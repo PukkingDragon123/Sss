@@ -78,12 +78,16 @@ tankard but cranks up the **drunkenness meter** — the screen swims with a quea
 nausea, the wizard wobbles harder, and your glyphs get sloppier. You sober up
 slowly over time. Risk vs. reward: chug to keep casting, or stay steady to aim.
 
-**The Tavern is a hub.** Between runs, wobble up to the glowing stations and press
-**E** (tap ✋): the **Spell Table** (a skill tree — unlock & upgrade spells, then
-**equip 3**), the **Cauldron** (brew **combos**), the **Wardrobe** (buy & wear
-**equipment** — hat/robe/staff/charm with stat bonuses), the **Tavern Manager**
-(bounty quests), and your **Room** (rest for a bonus, buy decorations). At the
-**door** you pick a **stage**.
+**The Bar is your hub — and it's just a bar.** Between runs, wobble to the **bar**
+to work a shift for tips, head out the **🚪 door** to pick a **stage**, or climb
+the **🪜 stairs** to your **room** (a separate scene). Press **E** (tap ✋) to interact.
+
+**Your room: craft & place.** Upstairs starts bare but for a **bed** (rest there
+for an HP bonus). Tap **🔨 Build** to spend gold on **stations** you place on a
+top-down grid — the **Spell Table** (unlock/upgrade & equip 3 spells), **Cauldron**
+(combos), **Wardrobe** (gear), **Anvil** (forge/salvage), **Ledger** (tavern idle
+income) and **Quest Board** (bounties) — plus comforts that raise your rest bonus.
+Walk up to a built station and press **E** to use it.
 
 **Stages & the journey map.** Three stages — 🌲 **Forest**, 🦇 **Cave**,
 ⚰ **Graveyard** — each is a **branching 3D journey map** (Slay-the-Spire-style):

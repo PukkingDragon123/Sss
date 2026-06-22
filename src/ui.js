@@ -51,7 +51,8 @@ export class UI {
       manaFill: $('mana-fill'), manaLabel: $('mana-label'), manaFoam: $('mana-foam'),
       xpFill: $('xp-fill'), xpLabel: $('xp-label'),
       drunkWrap: $('drunk-wrap'), drunkFill: $('drunk-fill'),
-      nausea: $('nausea'), btnDrink: $('btn-drink'),
+      nausea: $('nausea'), btnDrink: $('btn-drink'), btnBuild: $('btn-build'),
+      loadscene: $('loadscene'), loadsceneText: $('loadscene-text'),
       timer: $('timer'), kills: $('kills'), sobriety: $('sobriety'),
       jobTracker: $('job-tracker'), jobDesc: $('job-desc'), jobFill: $('job-fill'),
       toastArea: $('toast-area'),
@@ -112,6 +113,7 @@ export class UI {
     this.el.btnGuideClose.addEventListener('click', () => { game.audio.play('click'); game.toggleGuide(); });
     this.el.btnInteract.addEventListener('click', () => game.interact());
     if (this.el.btnDrink) this.el.btnDrink.addEventListener('click', () => game.drink());
+    if (this.el.btnBuild) this.el.btnBuild.addEventListener('click', () => game.openBuild());
     this.el.shopClose.addEventListener('click', () => { game.audio.play('click'); game.closeShop(); });
     // shop buttons are delegated (the body is re-rendered on every action)
     this.el.shopBody.addEventListener('click', (e) => {
@@ -190,10 +192,11 @@ export class UI {
     el.style.setProperty('--n', d.toFixed(3));
   }
 
-  // toggle which HUD bits show for the tavern hub / journey map / fight
+  // toggle which HUD bits show for the bar / your room / journey map / fight
   setPhase(phase, isTouch) {
-    const arena = phase === 'arena', map = phase === 'map', tavern = phase === 'tavern';
-    this.el.bars.classList.toggle('hidden', tavern);      // vitals show in the fight & on the map
+    const arena = phase === 'arena', map = phase === 'map', tavern = phase === 'tavern', room = phase === 'room';
+    const hub = tavern || room;
+    this.el.bars.classList.toggle('hidden', hub);        // vitals show in the fight & on the map
     this.el.spellbook.classList.toggle('hidden', !arena);
     this.el.sobriety.classList.toggle('hidden', !arena);
     this.el.timer.classList.toggle('hidden', !arena);
@@ -202,13 +205,18 @@ export class UI {
     this.el.tavernHud.classList.add('hidden');
     this.el.btnGuide.classList.toggle('hidden', !arena);
     if (this.el.btnDrink) this.el.btnDrink.classList.toggle('hidden', !arena); // drink only in the fight
+    if (this.el.btnBuild) this.el.btnBuild.classList.toggle('hidden', !room);  // build only in your room
     if (this.el.mapBar) this.el.mapBar.classList.toggle('hidden', !map);
     if (this.el.drunkWrap) this.el.drunkWrap.classList.toggle('hidden', !arena);
-    if (!arena) { this.el.interactPrompt.classList.add('hidden'); this.el.btnInteract.classList.add('hidden'); }
-    if (tavern) this.el.castHint.innerHTML = isTouch ? 'Drag the <b>left side</b> to wander · tap glowing stations to use them' : 'Walk up to glowing stations and press <b>E</b> · head to the <b>door</b> to start a run';
+    if (!hub) { this.el.interactPrompt.classList.add('hidden'); this.el.btnInteract.classList.add('hidden'); }
+    if (tavern) this.el.castHint.innerHTML = isTouch ? 'Drag the <b>left side</b> to wander · 🪜 stairs to your room · 🚪 door to venture' : 'Walk to the <b>🚪 door</b> to venture, the <b>🪜 stairs</b> to your room, or the <b>bar</b> to earn tips · press <b>E</b>';
+    else if (room) this.el.castHint.innerHTML = isTouch ? 'Tap <b>🔨 Build</b> to place stations & furniture · tap a station to use it' : 'Press <b>🔨 Build</b> to craft & place stations · walk to one and press <b>E</b> to use it · stairs to go down';
     else if (map) this.el.castHint.innerHTML = isTouch ? 'Tap a <b>glowing node</b> to travel there' : 'Click a <b>glowing node</b> to travel · plan your route to the 👑';
     else this.el.castHint.innerHTML = isTouch ? 'Left = move · <b>draw a glyph</b> on the right to cast · 🍺 to drink (refill mana)' : 'Hold <b>Right-Mouse</b> and draw a glyph · <b>WASD</b> move · <b>Q</b> drink to refill mana · keys <b>1–3</b>';
   }
+
+  showLoadScene(text) { if (this.el.loadscene) { if (this.el.loadsceneText) this.el.loadsceneText.textContent = text || 'Loading…'; this.el.loadscene.classList.remove('hidden'); } }
+  hideLoadScene() { if (this.el.loadscene) this.el.loadscene.classList.add('hidden'); }
 
   // update the map's hovered-node info bar
   mapInfo(node) {
@@ -272,8 +280,8 @@ export class UI {
   // ---- HUD ----
   updateHUD(game) {
     this.updateJoystick(game.input);
-    this._updateNausea(game); // queasy overlay — runs in the tavern AND the fight
-    if (game.phase === 'tavern') { // hub: show gold + interaction prompt only
+    this._updateNausea(game); // queasy overlay — runs in the hubs AND the fight
+    if (game.phase === 'tavern' || game.phase === 'room') { // hubs: prompt only
       this.updatePrompt(game.state === 'play' ? game.nearStation : null, game.input.isTouch);
       return;
     }
@@ -722,7 +730,8 @@ export class UI {
       const [gx, gy] = id.split('_').map(Number);
       let ok;
       if (meta.cellOccupied(gx, gy)) ok = meta.removeAt(gx, gy);
-      else ok = this._buildSel ? meta.placeItem(this._buildSel, gx, gy) : false;
+      else if (this._buildSel) { const sb = meta.buildableById(this._buildSel); ok = meta.placeItem(this._buildSel, gx, gy); if (ok && sb && sb.station) this._buildSel = null; }
+      else ok = false;
       if (g) { g.audio.play(ok ? 'click' : 'hiccup'); if (ok && g.tavern.refreshRoom) g.tavern.refreshRoom(meta); }
       this.setGold(meta.gold());
       this._renderShop();
@@ -749,12 +758,12 @@ export class UI {
 
   _renderShop() {
     const kind = this._shopKind;
-    const titles = { skilltree: '✦ Spell Table', cauldron: '🜲 Cauldron', room: '🛏 Your Room', manager: '🍺 Tavern Manager', wardrobe: '🎽 Wardrobe', stage: '🗺 Choose a Stage', ledger: '📒 Tavern Ledger', blacksmith: '🔨 Blacksmith' };
+    const titles = { skilltree: '✦ Spell Table', cauldron: '🜲 Cauldron', build: '🔨 Build & Place', manager: '📜 Quest Board', wardrobe: '🎽 Wardrobe', stage: '🗺 Choose a Stage', ledger: '📒 Tavern Ledger', blacksmith: '🔨 Anvil' };
     this.el.shopTitle.textContent = titles[kind] || 'Tavern';
     let html = '';
     if (kind === 'skilltree') html = this._renderSkillTree();
     else if (kind === 'cauldron') html = this._renderCauldron();
-    else if (kind === 'room') html = this._renderRoom();
+    else if (kind === 'build') html = this._renderBuild();
     else if (kind === 'manager') html = this._renderManager();
     else if (kind === 'wardrobe') html = this._renderWardrobe();
     else if (kind === 'stage') html = this._renderStages();
@@ -878,33 +887,27 @@ export class UI {
     return h;
   }
 
-  _renderRoom() {
-    if (!meta.roomOwned()) {
-      return `<p class="shop-sub">A room of your own — rest before a run, then <b>craft &amp; place</b> furniture to make it yours.</p>
-        <div class="shop-acts"><button class="shop-btn big" data-act="buyroom" ${meta.canAfford(meta.ROOM_COST) ? '' : 'disabled'}>Buy Room · ${meta.ROOM_COST}🪙</button></div>`;
-    }
+  _renderBuild() {
     const comfort = meta.roomComfort();
     const restAmt = meta.REST_BONUS + comfort * 4;
-    let h = `<p class="shop-sub">Your room starts bare. <b>Pick furniture</b>, then <b>tap a tile</b> to place it (tap a placed tile to sell it back). Comfier room → bigger rest bonus.</p>
-      <div class="shop-acts"><button class="shop-btn big ${meta.isRested() ? 'on' : ''}" data-act="rest" ${meta.isRested() ? 'disabled' : ''}>${meta.isRested() ? `✓ Rested (+${restAmt} HP)` : `Rest — +${restAmt} max HP next run`}</button></div>
-      <div class="build-stats">🛋 Comfort <b>${comfort}</b></div>`;
-    // top-down build grid
+    let h = `<p class="shop-sub">Your room is yours to shape. <b>Pick an item</b>, then <b>tap a tile</b> to place it (tap a placed tile to sell it back at half). <b>Stations</b> (✦🜲🎽🔨📒📜) let you manage spells &amp; gear right here; comforts raise your rest bonus.</p>
+      <div class="build-stats">🛋 Comfort <b>${comfort}</b> · 🛏 Rest at the bed for <b>+${restAmt} HP</b> next run</div>`;
     h += '<div class="build-grid">';
     for (let gy = 0; gy < meta.ROOM_GH; gy++) {
       for (let gx = 0; gx < meta.ROOM_GW; gx++) {
         const item = meta.placedItems().find(p => p.gx === gx && p.gy === gy);
         const b = item ? meta.buildableById(item.id) : null;
-        h += `<button class="build-cell ${item ? 'filled' : ''}" data-act="place" data-id="${gx}_${gy}" title="${b ? b.name + ' — tap to sell' : 'empty tile'}">${b ? b.icon : ''}</button>`;
+        h += `<button class="build-cell ${item ? 'filled' : ''} ${b && b.station ? 'is-station' : ''}" data-act="place" data-id="${gx}_${gy}" title="${b ? b.name + ' — tap to sell' : 'empty tile'}">${b ? b.icon : ''}</button>`;
       }
     }
     h += '</div>';
-    // catalog
     h += '<div class="build-cat">';
     for (const b of meta.BUILDABLES) {
       const sel = this._buildSel === b.id;
-      const afford = meta.canAfford(b.cost);
-      h += `<button class="build-item ${sel ? 'sel' : ''}" data-act="selbuild" data-id="${b.id}" ${afford ? '' : 'disabled'}>
-        <span class="bi-icon">${b.icon}</span><span class="bi-name">${b.name}</span><span class="bi-cost">${b.cost}🪙</span></button>`;
+      const built = b.station && meta.stationBuilt(b.id);
+      const dis = built || !meta.canAfford(b.cost);
+      h += `<button class="build-item ${sel ? 'sel' : ''} ${b.station ? 'is-station' : ''}" data-act="selbuild" data-id="${b.id}" ${dis ? 'disabled' : ''}>
+        <span class="bi-icon">${b.icon}</span><span class="bi-name">${b.name}</span><span class="bi-cost">${built ? '✓ Built' : b.cost + '🪙'}</span></button>`;
     }
     h += '</div>';
     if (this._buildSel) { const sb = meta.buildableById(this._buildSel); if (sb) h += `<p class="build-hint">Placing <b>${sb.icon} ${sb.name}</b> — tap an empty tile. <span data-act="selbuild" data-id="${this._buildSel}" style="text-decoration:underline;cursor:pointer">cancel</span></p>`; }

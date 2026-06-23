@@ -127,15 +127,20 @@ export class RunMap {
     // long road bed receding into the fog
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, ROWS * ROW_GAP + 40), new THREE.MeshStandardMaterial({ color: t.floor, roughness: 1 }));
     ground.rotation.x = -Math.PI / 2; ground.position.set(0, -0.05, Z0 - (ROWS - 1) * ROW_GAP / 2); ground.receiveShadow = true; g.add(ground);
-    const path = new THREE.Mesh(new THREE.PlaneGeometry(14, ROWS * ROW_GAP + 30), new THREE.MeshStandardMaterial({ color: t.rug, roughness: 1 }));
+    const path = new THREE.Mesh(new THREE.PlaneGeometry(15, ROWS * ROW_GAP + 30), new THREE.MeshStandardMaterial({ color: t.rug, roughness: 0.95 }));
     path.rotation.x = -Math.PI / 2; path.position.set(0, -0.03, ground.position.z); path.receiveShadow = true; g.add(path);
+    // glowing kerb stripes down each side of the road for a polished map look
+    const stripeMat = new THREE.MeshBasicMaterial({ color: 0xffe6a8, transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, depthWrite: false });
+    for (const sx of [-7.4, 7.4]) { const stripe = new THREE.Mesh(new THREE.PlaneGeometry(0.5, ROWS * ROW_GAP + 22), stripeMat); stripe.rotation.x = -Math.PI / 2; stripe.position.set(sx, -0.02, ground.position.z); g.add(stripe); }
+    // FLOOR / LEVEL signposts down the left margin
+    for (let r = 0; r < ROWS; r++) { const lab = this._labelSprite(r === ROWS - 1 ? '👑 BOSS' : 'FLOOR ' + (r + 1)); lab.position.set(-12.5, 2.4, Z0 - r * ROW_GAP); g.add(lab); }
 
-    // edges as glowing trails
+    // edges as bright glowing trails
     this._edgeMeshes = [];
-    const edgeGeo = new THREE.CylinderGeometry(0.09, 0.09, 1, 6);
+    const edgeGeo = new THREE.CylinderGeometry(0.14, 0.14, 1, 6);
     for (const [ai, bi] of this.edges) {
       const a = this.nodes[ai], b = this.nodes[bi];
-      const m = new THREE.Mesh(edgeGeo, new THREE.MeshBasicMaterial({ color: 0x4a4368, transparent: true, opacity: 0.6 }));
+      const m = new THREE.Mesh(edgeGeo, new THREE.MeshBasicMaterial({ color: 0x6a5fa0, transparent: true, opacity: 0.7 }));
       const ax = new THREE.Vector3(a.x, 0.35, a.z), bx = new THREE.Vector3(b.x, 0.35, b.z);
       m.position.copy(ax).add(bx).multiplyScalar(0.5);
       m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), bx.clone().sub(ax).normalize());
@@ -144,25 +149,27 @@ export class RunMap {
       g.add(m); this._edgeMeshes.push(m);
     }
 
-    // nodes
+    // nodes — floating tokens with a glow disc, pedestal, ring & beacon
     for (const n of this.nodes) {
       const meta = NODE_META[n.type];
       const view = new THREE.Group(); view.position.set(n.x, 0, n.z);
       const isBoss = n.type === 'boss';
-      const ped = new THREE.Mesh(new THREE.CylinderGeometry(isBoss ? 1.8 : 1.1, isBoss ? 2.1 : 1.4, 0.5, 16), new THREE.MeshStandardMaterial({ color: meta.color, emissive: meta.color, emissiveIntensity: 0.25, roughness: 0.6 }));
+      const disc = new THREE.Mesh(new THREE.CircleGeometry(isBoss ? 2.7 : 1.75, 28), new THREE.MeshBasicMaterial({ color: meta.color, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false }));
+      disc.rotation.x = -Math.PI / 2; disc.position.y = 0.04; view.add(disc);
+      const ped = new THREE.Mesh(new THREE.CylinderGeometry(isBoss ? 1.8 : 1.1, isBoss ? 2.1 : 1.4, 0.5, 18), new THREE.MeshStandardMaterial({ color: meta.color, emissive: meta.color, emissiveIntensity: 0.3, roughness: 0.55 }));
       ped.position.y = 0.25; ped.castShadow = true; view.add(ped);
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(isBoss ? 2.3 : 1.55, 0.1, 8, 28), new THREE.MeshBasicMaterial({ color: meta.ring, transparent: true, opacity: 0.5 }));
+      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(isBoss ? 0.6 : 0.4, 0), new THREE.MeshBasicMaterial({ color: meta.ring })); gem.position.y = 0.85; view.add(gem);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(isBoss ? 2.3 : 1.55, 0.11, 8, 30), new THREE.MeshBasicMaterial({ color: meta.ring, transparent: true, opacity: 0.5 }));
       ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; view.add(ring);
-      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(isBoss ? 1.9 : 1.2, isBoss ? 1.9 : 1.2, 6, 12, 1, true), new THREE.MeshBasicMaterial({ color: meta.ring, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false }));
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(isBoss ? 1.9 : 1.2, isBoss ? 1.9 : 1.2, isBoss ? 9 : 6, 12, 1, true), new THREE.MeshBasicMaterial({ color: meta.ring, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false }));
       pillar.position.y = 3; view.add(pillar);
       const icon = iconSprite(meta.icon); icon.position.y = isBoss ? 2.6 : 1.9; if (isBoss) icon.scale.set(3, 3, 3); view.add(icon);
       const check = iconSprite('✅'); check.position.y = isBoss ? 2.6 : 1.9; check.visible = false; view.add(check);
-      // raycast target
       const hit = new THREE.Mesh(new THREE.BoxGeometry(3.4, 3.6, 3.4), new THREE.MeshBasicMaterial({ visible: false }));
       hit.position.y = 1.4; hit.userData.idx = n.i; view.add(hit);
       g.add(view);
       this._hitMeshes.push(hit);
-      this._nodeViews.push({ node: n, view, ped, ring, pillar, icon, check });
+      this._nodeViews.push({ node: n, view, ped, ring, pillar, icon, check, gem });
     }
 
     // the spirit marker that walks the road
@@ -179,6 +186,22 @@ export class RunMap {
     this.marker.position.set(0, 1.1, Z0 + ROW_GAP * 0.7);
     this._built = true;
   }
+
+  // a readable text sprite (FLOOR signposts)
+  _labelSprite(text) {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 80;
+    const x = c.getContext('2d');
+    x.font = 'bold 42px "Trebuchet MS", sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillStyle = 'rgba(0,0,0,0.55)'; x.fillText(text, 130, 44);
+    x.fillStyle = '#ffe6a8'; x.fillText(text, 128, 42);
+    const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    s.scale.set(5, 1.6, 1);
+    return s;
+  }
+
+  floors() { return ROWS; }
+  currentFloor() { return this.current < 0 ? 0 : this.nodes[this.current].r + 1; }
 
   // ---------- state ----------
   setCurrent(i) {
@@ -227,6 +250,7 @@ export class RunMap {
       const reach = this.reachable.has(v.node.i);
       v.icon.position.y = (v.node.type === 'boss' ? 2.6 : 1.9) + Math.sin(this._t * 2 + v.node.i) * (reach ? 0.18 : 0.06);
       v.ring.rotation.z += dt * (reach ? 1.2 : 0.3);
+      if (v.gem) { v.gem.rotation.y += dt * (reach ? 2.4 : 0.8); v.gem.position.y = 0.85 + Math.sin(this._t * 2.5 + v.node.i) * 0.08; }
       if (reach) v.pillar.material.opacity = 0.10 + Math.abs(Math.sin(this._t * 2 + v.node.i)) * 0.12;
     }
     // marker idle glow

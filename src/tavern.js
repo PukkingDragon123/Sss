@@ -135,14 +135,19 @@ export class Tavern {
       this.stations.push({ type, label, pos: new THREE.Vector3(x, 0, z), mark });
     };
 
-    // staircase up to the room (back-right corner)
+    // a short flight to a glowing doorway in the back wall — reads as a single
+    // floor with a stairwell "up", NOT a visible second storey.
     const stair = new THREE.Group();
-    for (let i = 0; i < 7; i++) { const step = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.26, 0.7), woodD); step.position.set(9, 0.22 + i * 0.42, -11.5 + i * 0.62); step.castShadow = true; stair.add(step); }
-    const landing = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.3, 2.0), woodD); landing.position.set(9, 3.1, -13.2); stair.add(landing);
-    const upDoor = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.4, 0.3), new THREE.MeshStandardMaterial({ color: 0x6f5fc4, emissive: 0x3a2c6a, emissiveIntensity: 0.7, roughness: 0.6 })); upDoor.position.set(9, 4.3, -14.1); stair.add(upDoor);
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 5), wood); rail.position.set(7.85, 1.6, -9.6); rail.rotation.x = -0.62; stair.add(rail);
+    for (let i = 0; i < 4; i++) { const step = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.26, 0.62), woodD); step.position.set(9, 0.18 + i * 0.3, -12.0 + i * 0.55); step.castShadow = true; stair.add(step); }
+    const archMat = new THREE.MeshStandardMaterial({ color: 0x2a2036, roughness: 0.8 });
+    const frameL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 2.6, 0.5), archMat); frameL.position.set(7.9, 1.5, -13.9); stair.add(frameL);
+    const frameR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 2.6, 0.5), archMat); frameR.position.set(10.1, 1.5, -13.9); stair.add(frameR);
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.4, 0.5), archMat); lintel.position.set(9, 2.7, -13.9); stair.add(lintel);
+    const portal = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 2.4), new THREE.MeshBasicMaterial({ color: 0x6f5fc4, transparent: true, opacity: 0.5 })); portal.position.set(9, 1.4, -13.7); stair.add(portal);
+    const upGlow = new THREE.PointLight(0x9b7bff, 1.4, 9); upGlow.position.set(9, 1.6, -13.2); upGlow.castShadow = false; stair.add(upGlow);
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 2.6), wood); rail.position.set(7.85, 1.0, -11.6); rail.rotation.x = -0.5; stair.add(rail);
     g.add(stair);
-    mk('stairs', 'climb to your Room', 8, -8.4, 0xbfa3ff);
+    mk('stairs', 'climb to your Room', 9, -10.4, 0xbfa3ff);
 
     // "tend the bar" spot in front of the counter
     mk('serve', 'tend the Bar (earn tips)', -7.3, -4, 0x9bff7a);

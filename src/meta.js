@@ -47,13 +47,14 @@ export const REST_BONUS = 30; // +max HP on your next run after resting
 // ---- Room build/place: a top-down grid you furnish with gold ("craft & place") ----
 export const ROOM_GW = 6, ROOM_GH = 4;
 export const BUILDABLES = [
-  // functional stations — walk up to a placed one to use it
-  { id: 'spelltable', name: 'Spell Table',  icon: '✦',  cost: 60,  comfort: 0, station: 'skilltree' },
-  { id: 'questboard', name: 'Quest Board',  icon: '📜', cost: 70,  comfort: 0, station: 'manager' },
-  { id: 'ledger',     name: 'Ledger Desk',  icon: '📒', cost: 90,  comfort: 0, station: 'ledger' },
-  { id: 'wardrobe',   name: 'Wardrobe',     icon: '🎽', cost: 110, comfort: 0, station: 'wardrobe' },
-  { id: 'cauldron',   name: 'Cauldron',     icon: '🜲', cost: 120, comfort: 0, station: 'cauldron' },
-  { id: 'anvil',      name: 'Anvil',        icon: '🔨', cost: 140, comfort: 0, station: 'blacksmith' },
+  // functional stations — walk up to a placed one to use it (kept cheap so you
+  // can get your workshop going early)
+  { id: 'spelltable', name: 'Spell Table',  icon: '✦',  cost: 0,   comfort: 0, station: 'skilltree' },
+  { id: 'questboard', name: 'Quest Board',  icon: '📜', cost: 40,  comfort: 0, station: 'manager' },
+  { id: 'ledger',     name: 'Ledger Desk',  icon: '📒', cost: 60,  comfort: 0, station: 'ledger' },
+  { id: 'wardrobe',   name: 'Wardrobe',     icon: '🎽', cost: 70,  comfort: 0, station: 'wardrobe' },
+  { id: 'cauldron',   name: 'Cauldron',     icon: '🜲', cost: 80,  comfort: 0, station: 'cauldron' },
+  { id: 'anvil',      name: 'Anvil',        icon: '🔨', cost: 90,  comfort: 0, station: 'blacksmith' },
   // comforts — raise your rest bonus
   { id: 'rug',     name: 'Woven Rug',       icon: '🟫', cost: 55,  comfort: 1 },
   { id: 'chair',   name: 'Armchair',        icon: '🪑', cost: 60,  comfort: 1 },
@@ -150,7 +151,7 @@ export const TAVERN_UPGRADES = [
 
 function defaultSave() {
   return {
-    gold: 0,
+    gold: 80, // a little seed coin so you can build your first stations right away
     owned: { fireball: true, gust: true },
     level: { fireball: 1, gust: 1 },
     combos: {},

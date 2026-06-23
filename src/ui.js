@@ -73,7 +73,7 @@ export class UI {
       gold: $('gold'), wave: $('wave'), banner: $('banner'), interactPrompt: $('interact-prompt'), btnInteract: $('btn-interact'),
       shop: $('shop'), shopTitle: $('shop-title'), shopGold: $('shop-gold'), shopBody: $('shop-body'), shopClose: $('shop-close'),
       tavernHud: $('tavern-hud'), ruckusCount: $('ruckus-count'),
-      mapBar: $('map-bar'), mapNodeInfo: $('map-node-info'),
+      mapBar: $('map-bar'), mapNodeInfo: $('map-node-info'), mapStatus: $('map-status'),
       nodeEvent: $('node-event'), neTitle: $('ne-title'), neGold: $('ne-gold'), neBlurb: $('ne-blurb'), neBody: $('ne-body'),
       btnGuide: $('btn-guide'), btnPause: $('btn-pause'), btnMute: $('btn-mute'),
       joystick: $('joystick'), joyKnob: $('joy-knob'), blackout: $('blackout'),
@@ -224,6 +224,13 @@ export class UI {
     if (!node) { this.el.mapNodeInfo.innerHTML = 'Tap a glowing node to set off.'; return; }
     const m = NODE_META[node.type] || { icon: '•', label: node.type, blurb: '' };
     this.el.mapNodeInfo.innerHTML = `${m.icon} <b>${m.label}</b> — ${m.blurb}`;
+  }
+  // your run progress, shown atop the map
+  mapStatus(game) {
+    if (!this.el.mapStatus) return;
+    const floor = game.runmap.currentFloor(), floors = game.runmap.floors();
+    const hp = Math.ceil(Math.max(0, game.wizard.hp)), hpMax = Math.ceil(game.stats.hpMax);
+    this.el.mapStatus.innerHTML = `<b>Lv ${game.level}</b> · ❤ ${hp}/${hpMax} · 🪙 ${meta.gold()} · ⬆ Floor <b>${floor}/${floors}</b> · ${game.stage ? game.stage.name : ''}`;
   }
 
   // hub prompt: show what the wizard can interact with
@@ -728,11 +735,12 @@ export class UI {
     if (act === 'selbuild') { this._buildSel = (this._buildSel === id ? null : id); if (g) g.audio.play('click'); this._renderShop(); return; }
     if (act === 'place') {
       const [gx, gy] = id.split('_').map(Number);
-      let ok;
+      let ok, placedStation = null;
       if (meta.cellOccupied(gx, gy)) ok = meta.removeAt(gx, gy);
-      else if (this._buildSel) { const sb = meta.buildableById(this._buildSel); ok = meta.placeItem(this._buildSel, gx, gy); if (ok && sb && sb.station) this._buildSel = null; }
+      else if (this._buildSel) { const sb = meta.buildableById(this._buildSel); ok = meta.placeItem(this._buildSel, gx, gy); if (ok) { placedStation = sb && sb.station ? sb : null; if (placedStation) this._buildSel = null; } }
       else ok = false;
       if (g) { g.audio.play(ok ? 'click' : 'hiccup'); if (ok && g.tavern.refreshRoom) g.tavern.refreshRoom(meta); }
+      if (placedStation) this.toast(`✓ Built ${placedStation.name} — walk up & press E to use it`);
       this.setGold(meta.gold());
       this._renderShop();
       return;
@@ -790,13 +798,18 @@ export class UI {
   }
 
   _renderStages() {
-    let h = '<p class="shop-sub">Pick where to haunt. Each is a branching <b>journey map</b> — choose your path of fights, loot and campfires to the boss. Bring your best 3 spells!</p><div class="shop-grid">';
+    const ICON = { forest: '🌲', cave: '🦇', graveyard: '⚰️' };
+    const TONE = { forest: '#6ee7a0', cave: '#c9a24a', graveyard: '#8fa0c8' };
+    let h = '<p class="shop-sub">Pick where to haunt. Each is a branching <b>journey map</b> — plot your path of fights, loot &amp; campfires up to the boss. Bring your best 3 spells!</p><div class="stage-grid">';
+    let i = 0;
     for (const id of Object.keys(STAGES)) {
-      const s = STAGES[id];
-      h += `<div class="shop-card">
-        <div class="shop-name">${s.name}</div>
-        <div class="shop-desc">Boss: ${s.bossName}</div>
-        <div class="shop-acts"><button class="shop-btn big" data-act="startrun" data-id="${id}">Venture ▸</button></div></div>`;
+      const s = STAGES[id]; const tone = TONE[id] || 'var(--gold)';
+      h += `<div class="stage-card" style="--tone:${tone}">
+        <div class="stage-icon">${ICON[id] || '🗺'}</div>
+        <div class="stage-name">${s.name}</div>
+        <div class="stage-meta">🗺 7-floor journey · 👑 ${s.bossName}</div>
+        <div class="shop-acts"><button class="shop-btn big" data-act="startrun" data-id="${id}">▸ Venture</button></div></div>`;
+      i++;
     }
     h += '</div>';
     return h;

@@ -60,13 +60,14 @@ export class Director {
   start(stage, enc) {
     this.stage = stage; this.active = true;
     this.enc = enc || { waves: 5, boss: true, hpScale: 1 };
-    this.wave = 0; this.total = this.enc.waves; this.state = 'breather'; this.timer = 1.8;
+    this.wave = 0; this.total = this.enc.waves; this.state = 'breather'; this.timer = 0.9;
     this.toSpawn = 0; this.spawnTimer = 0;
   }
 
   remaining() { return this.toSpawn; }
 
-  _waveCount(w) { return Math.round((4 + w * 2) * (this.enc.sizeMult || 1)); }
+  // bigger, denser waves so a node is a meaty fight…
+  _waveCount(w) { return Math.round((6 + w * 3) * (this.enc.sizeMult || 1)); }
   _pickType() {
     const w = this.wave;
     const opts = this.stage.roster.filter(r => w >= r.w);
@@ -81,14 +82,16 @@ export class Director {
       if (this.timer <= 0) this._beginWave(game);
     } else if (this.state === 'spawning') {
       this.spawnTimer -= dt;
+      // …but they POUR out fast (snappy pacing), two at a time
       if (this.toSpawn > 0 && this.spawnTimer <= 0 && game.enemies.count() < SPAWN_CAP) {
-        this.spawnTimer = 0.35;
-        game.enemies.spawn(this._pickType(), (this.enc.hpScale || 1) + this.wave * 0.1, game.wizard.pos, game);
+        this.spawnTimer = 0.13;
+        game.enemies.spawn(this._pickType(), (this.enc.hpScale || 1) + this.wave * 0.12, game.wizard.pos, game);
         this.toSpawn--;
+        if (this.toSpawn > 0 && game.enemies.count() < SPAWN_CAP) { game.enemies.spawn(this._pickType(), (this.enc.hpScale || 1) + this.wave * 0.12, game.wizard.pos, game); this.toSpawn--; }
       }
       if (this.toSpawn <= 0) this.state = 'clearing';
     } else if (this.state === 'clearing') {
-      if (game.enemies.countNonBoss() === 0) { this.state = 'breather'; this.timer = 2.2; }
+      if (game.enemies.countNonBoss() === 0) { this.state = 'breather'; this.timer = 1.0; }
     }
     // 'boss' state: just wait for the boss to die (game.onBossDead -> win)
   }
@@ -101,7 +104,7 @@ export class Director {
       return;
     }
     this.toSpawn = this._waveCount(this.wave);
-    this.spawnTimer = 0.2;
+    this.spawnTimer = 0.15;
     this.state = 'spawning';
     game.announceWave(this.wave, this.total, false);
   }

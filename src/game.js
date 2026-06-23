@@ -775,9 +775,9 @@ export class Game {
     this.ui.setLoadout(this.loadout);
     this.ui.hideJob(); this.ui.fadeBlack(false);
     this.state = 'play';
-    const enc = node.type === 'boss' ? { waves: 0, boss: true, hpScale: 1 }
-      : node.type === 'elite' ? { waves: 2, boss: false, hpScale: 1.5, sizeMult: 1.15 }
-      : { waves: 2, boss: false, hpScale: 1, sizeMult: 1 };
+    const enc = node.type === 'boss' ? { waves: 1, boss: true, hpScale: 1, sizeMult: 1 }
+      : node.type === 'elite' ? { waves: 3, boss: false, hpScale: 1.4, sizeMult: 1.25 }
+      : { waves: 3, boss: false, hpScale: 1, sizeMult: 1 };
     this.director.start(this.stage, enc);
     if (!this._guideShown) {
       this._guideShown = true;
@@ -1201,6 +1201,7 @@ export class Game {
   _updateMap(dt) {
     this.runmap.update(dt, this);
     this.particles.update(dt);
+    this.ui.mapStatus(this);
     if (this.state === 'map') {
       const idx = this.runmap.hover(this.input.ndc, this.camera);
       this.ui.mapInfo(idx >= 0 ? this.runmap.node(idx) : null);

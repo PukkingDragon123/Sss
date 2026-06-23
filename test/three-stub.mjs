@@ -34,6 +34,7 @@ export const CanvasTexture = class { constructor() { this.anisotropy = 0; } };
 export const SpriteMaterial = Mat; export const MeshStandardMaterial = Mat; export const MeshBasicMaterial = Mat;
 export const CylinderGeometry = Geo; export const TorusGeometry = Geo; export const PlaneGeometry = Geo;
 export const BoxGeometry = Geo; export const SphereGeometry = Geo; export const ConeGeometry = Geo;
+export const CircleGeometry = Geo; export const OctahedronGeometry = Geo;
 export const AdditiveBlending = 2; export const DoubleSide = 2;
 
 // minimal DOM for iconSprite()'s canvas

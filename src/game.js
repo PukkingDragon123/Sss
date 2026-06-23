@@ -9,7 +9,7 @@ import { Recognizer, TEMPLATES } from './recognizer.js';
 import { Input } from './input.js';
 import { AudioEngine } from './audio.js';
 import { UI } from './ui.js';
-import { Director, STAGES, OPENING, TAVERN_INTRO, BLACKOUT_LINES } from './story.js';
+import { Director, STAGES, OPENING, TAVERN_INTRO, TUTORIAL, BLACKOUT_LINES } from './story.js';
 import { Jobs } from './jobs.js';
 import { Tavern } from './tavern.js';
 import { RunMap, NODE_META } from './runmap.js';
@@ -632,7 +632,8 @@ export class Game {
     this.state = 'play';
     if (!this._introShown) {
       this._introShown = true; this.tavernReady = false; this.cineT = 0;
-      this.showStory(TAVERN_INTRO.speaker, TAVERN_INTRO.lines, () => { this.tavernReady = true; });
+      this.showStory(TAVERN_INTRO.speaker, TAVERN_INTRO.lines);
+      this.showStory(TUTORIAL.speaker, TUTORIAL.lines, () => { this.tavernReady = true; }); // first-run tutorial
     } else {
       this.tavernReady = true;
     }
@@ -869,18 +870,9 @@ export class Game {
     if (m.thorns) s.thorns += m.thorns;
     if (m.damageMult) s.damageMult += m.damageMult;
     if (m.cooldownMult) s.cooldownMult *= (1 + m.cooldownMult);
-  }
-
-  _applyEquipment() {
-    const m = meta.equipMods();
-    const s = this.stats;
-    if (m.hpMax) s.hpMax += m.hpMax;
-    if (m.manaRegen) s.drinkPower += m.manaRegen * 2.2; // gear "mana" rolls now boost how much each gulp restores
-    if (m.moveSpeed) s.moveSpeed += m.moveSpeed;
-    if (m.pickupRadius) s.pickupRadius += m.pickupRadius;
-    if (m.thorns) s.thorns += m.thorns;
-    if (m.damageMult) s.damageMult += m.damageMult;
-    if (m.cooldownMult) s.cooldownMult *= (1 + m.cooldownMult);
+    if (m.lifeOnKill) s.lifeOnKill += m.lifeOnKill;
+    if (m.critMult) s.critMult += m.critMult;
+    if (m.xpMult) s.xpMult += m.xpMult;
   }
 
   _registerCast(id) {

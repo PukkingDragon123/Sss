@@ -89,8 +89,11 @@ top-down grid — the **Spell Table** (unlock/upgrade & equip 3 spells), **Cauld
 income) and **Quest Board** (bounties) — plus comforts that raise your rest bonus.
 Walk up to a built station and press **E** to use it.
 
-**Stages & the journey map.** Three stages — 🌲 **Forest**, 🦇 **Cave**,
-⚰ **Graveyard** — each is a **branching 3D journey map** (Slay-the-Spire-style):
+**The world map & the journey.** Click the **door** for a full **world map** of
+the realm — **8 haunts** (🌲 Forest, 🦇 Cave, ⚰ Graveyard, 🐊 Swamp, ❄️ Frostspire,
+🔥 **Infernal Depths**, 🤖 **Neon Clockwork**, 🌌 the Void) that **unlock one by one**
+as you fell each boss. Pick one and it becomes a **branching top-down journey map**
+(Slay-the-Spire-style):
 click glowing nodes to plot your path through ⚔️ skirmishes, 💀 elites,
 💰 treasure, 🔥 campfires and 🛒 pop-up shops up to the 👑 **boss**. **Your HP,
 level, XP, gold and boons all carry between nodes** — it's a roguelite run, not a

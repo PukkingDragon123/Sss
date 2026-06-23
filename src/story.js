@@ -21,6 +21,17 @@ export const TAVERN_INTRO = {
   ],
 };
 
+export const TUTORIAL = {
+  speaker: '📖 How to Survive',
+  lines: [
+    '⚔️ CAST: hold Right-Mouse (or draw on the right on phone) and trace a glyph. The cleaner you draw, the harder it hits — a perfect glyph CRITS!',
+    '🍺 MANA = BEER: your mug does NOT refill on its own. Press Q (or tap 🍺) to DRINK and top it up — but each gulp makes the room spin a little.',
+    '🗺️ THE HUNT: out the door is the world map. Pick a haunt, then climb its branching journey — fights, treasure, campfires — up to the boss.',
+    '🔨 YOUR ROOM: up the stairs, press BUILD to craft stations (Spell Table, Wardrobe, Cauldron…), then walk up to use them. Rest at the bed for +HP.',
+    'That\'s the lot. Now go make some beautiful, catastrophic magic.',
+  ],
+};
+
 export const BLACKOUT_LINES = {
   speaker: 'The Spirit',
   lines: [

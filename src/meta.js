@@ -98,10 +98,10 @@ const SLOT_DEF = {
   staff: { noun: 'Staff', primary: 'damageMult', base: 0.12 },
   charm: { noun: 'Charm', primary: 'manaRegen',  base: 3 },
 };
-const SECONDARY_BASE = { hpMax: 14, damageMult: 0.06, moveSpeed: 0.6, manaRegen: 2.5, pickupRadius: 0.6, thorns: 6, cooldownMult: -0.05 };
+const SECONDARY_BASE = { hpMax: 14, damageMult: 0.06, moveSpeed: 0.6, manaRegen: 2.5, pickupRadius: 0.6, thorns: 6, cooldownMult: -0.05, lifeOnKill: 2, critMult: 0.18, xpMult: 0.1 };
 const PREFIX = { common: ['Worn', 'Plain', 'Sturdy'], rare: ['Fine', 'Keen', 'Warded'], epic: ['Arcane', 'Runed', 'Gilded'], legendary: ['Mythic', 'Dragonbone', 'Ancient'] };
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
-function roundStat(stat, v) { return (stat === 'damageMult' || stat === 'cooldownMult' || stat === 'moveSpeed' || stat === 'pickupRadius') ? Math.round(v * 100) / 100 : Math.round(v); }
+function roundStat(stat, v) { return (stat === 'damageMult' || stat === 'cooldownMult' || stat === 'moveSpeed' || stat === 'pickupRadius' || stat === 'critMult' || stat === 'xpMult') ? Math.round(v * 100) / 100 : Math.round(v); }
 export function statLabel(stat, v) {
   const sign = v > 0 ? '+' : '';
   if (stat === 'damageMult') return `${sign}${Math.round(v * 100)}% dmg`;
@@ -111,6 +111,9 @@ export function statLabel(stat, v) {
   if (stat === 'manaRegen') return `${sign}${Math.round(v * 2.2)} per gulp`;
   if (stat === 'hpMax') return `${sign}${v} HP`;
   if (stat === 'thorns') return `${sign}${v} thorns`;
+  if (stat === 'lifeOnKill') return `${sign}${v} HP/kill`;
+  if (stat === 'critMult') return `${sign}${Math.round(v * 100)}% crit dmg`;
+  if (stat === 'xpMult') return `${sign}${Math.round(v * 100)}% XP`;
   return `${sign}${v} ${stat}`;
 }
 export function rollRarity(boss) {

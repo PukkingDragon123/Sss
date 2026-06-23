@@ -19,6 +19,18 @@ const TYPES = {
   skeleton: { hp: 24, speed: 2.7, dmg: 9,  r: 0.65, xp: 9,  color: 0xe6e2d0, size: 1.05, baseY: 0 },
   wraith:   { hp: 18, speed: 3.9, dmg: 11, r: 0.65, xp: 12, color: 0x9fb0c8, size: 1.1, baseY: 0.9 },
   skeletonking: { hp: 1100, speed: 2.0, dmg: 20, r: 2.0, xp: 260, color: 0xd8d2bc, size: 3.1, baseY: 0, boss: true },
+  // inferno
+  imp:      { hp: 14, speed: 4.6, dmg: 7,  r: 0.5,  xp: 6,  color: 0xff5a3a, size: 0.8, baseY: 0, emissive: 0x661508 },
+  hellhound:{ hp: 40, speed: 3.6, dmg: 13, r: 0.8,  xp: 14, color: 0x8a2a1a, size: 1.25, baseY: 0, emissive: 0x3a0a04 },
+  demonlord:{ hp: 1500, speed: 2.0, dmg: 24, r: 2.1, xp: 320, color: 0xc23020, size: 3.3, baseY: 0, boss: true, emissive: 0x4a0a04 },
+  // clockwork / future
+  drone:    { hp: 16, speed: 4.5, dmg: 7,  r: 0.5,  xp: 6,  color: 0x4fd0e8, size: 0.8, baseY: 1.4, emissive: 0x155a6a },
+  bot:      { hp: 46, speed: 2.6, dmg: 12, r: 0.8,  xp: 14, color: 0x9fb0bc, size: 1.3, baseY: 0, metalness: 0.5 },
+  overmind: { hp: 1650, speed: 1.8, dmg: 24, r: 2.1, xp: 340, color: 0x6fe0ef, size: 3.2, baseY: 0, boss: true, emissive: 0x1f6a7a, metalness: 0.4 },
+  // swamp / frost / void bosses
+  bogwretch:{ hp: 1250, speed: 1.8, dmg: 21, r: 2.0, xp: 290, color: 0x5a7a3a, size: 3.1, baseY: 0, boss: true, emissive: 0x16240e },
+  frostmaw: { hp: 1400, speed: 2.1, dmg: 22, r: 2.0, xp: 300, color: 0xbfe6ff, size: 3.2, baseY: 0, boss: true, emissive: 0x2a5a7a },
+  voidmaw:  { hp: 1900, speed: 2.0, dmg: 26, r: 2.2, xp: 400, color: 0x7a4ad0, size: 3.4, baseY: 0, boss: true, emissive: 0x2a1060 },
 };
 
 const MAX_ENEMIES = 140;
@@ -46,7 +58,7 @@ export class Enemies {
   _buildMesh(type) {
     const def = TYPES[type];
     const g = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.85 });
+    const bodyMat = new THREE.MeshStandardMaterial({ color: def.color, roughness: def.metalness ? 0.4 : 0.85, metalness: def.metalness || 0, emissive: def.emissive || 0x000000, emissiveIntensity: def.emissive ? 0.6 : 0 });
     const darkMat = new THREE.MeshStandardMaterial({ color: 0x2a2230, roughness: 0.7 });
     const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.5 });
     const anim = { wings: null, cape: null };
@@ -70,7 +82,7 @@ export class Enemies {
     g.add(eL, eR, pL, pR);
 
     // little feet (flyers/floaters have none)
-    if (type !== 'bat' && type !== 'brutebat' && type !== 'wraith') {
+    if (type !== 'bat' && type !== 'brutebat' && type !== 'wraith' && type !== 'drone') {
       const footGeo = new THREE.SphereGeometry(0.16, 8, 8);
       const fL = new THREE.Mesh(footGeo, darkMat); fL.position.set(-0.25, 0.12, 0.05); fL.castShadow = true;
       const fR = new THREE.Mesh(footGeo, darkMat); fR.position.set(0.25, 0.12, 0.05); fR.castShadow = true;
@@ -89,11 +101,26 @@ export class Enemies {
         body.scale.set(1.1, 0.85, 1.3);
       }
     }
-    if (type === 'goblinking' || type === 'spiderqueen' || type === 'skeletonking') {
+    if (type === 'goblinking' || type === 'spiderqueen' || type === 'skeletonking' || type === 'bogwretch' || type === 'frostmaw' || type === 'overmind' || type === 'voidmaw') {
       const crownMat = new THREE.MeshStandardMaterial({ color: 0xffd98a, metalness: 0.3, roughness: 0.4, emissive: 0x3a2c00 });
       const crown = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.55, 5), crownMat);
       crown.position.y = 1.45; crown.rotation.z = 0.18; crown.castShadow = true;
       g.add(crown);
+    }
+    // horns for the fiery folk
+    if (type === 'imp' || type === 'hellhound' || type === 'demonlord') {
+      const hornMat = new THREE.MeshStandardMaterial({ color: 0x2a1410, roughness: 0.6 });
+      const hgGeo = new THREE.ConeGeometry(0.13, 0.42, 6);
+      const hL = new THREE.Mesh(hgGeo, hornMat); hL.position.set(-0.28, 1.0, 0); hL.rotation.z = 0.5; hL.castShadow = true;
+      const hR = new THREE.Mesh(hgGeo, hornMat); hR.position.set(0.28, 1.0, 0); hR.rotation.z = -0.5; hR.castShadow = true;
+      g.add(hL, hR);
+    }
+    // antenna + rotor for the machines
+    if (type === 'drone' || type === 'bot' || type === 'overmind') {
+      const techMat = new THREE.MeshStandardMaterial({ color: 0xe8f6ff, metalness: 0.5, roughness: 0.3, emissive: 0x2a6a7a, emissiveIntensity: 0.5 });
+      const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.4, 6), techMat); ant.position.y = 1.15; g.add(ant);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), techMat); bulb.position.y = 1.4; g.add(bulb);
+      if (type === 'drone') { const wingMat = new THREE.MeshStandardMaterial({ color: 0x3fb0c8, metalness: 0.4, roughness: 0.4, side: THREE.DoubleSide }); const wgeo = new THREE.BoxGeometry(0.6, 0.04, 0.3); const wL = new THREE.Mesh(wgeo, wingMat); wL.position.set(-0.5, 0.7, 0); const wR = new THREE.Mesh(wgeo, wingMat); wR.position.set(0.5, 0.7, 0); g.add(wL, wR); anim.wings = [wL, wR]; }
     }
     if (type === 'bat' || type === 'brutebat') {
       const wingMat = new THREE.MeshStandardMaterial({ color: type === 'brutebat' ? 0x3a2f4a : 0x4a3a66, roughness: 0.8, side: THREE.DoubleSide });

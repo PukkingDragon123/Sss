@@ -48,7 +48,40 @@ export const STAGES = {
     theme: { bg: 0x101626, fog: 0x141b30, fogD: 0.016, hemi: 0x8fa0c8, hemiG: 0x20283a, dir: 0xbfd0ff, dirI: 1.1, amb: 0x33405a, floor: 0x33384a, rug: 0x3a3f52, scatter: 'graves' },
     intro: ['Crooked stones and cold mist. A graveyard — and the soil is moving.', 'The dead do not care for visitors. Make some room.'],
   },
+  swamp: {
+    id: 'swamp', name: 'Mire of Murmurs', bossType: 'bogwretch', bossName: 'The Bog Wretch',
+    roster: [{ t: 'zombie', w: 1 }, { t: 'bat', w: 1 }, { t: 'spider', w: 2 }, { t: 'vampire', w: 4 }],
+    theme: { bg: 0x16241c, fog: 0x18271d, fogD: 0.026, hemi: 0x7fae7a, hemiG: 0x1a2a1a, dir: 0xbfe0a0, dirI: 1.0, amb: 0x33503a, floor: 0x2a3a26, rug: 0x33482e, scatter: 'swamp' },
+    intro: ['Knee-deep muck and the reek of rot. Something gurgles beneath the reeds.', 'Watch your step, wizard — the bog bites back.'],
+  },
+  frost: {
+    id: 'frost', name: 'Frostspire Peaks', bossType: 'frostmaw', bossName: 'Frostmaw the Devourer',
+    roster: [{ t: 'skeleton', w: 1 }, { t: 'brutebat', w: 1 }, { t: 'wraith', w: 2 }, { t: 'zombie', w: 4 }],
+    theme: { bg: 0xbfd6ee, fog: 0xcfe2f4, fogD: 0.012, hemi: 0xdcefff, hemiG: 0x9fb6cf, dir: 0xffffff, dirI: 1.7, amb: 0x8fb0d8, floor: 0xc6d6e6, rug: 0xa8c0d8, scatter: 'ice' },
+    intro: ['A howling white waste. The cold gnaws even at a spirit.', 'Move fast and hit hard, or freeze solid out here.'],
+  },
+  inferno: {
+    id: 'inferno', name: 'Infernal Depths', bossType: 'demonlord', bossName: 'Azkar, Lord of Cinders',
+    roster: [{ t: 'imp', w: 1 }, { t: 'goblin', w: 1 }, { t: 'hellhound', w: 2 }, { t: 'brutebat', w: 4 }],
+    theme: { bg: 0x2a0c08, fog: 0x3a1008, fogD: 0.02, hemi: 0xff7a3a, hemiG: 0x5a1408, dir: 0xff9a4a, dirI: 1.4, amb: 0x7a2410, floor: 0x3a1410, rug: 0x6a2010, scatter: 'hell' },
+    intro: ['Heat like a forge, and a sky the colour of embers. This is the pit itself.', 'The damned do not rest. Burn them again.'],
+  },
+  clockwork: {
+    id: 'clockwork', name: 'Neon Clockwork', bossType: 'overmind', bossName: 'The Overmind',
+    roster: [{ t: 'drone', w: 1 }, { t: 'rat', w: 1 }, { t: 'bot', w: 2 }, { t: 'spider', w: 4 }],
+    theme: { bg: 0x0a1422, fog: 0x0c1a2c, fogD: 0.016, hemi: 0x3fd0e8, hemiG: 0x10242c, dir: 0x8fefff, dirI: 1.3, amb: 0x1f5a6a, floor: 0x16222e, rug: 0x123040, scatter: 'tech' },
+    intro: ['Humming pylons and cold neon. Some clockwork god has woken, and it is not pleased.', 'Steel and circuitry — smash it to scrap.'],
+  },
+  void: {
+    id: 'void', name: 'The Shattered Void', bossType: 'voidmaw', bossName: 'Voidmaw, the All-Hunger',
+    roster: [{ t: 'wraith', w: 1 }, { t: 'bat', w: 1 }, { t: 'imp', w: 2 }, { t: 'vampire', w: 3 }],
+    theme: { bg: 0x0a0612, fog: 0x0e0820, fogD: 0.018, hemi: 0x8f6fd0, hemiG: 0x150a28, dir: 0xc6a3ff, dirI: 1.2, amb: 0x3a2a5a, floor: 0x14102a, rug: 0x1f1840, scatter: 'void' },
+    intro: ['Stars wheel underfoot. There is no up here, only the Hunger at the end of all things.', 'Finish it, spirit. Send the Void back to nothing.'],
+  },
 };
+
+// the order stages unlock in (each cleared boss opens the next)
+export const STAGE_ORDER = ['forest', 'cave', 'graveyard', 'swamp', 'frost', 'inferno', 'clockwork', 'void'];
 
 const SPAWN_CAP = 100;
 

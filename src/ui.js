@@ -3,7 +3,7 @@
 import { SPELL_ORDER, SPELLS } from './spells.js';
 import { TEMPLATES } from './recognizer.js';
 import * as meta from './meta.js';
-import { STAGES } from './story.js';
+import { STAGES, STAGE_ORDER } from './story.js';
 import { NODE_META } from './runmap.js';
 
 const $ = (id) => document.getElementById(id);
@@ -74,6 +74,7 @@ export class UI {
       shop: $('shop'), shopTitle: $('shop-title'), shopGold: $('shop-gold'), shopBody: $('shop-body'), shopClose: $('shop-close'),
       tavernHud: $('tavern-hud'), ruckusCount: $('ruckus-count'),
       mapBar: $('map-bar'), mapNodeInfo: $('map-node-info'), mapStatus: $('map-status'),
+      worldmap: $('worldmap'), worldmapBody: $('worldmap-body'), worldmapBack: $('worldmap-back'),
       nodeEvent: $('node-event'), neTitle: $('ne-title'), neGold: $('ne-gold'), neBlurb: $('ne-blurb'), neBody: $('ne-body'),
       btnGuide: $('btn-guide'), btnPause: $('btn-pause'), btnMute: $('btn-mute'),
       joystick: $('joystick'), joyKnob: $('joy-knob'), blackout: $('blackout'),
@@ -125,6 +126,12 @@ export class UI {
       const b = e.target.closest('[data-ne]');
       if (b && !b.disabled) this._neAction(b.dataset.ne, b.dataset.id);
     });
+    // world map pins
+    if (this.el.worldmapBody) this.el.worldmapBody.addEventListener('click', (e) => {
+      const g2 = e.target.closest('[data-stage]');
+      if (g2 && g2.dataset.stage) { this.game.audio.play('click'); this.game.startRun(g2.dataset.stage); }
+    });
+    if (this.el.worldmapBack) this.el.worldmapBack.addEventListener('click', () => { this.game.audio.play('click'); this.game.closeShop(); });
   }
 
   // build the spellbook from the 3 equipped spells (keys 1..3) + rebuild guide
@@ -225,6 +232,37 @@ export class UI {
     const m = NODE_META[node.type] || { icon: '•', label: node.type, blurb: '' };
     this.el.mapNodeInfo.innerHTML = `${m.icon} <b>${m.label}</b> — ${m.blurb}`;
   }
+  // ---- the world map (overworld): pick which haunt to venture into ----
+  showWorldMap() {
+    const SM = {
+      forest:    { x: 11, y: 60, icon: '🌲', tone: '#6ee7a0' },
+      cave:      { x: 25, y: 47, icon: '🦇', tone: '#c9a24a' },
+      graveyard: { x: 40, y: 58, icon: '⚰️', tone: '#8fa0c8' },
+      swamp:     { x: 53, y: 45, icon: '🐊', tone: '#7fae5a' },
+      frost:     { x: 67, y: 55, icon: '❄️', tone: '#bfe6ff' },
+      inferno:   { x: 81, y: 41, icon: '🔥', tone: '#ff7a3a' },
+      clockwork: { x: 67, y: 25, icon: '🤖', tone: '#5fe0ff' },
+      void:      { x: 49, y: 13, icon: '🌌', tone: '#b68fff' },
+    };
+    const order = STAGE_ORDER.filter(id => SM[id] && STAGES[id]);
+    const poly = order.map(id => `${SM[id].x},${SM[id].y}`).join(' ');
+    let nodes = '';
+    order.forEach((id, i) => {
+      const s = STAGES[id], p = SM[id];
+      const unlocked = i === 0 || meta.stageCleared(order[i - 1]);
+      const cleared = meta.stageCleared(id);
+      nodes += `<g class="wm-pin ${unlocked ? 'open' : 'locked'}" data-stage="${unlocked ? id : ''}" style="--tone:${p.tone}">
+        <circle cx="${p.x}" cy="${p.y}" r="4.4"></circle>
+        <text x="${p.x}" y="${p.y}" class="wm-ico">${unlocked ? p.icon : '🔒'}</text>
+        <text x="${p.x}" y="${p.y + 8.2}" class="wm-lab">${s.name}${cleared ? ' ✓' : ''}</text>
+      </g>`;
+    });
+    this.el.worldmapBody.innerHTML = `<svg viewBox="0 0 100 74" class="wm-svg" preserveAspectRatio="xMidYMid meet">
+      <polyline points="${poly}" class="wm-route"/>${nodes}</svg>`;
+    this.el.worldmap.classList.remove('hidden');
+  }
+  hideWorldMap() { if (this.el.worldmap) this.el.worldmap.classList.add('hidden'); }
+
   // your run progress, shown atop the map
   mapStatus(game) {
     if (!this.el.mapStatus) return;
@@ -437,8 +475,12 @@ export class UI {
   _shopWares() {
     return [
       { id: 'heal', label: '❤️ Healing Tonic — heal 55 HP', cost: 35, fn: g => { g.wizard.heal(55); this.toast('❤️ +55 HP'); } },
+      { id: 'bigheal', label: '❤️‍🔥 Greater Tonic — heal 120 HP', cost: 60, fn: g => { g.wizard.heal(120); this.toast('❤️‍🔥 +120 HP'); } },
       { id: 'mana', label: '🍺 Stout Keg — refill mana & sober up', cost: 20, fn: g => { g.wizard.mana = g.stats.manaMax; g.drunkenness = Math.max(0, g.drunkenness - 0.35); this.toast('🍺 Topped up'); } },
       { id: 'maxhp', label: '🍖 Hearty Meal — +25 max HP & heal 25', cost: 55, fn: g => { g.stats.hpMax += 25; g.wizard._maxHp = g.stats.hpMax; g.wizard.heal(25); this.toast('🍖 +25 max HP'); } },
+      { id: 'might', label: '⚔️ Elixir of Might — +15% damage (this run)', cost: 80, fn: g => { g.stats.damageMult += 0.15; this.toast('⚔️ +15% damage'); } },
+      { id: 'swift', label: '👟 Swift Tonic — +10% speed (this run)', cost: 55, fn: g => { g.stats.moveSpeed *= 1.1; this.toast('👟 Fleet of foot'); } },
+      { id: 'brew', label: '🧪 Brewmaster — +20 gulp potency', cost: 50, fn: g => { g.stats.drinkPower += 20; this.toast('🧪 Bigger gulps'); } },
       { id: 'gear', label: '🎁 Mystery Gear', cost: 75, fn: g => { const inst = meta.dropGear(g.level + 1, false); meta.addGear(inst); this.lootToast(inst); } },
     ];
   }

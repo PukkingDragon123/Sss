@@ -266,6 +266,54 @@ export class Game {
       inside(20, () => { const c = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.08, 6, 12, Math.PI), boneMat); c.position.y = 0.14; c.castShadow = true; return c; });
       inside(16, () => { const g = new THREE.Group(); const cross = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.1, 0.12), deadMat); cross.position.y = 0.55; const arm = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 0.12), deadMat); arm.position.y = 0.8; g.add(cross, arm); return g; });
       inside(14, () => { const f = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.9, 0.08), fenceMat); f.position.y = 0.45; f.castShadow = true; return f; });
+    } else if (kind === 'swamp') {
+      const deadMat = new THREE.MeshStandardMaterial({ color: 0x3a3322, roughness: 0.95 });
+      const mossMat = new THREE.MeshStandardMaterial({ color: 0x4a6a3a, roughness: 0.95 });
+      const reedMat = new THREE.MeshStandardMaterial({ color: 0x6a8a4a, roughness: 0.9 });
+      const padMat = new THREE.MeshStandardMaterial({ color: 0x2f5a32, roughness: 0.9 });
+      const mkDead = () => { const t = new THREE.Group(); const h = 4 + Math.random() * 2.5; const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.65, h, 7), deadMat); tr.position.y = h / 2; tr.rotation.z = (Math.random() - 0.5) * 0.2; tr.castShadow = true; const canopy = new THREE.Mesh(new THREE.IcosahedronGeometry(1.6, 0), mossMat); canopy.position.y = h; canopy.scale.y = 0.6; canopy.castShadow = true; const b1 = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.2, 2.2, 5), deadMat); b1.position.set(0.9, h - 1.4, 0); b1.rotation.z = -0.8; t.add(tr, canopy, b1); return t; };
+      treeLine(mkDead, 52);
+      inside(20, mkDead, 6, ARENA - 8);
+      inside(34, () => { const g = new THREE.Group(); for (let i = 0; i < 5; i++) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 1.0 + Math.random() * 0.8, 5), reedMat); r.position.set((Math.random() - 0.5) * 0.7, 0.5, (Math.random() - 0.5) * 0.7); r.rotation.z = (Math.random() - 0.5) * 0.3; g.add(r); } return g; });
+      inside(22, () => { const p = new THREE.Mesh(new THREE.CircleGeometry(0.5 + Math.random() * 0.4, 12), padMat); p.rotation.x = -Math.PI / 2; p.position.y = 0.03; return p; });
+      inside(14, () => { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5 + Math.random() * 0.5, 0), mossMat); m.position.y = 0.3; m.scale.y = 0.6; m.castShadow = true; return m; });
+    } else if (kind === 'ice') {
+      const iceMat = new THREE.MeshStandardMaterial({ color: 0xbfe0ff, roughness: 0.2, metalness: 0.1, emissive: 0x2a5a7a, emissiveIntensity: 0.15 });
+      const snowMat = new THREE.MeshStandardMaterial({ color: 0xeef6ff, roughness: 0.95 });
+      const darkIce = new THREE.MeshStandardMaterial({ color: 0x8fb6d8, roughness: 0.3 });
+      const mkSpire = () => { const g = new THREE.Group(); const h = 5 + Math.random() * 4; const s = new THREE.Mesh(new THREE.ConeGeometry(1.2, h, 6), iceMat); s.position.y = h / 2; s.castShadow = true; const s2 = new THREE.Mesh(new THREE.ConeGeometry(0.6, h * 0.6, 6), darkIce); s2.position.set(0.7, h * 0.3, 0.3); g.add(s, s2); return g; };
+      treeLine(mkSpire, 56);
+      inside(22, mkSpire, 6, ARENA - 8);
+      inside(30, () => { const g = new THREE.Group(); const n = 2 + Math.floor(Math.random() * 3); for (let i = 0; i < n; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.8 + Math.random(), 5), iceMat); c.position.set((Math.random() - 0.5) * 0.5, 0.4, (Math.random() - 0.5) * 0.5); c.rotation.z = (Math.random() - 0.5) * 0.4; c.castShadow = true; g.add(c); } return g; });
+      inside(24, () => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.5 + Math.random() * 0.5, 10, 8), snowMat); m.position.y = 0.2; m.scale.y = 0.5; m.receiveShadow = true; return m; });
+    } else if (kind === 'hell') {
+      const rockMat = new THREE.MeshStandardMaterial({ color: 0x3a1810, roughness: 1 });
+      const lavaMat = new THREE.MeshStandardMaterial({ color: 0xff6a2a, emissive: 0xff4a10, emissiveIntensity: 0.9, roughness: 0.5 });
+      const boneMat = new THREE.MeshStandardMaterial({ color: 0x4a3328, roughness: 0.9 });
+      const mkSpike = () => { const g = new THREE.Group(); const h = 4.5 + Math.random() * 4; const s = new THREE.Mesh(new THREE.ConeGeometry(1.3, h, 6), rockMat); s.position.y = h / 2; s.rotation.z = (Math.random() - 0.5) * 0.18; s.castShadow = true; const crack = new THREE.Mesh(new THREE.ConeGeometry(0.35, h * 0.7, 5), lavaMat); crack.position.y = h * 0.35; g.add(s, crack); return g; };
+      treeLine(mkSpike, 54);
+      inside(20, mkSpike, 6, ARENA - 8);
+      inside(28, () => { const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.7 + Math.random() * 0.7, 0), rockMat); r.position.y = 0.4; r.castShadow = true; return r; });
+      inside(18, () => { const g = new THREE.Group(); const pool = new THREE.Mesh(new THREE.CircleGeometry(0.7 + Math.random() * 0.5, 14), lavaMat); pool.rotation.x = -Math.PI / 2; pool.position.y = 0.04; g.add(pool); return g; });
+      inside(14, () => { const c = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.07, 6, 12, Math.PI), boneMat); c.position.y = 0.12; c.castShadow = true; return c; });
+    } else if (kind === 'tech') {
+      const metalMat = new THREE.MeshStandardMaterial({ color: 0x46525e, roughness: 0.4, metalness: 0.6 });
+      const neonMat = new THREE.MeshStandardMaterial({ color: 0x5fe0ff, emissive: 0x2fb0d0, emissiveIntensity: 0.9, roughness: 0.3 });
+      const panelMat = new THREE.MeshStandardMaterial({ color: 0x1f2c38, roughness: 0.5, metalness: 0.4 });
+      const mkPylon = () => { const g = new THREE.Group(); const h = 5 + Math.random() * 4; const p = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.55, h, 8), metalMat); p.position.y = h / 2; p.castShadow = true; for (let i = 1; i <= 3; i++) { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.06, 6, 14), neonMat); ring.rotation.x = Math.PI / 2; ring.position.y = (h / 4) * i; g.add(ring); } g.add(p); return g; };
+      treeLine(mkPylon, 50);
+      inside(18, mkPylon, 6, ARENA - 8);
+      inside(28, () => { const b = new THREE.Mesh(new THREE.BoxGeometry(0.8 + Math.random() * 0.6, 0.8 + Math.random(), 0.8 + Math.random() * 0.6), panelMat); b.position.y = 0.5; b.castShadow = true; return b; });
+      inside(22, () => { const n = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3 + Math.random() * 0.25, 0), neonMat); n.position.y = 0.4; return n; });
+    } else if (kind === 'void') {
+      const monoMat = new THREE.MeshStandardMaterial({ color: 0x1a1430, roughness: 0.4, metalness: 0.3 });
+      const crystalMat = new THREE.MeshStandardMaterial({ color: 0xb68fff, emissive: 0x6a3ad0, emissiveIntensity: 0.8, roughness: 0.25 });
+      const starMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const mkMono = () => { const g = new THREE.Group(); const h = 5 + Math.random() * 5; const m = new THREE.Mesh(new THREE.BoxGeometry(1.0, h, 0.7), monoMat); m.position.y = h / 2; m.rotation.y = Math.random(); m.castShadow = true; const edge = new THREE.Mesh(new THREE.BoxGeometry(1.04, h, 0.08), crystalMat); edge.position.y = h / 2; edge.rotation.y = m.rotation.y; g.add(m, edge); return g; };
+      treeLine(mkMono, 48);
+      inside(18, mkMono, 6, ARENA - 8);
+      inside(30, () => { const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.5 + Math.random() * 0.7, 0), crystalMat); c.position.y = 0.5 + Math.random() * 0.5; c.castShadow = true; return c; });
+      inside(40, () => { const s = new THREE.Mesh(new THREE.SphereGeometry(0.08 + Math.random() * 0.08, 6, 6), starMat); s.position.y = 0.3 + Math.random() * 3; return s; });
     }
   }
 
@@ -501,6 +549,7 @@ export class Game {
   _lose() { this._loseRun(); }
 
   _showEnd(win) {
+    if (win && this.stage) meta.markStageCleared(this.stage.id); // opens the next haunt on the world map
     if (win && !meta.tavernOwned()) { meta.setTavernOwned(true); this._justInherited = true; } // avenge -> inherit
     const earned = Math.max(0, meta.gold() - (this.runGoldStart || 0));
     const questDone = meta.evaluateQuest({ kills: this.kills, time: Math.floor(this.elapsed), wave: this.nodesCleared, bossKilled: this.bossKilled, win });
@@ -604,7 +653,7 @@ export class Game {
     const s = this.nearStation, t = s.type;
     this.audio.play('click');
     if (this.phase === 'tavern') {
-      if (t === 'door') { this._openShop('stage'); return; }
+      if (t === 'door') { this.openWorldMap(); return; }
       if (t === 'stairs') { this.goUpstairs(); return; }
       if (t === 'serve') { this.startMinigame(); return; }
     } else if (this.phase === 'room') {
@@ -615,6 +664,8 @@ export class Game {
   }
 
   _openShop(kind) { this._shopKind = kind; this.state = 'menu'; this.ui.openShop(kind, this); }
+  openWorldMap() { this._shopKind = 'world'; this.state = 'menu'; this.ui.showWorldMap(this); }
+  closeWorldMap() { this.ui.hideWorldMap(); this._shopKind = null; this.state = 'play'; }
   openBuild() { if (this.state === 'play' && this.phase === 'room') { this.audio.play('click'); this._openShop('build'); } }
   restAtBed() { if (meta.rest()) this.ui.toast('🛏 Rested — you\'ll wake with +HP for the next run'); else this.ui.toast('🛏 Already well-rested'); }
 
@@ -662,11 +713,13 @@ export class Game {
   }
   startRun(stageId) {
     this.ui.closeShop();
+    this.ui.hideWorldMap();
     this._shopKind = null;
     this.beginRun(stageId);
   }
   closeShop() {
     if (this.state !== 'menu' || !this._shopKind) return; // bar shift & node events have their own buttons
+    if (this._shopKind === 'world') { this.closeWorldMap(); return; }
     this._shopKind = null;
     this.ui.closeShop();
     this.tavern.refreshRoom(meta);   // reflect any newly built/sold furniture
@@ -1069,13 +1122,12 @@ export class Game {
       this.camera.lookAt(this.wizard.pos.x, 1.4, this.wizard.pos.z);
       return;
     }
-    // journey map: float behind the spirit, gazing up the winding road toward the boss
+    // journey map: a near top-down road-map view that follows the spirit up the path
     if (this.phase === 'map') {
       const mk = this.runmap.marker ? this.runmap.marker.position : new THREE.Vector3();
-      const desired = new THREE.Vector3(mk.x * 0.35, 12.5, mk.z + 15.5);
+      const desired = new THREE.Vector3(mk.x * 0.5, 31, mk.z + 6);
       this.camera.position.lerp(desired, Math.min(1, dt * 3));
-      const look = new THREE.Vector3(mk.x * 0.2, 1.5, mk.z - 9);
-      this.camera.lookAt(look.x, look.y, look.z);
+      this.camera.lookAt(mk.x * 0.5, 0, mk.z - 2);
       return;
     }
     // boss reveal: pull out and frame the boss as it emerges

@@ -135,6 +135,27 @@ export class RunMap {
     // FLOOR / LEVEL signposts down the left margin
     for (let r = 0; r < ROWS; r++) { const lab = this._labelSprite(r === ROWS - 1 ? '👑 BOSS' : 'FLOOR ' + (r + 1)); lab.position.set(-12.5, 2.4, Z0 - r * ROW_GAP); g.add(lab); }
 
+    // roadside foliage / scenery so the map feels alive (themed by the haunt)
+    const green = ['trees', 'swamp'].includes(t.scatter);
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3326, roughness: 0.95 });
+    const leafMat = new THREE.MeshStandardMaterial({ color: green ? 0x2f6e3f : (t.rug || 0x4a4458), roughness: 0.9, emissive: green ? 0x000000 : (t.dir || 0x000000), emissiveIntensity: green ? 0 : 0.12 });
+    const rockMat = new THREE.MeshStandardMaterial({ color: t.floor || 0x3a3a44, roughness: 1 });
+    for (let i = 0; i < 50; i++) {
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const x = side * (9.5 + Math.random() * 17);
+      const z = Z0 + 5 - Math.random() * (ROWS * ROW_GAP + 10);
+      if (green && Math.random() < 0.7) {
+        const tg = new THREE.Group(); const h = 2.4 + Math.random() * 2.2;
+        const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, h, 6), trunkMat); tr.position.y = h / 2; tr.castShadow = true;
+        const lf = new THREE.Mesh(new THREE.ConeGeometry(1.4, 2.8, 8), leafMat); lf.position.y = h + 0.9; lf.castShadow = true;
+        tg.add(tr, lf); tg.position.set(x, 0, z); tg.scale.setScalar(0.8 + Math.random() * 0.8); g.add(tg);
+      } else if (!green && Math.random() < 0.5) {
+        const c = new THREE.Mesh(new THREE.ConeGeometry(0.6 + Math.random() * 0.5, 2 + Math.random() * 3, 6), leafMat); c.position.set(x, (1 + Math.random() * 1.5), z); c.castShadow = true; g.add(c);
+      } else {
+        const r = new THREE.Mesh(new THREE.IcosahedronGeometry(0.7 + Math.random() * 1.0, 0), rockMat); r.position.set(x, 0.3, z); r.castShadow = true; g.add(r);
+      }
+    }
+
     // edges as bright glowing trails
     this._edgeMeshes = [];
     const edgeGeo = new THREE.CylinderGeometry(0.14, 0.14, 1, 6);

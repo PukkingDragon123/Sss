@@ -130,12 +130,12 @@ export function genGear(slot, rarity, level) {
 }
 
 export const QUESTS = [
-  { id: 'q_kill',   text: 'Vanquish 70 foes in one run', type: 'kills', goal: 70,  reward: 120 },
-  { id: 'q_wave',   text: 'Reach wave 6 in any stage',    type: 'wave',  goal: 6,   reward: 150 },
-  { id: 'q_boss',   text: 'Defeat any stage boss',        type: 'boss',  goal: 1,   reward: 300 },
-  { id: 'q_clear',  text: 'Clear a whole stage',          type: 'win',   goal: 1,   reward: 350 },
-  { id: 'q_kill2',  text: 'Vanquish 120 foes in one run', type: 'kills', goal: 120, reward: 220 },
-  { id: 'q_wave2',  text: 'Survive to the boss wave',      type: 'wave',  goal: 6,   reward: 200 },
+  { id: 'q_kill',   text: 'Vanquish 70 foes in one run', type: 'kills', goal: 70,  reward: 260 },
+  { id: 'q_wave',   text: 'Clear 3 map nodes in a run',   type: 'wave',  goal: 3,   reward: 320 },
+  { id: 'q_boss',   text: 'Defeat any stage boss',        type: 'boss',  goal: 1,   reward: 600 },
+  { id: 'q_clear',  text: 'Conquer a whole stage',        type: 'win',   goal: 1,   reward: 750 },
+  { id: 'q_kill2',  text: 'Vanquish 120 foes in one run', type: 'kills', goal: 120, reward: 480 },
+  { id: 'q_wave2',  text: 'Clear 5 map nodes in a run',    type: 'wave',  goal: 5,   reward: 420 },
 ];
 
 // ---- idle / tycoon: the Tipsy Toad earns coin while patrons drink ----
@@ -161,6 +161,7 @@ function defaultSave() {
     tavern: { owned: false, bank: 0, lastSeen: Date.now(), upgrades: {} },
     questIdx: 0, questDone: false,
     rested: false,
+    cleared: [], // stage ids whose boss you've beaten (gates the world map)
   };
 }
 
@@ -262,6 +263,10 @@ export function buyDecor(id) {
   state.gold -= d.cost; state.room.decor[id] = true; save(); return true;
 }
 export function rest() { if (state.rested) return false; state.rested = true; save(); return true; } // the room is always yours now
+
+// ---- world-map stage unlock (each boss opens the next haunt) ----
+export const stageCleared = (id) => (state.cleared || []).includes(id);
+export function markStageCleared(id) { if (!state.cleared) state.cleared = []; if (!state.cleared.includes(id)) { state.cleared.push(id); save(); } }
 export const isRested = () => state.rested;
 export function consumeRest() { const r = state.rested; if (r) { state.rested = false; save(); } return r; }
 

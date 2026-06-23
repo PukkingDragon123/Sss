@@ -153,24 +153,36 @@ export class Tavern {
       this.stations.push({ type, label, pos: new THREE.Vector3(x, 0, z), mark });
     };
 
-    // a tidy wooden staircase up to a warm doorway in the corner — reads as a
-    // single floor with a stairwell "up", NOT a visible second storey.
+    // a tidy wooden staircase tucked into the back-east corner, climbing to a
+    // door set flush against the wall — reads as a single floor with a "way up".
     const stair = new THREE.Group();
-    const STEPS = 5;
-    for (let i = 0; i < STEPS; i++) { const step = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.3, 0.66), wood); step.position.set(9, 0.15 + i * 0.34, -11.4 - i * 0.5); step.castShadow = true; step.receiveShadow = true; stair.add(step); const riser = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.34, 0.06), woodD); riser.position.set(9, 0.15 + i * 0.34, -11.07 - i * 0.5); stair.add(riser); }
-    // stringers + a banister down the open side
-    const stringer = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 3.2), woodD); stringer.position.set(7.85, 0.9, -12.4); stringer.rotation.x = -0.46; stair.add(stringer);
-    const handrail = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3.4, 8), new THREE.MeshStandardMaterial({ color: 0x8a6a44, roughness: 0.6 })); handrail.position.set(7.85, 1.55, -12.4); handrail.rotation.x = Math.PI / 2 - 0.46; stair.add(handrail);
-    for (let i = 0; i < 4; i++) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.7, 6), wood); post.position.set(7.85, 0.7 + i * 0.34, -11.6 - i * 0.5); stair.add(post); }
-    // a small landing + a real wooden door at the top
-    const landing = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.3, 1.0), wood); landing.position.set(9, 0.15 + STEPS * 0.34, -14.0); landing.castShadow = true; stair.add(landing);
-    const doorMat = new THREE.MeshStandardMaterial({ color: 0x6a4426, roughness: 0.8 });
-    const upDoor = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.2, 0.18), doorMat); upDoor.position.set(9, 1.0 + STEPS * 0.34, -14.45); stair.add(upDoor);
-    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), new THREE.MeshStandardMaterial({ color: 0xd9a84a, metalness: 0.6, roughness: 0.4 })); knob.position.set(9.5, 0.9 + STEPS * 0.34, -14.36); stair.add(knob);
-    const sconce = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffb35c, transparent: true, opacity: 0.9 })); sconce.position.set(7.9, 2.2 + STEPS * 0.1, -14.2); this._flames.push(sconce); stair.add(sconce);
-    const upGlow = new THREE.PointLight(0xffb060, 1.0, 8); upGlow.position.set(9, 2.0 + STEPS * 0.2, -13.6); upGlow.castShadow = false; stair.add(upGlow);
+    const STEPS = 4, RISE = 0.34, DEPTH = 0.6, SX = 9, topZ = -13.2;
+    for (let i = 0; i < STEPS; i++) {
+      const y = (i + 0.5) * RISE, z = topZ + (STEPS - 1 - i) * DEPTH;
+      const step = new THREE.Mesh(new THREE.BoxGeometry(2.4, RISE, DEPTH + 0.02), wood);
+      step.position.set(SX, y, z); step.castShadow = true; step.receiveShadow = true; stair.add(step);
+    }
+    const topY = STEPS * RISE;
+    // closed side panel + handrail on the open (west) side
+    const side = new THREE.Mesh(new THREE.BoxGeometry(0.22, topY, STEPS * DEPTH + 0.2), woodD);
+    side.position.set(SX - 1.31, topY / 2, topZ + (STEPS - 1) * DEPTH / 2 - 0.1); side.castShadow = true; stair.add(side);
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, STEPS * DEPTH + 0.4), new THREE.MeshStandardMaterial({ color: 0x8a6a44, roughness: 0.6 }));
+    rail.position.set(SX - 1.31, topY + 0.55, topZ + (STEPS - 1) * DEPTH / 2 - 0.1); rail.rotation.x = -Math.atan2(topY, STEPS * DEPTH); stair.add(rail);
+    // landing flush with the top step
+    const landing = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.28, 1.1), wood); landing.position.set(SX, topY - 0.14, topZ - 0.85); landing.castShadow = true; stair.add(landing);
+    // a real door + frame against the back wall (sized to sit under the wall top)
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: 0.8 });
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x4a3018, roughness: 0.85 });
+    const DOORH = 1.7, doorZ = topZ - 1.4, baseY = topY;
+    const upDoor = new THREE.Mesh(new THREE.BoxGeometry(1.4, DOORH, 0.14), doorMat); upDoor.position.set(SX, baseY + DOORH / 2, doorZ); stair.add(upDoor);
+    const fL = new THREE.Mesh(new THREE.BoxGeometry(0.16, DOORH + 0.2, 0.22), frameMat); fL.position.set(SX - 0.8, baseY + DOORH / 2, doorZ);
+    const fR = fL.clone(); fR.position.x = SX + 0.8;
+    const fT = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.2, 0.22), frameMat); fT.position.set(SX, baseY + DOORH + 0.1, doorZ);
+    stair.add(fL, fR, fT);
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), new THREE.MeshStandardMaterial({ color: 0xd9a84a, metalness: 0.6, roughness: 0.4 })); knob.position.set(SX + 0.45, baseY + DOORH / 2, doorZ + 0.1); stair.add(knob);
+    const upGlow = new THREE.PointLight(0xffb060, 1.1, 8); upGlow.position.set(SX, baseY + 1.0, doorZ + 1.2); upGlow.castShadow = false; stair.add(upGlow);
     g.add(stair);
-    mk('stairs', 'climb to your Room', 9, -10.0, 0xbfa3ff);
+    mk('stairs', 'climb to your Room', SX, -10.4, 0xbfa3ff);
 
     // "tend the bar" spot in front of the counter
     mk('serve', 'tend the Bar (earn tips)', -7.3, -4, 0x9bff7a);
@@ -302,14 +314,15 @@ export class Tavern {
 
     for (const [x, z, y] of [[-10.4, 4.4, 0.55], [-9.4, 4.6, 0.55], [-9.9, 4.5, 1.5]]) { const keg = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.0, 12), wood); keg.rotation.z = Math.PI / 2; keg.position.set(x, y, z); keg.castShadow = true; const ring1 = new THREE.Mesh(new THREE.TorusGeometry(0.51, 0.04, 6, 16), iron); ring1.position.copy(keg.position); ring1.rotation.y = Math.PI / 2; g.add(keg, ring1); }
 
-    const sign = new THREE.Group(); sign.position.set(0, 2.7, -10.4);
+    // wall-mounted tavern sign above the bar (no longer floating in mid-air)
+    const sign = new THREE.Group(); sign.position.set(MINX + 0.45, 2.5, -4); sign.rotation.y = Math.PI / 2;
     const plank = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.9, 0.12), M(0x6a4426, 0.9)); plank.castShadow = true;
     const trim = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.12, 0.16), M(0xffd98a, 0.5, 0.3)); trim.position.y = 0.48;
+    const trimB = trim.clone(); trimB.position.y = -0.48;
     const toad = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 10), M(0x6fbf5a, 0.7)); toad.position.set(0, 0, 0.1); toad.scale.set(1.2, 0.9, 1);
     const eyeW = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), M(0xffffff, 0.6)); eyeW.position.set(-0.13, 0.18, 0.28);
     const eyeW2 = eyeW.clone(); eyeW2.position.x = 0.13;
-    for (const cx of [-1.0, 1.0]) { const ch = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.6, 6), iron); ch.position.set(cx, 0.62, 0); sign.add(ch); }
-    sign.add(plank, trim, toad, eyeW, eyeW2); g.add(sign);
+    sign.add(plank, trim, trimB, toad, eyeW, eyeW2); g.add(sign);
 
     const paneMat = new THREE.MeshStandardMaterial({ color: 0x9fc4ff, emissive: 0x4a6aa0, emissiveIntensity: 0.8, roughness: 0.4 });
     for (const [x, z] of [[-11.6, 1.5], [11.6, 1.5], [11.6, -8]]) { const win = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.6, 1.2), paneMat); win.position.set(x, 2.1, z); const bar1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.6, 0.08), wood); bar1.position.set(x, 2.1, z); const bar2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.08, 1.2), wood); bar2.position.set(x, 2.1, z); g.add(win, bar1, bar2); }

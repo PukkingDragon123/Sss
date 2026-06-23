@@ -8,6 +8,18 @@ import { NODE_META } from './runmap.js';
 
 const $ = (id) => document.getElementById(id);
 
+// world-map regions: position on the map, look, danger tier & loot blurb
+const STAGE_MAP = {
+  forest:    { x: 12, y: 60, icon: '🌲', tone: '#6ee7a0', danger: 1, loot: 'Common–Rare gear · 🪙' },
+  cave:      { x: 26, y: 47, icon: '🦇', tone: '#c9a24a', danger: 2, loot: 'Rare gear · potions · 🪙🪙' },
+  graveyard: { x: 41, y: 58, icon: '⚰️', tone: '#8fa0c8', danger: 3, loot: 'Rare–Epic gear · 🪙🪙' },
+  swamp:     { x: 54, y: 45, icon: '🐊', tone: '#7fae5a', danger: 4, loot: 'Epic gear · 🪙🪙' },
+  frost:     { x: 68, y: 55, icon: '❄️', tone: '#bfe6ff', danger: 5, loot: 'Epic gear · 🪙🪙🪙' },
+  inferno:   { x: 82, y: 41, icon: '🔥', tone: '#ff7a3a', danger: 6, loot: 'Epic–Legendary · 🪙🪙🪙' },
+  clockwork: { x: 67, y: 24, icon: '🤖', tone: '#5fe0ff', danger: 7, loot: 'Legendary gear · 🪙🪙🪙' },
+  void:      { x: 48, y: 12, icon: '🌌', tone: '#b68fff', danger: 8, loot: 'Legendary hoard · 🪙🪙🪙🪙' },
+};
+
 // draw a template stroke onto a small canvas, with a green start dot + arrow
 function drawTemplate(canvas, points) {
   const ctx = canvas.getContext('2d');
@@ -74,7 +86,7 @@ export class UI {
       shop: $('shop'), shopTitle: $('shop-title'), shopGold: $('shop-gold'), shopBody: $('shop-body'), shopClose: $('shop-close'),
       tavernHud: $('tavern-hud'), ruckusCount: $('ruckus-count'),
       mapBar: $('map-bar'), mapNodeInfo: $('map-node-info'), mapStatus: $('map-status'),
-      worldmap: $('worldmap'), worldmapBody: $('worldmap-body'), worldmapBack: $('worldmap-back'),
+      worldmap: $('worldmap'), worldmapBody: $('worldmap-body'), worldmapDetail: $('worldmap-detail'), worldmapBack: $('worldmap-back'),
       nodeEvent: $('node-event'), neTitle: $('ne-title'), neGold: $('ne-gold'), neBlurb: $('ne-blurb'), neBody: $('ne-body'),
       btnGuide: $('btn-guide'), btnPause: $('btn-pause'), btnMute: $('btn-mute'),
       joystick: $('joystick'), joyKnob: $('joy-knob'), blackout: $('blackout'),
@@ -126,10 +138,15 @@ export class UI {
       const b = e.target.closest('[data-ne]');
       if (b && !b.disabled) this._neAction(b.dataset.ne, b.dataset.id);
     });
-    // world map pins
+    // world map: click a region pin to inspect it…
     if (this.el.worldmapBody) this.el.worldmapBody.addEventListener('click', (e) => {
       const g2 = e.target.closest('[data-stage]');
-      if (g2 && g2.dataset.stage) { this.game.audio.play('click'); this.game.startRun(g2.dataset.stage); }
+      if (g2 && g2.dataset.stage) this.selectRegion(g2.dataset.stage);
+    });
+    // …then Venture from the details panel
+    if (this.el.worldmapDetail) this.el.worldmapDetail.addEventListener('click', (e) => {
+      const b = e.target.closest('.wmd-venture[data-stage]');
+      if (b && b.dataset.stage) { this.game.audio.play('click'); this.game.startRun(b.dataset.stage); }
     });
     if (this.el.worldmapBack) this.el.worldmapBack.addEventListener('click', () => { this.game.audio.play('click'); this.game.closeShop(); });
   }
@@ -232,34 +249,51 @@ export class UI {
     const m = NODE_META[node.type] || { icon: '•', label: node.type, blurb: '' };
     this.el.mapNodeInfo.innerHTML = `${m.icon} <b>${m.label}</b> — ${m.blurb}`;
   }
-  // ---- the world map (overworld): pick which haunt to venture into ----
+  // ---- the world map (overworld): a region map; inspect a region then venture ----
+  _wmOrder() { return STAGE_ORDER.filter(id => STAGE_MAP[id] && STAGES[id]); }
+  _wmUnlocked(id) { const o = this._wmOrder(), i = o.indexOf(id); return i === 0 || meta.stageCleared(o[i - 1]); }
   showWorldMap() {
-    const SM = {
-      forest:    { x: 11, y: 60, icon: '🌲', tone: '#6ee7a0' },
-      cave:      { x: 25, y: 47, icon: '🦇', tone: '#c9a24a' },
-      graveyard: { x: 40, y: 58, icon: '⚰️', tone: '#8fa0c8' },
-      swamp:     { x: 53, y: 45, icon: '🐊', tone: '#7fae5a' },
-      frost:     { x: 67, y: 55, icon: '❄️', tone: '#bfe6ff' },
-      inferno:   { x: 81, y: 41, icon: '🔥', tone: '#ff7a3a' },
-      clockwork: { x: 67, y: 25, icon: '🤖', tone: '#5fe0ff' },
-      void:      { x: 49, y: 13, icon: '🌌', tone: '#b68fff' },
-    };
-    const order = STAGE_ORDER.filter(id => SM[id] && STAGES[id]);
-    const poly = order.map(id => `${SM[id].x},${SM[id].y}`).join(' ');
-    let nodes = '';
+    const order = this._wmOrder();
+    const poly = order.map(id => `${STAGE_MAP[id].x},${STAGE_MAP[id].y}`).join(' ');
+    let blobs = '', nodes = '';
     order.forEach((id, i) => {
-      const s = STAGES[id], p = SM[id];
-      const unlocked = i === 0 || meta.stageCleared(order[i - 1]);
-      const cleared = meta.stageCleared(id);
-      nodes += `<g class="wm-pin ${unlocked ? 'open' : 'locked'}" data-stage="${unlocked ? id : ''}" style="--tone:${p.tone}">
+      const s = STAGES[id], p = STAGE_MAP[id];
+      const unlocked = this._wmUnlocked(id), cleared = meta.stageCleared(id);
+      blobs += `<ellipse cx="${p.x}" cy="${p.y}" rx="11" ry="8.5" class="wm-region" style="--tone:${p.tone}" opacity="${unlocked ? 0.22 : 0.08}"/>`;
+      nodes += `<g class="wm-pin ${unlocked ? 'open' : 'locked'} ${cleared ? 'done' : ''}" data-stage="${id}" style="--tone:${p.tone}">
         <circle cx="${p.x}" cy="${p.y}" r="4.4"></circle>
         <text x="${p.x}" y="${p.y}" class="wm-ico">${unlocked ? p.icon : '🔒'}</text>
-        <text x="${p.x}" y="${p.y + 8.2}" class="wm-lab">${s.name}${cleared ? ' ✓' : ''}</text>
+        <text x="${p.x}" y="${p.y + 8}" class="wm-lab">${i + 1}. ${s.name}${cleared ? ' ✓' : ''}</text>
       </g>`;
     });
     this.el.worldmapBody.innerHTML = `<svg viewBox="0 0 100 74" class="wm-svg" preserveAspectRatio="xMidYMid meet">
-      <polyline points="${poly}" class="wm-route"/>${nodes}</svg>`;
+      ${blobs}<polyline points="${poly}" class="wm-route"/>${nodes}</svg>`;
+    // default to the furthest region you can enter
+    let sel = order[0];
+    for (const id of order) if (this._wmUnlocked(id)) sel = id;
+    this._wmSel = sel;
+    this._renderWorldDetail();
     this.el.worldmap.classList.remove('hidden');
+  }
+  selectRegion(id) { if (!STAGE_MAP[id]) return; this._wmSel = id; this.game.audio.play('click'); this._renderWorldDetail(); this._wmHighlight(); }
+  _wmHighlight() { const svg = this.el.worldmapBody.querySelector('svg'); if (!svg) return; svg.querySelectorAll('.wm-pin').forEach(g => g.classList.toggle('sel', g.dataset.stage === this._wmSel)); }
+  _renderWorldDetail() {
+    if (!this.el.worldmapDetail) return;
+    const id = this._wmSel, s = STAGES[id], m = STAGE_MAP[id];
+    const order = this._wmOrder(), idx = order.indexOf(id);
+    const unlocked = this._wmUnlocked(id), cleared = meta.stageCleared(id);
+    const access = cleared ? '<span class="wm-done-t">✓ Conquered</span>' : unlocked ? '<span class="wm-open-t">Open — ready</span>' : `🔒 Clear <b>${STAGES[order[idx - 1]].name}</b> first`;
+    this.el.worldmapDetail.innerHTML = `
+      <div class="wmd-head"><span class="wmd-ico" style="color:${m.tone};filter:drop-shadow(0 0 8px ${m.tone})">${unlocked ? m.icon : '🔒'}</span>
+        <div><div class="wmd-name" style="color:${m.tone}">${s.name}</div>
+        <div class="wmd-sub">Region ${idx + 1} of ${order.length} · 👑 ${s.bossName}</div></div></div>
+      <div class="wmd-rows">
+        <div class="wmd-row"><span>Danger</span><b>${'💀'.repeat(m.danger)}</b></div>
+        <div class="wmd-row"><span>Access</span><b>${access}</b></div>
+        <div class="wmd-row"><span>Loot</span><b>${m.loot}</b></div>
+      </div>
+      <button class="btn big wmd-venture" data-stage="${unlocked ? id : ''}" ${unlocked ? '' : 'disabled'}>${unlocked ? '▸ Venture here' : '🔒 Locked'}</button>`;
+    this._wmHighlight();
   }
   hideWorldMap() { if (this.el.worldmap) this.el.worldmap.classList.add('hidden'); }
 

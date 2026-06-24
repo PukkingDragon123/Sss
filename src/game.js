@@ -793,6 +793,7 @@ export class Game {
     this.camOffset.set(0, 27, 22);
     this._applyStageTheme(stage);
     this._spawnBarrels();        // refreshing beer kegs scattered in the arena
+    this._spawnShrine();         // a rune shrine: draw a glyph at it to channel a relic
     this.ui.setPhase('arena', this.input.isTouch);
     this.ui.setLoadout(this.loadout);
     this.ui.setScreen('play');
@@ -939,7 +940,8 @@ export class Game {
         const accuracy = Math.max(0.5, Math.min(1, (res.score - 0.6) / (0.92 - 0.6) * 0.5 + 0.5));
         const crit = res.score >= 0.9;
         this._castAt(id, this.gestureAim, { accuracy, crit });
-        if (!crit) this.ui.accuracyToast(accuracy);
+        const channeled = this._maybeChannelShrine(); // drawing at the shrine claims a relic
+        if (!crit && !channeled) this.ui.accuracyToast(accuracy);
         return;
       }
       if (id) { this.ui.toast(`✋ ${SPELLS[id].name} — not equipped`); this.audio.play('hiccup'); return; }
@@ -1170,6 +1172,7 @@ export class Game {
     if (this.stats.hpRegen > 0 && this.wizard.alive) this.wizard.heal(this.stats.hpRegen * sdt);
 
     this._updateBarrels(sdt);
+    this._updateShrine(sdt);
 
     if (!this.wizard.alive) this._loseRun();
     if (this.pendingLevels > 0 && this.state === 'play') this._openLevelUp();
@@ -1227,6 +1230,67 @@ export class Game {
       this.drunkenness = Math.min(1, this.drunkenness + 0.18); this._drunkSurge = 1;
       this.ui.toast('🍺 A keg! +HP & mana — and a buzz');
     }
+  }
+
+  // ---- rune shrine: walk up & DRAW a glyph to channel a free artifact (re-arms slowly) ----
+  _spawnShrine() {
+    if (!this._shrineGroup) { this._shrineGroup = new THREE.Group(); this.arenaGroup.add(this._shrineGroup); }
+    const grp = this._shrineGroup;
+    for (let i = grp.children.length - 1; i >= 0; i--) { const c = grp.children[i]; c.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); grp.remove(c); }
+    const sx = 0, sz = 12;
+    const m = this._buildShrine(); m.position.set(sx, 0, sz); grp.add(m);
+    this.shrine = { mesh: m, x: sx, z: sz, armed: true, t: 0, near: false, hinted: false };
+  }
+  _buildShrine() {
+    const g = new THREE.Group();
+    g.userData.lit = []; // the glowing parts toggled on/off with arming
+    const stone = new THREE.MeshStandardMaterial({ color: 0x4a4458, roughness: 0.85, metalness: 0.1 });
+    const dais = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.8, 0.45, 16), stone); dais.position.y = 0.22; dais.castShadow = dais.receiveShadow = true; g.add(dais);
+    const step = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.2, 0.3, 16), stone); step.position.y = 0.55; g.add(step);
+    // four little obelisks around the rim
+    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.PI / 4; const o = new THREE.Mesh(new THREE.BoxGeometry(0.28, 1.1, 0.28), stone); o.position.set(Math.cos(a) * 1.45, 0.75, Math.sin(a) * 1.45); o.castShadow = true; g.add(o); }
+    // glowing ring + floating rune core
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.08, 8, 28), new THREE.MeshBasicMaterial({ color: 0x9b7bff, transparent: true, opacity: 0.9 }));
+    ring.position.y = 1.6; ring.rotation.x = Math.PI / 2; g.add(ring); g.userData.ring = ring; g.userData.lit.push(ring);
+    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.42, 0), new THREE.MeshBasicMaterial({ color: 0xc9b6ff, transparent: true, opacity: 0.95 }));
+    core.position.y = 2.0; g.add(core); g.userData.core = core; g.userData.lit.push(core);
+    // orbiting rune shards
+    const runes = [];
+    for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TetrahedronGeometry(0.2, 0), new THREE.MeshBasicMaterial({ color: 0x9bff7a, transparent: true, opacity: 0.9 })); g.add(r); runes.push(r); g.userData.lit.push(r); }
+    g.userData.runes = runes;
+    // a soft beam of light rising from the dais
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.95, 6, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0x9b7bff, transparent: true, opacity: 0.2, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+    beam.position.y = 3.2; g.add(beam); g.userData.beam = beam; g.userData.lit.push(beam);
+    return g;
+  }
+  _updateShrine(sdt) {
+    const sh = this.shrine; if (!sh) return;
+    const ud = sh.mesh.userData;
+    for (const o of ud.lit) o.visible = sh.armed; // dim the whole rune array while spent
+    if (sh.armed) {
+      const pulse = 0.6 + Math.sin(this.elapsed * 3) * 0.4;
+      if (ud.core) { ud.core.rotation.y += sdt * 1.4; ud.core.rotation.x += sdt * 0.7; ud.core.position.y = 2.0 + Math.sin(this.elapsed * 2) * 0.15; ud.core.material.opacity = 0.7 + pulse * 0.3; }
+      if (ud.ring) ud.ring.rotation.z += sdt * 0.8;
+      if (ud.beam) ud.beam.material.opacity = 0.14 + pulse * 0.16;
+      if (ud.runes) ud.runes.forEach((r, i) => { const a = this.elapsed * 1.2 + i * (Math.PI * 2 / 3); r.position.set(Math.cos(a) * 1.5, 1.2 + Math.sin(this.elapsed * 2 + i) * 0.2, Math.sin(a) * 1.5); r.rotation.y += sdt * 2; });
+    } else {
+      sh.t -= sdt; if (sh.t <= 0) { sh.armed = true; sh.hinted = false; }
+    }
+    const w = this.wizard.pos, dx = w.x - sh.x, dz = w.z - sh.z;
+    const near = sh.armed && dx * dx + dz * dz < 3.4 * 3.4;
+    sh.near = near;
+    if (near && !sh.hinted) { sh.hinted = true; this.ui.toast('✦ Rune shrine — draw any glyph to channel a relic!'); }
+    if (!near) sh.hinted = false;
+  }
+  _maybeChannelShrine() {
+    const sh = this.shrine;
+    if (!sh || !sh.armed || !sh.near) return false;
+    sh.armed = false; sh.t = 55; sh.hinted = false; sh.near = false;
+    this.audio.play('levelup');
+    this.particles.burst({ pos: new THREE.Vector3(sh.x, 1.8, sh.z), color: 0x9b7bff, count: 24, speed: 4.5, size: 0.24, life: 1.1, grav: 0, blend: 'add' });
+    this.ui.toast('✦ The runes answer — claim a relic!');
+    this.offerUpgrade(() => { this.state = 'play'; });
+    return true;
   }
 
   _updateTavern(sdt) {

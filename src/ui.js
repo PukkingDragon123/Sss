@@ -414,8 +414,9 @@ export class UI {
     this.el.cards.innerHTML = '';
     choices.forEach((u) => {
       const card = document.createElement('div');
-      card.className = 'card';
+      card.className = 'card' + (u.unique ? ' card-unique' : '');
       card.innerHTML = `
+        ${u.unique ? '<div class="card-ribbon">✦ UNIQUE ✦</div>' : ''}
         <div class="card-icon">${u.icon}</div>
         <div class="card-name">${u.name}</div>
         <div class="card-desc">${u.desc}</div>
@@ -700,6 +701,7 @@ export class UI {
   _shopAction(act, id, slot) {
     const g = this._shopGame;
     if (act === 'startrun') { g.startRun(id); return; }
+    if (act === 'buildtab') { this._buildTab = id; this._buildSel = null; if (g) g.audio.play('click'); this._renderShop(); return; }
     if (act === 'selbuild') { this._buildSel = (this._buildSel === id ? null : id); if (g) g.audio.play('click'); this._renderShop(); return; }
     if (act === 'place') {
       const [gx, gy] = id.split('_').map(Number);
@@ -734,7 +736,7 @@ export class UI {
 
   _renderShop() {
     const kind = this._shopKind;
-    const titles = { skilltree: '✦ Spell Table', cauldron: '🜲 Cauldron', build: '🔨 Build & Place', manager: '📜 Quest Board', wardrobe: '🎽 Wardrobe', stage: '🗺 Choose a Stage', ledger: '📒 Tavern Ledger', blacksmith: '🔨 Anvil' };
+    const titles = { skilltree: '✦ Spell Table', cauldron: '🜲 Cauldron', build: '🏛 Build Your Den', manager: '📜 Quest Board', wardrobe: '🎽 Equipment Hall', ledger: '📒 Tavern Ledger', blacksmith: '🔨 Anvil' };
     this.el.shopTitle.textContent = titles[kind] || 'Tavern';
     let html = '';
     if (kind === 'skilltree') html = this._renderSkillTree();
@@ -742,7 +744,6 @@ export class UI {
     else if (kind === 'build') html = this._renderBuild();
     else if (kind === 'manager') html = this._renderManager();
     else if (kind === 'wardrobe') html = this._renderWardrobe();
-    else if (kind === 'stage') html = this._renderStages();
     else if (kind === 'ledger') html = this._renderLedger();
     else if (kind === 'blacksmith') html = this._renderBlacksmith();
     this.el.shopBody.innerHTML = html;
@@ -765,57 +766,60 @@ export class UI {
     return h;
   }
 
-  _renderStages() {
-    const ICON = { forest: '🌲', cave: '🦇', graveyard: '⚰️' };
-    const TONE = { forest: '#6ee7a0', cave: '#c9a24a', graveyard: '#8fa0c8' };
-    let h = '<p class="shop-sub">Pick where to haunt. Each is a branching <b>journey map</b> — plot your path of fights, loot &amp; campfires up to the boss. Bring your best 3 spells!</p><div class="stage-grid">';
-    let i = 0;
-    for (const id of Object.keys(STAGES)) {
-      const s = STAGES[id]; const tone = TONE[id] || 'var(--gold)';
-      h += `<div class="stage-card" style="--tone:${tone}">
-        <div class="stage-icon">${ICON[id] || '🗺'}</div>
-        <div class="stage-name">${s.name}</div>
-        <div class="stage-meta">🗺 7-floor journey · 👑 ${s.bossName}</div>
-        <div class="shop-acts"><button class="shop-btn big" data-act="startrun" data-id="${id}">▸ Venture</button></div></div>`;
-      i++;
-    }
-    h += '</div>';
-    return h;
-  }
-
   _gearStats(g) { return Object.entries(g.mods).map(([k, v]) => meta.statLabel(k, v)).join(' · '); }
-  _gearCard(g, acts) {
+  _slotMeta(slot) { return ({ hat: { icon: '🎩', name: 'Hat' }, robe: { icon: '🧥', name: 'Robe' }, staff: { icon: '🪄', name: 'Staff' }, charm: { icon: '🔮', name: 'Charm' } })[slot] || { icon: '🎒', name: slot }; }
+  _gearCard(g, acts, on) {
     const rc = meta.RARITIES[g.rarity];
-    return `<div class="shop-card gear" style="border-color:${rc.color}">
-      <div class="gear-name" style="color:${rc.color}">${g.name}</div>
-      <div class="gear-rar"><span style="color:${rc.color}">${rc.name}</span> · Lv ${g.level}</div>
-      <div class="shop-desc">${this._gearStats(g)}</div>
+    return `<div class="shop-card gear rar-${g.rarity} ${on ? 'worn' : ''}" style="--rc:${rc.color}">
+      <div class="gear-top"><span class="gear-name" style="color:${rc.color}">${g.name}</span><span class="gear-lv">Lv${g.level}</span></div>
+      <div class="gear-rar" style="color:${rc.color}">★ ${rc.name} ${this._slotMeta(g.slot).name}</div>
+      <div class="shop-desc gear-stats">${this._gearStats(g)}</div>
       <div class="shop-acts">${acts}</div></div>`;
   }
+  // Clash-style Equipment Hall: a hero loadout strip + combined bonuses + per-slot inventory
   _renderWardrobe() {
-    let h = '<p class="shop-sub">Equip looted gear — one piece per slot. Rarer & higher-level = stronger. Bonuses apply next run.</p>';
+    const mods = meta.equipMods();
+    const totalStr = Object.keys(mods).length ? Object.entries(mods).map(([k, v]) => meta.statLabel(k, v)).join(' · ') : 'Nothing equipped yet';
+    let strip = '<div class="eq-loadout">';
     for (const slot of meta.GEAR_SLOTS) {
+      const sm = this._slotMeta(slot);
+      const g = meta.gearById(meta.equippedGearId(slot));
+      const rc = g ? meta.RARITIES[g.rarity] : null;
+      strip += `<div class="eq-slot ${g ? 'filled' : ''}" style="${rc ? `--rc:${rc.color}` : ''}">
+        <div class="eq-slot-frame">${g ? `<span class="eq-slot-ico">${sm.icon}</span><span class="eq-lv">Lv${g.level}</span>` : `<span class="eq-slot-ph">${sm.icon}</span>`}</div>
+        <div class="eq-slot-name">${g ? g.name : sm.name}</div>
+        <div class="eq-slot-rar ${g ? '' : 'empty'}" ${rc ? `style="color:${rc.color}"` : ''}>${g ? rc.name : '— empty —'}</div></div>`;
+    }
+    strip += '</div>';
+    let h = '<p class="shop-sub">Your relics &amp; regalia — one piece per slot. Rarer &amp; higher-level hits harder; bonuses apply on your next venture.</p>';
+    h += strip;
+    h += `<div class="eq-totals"><span>⚔ Equipped bonuses</span><b>${totalStr}</b></div>`;
+    for (const slot of meta.GEAR_SLOTS) {
+      const sm = this._slotMeta(slot);
       const eqId = meta.equippedGearId(slot);
-      const items = meta.gearList().filter(g => g.slot === slot);
-      h += `<div class="ward-slot"><div class="ward-slot-name">${slot.toUpperCase()}${eqId ? '' : ' — empty'}</div><div class="shop-grid">`;
-      if (!items.length) h += `<div class="shop-desc" style="opacity:.7">No ${slot} found yet — slay monsters to loot some.</div>`;
+      const items = meta.gearList().filter(g => g.slot === slot)
+        .sort((a, b) => meta.RARITIES[b.rarity].mult * b.level - meta.RARITIES[a.rarity].mult * a.level);
+      h += `<div class="eq-section"><div class="eq-section-head">${sm.icon} ${sm.name}s <span class="eq-count">${items.length}</span></div><div class="shop-grid eq-grid">`;
+      if (!items.length) h += `<div class="eq-empty">No ${sm.name.toLowerCase()} found yet — slay monsters &amp; bosses to loot some.</div>`;
       for (const g of items) {
-        const on = eqId === g.id;
-        const acts = `<button class="shop-btn ${on ? 'on' : ''}" data-act="equipgear" data-id="${g.id}">${on ? '✓ Worn' : 'Wear'}</button><button class="shop-btn" data-act="salvage" data-id="${g.id}">♻ ${meta.gearValue(g)}🪙</button>`;
-        h += this._gearCard(g, acts);
+        const on = eqId === g.id, cost = meta.upgradeGearCost(g), max = g.level >= 10;
+        const acts = `<button class="shop-btn ${on ? 'on' : ''}" data-act="equipgear" data-id="${g.id}">${on ? '✓ Worn' : 'Wear'}</button>`
+          + (max ? '<button class="shop-btn" disabled>MAX</button>' : `<button class="shop-btn" data-act="upgradegear" data-id="${g.id}" ${meta.canAfford(cost) ? '' : 'disabled'}>⚒ ${cost}🪙</button>`)
+          + `<button class="shop-btn ghost" data-act="salvage" data-id="${g.id}">♻ ${meta.gearValue(g)}🪙</button>`;
+        h += this._gearCard(g, acts, on);
       }
       h += '</div></div>';
     }
     return h;
   }
   _renderBlacksmith() {
-    let h = '<p class="shop-sub">Forge gear to a higher level (stronger stats), or salvage spares for coin.</p><div class="shop-grid">';
-    const items = meta.gearList();
-    if (!items.length) h += '<div class="shop-desc">No gear to forge yet — go find some loot!</div>';
+    let h = '<p class="shop-sub">Forge gear to a higher level (stronger stats), or salvage spares for coin.</p><div class="shop-grid eq-grid">';
+    const items = meta.gearList().slice().sort((a, b) => meta.RARITIES[b.rarity].mult * b.level - meta.RARITIES[a.rarity].mult * a.level);
+    if (!items.length) h += '<div class="eq-empty">No gear to forge yet — go find some loot!</div>';
     for (const g of items) {
       const cost = meta.upgradeGearCost(g), max = g.level >= 10;
-      const acts = `${max ? '<button class="shop-btn" disabled>MAX</button>' : `<button class="shop-btn" data-act="upgradegear" data-id="${g.id}" ${meta.canAfford(cost) ? '' : 'disabled'}>Forge ${cost}🪙</button>`}<button class="shop-btn" data-act="salvage" data-id="${g.id}">♻ ${meta.gearValue(g)}🪙</button>`;
-      h += this._gearCard(g, acts);
+      const acts = `${max ? '<button class="shop-btn" disabled>MAX</button>' : `<button class="shop-btn" data-act="upgradegear" data-id="${g.id}" ${meta.canAfford(cost) ? '' : 'disabled'}>⚒ Forge ${cost}🪙</button>`}<button class="shop-btn ghost" data-act="salvage" data-id="${g.id}">♻ ${meta.gearValue(g)}🪙</button>`;
+      h += this._gearCard(g, acts, false);
     }
     h += '</div>';
     return h;
@@ -868,11 +872,19 @@ export class UI {
     return h;
   }
 
+  // Clash-style den builder: village stats + grid + category-tabbed palette
   _renderBuild() {
     const comfort = meta.roomComfort();
     const restAmt = meta.REST_BONUS + comfort * 4;
-    let h = `<p class="shop-sub">Your room is yours to shape. <b>Pick an item</b>, then <b>tap a tile</b> to place it (tap a placed tile to sell it back at half). <b>Stations</b> (✦🜲🎽🔨📒📜) let you manage spells &amp; gear right here; comforts raise your rest bonus.</p>
-      <div class="build-stats">🛋 Comfort <b>${comfort}</b> · 🛏 Rest at the bed for <b>+${restAmt} HP</b> next run</div>`;
+    const tab = this._buildTab || (this._buildTab = 'station');
+    const stationsTotal = meta.BUILDABLES.filter(b => b.station).length;
+    const stationsBuilt = meta.BUILDABLES.filter(b => b.station && meta.stationBuilt(b.id)).length;
+    let h = `<p class="shop-sub">Build your wizard's den Clash-style: <b>pick</b> a building, then <b>tap a tile</b> to place it (tap a placed tile to sell it back at half). <b>Stations</b> let you manage spells &amp; gear right here; <b>comforts</b> deepen your rest bonus.</p>`;
+    h += `<div class="vil-stats">
+      <div class="vil-stat"><span>🏛 Stations</span><b>${stationsBuilt}/${stationsTotal}</b></div>
+      <div class="vil-stat"><span>🛋 Comfort</span><b>${comfort}</b></div>
+      <div class="vil-stat"><span>🛏 Rest bonus</span><b>+${restAmt} HP</b></div>
+    </div>`;
     h += '<div class="build-grid">';
     for (let gy = 0; gy < meta.ROOM_GH; gy++) {
       for (let gx = 0; gx < meta.ROOM_GW; gx++) {
@@ -882,13 +894,17 @@ export class UI {
       }
     }
     h += '</div>';
+    h += `<div class="vil-tabs">
+      <button class="vil-tab ${tab === 'station' ? 'on' : ''}" data-act="buildtab" data-id="station">🏛 Stations</button>
+      <button class="vil-tab ${tab === 'comfort' ? 'on' : ''}" data-act="buildtab" data-id="comfort">🛋 Comforts</button></div>`;
     h += '<div class="build-cat">';
     for (const b of meta.BUILDABLES) {
+      if ((tab === 'station') !== !!b.station) continue;
       const sel = this._buildSel === b.id;
       const built = b.station && meta.stationBuilt(b.id);
       const dis = built || !meta.canAfford(b.cost);
       h += `<button class="build-item ${sel ? 'sel' : ''} ${b.station ? 'is-station' : ''}" data-act="selbuild" data-id="${b.id}" ${dis ? 'disabled' : ''}>
-        <span class="bi-icon">${b.icon}</span><span class="bi-name">${b.name}</span><span class="bi-cost">${built ? '✓ Built' : b.cost + '🪙'}</span></button>`;
+        <span class="bi-icon">${b.icon}</span><span class="bi-name">${b.name}</span><span class="bi-cost">${built ? '✓ Built' : b.cost === 0 ? 'Free' : b.cost + '🪙'}</span></button>`;
     }
     h += '</div>';
     if (this._buildSel) { const sb = meta.buildableById(this._buildSel); if (sb) h += `<p class="build-hint">Placing <b>${sb.icon} ${sb.name}</b> — tap an empty tile. <span data-act="selbuild" data-id="${this._buildSel}" style="text-decoration:underline;cursor:pointer">cancel</span></p>`; }

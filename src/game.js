@@ -32,6 +32,8 @@ const DEFAULT_STATS = () => ({
   pickupRadius: 2.6, hpRegen: 1.0, thorns: 0,
   // run-boon hooks (level-up cards): on-kill sustain, crit & drunk scaling, etc.
   lifeOnKill: 0, manaOnKill: 0, xpMult: 1, critMult: 2, angryDrunk: 0, drinkChaos: 1,
+  // beer types: what a drink does besides refilling mana (set by beer abilities)
+  drinkHeal: 0, drinkShield: 0,
 });
 
 export class Game {
@@ -785,7 +787,7 @@ export class Game {
     for (const id of this.loadout) { const g = SPELLS[id].gesture; this.recognizer.add(g, TEMPLATES[g]); }
     this.level = 1; this.xp = 0; this.xpNeed = this._xpForLevel(1);
     this.kills = 0; this.chores = 0; this.pendingLevels = 0; this.elapsed = 0;
-    this.drunkenness = 0.22; this._drunkSurge = 0; this._drinkCd = 0;
+    this.drunkenness = 0.22; this._drunkSurge = 0; this._drinkCd = 0; this._drinking = false;
     this._artifactsTaken = new Set();
     // ---- Hades-style path: a few combat rooms, a 2-door choice before each next
     // one (the door previews its reward), then the boss + a guaranteed OP artifact ----
@@ -876,7 +878,7 @@ export class Game {
     if (!r) return;
     if (r.kind === 'coin') { meta.addGold(r.amount); this.ui.setGold(meta.gold()); this.ui.toast(`💰 +${r.amount}🪙`); }
     else if (r.kind === 'heart') { this.stats.hpMax += 25; this.wizard._maxHp = this.stats.hpMax; this.wizard.hp = this.stats.hpMax; this.ui.toast('❤️ +25 max HP — fully healed'); }
-    else if (r.kind === 'brew') { this.stats.manaMax += 30; this.stats.drinkPower += 20; this.wizard.mana = this.stats.manaMax; this.ui.toast('🍺 Brewfont — mana boosted & topped up'); }
+    else if (r.kind === 'brew') { this.stats.manaMax += 30; this.stats.drinkHeal += 20; this.wizard.mana = this.stats.manaMax; this.ui.toast('🍺 Brewfont — bigger mug & a heartier brew'); }
     else if (r.kind === 'gear') { meta.addGear(r.inst); this.ui.lootToast(r.inst); }
     else if (r.kind === 'ability') { this.applyAbility(r.u); this.ui.toast(`✦ ${r.name}`); }
     this.audio.play('levelup');
@@ -959,23 +961,42 @@ export class Game {
   }
   toggleMute() { this.audio.resume(); this.audio.setMuted(!this.audio.muted); this.ui.setMuteIcon(this.audio.muted); }
 
-  // ---- DRINK: the only way to refill mana. Costs sobriety — you get woozier. ----
+  // ---- DRINK: a 3-second channel. He pulls out the tankard, chugs (progress bar),
+  // and your mana fills to FULL. Costs sobriety — you get woozier. You can move
+  // while chugging; what the brew does beyond mana depends on your beer abilities. ----
   drink() {
     if (this.state !== 'play' || this.phase !== 'arena' || !this.wizard.alive) return;
-    if (this._drinkCd > 0) return;
+    if (this._drinking) return; // already chugging
     const w = this.wizard, s = this.stats;
-    if (w.mana >= s.manaMax - 0.5) { this.ui.toast('🍺 Mug\'s already brimming'); return; }
-    this._drinkCd = 0.3;        // snappy: you can chug again quickly (and while running)
-    w.triggerDrink();           // pull out the tankard & swing it up to his mouth
-    w.mana = Math.min(s.manaMax, w.mana + s.drinkPower);
-    // the gulp makes the spirit's puppet woozier — the core risk/reward
-    this.drunkenness = Math.min(1, this.drunkenness + 0.26 * (s.drinkChaos || 1));
-    this._drunkSurge = 1;
-    w.bob -= 0.6; w.leanV.x += (Math.random() - 0.5) * 5; w.leanV.z += (Math.random() - 0.5) * 5;
+    if (w.mana >= s.manaMax - 0.5) { this.ui.toast('🍺 Mug\'s already full'); return; }
+    this._drinking = true; this._drinkProg = 0; this._drinkDur = 3;
+    w.startDrink(this._drinkDur);
     this.audio.play('heal');
+    this.ui.showDrinkBar();
+    this.ui.toast('🍺 Chugging…');
+  }
+  _updateDrink(sdt) {
+    if (!this._drinking) return;
+    if (!this.wizard.alive || this.state !== 'play') { this._cancelDrink(); return; }
+    this._drinkProg += sdt / this._drinkDur;
+    this.ui.setDrinkProg(Math.min(1, this._drinkProg));
+    if (Math.random() < sdt * 7) { const hp = this.wizard.handPosition(); hp.y = 2.0; this.particles.burst({ pos: hp, color: 0xfff3c0, count: 2, speed: 1.2, size: 0.12, life: 0.5, grav: 1, blend: 'normal' }); }
+    if (this._drinkProg >= 1) this._finishDrink();
+  }
+  _cancelDrink() { this._drinking = false; this.wizard.endDrink(); this.ui.hideDrinkBar(); }
+  _finishDrink() {
+    const w = this.wizard, s = this.stats;
+    this._drinking = false; w.endDrink(); this.ui.hideDrinkBar();
+    w.mana = s.manaMax;                        // chugged it dry → FULL mana
+    if (s.drinkHeal) w.heal(s.drinkHeal);      // beer types
+    if (s.drinkShield) w.addShield(s.drinkShield, 8);
+    this.drunkenness = Math.min(1, this.drunkenness + 0.3 * (s.drinkChaos || 1));
+    this._drunkSurge = 1;
+    w.bob -= 0.7; w.leanV.x += (Math.random() - 0.5) * 6; w.leanV.z += (Math.random() - 0.5) * 6;
+    this.audio.play('levelup');
     const hp = w.handPosition(); hp.y = 2.1;
-    this.particles.burst({ pos: hp, color: 0xf6e3a0, count: 9, speed: 2.4, size: 0.18, life: 0.7, grav: 2, blend: 'normal' });
-    this.ui.toast('🍺 *gulp* — mana up, room spinning');
+    this.particles.burst({ pos: hp, color: 0xf6e3a0, count: 16, speed: 2.8, size: 0.2, life: 0.8, grav: 2, blend: 'normal' });
+    this.ui.toast('🍺 *AHHH!* — full mana, room spinning');
   }
 
   _maybeDrink() { // touch/desktop drink button + Q key route here
@@ -1265,6 +1286,7 @@ export class Game {
 
     this._updateBarrels(sdt);
     this._updateShrine(sdt);
+    this._updateDrink(sdt);
 
     if (!this.wizard.alive) this._loseRun();
     if (this.pendingLevels > 0 && this.state === 'play') this._openLevelUp();

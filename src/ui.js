@@ -63,6 +63,7 @@ export class UI {
       xpFill: $('xp-fill'), xpLabel: $('xp-label'),
       drunkWrap: $('drunk-wrap'), drunkFill: $('drunk-fill'),
       nausea: $('nausea'), btnDrink: $('btn-drink'), btnBuild: $('btn-build'),
+      drinkBar: $('drink-bar'), drinkBarFill: $('drink-bar-fill'),
       loadscene: $('loadscene'), loadsceneText: $('loadscene-text'),
       timer: $('timer'), kills: $('kills'), sobriety: $('sobriety'),
       jobTracker: $('job-tracker'), jobDesc: $('job-desc'), jobFill: $('job-fill'),
@@ -185,6 +186,11 @@ export class UI {
   showGuide() { this.el.glyphGuide.classList.remove('hidden'); }
   hideGuide() { this.el.glyphGuide.classList.add('hidden'); }
 
+  // ---- channeled drink progress bar ----
+  showDrinkBar() { if (this.el.drinkBar) { this.el.drinkBarFill.style.width = '0%'; this.el.drinkBar.classList.remove('hidden'); } }
+  setDrinkProg(f) { if (this.el.drinkBarFill) this.el.drinkBarFill.style.width = Math.round(f * 100) + '%'; }
+  hideDrinkBar() { if (this.el.drinkBar) this.el.drinkBar.classList.add('hidden'); }
+
   critToast() {
     const t = document.createElement('div');
     t.className = 'toast crit'; t.textContent = '✦ PERFECT — CRIT! ✦';
@@ -223,6 +229,7 @@ export class UI {
     this.el.tavernHud.classList.add('hidden');
     this.el.btnGuide.classList.toggle('hidden', !arena);
     if (this.el.btnDrink) this.el.btnDrink.classList.toggle('hidden', !arena); // drink only in the fight
+    if (this.el.drinkBar && !arena) this.el.drinkBar.classList.add('hidden');
     if (this.el.btnBuild) this.el.btnBuild.classList.toggle('hidden', !room);  // build only in your room
     if (this.el.abilityTray) this.el.abilityTray.classList.toggle('hidden', !arena || !this.el.abilityTray.innerHTML);
     if (this.el.drunkWrap) this.el.drunkWrap.classList.toggle('hidden', !arena);

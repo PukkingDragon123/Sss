@@ -72,8 +72,11 @@
       <div class="spell-chip hidden" data-spell="heal"><span class="glyph">∨</span><span class="name">Heal</span><span class="key">5</span></div>
     </div>
 
-    <button id="btn-drink" class="hidden" title="Drink to refill mana (Q)">🍺 Drink<span class="drink-key">Q</span></button>
+    <button id="btn-drink" class="hidden" title="Hold to chug — fills mana (Q)">🍺 Drink<span class="drink-key">Q</span></button>
     <button id="btn-build" class="hidden" title="Build &amp; place facilities in your room">🔨 Build</button>
+
+    <!-- channeled-drink progress bar (shows while chugging) -->
+    <div id="drink-bar" class="hidden"><div id="drink-bar-fill"></div><span class="drink-bar-label">🍺 Chugging…</span></div>
 
 
     <div id="banner"></div>

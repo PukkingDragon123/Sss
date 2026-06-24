@@ -90,8 +90,22 @@ export const UPGRADES = [
     desc: 'Hold your drink: gulps make you 35% less woozy.',
     apply: g => { g.stats.drinkChaos = Math.max(0.3, (g.stats.drinkChaos || 1) - 0.35); } },
   { id: 'biggulp', name: 'Big Gulp',      icon: '🍺', tag: 'Mana', weight: 6,
-    desc: 'Each drink restores +22 more mana.',
-    apply: g => { g.stats.drinkPower += 22; } },
+    desc: '+35 max mana — a deeper draught to chug.',
+    apply: g => { g.stats.manaMax += 35; g.wizard.mana += 35; } },
+
+  // ----- beer types: change what a drink does (besides filling mana) -----
+  { id: 'beer_lager', name: '🍺 Hearty Lager',  icon: '🍺', tag: 'Brew', weight: 6,
+    desc: 'Every chug also heals +35 HP.',
+    apply: g => { g.stats.drinkHeal += 35; } },
+  { id: 'beer_ale',   name: '🍻 Frothy Ale',    icon: '🍻', tag: 'Brew', weight: 6,
+    desc: 'Every chug grants a 55-point shield.',
+    apply: g => { g.stats.drinkShield += 55; } },
+  { id: 'beer_mead',  name: '🍯 Honey Mead',     icon: '🍯', tag: 'Brew', weight: 5,
+    desc: '+30 max mana, and chugging makes you 35% less woozy.',
+    apply: g => { g.stats.manaMax += 30; g.wizard.mana += 30; g.stats.drinkChaos = Math.max(0.3, (g.stats.drinkChaos || 1) - 0.35); } },
+  { id: 'beer_stout', name: '🖤 Imperial Stout', icon: '🖤', tag: 'Brew', weight: 5,
+    desc: 'Every chug heals +20 HP and grants a 30-point shield.',
+    apply: g => { g.stats.drinkHeal += 20; g.stats.drinkShield += 30; } },
 ];
 // abilities = the level-up boon pool (kept under the legacy name for the tests)
 export const ABILITIES = UPGRADES;

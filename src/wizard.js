@@ -42,7 +42,7 @@ export class Wizard {
     this.bob = 0;
     this.drunk = Math.random() * 10;
     this.castTimer = 0;
-    this.drinkT = 0; // >0 while the raise-mug-and-drink animation plays
+    this.drinkHold = 0; // seconds left holding the tankard up (the channel)
     this.castDir = new THREE.Vector3(0, 0, 1);
     this.invuln = 0;
     this.flash = 0;
@@ -179,6 +179,7 @@ export class Wizard {
     const mugBody = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.12, 0.28, 12), new THREE.MeshStandardMaterial({ color: 0x9a6a3a, roughness: 0.6 }));
     const foam = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 10), whiteMat); foam.position.y = 0.16; foam.scale.y = 0.6;
     this.mug.add(mugBody, foam);
+    this.mug.visible = false; // only appears while he's actually drinking
     this.armGroup.add(this.mug);
 
     // glowing cast-spark + light follow the right mitten
@@ -199,12 +200,14 @@ export class Wizard {
     this._maxHp = stats.hpMax;
     this.hp = stats.hpMax; this.mana = stats.manaMax;
     this.shield = 0; this.shieldT = 0;
-    this.alive = true; this.invuln = 0; this.flash = 0; this.castTimer = 0; this.drinkT = 0;
+    this.alive = true; this.invuln = 0; this.flash = 0; this.castTimer = 0; this.drinkHold = 0;
     this._armReady = false;
+    if (this.mug) this.mug.visible = false;
   }
 
-  // kick off the "pull out the tankard and chug" animation (the left arm swings the mug up to his mouth)
-  triggerDrink() { this.drinkT = 0.7; }
+  // pull out the tankard and hold it up to his mouth for `dur` seconds (the drink channel)
+  startDrink(dur) { this.drinkHold = (dur || 3) + 0.2; if (this.mug) this.mug.visible = true; }
+  endDrink() { this.drinkHold = 0; }
 
   setVisible(v) { this.root.visible = v; this.armGroup.visible = v; }
 
@@ -372,22 +375,22 @@ export class Wizard {
     const targetR = aR.clone().addScaledVector(fwd, reach * 0.85).setY(aR.y + reach * 0.25);
     let targetL = aL.clone().addScaledVector(fwd, reach * 0.6).setY(aL.y + reach * 0.1);
     const grav = -26;
-    // ---- DRINK: swing the left arm + tankard up to his mouth ----
+    // ---- DRINK: hold the left arm + tankard up to his mouth for the channel ----
     let drinking = 0;
-    if (this.drinkT > 0) {
-      this.drinkT -= dt;
-      drinking = Math.sin(Math.min(1, this.drinkT / 0.7) * Math.PI); // ease up then back down
+    if (this.drinkHold > 0) {
+      this.drinkHold -= dt;
+      drinking = 1;
       // a point just in front of his face — the mug meets the beard
-      targetL = aL.clone().addScaledVector(fwd, 0.16).setY(aL.y + 0.5);
+      targetL = aL.clone().addScaledVector(fwd, 0.16).setY(aL.y + 0.52);
     }
     // the left arm "casts" toward the mug-raise target while drinking (reuses the pull)
-    this._verletArm(this.armL, aL, dt, Math.max(casting * 0, drinking), targetL, grav);
+    this._verletArm(this.armL, aL, dt, drinking, targetL, grav);
     this._verletArm(this.armR, aR, dt, casting, targetR, grav);
     if (!this._armReady) this._armReady = true;
 
-    // mug rides on the left mitten — and tips toward his mouth as he drinks
-    this.mug.position.copy(this.armL.p2).add(new THREE.Vector3(0, -0.12, 0));
-    this.mug.rotation.z = drinking * 1.1;
+    // the tankard appears only while drinking, tipped toward his mouth
+    this.mug.visible = this.drinkHold > 0;
+    if (this.mug.visible) { this.mug.position.copy(this.armL.p2).add(new THREE.Vector3(0, -0.08, 0)); this.mug.rotation.z = 1.0; }
 
     // cast spark + light at the right mitten
     if (this.castTimer > 0) {

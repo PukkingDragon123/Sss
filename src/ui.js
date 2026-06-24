@@ -248,7 +248,7 @@ export class UI {
     if (tavern) this.el.castHint.innerHTML = isTouch ? 'Drag the <b>left side</b> to wander · 🪜 stairs to your room · 🚪 door to venture' : 'Walk to the <b>🚪 door</b> to venture, the <b>🪜 stairs</b> to your room, or the <b>bar</b> to earn tips · press <b>E</b>';
     else if (room) this.el.castHint.innerHTML = isTouch ? 'Tap <b>🔨 Build</b> to place stations & furniture · tap a station to use it' : 'Press <b>🔨 Build</b> to craft & place stations · walk to one and press <b>E</b> to use it · stairs to go down';
     else if (world) this.el.castHint.innerHTML = isTouch ? 'Tap a <b>region</b> to scout it · then <b>Venture</b>' : 'Click a <b>region</b> to scout it · then <b>Venture</b>';
-    else this.el.castHint.innerHTML = isTouch ? 'Left = move · <b>draw a glyph</b> on the right to cast · 🍺 to drink (refill mana)' : 'Hold <b>Right-Mouse</b> and draw a glyph · <b>WASD</b> move · <b>Q</b> drink to refill mana · keys <b>1–3</b>';
+    else this.el.castHint.innerHTML = isTouch ? 'Left = move · <b>draw a glyph</b> on the right to cast · 🍺 hold to chug (fills mana)' : 'Hold <b>Right-Mouse</b> and draw a glyph · <b>WASD</b> move · <b>Q</b> to chug (fills mana) · keys <b>1–3</b>';
   }
 
   showLoadScene(text) { if (this.el.loadscene) { if (this.el.loadsceneText) this.el.loadsceneText.textContent = text || 'Loading…'; this.el.loadscene.classList.remove('hidden'); } }

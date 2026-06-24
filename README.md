@@ -70,16 +70,18 @@ You are the **spirit**; the wizard is your wobbly puppet. The night runs in two 
 | Move | **WASD** / arrows | **drag the left side** (virtual stick) |
 | Aim | **mouse** | auto-aims nearest foe |
 | **Cast** | hold **Right-Mouse** + draw a glyph | **draw on the right side**, or tap a spell |
-| **Drink** (refill mana) | **Q** | tap the 🍺 button |
+| **Chug** (3s → full mana) | **Q** | tap the 🍺 button |
 | Quick-cast | keys **1 – 3** | tap a spell chip |
 | Pause / Mute | **P**/**Esc**, **M** | on-screen ⏸ / 🔊 |
 | Spell guide | **H** | 📖 button |
 
 **Mana is beer, and beer does not refill itself.** Spells cost mana; the only way
-to get it back mid-fight is to **drink** (**Q** / 🍺). Every gulp tops up the
-tankard but cranks up the **drunkenness meter** — the screen swims with a queasy
-nausea, the wizard wobbles harder, and your glyphs get sloppier. You sober up
-slowly over time. Risk vs. reward: chug to keep casting, or stay steady to aim.
+to get it back mid-fight is to **chug** (**Q** / 🍺): Wobblesworth pulls out his
+tankard and **drinks for 3 seconds** (a progress bar fills) — then your mana snaps
+to **FULL**. You can still stagger around while chugging, but every chug cranks up
+the **drunkenness meter** — the screen swims, the wizard wobbles, your glyphs get
+sloppier. **Beer abilities** change what a chug does (heal, shield, less woozy…).
+Risk vs. reward: find a safe beat to commit to a chug.
 
 **The Bar is your hub — and it's just a bar.** Between runs, wobble to the **bar**
 to work a shift for tips, head out the **🚪 door** to pick a **stage**, or climb
@@ -98,15 +100,17 @@ plus comforts that deepen your rest bonus. Walk up to a built station and press
 **The world map.** Click the **🚪 door** for a **3D top-down world map** of the
 realm — **8 regions** (🌲 Forest, 🦇 Cave, ⚰ Graveyard, 🐊 Swamp, ❄️ Frostspire,
 🔥 **Infernal Depths**, 🤖 **Neon Clockwork**, 🌌 the Void), each its own little
-island, that **unlock one by one** as you fell each boss. **Tap a region** to scout
-its danger tier and loot, then **Venture** to drop straight in.
+island, that **unlock one by one** as you fell each boss. Monsters prowl the
+overworld, fireflies drift, and the sea shimmers. **Tap a region** to scout its
+danger tier and loot, then **Venture** to drop straight in.
 
-**The path (Hades-style).** A region is a short run of **combat rooms, then the
-👑 boss**. After you clear each room you pick **one of two doors** — and each door
-**shows the prize beyond it** (coin, gear, +max HP, a brew, or an ability), so you
-choose your route like a *Hades* boon or a *Binding of Isaac* item room. Beyond the
-doors a **dark forest waits, red eyes lurking**. Clear the boss to **conquer** the
-region, open the next, and claim its relic.
+**The path (Slay-the-Spire-style).** A region is a short run of forks. At each one
+you pick a door — **LEFT or RIGHT** — and every door **shows what waits** beyond a
+dark forest of lurking red eyes: ⚔️ a **Skirmish**, 💀 an **Elite Pack**, 💰 a
+**Hidden Cache** (free loot), 🔥 a **Campfire** (full heal + max HP), ❓ a **Mystery**
+(a choice-based dilemma with consequences) or ✶ a **Trial of Nerve** (a skill
+challenge — stop the marker on the mark). The final fork leads to the boss. Clear
+it to **conquer** the region, open the next, and claim its relic.
 
 **Abilities & artifacts.** Level-ups let you **claim an ability** — stack damage,
 life-on-kill, crit, mana and movement; they collect in a **tray, top-left**. You
@@ -144,8 +148,8 @@ unleash it toward where you were aiming.
 ### The loop
 
 - Foes **swarm** from the dark. Spells leave glowing **XP motes** — soak them up.
-- Spells cost **mana**; **drink** (**Q** / 🍺) to refill it, at the cost of getting
-  woozier. Hearts and 🧪 motes drop from foes too.
+- Spells cost **mana**; **chug** (**Q** / 🍺) — a 3-second drink — to refill it to
+  full, at the cost of getting woozier. Hearts and 🧪 motes drop from foes too.
 - **Level up** to **claim an ability** (more damage, bigger booms, +1 chain,
   "Liquid Courage" for risky power, "Sip of Coffee" to sober up, "Deep Flask" for
   bigger gulps…); they stack in your **top-left tray**. Grab more from **rune

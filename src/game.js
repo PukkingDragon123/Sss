@@ -558,6 +558,7 @@ export class Game {
   }
 
   onBossDead() {
+    if (this._drinking) this._cancelDrink();
     this.bossActive = false; this.bossKilled = true; this._roomsCleared = this._forksTotal + 2;
     if (this._pendingReward) { this._grantReward(this._pendingReward); this._pendingReward = null; }
     this.grantArtifact(this._opArtifact); // the guaranteed, build-defining end-of-level relic

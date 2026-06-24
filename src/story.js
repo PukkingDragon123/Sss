@@ -24,11 +24,12 @@ export const TAVERN_INTRO = {
 export const TUTORIAL = {
   speaker: '📖 How to Survive',
   lines: [
-    '⚔️ CAST: hold Right-Mouse (or draw on the right on phone) and trace a glyph. The cleaner you draw, the harder it hits — a perfect glyph CRITS!',
-    '🍺 MANA = BEER: your mug does NOT refill on its own. Press Q (or tap 🍺) to DRINK and top it up — but each gulp makes the room spin a little.',
-    '🗺️ THE HUNT: out the door is the world map. Tap a region to scout it, then venture in — fight through a few rooms, choosing a door (and its prize) between each, up to the boss.',
-    '✦ ABILITIES & ARTIFACTS: level up to claim an ability (they stack, top-left). Each region\'s boss drops a build-defining ARTIFACT — and the path tells you which one!',
-    '🔨 YOUR ROOM: up the stairs, press BUILD to lay out stations (Spell Table, Equipment Hall, Cauldron…), then walk up to use them. Rest at the bed for +HP.',
+    '⚔️ CAST: hold Right-Mouse (or draw on the right half on phone) and trace a glyph. Cleaner lines hit harder — a PERFECT glyph CRITS. Or tap a spell / press 1–3 to quick-cast.',
+    '🍺 MANA = BEER, and it does NOT refill itself. Press Q (or tap 🍺) to CHUG: a 3-second drink — watch the bar — that fills your mana to FULL. You can still move while chugging, but every chug makes the room spin.',
+    '✦ ABILITIES: level-ups (and some kegs, shrines & events) let you claim an ability — they stack in the tray, top-LEFT. Beer abilities even change what a chug does (heal, shield…).',
+    '🗺️ THE PATH: out the door lies the world map — tap a region to scout it, then venture in. After each step you choose a door, LEFT or RIGHT. Each one shows what waits: a fight, an elite, treasure, a campfire, a Mystery, or a Trial of nerve.',
+    '👑 THE BOSS: the final fork leads to the region boss, who drops a build-defining ✦ ARTIFACT — and the door tells you which. Beat the boss to conquer the region and unlock the next.',
+    '🔨 YOUR ROOM: up the stairs, press BUILD to lay out stations (Spell Table, Equipment Hall, Cauldron…) and comforts, then walk up to use them. Rest at the bed for bonus HP.',
     'That\'s the lot. Now go make some beautiful, catastrophic magic.',
   ],
 };

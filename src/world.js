@@ -49,10 +49,28 @@ export class World {
     if (this._built) return;
     const g = this.group;
     // ocean base + a soft landmass
-    const sea = new THREE.Mesh(new THREE.PlaneGeometry(80, 64), new THREE.MeshStandardMaterial({ color: 0x1d3450, roughness: 1 }));
-    sea.rotation.x = -Math.PI / 2; sea.position.set(0, -0.4, -1.5); sea.receiveShadow = true; g.add(sea);
-    const land = new THREE.Mesh(new THREE.CircleGeometry(30, 48), new THREE.MeshStandardMaterial({ color: 0x3c5240, roughness: 1 }));
+    const sea = new THREE.Mesh(new THREE.PlaneGeometry(80, 64), new THREE.MeshStandardMaterial({ color: 0x16314e, roughness: 0.7, metalness: 0.2, emissive: 0x0a1c30, emissiveIntensity: 0.5 }));
+    sea.rotation.x = -Math.PI / 2; sea.position.set(0, -0.4, -1.5); sea.receiveShadow = true; g.add(sea); this._sea = sea;
+    // a faint shimmer band on the water + a soft coastline glow
+    const shimmer = new THREE.Mesh(new THREE.RingGeometry(31, 38, 64), new THREE.MeshBasicMaterial({ color: 0x6fd0ff, transparent: true, opacity: 0.06, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+    shimmer.rotation.x = -Math.PI / 2; shimmer.position.set(0, -0.35, -1.5); g.add(shimmer);
+    const land = new THREE.Mesh(new THREE.CircleGeometry(30, 48), new THREE.MeshStandardMaterial({ color: 0x35543e, roughness: 1 }));
     land.rotation.x = -Math.PI / 2; land.position.set(0, -0.15, -1.5); land.scale.set(1.25, 1, 0.95); land.receiveShadow = true; g.add(land);
+    const coast = new THREE.Mesh(new THREE.RingGeometry(29.4, 30.4, 64), new THREE.MeshBasicMaterial({ color: 0x8fd6b0, transparent: true, opacity: 0.22, side: THREE.DoubleSide }));
+    coast.rotation.x = -Math.PI / 2; coast.position.set(0, -0.14, -1.5); coast.scale.set(1.25, 1, 0.95); g.add(coast);
+
+    // drifting fireflies / motes for atmosphere
+    this._motes = [];
+    const moteMat = new THREE.MeshBasicMaterial({ color: 0xffe6a8, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false });
+    for (let i = 0; i < 16; i++) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 6), moteMat);
+      const ang = Math.random() * 6.28, rad = 6 + Math.random() * 22;
+      m.position.set(Math.cos(ang) * rad, 0.6 + Math.random() * 3, -1.5 + Math.sin(ang) * rad * 0.8);
+      m.userData = { base: m.position.y, sp: 0.3 + Math.random() * 0.5, ph: Math.random() * 6.28 };
+      g.add(m); this._motes.push(m);
+    }
+    // shared glowing-red "lurker eyes" material (pulsed in update)
+    this._eyeMat = new THREE.MeshBasicMaterial({ color: 0xff2a18, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
 
     this._views = []; this._hitMeshes = [];
     const order = this.order;
@@ -77,6 +95,12 @@ export class World {
       const rim = new THREE.Mesh(new THREE.TorusGeometry(3.05, 0.14, 8, 28), new THREE.MeshBasicMaterial({ color: L.tone }));
       rim.rotation.x = -Math.PI / 2; rim.position.y = 0.42; view.add(rim);
       this._deco(view, L.deco, L.tone);
+      // lurking red eyes peering out from the region (something waits in there…)
+      const eyes = new THREE.Group();
+      const spots = [[-1.8, 1.5], [1.8, 1.3], [0, -1.9], [-1.6, -1.4]];
+      const pairs = 2 + (i % 2);
+      for (let k = 0; k < pairs; k++) { const [ex, ez] = spots[k % spots.length]; for (const dx of [-0.17, 0.17]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), this._eyeMat); eye.position.set(ex + dx, 0.56, ez); eyes.add(eye); } }
+      eyes.visible = false; view.add(eyes);
       const icon = iconSprite(L.icon); icon.position.y = 2.7; view.add(icon);
       const lock = iconSprite('🔒', 80); lock.position.y = 2.7; lock.visible = false; view.add(lock);
       const check = iconSprite('✅', 70); check.position.set(1.7, 2.7, 0); check.scale.set(1.3, 1.3, 1.3); check.visible = false; view.add(check);
@@ -89,7 +113,7 @@ export class World {
       hit.position.y = 1.5; hit.userData.id = id; view.add(hit);
       g.add(view);
       this._hitMeshes.push(hit);
-      this._views.push({ id, view, icon, lock, check, beam, sel, base });
+      this._views.push({ id, view, icon, lock, check, beam, sel, base, eyes });
     }
     this._built = true;
   }
@@ -112,6 +136,7 @@ export class World {
       const unlocked = unlockedFn(v.id), cleared = clearedFn(v.id);
       v.icon.visible = unlocked; v.lock.visible = !unlocked; v.check.visible = cleared;
       v.beam.material.opacity = unlocked ? 0.12 : 0;
+      if (v.eyes) v.eyes.visible = unlocked && !cleared; // danger lurks in regions you've yet to conquer
       v.view.scale.setScalar(unlocked ? 1 : 0.9);   // locked islands sit a touch smaller/dimmer
     }
   }
@@ -123,6 +148,10 @@ export class World {
   update(dt) {
     if (!this.group.visible) return;
     this._t += dt;
+    // lurking eyes pulse, and blink shut now and then
+    if (this._eyeMat) { const blink = (this._t % 4) > 3.8 ? 0.1 : 1; this._eyeMat.opacity = (0.55 + Math.abs(Math.sin(this._t * 2.4)) * 0.4) * blink; }
+    if (this._sea) this._sea.material.emissiveIntensity = 0.4 + Math.sin(this._t * 0.8) * 0.15;
+    if (this._motes) for (const m of this._motes) { m.position.y = m.userData.base + Math.sin(this._t * m.userData.sp + m.userData.ph) * 0.5; m.position.x += Math.sin(this._t * 0.3 + m.userData.ph) * dt * 0.4; }
     for (const v of this._views) {
       v.icon.position.y = 2.7 + Math.sin(this._t * 2 + v.view.position.x) * 0.16;
       v.lock.position.y = v.icon.position.y;

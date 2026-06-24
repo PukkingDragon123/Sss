@@ -17,7 +17,7 @@ export const TAVERN_INTRO = {
     'This is the Tipsy Toad. Old Barkeep Tomas took us in — drunks, spirits, possessed wizards — and gave us a bed upstairs and a job down here.',
     'But last night, monsters dragged poor Tomas into the dark and didn\'t bring him back. We are going to make them regret that.',
     'Down here it\'s just the bar: lurch to the bar to earn tips, or out the glowing door to venture. Up the stairs is YOUR room — bare for now.',
-    'In your room, tap BUILD to craft & place a Spell Table, Cauldron, Wardrobe, Anvil and more — then use them right there. Avenge Tomas, and the Toad is yours.',
+    'In your room, tap BUILD to lay out your den Clash-style — a Spell Table, Cauldron, Equipment Hall, Anvil and more — then use them right there. Avenge Tomas, and the Toad is yours.',
   ],
 };
 
@@ -26,8 +26,9 @@ export const TUTORIAL = {
   lines: [
     '⚔️ CAST: hold Right-Mouse (or draw on the right on phone) and trace a glyph. The cleaner you draw, the harder it hits — a perfect glyph CRITS!',
     '🍺 MANA = BEER: your mug does NOT refill on its own. Press Q (or tap 🍺) to DRINK and top it up — but each gulp makes the room spin a little.',
-    '🗺️ THE HUNT: out the door is the world map. Pick a haunt, then climb its branching journey — fights, treasure, campfires — up to the boss.',
-    '🔨 YOUR ROOM: up the stairs, press BUILD to craft stations (Spell Table, Wardrobe, Cauldron…), then walk up to use them. Rest at the bed for +HP.',
+    '🗺️ THE HUNT: out the door is the world map. Tap a region to scout it, then venture in — fight through a few rooms, choosing a door (and its prize) between each, up to the boss.',
+    '✦ ABILITIES & ARTIFACTS: level up to claim an ability (they stack, top-left). Each region\'s boss drops a build-defining ARTIFACT — and the path tells you which one!',
+    '🔨 YOUR ROOM: up the stairs, press BUILD to lay out stations (Spell Table, Equipment Hall, Cauldron…), then walk up to use them. Rest at the bed for +HP.',
     'That\'s the lot. Now go make some beautiful, catastrophic magic.',
   ],
 };

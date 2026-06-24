@@ -16,7 +16,7 @@ export class Input {
     this.points = [];
     this.events = [];
     this.enabled = true;
-    this.pointMode = false; // when true, taps/clicks emit 'select' (used by the journey map)
+    this.pointMode = false; // when true, taps/clicks emit 'select' (used by the world map)
 
     this.isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     this.joy = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, dx: 0, dz: 0 };

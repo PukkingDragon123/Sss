@@ -9,10 +9,11 @@
 animated menu (live fight on the right), **3 save slots**, settings & credits, an
 **idle/tycoon** layer for running your tavern, a **Clash-style den builder** (your
 own room, up the stairs, that you lay out tile-by-tile), an **Equipment Hall** for
-**looted RPG gear** with rarity/levels + a Blacksmith, **artifacts** (including rare
-✦ unique relics) claimed on level-up and from **rune shrines** & **beer kegs** in
-the arena, a **drink-to-refill-mana** drunk system with a queasy nausea effect, and
-a **physics beer-pouring bar shift** for tips.
+**looted RPG gear** with rarity/levels + a Blacksmith, a **Hades-style room path**
+with reward-previewing doors, **abilities** that stack in a top-left tray (claimed
+on level-up and from **rune shrines** & **beer kegs**), build-defining **✦ artifacts**
+dropped by region bosses, a **drink-to-refill-mana** drunk system with a queasy
+nausea effect, and a **physics beer-pouring bar shift** for tips.
 
 A self-contained 3D browser game: **floppy ragdoll-physics** characters (heavily
 inspired by **Human: Fall Flat** — dangling verlet-physics limbs, soft pastel
@@ -98,17 +99,22 @@ plus comforts that deepen your rest bonus. Walk up to a built station and press
 realm — **8 regions** (🌲 Forest, 🦇 Cave, ⚰ Graveyard, 🐊 Swamp, ❄️ Frostspire,
 🔥 **Infernal Depths**, 🤖 **Neon Clockwork**, 🌌 the Void), each its own little
 island, that **unlock one by one** as you fell each boss. **Tap a region** to scout
-its danger tier and loot, then **Venture** to drop straight in. Each region is one
-continuous run — **six escalating waves, then the region 👑 boss** — and clearing
-the boss **conquers** the region and opens the next. Everything is **saved** to
-your browser.
+its danger tier and loot, then **Venture** to drop straight in.
 
-**Artifacts & the arena.** Every level-up lets you **claim an artifact** — stack
-damage, life-on-kill, crit, mana and movement, or score a rare **✦ unique artifact**
-with build-defining power. You can also grab artifacts mid-fight by **interacting
-with the arena**: drink from a **🍺 beer keg** for instant HP & mana (the **golden
-keg** grants an artifact), or **draw any glyph** at the **✦ rune shrine** to channel
-one. Bosses drop the best loot.
+**The path (Hades-style).** A region is a short run of **combat rooms, then the
+👑 boss**. After you clear each room you pick **one of two doors** — and each door
+**shows the prize beyond it** (coin, gear, +max HP, a brew, or an ability), so you
+choose your route like a *Hades* boon or a *Binding of Isaac* item room. Beyond the
+doors a **dark forest waits, red eyes lurking**. Clear the boss to **conquer** the
+region, open the next, and claim its relic.
+
+**Abilities & artifacts.** Level-ups let you **claim an ability** — stack damage,
+life-on-kill, crit, mana and movement; they collect in a **tray, top-left**. You
+can also gain abilities mid-fight by **interacting with the arena**: drink from a
+**🍺 beer keg** for instant HP & mana, or **draw any glyph** at the **✦ rune
+shrine** to channel one. Each region's **boss drops a very-OP ✦ artifact** —
+build-defining relics like the Reaper's Tab (+120% damage) or Phoenix Feather — and
+the **boss door tells you which one** you're fighting for.
 
 **Combos:** draw two equipped glyphs in quick succession to unleash a learned
 combo — e.g. **△ then —** = 🔥 Fire Tornado, **◯ then ϟ** = Ice Storm, **∨ then ★**
@@ -117,7 +123,7 @@ combo — e.g. **△ then —** = 🔥 Fire Tornado, **◯ then ϟ** = Ice Storm
 **Progression & accuracy:** you start with just **Fireball (△)** and **Gust (—)**.
 The full spellbook (a dozen signs — Lightning, Frost, Heal, Nova, Quake, Orb,
 Blink and more) is **unlocked and levelled with gold at the Spell Table**; **equip
-any 3** as your run loadout. Level-ups instead hand you **artifacts**. The cleaner
+any 3** as your run loadout. Level-ups instead hand you **abilities**. The cleaner
 you draw a glyph, the more damage it deals — a **near-perfect glyph crits** (2×).
 The trail recolours live to show the predicted spell and its quality; the 📖 guide
 shows exactly how to draw each one.
@@ -140,12 +146,13 @@ unleash it toward where you were aiming.
 - Foes **swarm** from the dark. Spells leave glowing **XP motes** — soak them up.
 - Spells cost **mana**; **drink** (**Q** / 🍺) to refill it, at the cost of getting
   woozier. Hearts and 🧪 motes drop from foes too.
-- **Level up** to **claim an artifact** (more damage, bigger booms, +1 chain,
+- **Level up** to **claim an ability** (more damage, bigger booms, +1 chain,
   "Liquid Courage" for risky power, "Sip of Coffee" to sober up, "Deep Flask" for
-  bigger gulps, plus rare **✦ unique** relics). Grab more from **rune shrines** and
-  **golden kegs** in the arena.
-- Survive **six waves**, then fell the **region boss** to conquer the region and
-  unlock the next one on the world map.
+  bigger gulps…); they stack in your **top-left tray**. Grab more from **rune
+  shrines** and **golden kegs** in the arena.
+- Clear each **room**, pick a **door** (and its previewed prize), then fell the
+  **region boss** to claim its **✦ artifact**, conquer the region and unlock the
+  next on the world map.
 - **Between runs**, work a **bar shift** at the tavern: accept a patron's order
   and **pour beer to their line** in a physics pour mini-game — a clean pour
   (mind the foam, don't overflow) earns the fattest tip.
@@ -168,19 +175,19 @@ src/
   recognizer.js   # $1 unistroke gesture recognizer
   input.js        # keyboard / pointer / glyph capture
   particles.js    # pooled particle bits + shockwave rings
-  upgrades.js     # the artifact pool (incl. rare unique relics)
+  upgrades.js     # the ability pool + the very-OP artifact pool
   meta.js         # save slots, gear, quests, den builder, idle tavern
   jobs.js         # chores (dishes / sweep / douse)
   story.js        # narrative beats, the 8 regions + the swarm director
   ui.js           # HUD, story modal, artifact cards, shop panels, toasts
   audio.js        # fully synthesized WebAudio SFX
 test/
-  sanity.mjs      # node tests for the recognizer + artifact roller
+  sanity.mjs      # node tests for the recognizer + ability/artifact rollers
 ```
 
 ## 🧪 Tests
 
-The pure logic (gesture recognition and artifact rolling) has node-runnable checks:
+The pure logic (gesture recognition and ability/artifact rolling) has node-runnable checks:
 
 ```bash
 npm test    # runs test/sanity.mjs

@@ -17,7 +17,7 @@ export const TAVERN_INTRO = {
     'This is the Tipsy Toad. Old Barkeep Tomas took us in — drunks, spirits, possessed wizards — and gave us a bed upstairs and a job down here.',
     'But last night, monsters dragged poor Tomas into the dark and didn\'t bring him back. We are going to make them regret that.',
     'Down here it\'s just the bar: lurch to the bar to earn tips, or out the glowing door to venture. Up the stairs is YOUR room — bare for now.',
-    'In your room, tap BUILD to lay out your den Clash-style — a Spell Table, Cauldron, Equipment Hall, Anvil and more — then use them right there. Avenge Tomas, and the Toad is yours.',
+    'In your room, tap BUILD to lay out your den Clash-style — a Spell Table, an Arcane Library, Equipment Hall, Cauldron and more — then use them right there. Win 💎 gems out in the dark; earn 🪙 gold tending this bar. Avenge Tomas, and the Toad is yours.',
   ],
 };
 
@@ -26,10 +26,11 @@ export const TUTORIAL = {
   lines: [
     '⚔️ CAST: hold Right-Mouse (or draw on the right half on phone) and trace a glyph. Cleaner lines hit harder — a PERFECT glyph CRITS. Or tap a spell / press 1–3 to quick-cast.',
     '🍺 MANA = BEER, and it does NOT refill itself. Press Q (or tap 🍺) to CHUG: a 3-second drink — watch the bar — that fills your mana to FULL. You can still move while chugging, but every chug makes the room spin.',
-    '✦ ABILITIES: level-ups (and some kegs, shrines & events) let you claim an ability — they stack in the tray, top-LEFT. Beer abilities even change what a chug does (heal, shield…).',
-    '🗺️ THE PATH: out the door lies the world map — tap a region to scout it, then venture in. After each step you choose a door, LEFT or RIGHT. Each one shows what waits: a fight, an elite, treasure, a campfire, a Mystery, or a Trial of nerve.',
-    '👑 THE BOSS: the final fork leads to the region boss, who drops a build-defining ✦ ARTIFACT — and the door tells you which. Beat the boss to conquer the region and unlock the next.',
-    '🔨 YOUR ROOM: up the stairs, press BUILD to lay out stations (Spell Table, Equipment Hall, Cauldron…) and comforts, then walk up to use them. Rest at the bed for bonus HP.',
+    '💎 vs 🪙: ventures pay in GEMS — spend them on spells & research. GOLD comes only from WORKING the bar by day. Two purses, two jobs.',
+    '✦ ABILITIES: level-ups, kegs, shrines & events let you claim an ability — they stack in the tray, top-LEFT. The four elements (🔥💧🌬️🪨) colour every spell.',
+    '🗺️ THE PATH: out the door lies the world map — tap a region, then venture in. After each step pick a door, LEFT or RIGHT: a fight, an elite, treasure, a campfire, a Mystery (a choice) or a Trial (a skill test). The final fork leads to the boss, who drops a build-defining ✦ ARTIFACT.',
+    '🔨 YOUR ROOM: up the stairs, press BUILD to lay out stations — the Spell Table (learn spells with 💎), the Arcane Library (📖 Grimoire, Research & Inventory), Equipment Hall, Cauldron — then walk up to use them. Rest at the bed for bonus HP.',
+    '🍺 WORK by day: tend the bar — take an order, pour to the line, then CARRY the mug over without tipping it (◀ / ▶). Clean pours and steady hands earn the best tips — your gold.',
     'That\'s the lot. Now go make some beautiful, catastrophic magic.',
   ],
 };

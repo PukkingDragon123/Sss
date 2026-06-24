@@ -9,11 +9,14 @@
 animated menu (live fight on the right), **3 save slots**, settings & credits, an
 **idle/tycoon** layer for running your tavern, a **Clash-style den builder** (your
 own room, up the stairs, that you lay out tile-by-tile), an **Equipment Hall** for
-**looted RPG gear** with rarity/levels + a Blacksmith, a **Hades-style room path**
-with reward-previewing doors, **abilities** that stack in a top-left tray (claimed
-on level-up and from **rune shrines** & **beer kegs**), build-defining **✦ artifacts**
-dropped by region bosses, a **drink-to-refill-mana** drunk system with a queasy
-nausea effect, and a **physics beer-pouring bar shift** for tips.
+**looted RPG gear** with rarity/levels + a Blacksmith, an **Arcane Library** (📖
+Grimoire showcase, gem-funded **research**, and an inventory), a **two-currency
+economy** — 💎 **gems** won in battle (spent on spells & research) and 🪙 **gold**
+earned only by **working** — on a **day/night clock**, a **Slay-the-Spire path** of
+left/right doors with choice & skill **events**, **abilities** that stack in a
+top-left tray, the **4 elements** (🔥💧🌬️🪨) colouring every spell, build-defining
+**✦ artifacts** dropped by region bosses (with a dramatic reveal), a
+**chug-to-refill** drunk system, and a **carry-and-pour bar shift** for tips.
 
 A self-contained 3D browser game: **floppy ragdoll-physics** characters (heavily
 inspired by **Human: Fall Flat** — dangling verlet-physics limbs, soft pastel
@@ -126,7 +129,7 @@ combo — e.g. **△ then —** = 🔥 Fire Tornado, **◯ then ϟ** = Ice Storm
 
 **Progression & accuracy:** you start with just **Fireball (△)** and **Gust (—)**.
 The full spellbook (a dozen signs — Lightning, Frost, Heal, Nova, Quake, Orb,
-Blink and more) is **unlocked and levelled with gold at the Spell Table**; **equip
+Blink and more) is **unlocked and levelled with 💎 gems at the Spell Table**; **equip
 any 3** as your run loadout. Level-ups instead hand you **abilities**. The cleaner
 you draw a glyph, the more damage it deals — a **near-perfect glyph crits** (2×).
 The trail recolours live to show the predicted spell and its quality; the 📖 guide
@@ -157,9 +160,10 @@ unleash it toward where you were aiming.
 - Clear each **room**, pick a **door** (and its previewed prize), then fell the
   **region boss** to claim its **✦ artifact**, conquer the region and unlock the
   next on the world map.
-- **Between runs**, work a **bar shift** at the tavern: accept a patron's order
-  and **pour beer to their line** in a physics pour mini-game — a clean pour
-  (mind the foam, don't overflow) earns the fattest tip.
+- **Money comes only from working.** By day, tend the **bar shift**: take an order,
+  **pour to the line**, then **carry the mug across without tipping it** (tap ◀ / ▶
+  to counter the wobble). A clean pour *and* a steady carry earn the fattest tip —
+  your gold. Spend gems & research at the **Arcane Library** between ventures.
 
 ---
 

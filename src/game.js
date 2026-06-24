@@ -36,6 +36,34 @@ const DEFAULT_STATS = () => ({
   drinkHeal: 0, drinkShield: 0,
 });
 
+// choice-based path events (Slay-the-Spire dilemmas). Each option is pure data:
+// hp/heal/maxhp/gold(±)/mana/drunk deltas + an optional gain (ability|gear|gold).
+// minGold disables an option you can't afford.
+const EVENTS = [
+  { icon: '🏺', title: 'The Hungry Altar', prompt: 'A cracked altar hums, hungry for tribute. The air tastes of old magic.', opts: [
+    { label: 'Offer blood', tip: '−18 HP · gain an ability', hp: -18, gain: 'ability' },
+    { label: 'Pay tribute (70🪙)', tip: '−70🪙 · gain an ability', minGold: 70, gold: -70, gain: 'ability' },
+    { label: 'Back away', tip: 'leave it be' },
+  ] },
+  { icon: '👻', title: 'The Tipsy Ghost', prompt: 'A see-through sot rattles a hidden coin-stash and a dusty bottle at you.', opts: [
+    { label: 'Chug his brew', tip: '+60🪙 · full mana · a buzz', gold: 60, mana: 'full', drunk: 0.25, gain: 'gold', goldAmt: 60 },
+    { label: 'Pocket the coin', tip: '+120🪙', gain: 'gold', goldAmt: 120 },
+  ] },
+  { icon: '🗡️', title: 'The Buried Blade', prompt: 'A faintly glowing weapon juts from a long-dead adventurer. It hums to be held.', opts: [
+    { label: 'Wrench it free', tip: '−12 HP · take the gear', hp: -12, gain: 'gear' },
+    { label: 'Say a prayer', tip: 'mend 35 HP', heal: 35 },
+  ] },
+  { icon: '🍄', title: 'The Glowing Cap', prompt: 'Luminous mushrooms pulse on a stump. Definitely magical. Probably edible.', opts: [
+    { label: 'Gobble them', tip: 'gain an ability · +woozy', gain: 'ability', drunk: 0.3 },
+    { label: 'Brew a tonic (40🪙)', tip: '−40🪙 · +20 max HP', minGold: 40, gold: -40, maxhp: 20 },
+    { label: 'Leave them', tip: 'wise.' },
+  ] },
+  { icon: '⚖️', title: "A Devil's Bargain", prompt: 'A horned merchant grins. "Power now, pay later — only a sliver of your vigour."', opts: [
+    { label: 'Take the deal', tip: '−25 max HP · gain an ability', maxhp: -25, gain: 'ability' },
+    { label: 'Decline politely', tip: '+45🪙 for your prudence', gain: 'gold', goldAmt: 45 },
+  ] },
+];
+
 export class Game {
   constructor() {
     this.canvas = document.getElementById('scene');
@@ -530,13 +558,13 @@ export class Game {
   }
 
   onBossDead() {
-    this.bossActive = false; this.bossKilled = true; this._roomsCleared = this._combatRooms + 1;
+    this.bossActive = false; this.bossKilled = true; this._roomsCleared = this._forksTotal + 2;
     if (this._pendingReward) { this._grantReward(this._pendingReward); this._pendingReward = null; }
     this.grantArtifact(this._opArtifact); // the guaranteed, build-defining end-of-level relic
-    const relic = this._opArtifact ? `, and the ${this._opArtifact.name} is ours` : '';
-    this.showStory('The Spirit', [`${this.stage.bossName} falls! ${this.stage.name} is conquered${relic}. Let's stagger home rich.`]);
-    this._endState = 'win';
     this.audio.play('win');
+    this._endState = 'win';
+    this.state = 'reveal'; // freeze the field behind the reveal screen
+    this.ui.showArtifactReveal(this._opArtifact, () => { this.state = 'win'; this._showEnd(true); });
   }
 
   _winRun() {
@@ -789,12 +817,13 @@ export class Game {
     this.kills = 0; this.chores = 0; this.pendingLevels = 0; this.elapsed = 0;
     this.drunkenness = 0.22; this._drunkSurge = 0; this._drinkCd = 0; this._drinking = false;
     this._artifactsTaken = new Set();
-    // ---- Hades-style path: a few combat rooms, a 2-door choice before each next
-    // one (the door previews its reward), then the boss + a guaranteed OP artifact ----
-    this._combatRooms = 3;          // entrance + two more, then the boss
-    this._roomIndex = 0;            // combat rooms cleared so far
+    // ---- the run path: an entrance fight, then a left/right fork before each step
+    // (combat / treasure / campfire / choice-event / skill-trial, Slay-the-Spire
+    // style), then the boss + a guaranteed OP artifact previewed at the boss fork ----
+    this._forksTotal = 3;           // normal forks before the boss fork
+    this._forksDone = 0;            // forks resolved so far
     this._roomsCleared = 0;         // depth, for loot & quests
-    this._pendingReward = null;     // the prize the door you walked through promised
+    this._pendingReward = null;     // the prize the combat node you entered promised
     this._nextIsBoss = false;
     this.runAbilities = new Map();  // id -> {icon,name,count}  (shown top-left)
     this.runArtifacts = [];         // [{icon,name}]            (the OP relics)
@@ -823,49 +852,116 @@ export class Game {
     });
   }
 
-  // ---- run path: rooms, the 2-door junctions, and rewards ----
-  _beginRoom(isBoss) {
-    const scale = 1 + this._roomIndex * 0.16;
-    this.director.start(this.stage, { waves: isBoss ? 1 : 2, boss: isBoss, hpScale: scale, sizeMult: 1 + this._roomIndex * 0.08 });
-    if (isBoss) this.ui.toast('👑 The boss lair — survive!');
-    else this.ui.toast(`⚔ Room ${this._roomIndex + 1} of ${this._combatRooms}`);
+  // ---- run path: a left/right fork before each step. Nodes are typed
+  // (combat / elite / treasure / campfire / choice-event / skill-trial), Slay-the-
+  // Spire style; the door previews what waits. The last fork leads to the boss. ----
+  _beginRoom(isBoss, elite) {
+    const scale = (1 + this._forksDone * 0.12) * (elite ? 1.5 : 1);
+    this.director.start(this.stage, { waves: isBoss ? 1 : 2, boss: isBoss, hpScale: scale, sizeMult: 1 + this._forksDone * 0.06 + (elite ? 0.2 : 0) });
+    this.ui.toast(isBoss ? '👑 The boss lair — survive!' : elite ? '💀 An elite pack!' : '⚔ A skirmish');
   }
 
-  // a non-boss room cleared -> pay out the door's promise, then offer the next fork
+  // a combat room cleared -> pay out its promised reward, then offer the next fork
   onEncounterCleared() {
     if (this._pendingReward) { this._grantReward(this._pendingReward); this._pendingReward = null; }
-    this._roomIndex++; this._roomsCleared = this._roomIndex;
-    this._showJunction(this._roomIndex >= this._combatRooms); // boss comes after the last combat room
+    this._nextFork();
   }
 
-  _showJunction(bossNext) {
-    this._nextIsBoss = bossNext;
+  _nextFork() {
+    this._roomsCleared = this._forksDone;
     this.state = 'path';
     this.audio.play('levelup');
-    this._pathRewards = this._makeRewardPair(bossNext);
+    const bossNext = this._forksDone >= this._forksTotal;
+    this._nextIsBoss = bossNext;
+    this._pathNodes = this._makeNodePair(bossNext);
     this.ui.showPathChoice(this, {
-      bossNext, stage: this.stage,
-      cur: this._roomIndex, total: this._combatRooms,
-      rewards: this._pathRewards,
+      bossNext, stage: this.stage, nodes: this._pathNodes,
+      cur: Math.min(this._forksDone + 1, this._forksTotal + 1), total: this._forksTotal + 1,
       artifact: bossNext ? this._opArtifact : null,
     });
   }
   choosePath(i) {
     if (this.state !== 'path') return;
-    this._pendingReward = (this._pathRewards && this._pathRewards[i]) || null;
-    this.ui.hidePathChoice();
+    const node = this._pathNodes && this._pathNodes[i];
+    if (!node) return;
     this.audio.play('click');
-    this.state = 'play';
-    this._beginRoom(this._nextIsBoss);
+    this.ui.hidePathChoice();
+    this._forksDone++;
+    if (node.type === 'combat' || node.type === 'elite') {
+      this._pendingReward = node.reward || null;
+      this.state = 'play';
+      this._beginRoom(!!node.bossNext, node.type === 'elite');
+    } else if (node.type === 'treasure') {
+      this._grantReward(node.reward); this._nextFork();
+    } else if (node.type === 'campfire') {
+      this.stats.hpMax += 12; this.wizard._maxHp = this.stats.hpMax; this.wizard.hp = this.stats.hpMax;
+      this.wizard.mana = this.stats.manaMax; this.audio.play('heal');
+      this.ui.toast('🔥 Rested — fully healed & +12 max HP'); this._nextFork();
+    } else if (node.type === 'event') {
+      this.state = 'path'; this._curEvent = node.event; this.ui.showChoiceEvent(this, node.event);
+    } else if (node.type === 'skill') {
+      this.state = 'path'; this.ui.showSkillEvent(this);
+    } else { this._nextFork(); }
   }
 
-  // two distinct previewed rewards for a junction (Binding-of-Isaac: see it, earn it on clear)
-  _makeRewardPair() {
-    const kinds = ['coin', 'heart', 'brew', 'gear', 'ability', 'ability'];
-    const a = kinds.splice(Math.floor(Math.random() * kinds.length), 1)[0];
-    const b = kinds.splice(Math.floor(Math.random() * kinds.length), 1)[0];
-    return [this._makeReward(a), this._makeReward(b)];
+  // ----- typed path nodes -----
+  _makeNodePair(bossNext) {
+    if (bossNext) { const a = this._makeNode('combat'); const b = this._makeNode('combat'); a.bossNext = b.bossNext = true; a.name = b.name = 'To the Boss'; return [a, b]; }
+    const types = this._pickNodeTypes();
+    return [this._makeNode(types[0]), this._makeNode(types[1])];
   }
+  _pickNodeTypes() {
+    const pool = [['combat', 4], ['elite', 2], ['treasure', 2], ['campfire', 2], ['event', 3], ['skill', 2]];
+    const pickFrom = (arr) => { let tot = 0; for (const [, w] of arr) tot += w; let r = Math.random() * tot; for (const e of arr) { r -= e[1]; if (r <= 0) return e[0]; } return arr[0][0]; };
+    const a = pickFrom(pool);
+    const b = pickFrom(pool.filter(e => e[0] !== a));
+    return [a, b];
+  }
+  _makeNode(type) {
+    const lvl = Math.max(1, this.level);
+    if (type === 'combat') { const r = this._makeReward(this._randKind()); return { type, icon: '⚔️', name: 'Skirmish', desc: `Fight · win ${r.icon} ${r.name}`, reward: r, lurk: '⚔ foes ahead' }; }
+    if (type === 'elite') { const r = this._makeReward(Math.random() < 0.5 ? 'gear' : 'ability'); return { type, icon: '💀', name: 'Elite Pack', desc: `Tough fight · win ${r.icon} ${r.name}`, reward: r, lurk: '💀 something big stirs' }; }
+    if (type === 'treasure') { const r = this._makeReward(Math.random() < 0.5 ? 'coin' : 'gear'); return { type, icon: '💰', name: 'Hidden Cache', desc: `Free · ${r.icon} ${r.name}`, reward: r, lurk: '✨ unguarded loot' }; }
+    if (type === 'campfire') return { type, icon: '🔥', name: 'Campfire', desc: 'Rest — full heal & +12 max HP', lurk: '🔥 a safe little fire' };
+    if (type === 'event') return { type, icon: '❓', name: 'Mystery', desc: 'A strange encounter — your call', event: this._pickEvent(), lurk: '❓ who knows what' };
+    return { type: 'skill', icon: '✶', name: 'Trial of Nerve', desc: 'Stop the marker on the mark to win', lurk: '✶ a test of nerve' };
+  }
+  _randKind() { const k = ['coin', 'heart', 'brew', 'gear', 'ability', 'ability']; return k[Math.floor(Math.random() * k.length)]; }
+
+  // ----- choice events (Slay-the-Spire style dilemmas) -----
+  _pickEvent() {
+    const pool = EVENTS.filter(e => !e.minGoldAny || meta.gold() >= 0);
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+  resolveEvent(i) {
+    const ev = this._curEvent; if (!ev) { this._nextFork(); return; }
+    const opt = ev.opts[i]; this.ui.hideEvent();
+    if (opt) {
+      const w = this.wizard, s = this.stats;
+      if (opt.hp) w.hp = Math.max(1, w.hp + opt.hp);
+      if (opt.heal) w.heal(opt.heal);
+      if (opt.maxhp) { s.hpMax = Math.max(40, s.hpMax + opt.maxhp); w._maxHp = s.hpMax; w.hp = Math.max(1, Math.min(w.hp + opt.maxhp, s.hpMax)); }
+      if (opt.gold) { if (opt.gold < 0) meta.spendGold(-opt.gold); else meta.addGold(opt.gold); }
+      if (opt.mana === 'full') w.mana = s.manaMax;
+      if (opt.drunk) { this.drunkenness = Math.min(1, this.drunkenness + opt.drunk); this._drunkSurge = 1; }
+      if (opt.gain === 'ability') { const u = rollUpgrades(this, 1)[0]; if (u) { this.applyAbility(u); this.ui.toast(`✦ ${u.name}`); } }
+      else if (opt.gain === 'gear') { const inst = meta.dropGear(Math.max(1, this.level) + 1, Math.random() < 0.4); meta.addGear(inst); this.ui.lootToast(inst); }
+      else if (opt.gain === 'gold') { const amt = opt.goldAmt || 60; meta.addGold(amt); this.ui.toast(`💰 +${amt}🪙`); }
+      this.ui.setGold(meta.gold());
+      this.audio.play('click');
+    }
+    this._nextFork();
+  }
+  resolveSkill(quality) {
+    this.ui.hideEvent();
+    let msg;
+    if (quality >= 0.82) { const u = rollUpgrades(this, 1)[0]; if (u) this.applyAbility(u); meta.addGold(90); msg = `✶ PERFECT! ✦ ${u ? u.name : 'ability'} + 90🪙`; this.audio.play('levelup'); }
+    else if (quality >= 0.45) { const inst = meta.dropGear(Math.max(1, this.level), Math.random() < 0.3); meta.addGear(inst); msg = `✶ Steady — ${meta.RARITIES[inst.rarity].name} ${inst.slot}!`; this.audio.play('xp'); }
+    else { meta.addGold(35); msg = '✶ Shaky hand — 35🪙 for the effort'; this.audio.play('hiccup'); }
+    this.ui.setGold(meta.gold()); this.ui.toast(msg);
+    this._nextFork();
+  }
+
   _makeReward(kind) {
     const lvl = Math.max(1, this.level);
     if (kind === 'coin') { const amount = 70 + Math.floor(Math.random() * 5) * 20 + lvl * 8; return { kind, icon: '💰', name: 'Coin Cache', desc: `+${amount} gold`, amount }; }
@@ -898,7 +994,6 @@ export class Game {
     (this._artifactsTaken || (this._artifactsTaken = new Set())).add(a.id);
     this.runArtifacts.push({ icon: a.icon, name: a.name });
     this._refreshBoonHud();
-    this.ui.toast(`✦✦ ARTIFACT — ${a.name}!`);
   }
   _refreshBoonHud() { if (this.ui.setAbilities) this.ui.setAbilities([...this.runAbilities.values()], this.runArtifacts); }
 

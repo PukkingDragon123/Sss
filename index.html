@@ -110,6 +110,31 @@
     <div class="path-doors" id="path-doors"></div>
   </div>
 
+  <!-- ===== Path event (choice dilemma / skill trial) ===== -->
+  <div id="event-modal" class="overlay hidden">
+    <div class="event-box">
+      <div class="event-icon" id="event-icon">❓</div>
+      <h2 class="event-title" id="event-title">A Mystery</h2>
+      <p class="event-prompt" id="event-prompt"></p>
+      <div class="event-opts" id="event-opts"></div>
+      <div class="event-skill hidden" id="event-skill">
+        <canvas id="skill-canvas" width="440" height="90"></canvas>
+        <button class="btn big" id="skill-stop">STOP!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Artifact reveal (end-of-level relic) ===== -->
+  <div id="art-reveal" class="overlay hidden">
+    <div class="art-burst"></div>
+    <div class="art-rays"></div>
+    <div class="art-label">✦ ARTIFACT CLAIMED ✦</div>
+    <div class="art-icon" id="art-icon">✦</div>
+    <h1 class="art-name" id="art-name"></h1>
+    <p class="art-desc" id="art-desc"></p>
+    <button class="btn big" id="art-claim">Claim ▸</button>
+  </div>
+
   <!-- ===== Title screen ===== -->
   <div id="title" class="overlay">
     <h1 class="game-title">WONKY<span>WIZARD</span></h1>

@@ -87,6 +87,9 @@ export class UI {
       tavernHud: $('tavern-hud'), ruckusCount: $('ruckus-count'),
       abilityTray: $('ability-tray'),
       pathChoice: $('path-choice'), pathDoors: $('path-doors'), pathTitle: $('path-title'), pathSub: $('path-sub'), pathBoss: $('path-boss'),
+      eventModal: $('event-modal'), eventIcon: $('event-icon'), eventTitle: $('event-title'), eventPrompt: $('event-prompt'),
+      eventOpts: $('event-opts'), eventSkill: $('event-skill'), skillCanvas: $('skill-canvas'), skillStop: $('skill-stop'),
+      artReveal: $('art-reveal'), artRevealIcon: $('art-icon'), artRevealName: $('art-name'), artRevealDesc: $('art-desc'), artClaim: $('art-claim'),
       worldHud: $('world-hud'), worldDetail: $('world-detail'),
       btnGuide: $('btn-guide'), btnPause: $('btn-pause'), btnMute: $('btn-mute'),
       joystick: $('joystick'), joyKnob: $('joy-knob'), blackout: $('blackout'),
@@ -138,6 +141,13 @@ export class UI {
       const d = e.target.closest('[data-door]'); if (!d) return;
       game.audio.play('click'); game.choosePath(parseInt(d.dataset.door, 10));
     });
+    // choice-event options + skill-trial stop
+    if (this.el.eventOpts) this.el.eventOpts.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-opt]'); if (!b || b.disabled) return;
+      game.resolveEvent(parseInt(b.dataset.opt, 10));
+    });
+    if (this.el.skillStop) this.el.skillStop.addEventListener('click', () => this.stopSkill());
+    if (this.el.artClaim) this.el.artClaim.addEventListener('click', () => { game.audio.play('click'); const cb = this._artRevealDone; this._artRevealDone = null; this.el.artReveal.classList.add('hidden'); if (cb) cb(); });
     // world-map HUD: Venture / Back buttons (region selection itself is 3D clicks)
     if (this.el.worldDetail) this.el.worldDetail.addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
@@ -282,29 +292,31 @@ export class UI {
     tray.classList.toggle('hidden', !(this.game && this.game.phase === 'arena'));
   }
 
-  // ---- Hades-style path choice: two doors, each previewing the prize beyond ----
+  // ---- Slay-the-Spire-style fork: pick the LEFT or RIGHT door; each previews its node ----
   showPathChoice(game, opts) {
-    const { bossNext, stage, rewards, artifact } = opts;
+    const { bossNext, stage, nodes, artifact, cur, total } = opts;
     this.el.pathTitle.textContent = bossNext ? 'The Boss Lair Awaits' : 'Choose Your Path';
     this.el.pathSub.innerHTML = bossNext
-      ? 'Beyond either door waits the boss — and the relic it guards. Pick your final boon:'
-      : 'Two ways through the dark forest. Each door shows the prize beyond it…';
+      ? 'Beyond either door waits the boss — and the relic it guards. Pick your way in:'
+      : `Two ways through the dark forest — <b>left or right</b>. ${total ? `Step ${cur}/${total}. ` : ''}Each door shows what waits…`;
     if (bossNext && artifact) {
       this.el.pathBoss.classList.remove('hidden');
       this.el.pathBoss.innerHTML = `👑 <b>${stage.bossName}</b> guards a relic — clear the lair to claim <span class="pb-art">✦ ${artifact.name}</span>`;
     } else this.el.pathBoss.classList.add('hidden');
     this.el.pathDoors.innerHTML = '';
     this._pathDoors = [];
-    rewards.forEach((r, i) => {
+    const sides = ['◂ LEFT', 'RIGHT ▸'];
+    nodes.forEach((n, i) => {
       const door = document.createElement('div'); door.className = 'path-door'; door.dataset.door = i;
+      const side = document.createElement('div'); side.className = 'door-side'; side.textContent = sides[i] || 'Enter';
       const cv = document.createElement('canvas'); cv.width = 300; cv.height = 150; cv.className = 'door-art';
-      const lurk = document.createElement('div'); lurk.className = 'door-lurk'; lurk.textContent = bossNext ? '👑 …and then the boss' : '👁 something lurks within…';
-      const reward = document.createElement('div'); reward.className = 'door-reward';
-      reward.innerHTML = `<span class="door-ico">${r.icon}</span><div class="door-rw-txt"><div class="door-name" ${r.color ? `style="color:${r.color}"` : ''}>${r.name}</div><div class="door-desc">${r.desc}</div></div>`;
-      const btn = document.createElement('button'); btn.className = 'btn big door-go'; btn.textContent = 'Enter ▸';
-      door.appendChild(cv); door.appendChild(lurk); door.appendChild(reward); door.appendChild(btn);
+      const lurk = document.createElement('div'); lurk.className = 'door-lurk'; lurk.textContent = n.lurk || '👁 something lurks within…';
+      const node = document.createElement('div'); node.className = 'door-reward';
+      node.innerHTML = `<span class="door-ico">${n.icon}</span><div class="door-rw-txt"><div class="door-name">${n.name}</div><div class="door-desc">${n.desc}</div></div>`;
+      const btn = document.createElement('button'); btn.className = 'btn big door-go'; btn.textContent = (n.type === 'combat' || n.type === 'elite') ? 'Enter ▸' : 'Go ▸';
+      door.appendChild(side); door.appendChild(cv); door.appendChild(lurk); door.appendChild(node); door.appendChild(btn);
       this.el.pathDoors.appendChild(door);
-      this._pathDoors.push(this._makeDoorArt(cv, i, bossNext));
+      this._pathDoors.push(this._makeDoorArt(cv, i, bossNext || n.type === 'elite'));
     });
     this.el.pathChoice.classList.remove('hidden');
     if (!this._pathLoopBound) this._pathLoopBound = this._pathLoop.bind(this);
@@ -372,6 +384,86 @@ export class UI {
     ctx.restore();
     // vignette frame
     ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 8; ctx.strokeRect(0, 0, W, H);
+  }
+
+  // ---- choice event (Slay-the-Spire dilemma) ----
+  showChoiceEvent(game, ev) {
+    this.el.eventIcon.textContent = ev.icon || '❓';
+    this.el.eventTitle.textContent = ev.title || 'A Mystery';
+    this.el.eventPrompt.textContent = ev.prompt || '';
+    this.el.eventSkill.classList.add('hidden');
+    this.el.eventOpts.classList.remove('hidden');
+    this.el.eventOpts.innerHTML = '';
+    ev.opts.forEach((o, i) => {
+      const afford = !o.minGold || meta.gold() >= o.minGold;
+      const b = document.createElement('button');
+      b.className = 'btn event-opt'; b.dataset.opt = i; if (!afford) b.disabled = true;
+      b.innerHTML = `<span class="eo-label">${o.label}</span><span class="eo-tip">${afford ? (o.tip || '') : 'not enough gold'}</span>`;
+      this.el.eventOpts.appendChild(b);
+    });
+    this.el.eventModal.classList.remove('hidden');
+  }
+  // ---- skill event: stop the sweeping marker on the green mark ----
+  showSkillEvent(game) {
+    this.el.eventIcon.textContent = '✶';
+    this.el.eventTitle.textContent = 'Trial of Nerve';
+    this.el.eventPrompt.textContent = 'Stop the sweeping marker as close to the golden mark as you can. The steadier your hand, the richer the prize.';
+    this.el.eventOpts.classList.add('hidden');
+    this.el.eventSkill.classList.remove('hidden');
+    this.el.eventModal.classList.remove('hidden');
+    this._skill = { pos: 0, dir: 1, speed: 1.15, target: 0.30 + Math.random() * 0.40, stopped: false };
+    if (!this._skillLoopBound) this._skillLoopBound = this._skillLoop.bind(this);
+    cancelAnimationFrame(this._skillRaf);
+    this._skillRaf = requestAnimationFrame(this._skillLoopBound);
+  }
+  stopSkill() {
+    const s = this._skill; if (!s || s.stopped) return;
+    s.stopped = true; cancelAnimationFrame(this._skillRaf);
+    const quality = Math.max(0, 1 - Math.abs(s.pos - s.target) / 0.5); // 1 = bang on
+    this._drawSkill(); // freeze the final frame
+    setTimeout(() => this.game.resolveSkill(quality), 350);
+  }
+  _skillLoop() {
+    const s = this._skill; if (!s || s.stopped) return;
+    s.pos += s.dir * s.speed * 0.016;
+    if (s.pos >= 1) { s.pos = 1; s.dir = -1; } else if (s.pos <= 0) { s.pos = 0; s.dir = 1; }
+    this._drawSkill();
+    this._skillRaf = requestAnimationFrame(this._skillLoopBound);
+  }
+  _drawSkill() {
+    const s = this._skill, cv = this.el.skillCanvas; if (!s || !cv) return;
+    const ctx = cv.getContext('2d'), W = cv.width, H = cv.height, pad = 16, bw = W - pad * 2;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(pad, H / 2 - 12, bw, 24);
+    // target zone
+    const tx = pad + s.target * bw, half = 0.09 * bw;
+    const g = ctx.createLinearGradient(tx - half, 0, tx + half, 0);
+    g.addColorStop(0, 'rgba(110,231,160,0)'); g.addColorStop(0.5, 'rgba(110,231,160,.8)'); g.addColorStop(1, 'rgba(110,231,160,0)');
+    ctx.fillStyle = g; ctx.fillRect(tx - half, H / 2 - 16, half * 2, 32);
+    ctx.strokeStyle = '#6ee7a0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(tx, H / 2 - 18); ctx.lineTo(tx, H / 2 + 18); ctx.stroke();
+    // marker
+    const mx = pad + s.pos * bw;
+    ctx.fillStyle = s.stopped ? '#ffcf5c' : '#fff';
+    ctx.beginPath(); ctx.moveTo(mx, H / 2 - 20); ctx.lineTo(mx - 7, H / 2 - 30); ctx.lineTo(mx + 7, H / 2 - 30); ctx.closePath(); ctx.fill();
+    ctx.fillRect(mx - 2, H / 2 - 18, 4, 36);
+    // rails
+    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2; ctx.strokeRect(pad, H / 2 - 12, bw, 24);
+  }
+  hideEvent() {
+    cancelAnimationFrame(this._skillRaf); this._skill = null;
+    if (this.el.eventModal) this.el.eventModal.classList.add('hidden');
+  }
+
+  // ---- the end-of-level artifact reveal: a dramatic, glowing relic screen ----
+  showArtifactReveal(a, onDone) {
+    this._artRevealDone = onDone || null;
+    if (this.el.artRevealIcon) this.el.artRevealIcon.textContent = a ? a.icon : '✦';
+    if (this.el.artRevealName) this.el.artRevealName.textContent = a ? a.name : 'A Relic';
+    if (this.el.artRevealDesc) this.el.artRevealDesc.textContent = a ? a.desc : '';
+    const o = this.el.artReveal; if (!o) { if (onDone) onDone(); return; }
+    o.classList.remove('hidden');
+    o.classList.remove('show'); void o.offsetWidth; o.classList.add('show'); // restart the entrance
+    if (this.game && this.game.audio) this.game.audio.play('win');
   }
 
   // hub prompt: show what the wizard can interact with

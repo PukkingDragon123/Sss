@@ -79,6 +79,7 @@ export class UI {
       minigame: $('minigame'), mgScore: $('mg-score'), mgTitle: $('mg-title'), mgSub: $('mg-sub'),
       mgOrder: $('mg-order'), mgCanvas: $('mg-canvas'), mgPour: $('mg-pour'), mgServe: $('mg-serve'),
       mgAccept: $('mg-accept'), mgServed: $('mg-served'), mgTotal: $('mg-total'), mgQuit: $('mg-quit'),
+      mgLeft: $('mg-left'), mgRight: $('mg-right'),
       end: $('end'), endTitle: $('end-title'), endStats: $('end-stats'), btnAgain: $('btn-again'),
       loading: $('loading'),
       bars: document.querySelector('.bars'), spellbook: $('spellbook'), castHint: $('cast-hint'),
@@ -714,31 +715,39 @@ export class UI {
     this.el.settings.classList.remove('hidden');
   }
 
-  // ---- Tavern serving: a physics beer-pour bar shift ----
-  // Accept an order (a target fill), hold to pour, watch the foam build, then
-  // serve. Tips scale with how close the settled beer is to the patron's line.
+  // ---- Tavern serving: take an order, pour to the line, then CARRY it across the
+  // bar without tipping the mug over, and serve. Tip = pour accuracy + steady carry. ----
   showBar(onDone) {
     const M = this._bar = {
       done: onDone, served: 0, total: 4, tips: 0,
-      liquid: 0, foam: 0, pouring: false, spilled: 0, overflow: 0,
-      target: 0, tol: 0, phase: 'order', // order -> pour -> served
-      patron: 0, last: performance.now(), wobble: 0, anim: 0,
+      liquid: 0, foam: 0, pouring: false, overflow: 0,
+      target: 0, tol: 0, phase: 'order', // order -> pour -> carry -> served
+      patron: 0, last: performance.now(), anim: 0,
+      dist: 0, angle: 0, av: 0, carrySpill: 0, gustT: 0, leftHeld: false, rightHeld: false, pourMiss: 0,
     };
     this.el.mgTitle.textContent = '🍺 Tend the Bar';
-    this.el.mgSub.innerHTML = 'A patron wants a pint. <b>Accept the order</b>, then <b>hold to pour</b> — fill to their line without spilling the foam over the rim. The cleaner the pour, the bigger the tip.';
+    this.el.mgSub.innerHTML = 'Take the order, <b>hold to pour</b> to the line, then <b>carry it over</b> — tap <b>◀ / ▶</b> (or A/D) to keep the mug level. A clean pour AND a steady carry earn the fattest tip.';
     this.el.mgScore.textContent = '0';
     this.el.mgServed.textContent = '0';
     this.el.mgTotal.textContent = M.total;
     this.el.minigame.classList.remove('hidden');
     this._barNewOrder();
 
-    // pour control: hold the button (mouse or touch); release anywhere to stop
+    // pour control: hold the button; carry control: hold ◀ / ▶
     const down = (e) => { if (this._bar && this._bar.phase === 'pour') { this._bar.pouring = true; if (e && e.preventDefault) e.preventDefault(); } };
-    const upp = () => { if (this._bar) this._bar.pouring = false; };
-    this._barDown = down; this._barUp = upp;
+    const upp = () => { if (this._bar) { this._bar.pouring = false; this._bar.leftHeld = false; this._bar.rightHeld = false; } };
+    const lDown = (e) => { if (this._bar) this._bar.leftHeld = true; if (e && e.preventDefault) e.preventDefault(); };
+    const rDown = (e) => { if (this._bar) this._bar.rightHeld = true; if (e && e.preventDefault) e.preventDefault(); };
+    const key = (v) => (e) => { if (!this._bar || this._bar.phase !== 'carry') return; const k = (e.key || '').toLowerCase(); if (k === 'a' || k === 'arrowleft') this._bar.leftHeld = v; else if (k === 'd' || k === 'arrowright') this._bar.rightHeld = v; };
+    this._barDown = down; this._barUp = upp; this._barLDown = lDown; this._barRDown = rDown;
+    this._barKeyDown = key(true); this._barKeyUp = key(false);
     this.el.mgPour.addEventListener('pointerdown', down);
-    window.addEventListener('pointerup', upp);
     this.el.mgPour.addEventListener('pointercancel', upp);
+    this.el.mgLeft.addEventListener('pointerdown', lDown);
+    this.el.mgRight.addEventListener('pointerdown', rDown);
+    window.addEventListener('pointerup', upp);
+    window.addEventListener('keydown', this._barKeyDown);
+    window.addEventListener('keyup', this._barKeyUp);
     this.el.mgServe.onclick = () => this._barServe();
     this.el.mgAccept.onclick = () => this._barAccept();
     this.el.mgQuit.onclick = () => this._barFinish();
@@ -747,52 +756,71 @@ export class UI {
     this._barRaf = requestAnimationFrame(this._barLoopBound);
   }
 
+  _barShow(pour, serve, left, right, accept) {
+    this.el.mgPour.classList.toggle('hidden', !pour);
+    this.el.mgServe.classList.toggle('hidden', !serve);
+    this.el.mgLeft.classList.toggle('hidden', !left);
+    this.el.mgRight.classList.toggle('hidden', !right);
+    this.el.mgAccept.classList.toggle('hidden', !accept);
+  }
   _barNewOrder() {
     const M = this._bar; if (!M) return;
-    M.phase = 'order'; M.liquid = 0; M.foam = 0; M.pouring = false; M.overflow = 0; M.spilled = 0;
+    M.phase = 'order'; M.liquid = 0; M.foam = 0; M.pouring = false; M.overflow = 0;
+    M.dist = 0; M.angle = 0; M.av = 0; M.carrySpill = 0; M.gustT = 0; M.leftHeld = false; M.rightHeld = false;
     M.patron++;
-    M.target = 0.62 + Math.random() * 0.26;          // where the beer line should land
-    M.tol = 0.06;                                     // perfect band
+    M.target = 0.62 + Math.random() * 0.26;
+    M.tol = 0.06;
     this.el.mgOrder.classList.remove('hidden');
-    this.el.mgOrder.innerHTML = `Patron #${M.patron}: “Fill 'er to the line — about <b>${Math.round(M.target * 100)}%</b>, barkeep.”`;
-    this.el.mgAccept.classList.remove('hidden');
-    this.el.mgPour.classList.add('hidden');
-    this.el.mgServe.classList.add('hidden');
+    this.el.mgOrder.innerHTML = `Patron #${M.patron}: “Fill 'er to about <b>${Math.round(M.target * 100)}%</b>, barkeep — and don't slosh it on the way over!”`;
+    this._barShow(false, false, false, false, true);
   }
   _barAccept() {
     const M = this._bar; if (!M || M.phase !== 'order') return;
     this.game.audio.play('click');
     M.phase = 'pour';
-    this.el.mgOrder.innerHTML = `Pour to the <b>red line</b> (~${Math.round(M.target * 100)}%). Foam counts — don't overflow!`;
-    this.el.mgAccept.classList.add('hidden');
-    this.el.mgPour.classList.remove('hidden');
-    this.el.mgServe.classList.remove('hidden');
+    this.el.mgOrder.innerHTML = `Pour to the <b>red line</b> (~${Math.round(M.target * 100)}%). Foam counts — don't overflow! Then <b>Carry it</b>.`;
+    this._barShow(true, true, false, false, false);
   }
+  // pour -> carry
   _barServe() {
     const M = this._bar; if (!M || M.phase !== 'pour') return;
-    M.pouring = false; M.phase = 'served';
-    const level = M.liquid + M.foam;                  // total height in the glass
-    const miss = Math.abs(level - M.target);
-    let tip;
-    if (M.overflow > 0.04) { tip = 1; this.game.audio.play('hiccup'); }       // sloppy mess
-    else if (miss <= M.tol) { tip = 12; this.game.audio.play('levelup'); this.critToast(); } // bang on
-    else if (miss <= 0.16) { tip = 7; this.game.audio.play('xp'); }
-    else { tip = 3; this.game.audio.play('xp'); }
+    M.pouring = false; M.phase = 'carry';
+    M.pourMiss = Math.abs(M.liquid + M.foam - M.target);
+    this.game.audio.play('click');
+    this.el.mgOrder.innerHTML = '🍺 Carry it to the patron! Tap <b>◀ / ▶</b> (or A/D) to keep the mug level — spill too much and the tip shrinks.';
+    this._barShow(false, false, true, true, false);
+  }
+  // carry -> served (score the round)
+  _barDeliver() {
+    const M = this._bar; if (!M || M.phase !== 'carry') return;
+    M.phase = 'served';
+    this._barShow(false, false, false, false, false);
+    const pourGood = M.overflow > 0.04 ? 0 : (M.pourMiss <= M.tol ? 8 : M.pourMiss <= 0.16 ? 5 : 2);
+    const spillFrac = Math.min(1, M.carrySpill * 2.2);
+    const carryGood = Math.round((1 - spillFrac) * 6);
+    const tip = Math.max(1, pourGood + carryGood);
+    if (pourGood >= 8 && carryGood >= 6) { this.critToast(); this.game.audio.play('levelup'); }
+    else this.game.audio.play(spillFrac > 0.55 ? 'hiccup' : 'xp');
     M.tips += tip; M.served++;
     this.el.mgScore.textContent = M.tips;
     this.el.mgServed.textContent = M.served;
-    this.toast(`🍺 +${tip}🪙 tip`);
-    if (M.served >= M.total) { setTimeout(() => this._barFinish(), 650); return; }
+    this.toast(`🍺 +${tip}🪙 tip${spillFrac > 0.3 ? ' (a bit sloshed)' : ''}`);
+    if (M.served >= M.total) { setTimeout(() => this._barFinish(), 750); return; }
     setTimeout(() => this._barNewOrder(), 850);
   }
   _barFinish() {
     const M = this._bar; if (!M) { this.el.minigame.classList.add('hidden'); return; }
     cancelAnimationFrame(this._barRaf);
     window.removeEventListener('pointerup', this._barUp);
+    window.removeEventListener('keydown', this._barKeyDown);
+    window.removeEventListener('keyup', this._barKeyUp);
     this.el.mgPour.removeEventListener('pointerdown', this._barDown);
     this.el.mgPour.removeEventListener('pointercancel', this._barUp);
+    this.el.mgLeft.removeEventListener('pointerdown', this._barLDown);
+    this.el.mgRight.removeEventListener('pointerdown', this._barRDown);
     this.el.minigame.classList.add('hidden');
     this.el.mgOrder.classList.add('hidden');
+    this._barShow(false, false, false, false, false);
     const cb = M.done; this._bar = null;
     if (cb) cb(M.tips);
   }
@@ -805,29 +833,81 @@ export class UI {
 
     if (M.phase === 'pour') {
       if (M.pouring) {
-        M.liquid += 0.34 * dt;                        // beer flows in
-        // foam builds faster the harder the stream hits existing beer
+        M.liquid += 0.34 * dt;
         M.foam += (0.10 + M.liquid * 0.20) * dt;
       } else {
-        // foam settles into liquid when you stop pouring (the satisfying part)
         const settle = Math.min(M.foam, 0.18 * dt);
         M.foam -= settle; M.liquid += settle * 0.45;
       }
-      // overflow once the glass is full
       const level = M.liquid + M.foam;
       if (level > 1) { M.overflow += (level - 1); M.foam = Math.max(0, M.foam - (level - 1)); M.liquid = Math.min(M.liquid, 1); }
+    } else if (M.phase === 'carry') {
+      // inverted-pendulum balance: gusts knock the mug, you counter with ◀/▶
+      M.gustT -= dt;
+      if (M.gustT <= 0) { M.gustT = 0.5 + Math.random() * 0.7; M.av += (Math.random() - 0.5) * 2.0; }
+      if (M.leftHeld) M.av -= 5 * dt;
+      if (M.rightHeld) M.av += 5 * dt;
+      M.av += Math.sin(M.angle) * 3 * dt;   // tilt makes it want to keep tipping
+      M.av -= M.av * 2.2 * dt;              // damping
+      M.angle += M.av * dt;
+      if (M.angle > 1.1) { M.angle = 1.1; M.av *= -0.2; }
+      if (M.angle < -1.1) { M.angle = -1.1; M.av *= -0.2; }
+      const lean = Math.abs(M.angle);
+      if (lean > 0.45) { const over = lean - 0.45; M.carrySpill += over * 0.5 * dt; M.liquid = Math.max(0, M.liquid - over * 0.5 * dt); }
+      M.dist += dt / 6.5;
+      if (M.dist >= 1) { this._barDeliver(); }
     } else if (M.phase === 'served') {
       const settle = Math.min(M.foam, 0.25 * dt); M.foam -= settle; M.liquid += settle * 0.4;
     }
-    M.wobble = Math.sin(M.anim * 3) * 0.5 + 0.5;
     this._barRender();
     this._barRaf = requestAnimationFrame(this._barLoopBound);
+  }
+
+  _barRenderCarry(ctx, W, H, M) {
+    ctx.fillStyle = '#241a18'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#15100e'; ctx.fillRect(0, H - 72, W, 72);
+    const px = 44, pw = W - 88, py = H - 70;
+    ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = 4; ctx.setLineDash([10, 8]);
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + pw, py); ctx.stroke(); ctx.setLineDash([]);
+    ctx.font = '40px serif'; ctx.textAlign = 'center';
+    ctx.fillText('🛢', px, py - 2);
+    ctx.fillText(M.dist > 0.9 ? '😋' : '🧔', px + pw, py - 4);
+    const wx = px + M.dist * pw;
+    ctx.font = '46px serif'; ctx.fillText('🧙', wx, py + 4);
+    // mug on a little tray, tilted by the balance angle
+    ctx.save(); ctx.translate(wx, py - 52); ctx.rotate(M.angle);
+    ctx.fillStyle = '#6a4a2a'; ctx.fillRect(-26, 4, 52, 5);
+    const mw = 30, mh = 42;
+    ctx.fillStyle = '#caa06a'; ctx.fillRect(-mw / 2, -mh, mw, mh);
+    const f = Math.min(1, M.liquid) * (mh - 6);
+    const grd = ctx.createLinearGradient(0, -f, 0, 0); grd.addColorStop(0, '#ffd166'); grd.addColorStop(1, '#c8841d');
+    ctx.fillStyle = grd; ctx.fillRect(-mw / 2 + 3, -f - 3, mw - 6, f);
+    ctx.fillStyle = '#fff7e8'; ctx.fillRect(-mw / 2 + 3, -f - 9, mw - 6, 6);
+    ctx.strokeStyle = '#efe6d6'; ctx.lineWidth = 2; ctx.strokeRect(-mw / 2, -mh, mw, mh);
+    ctx.restore();
+    const lean = Math.abs(M.angle);
+    if (lean > 0.45) {
+      ctx.fillStyle = 'rgba(255,206,90,.85)';
+      for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(wx + (M.angle > 0 ? 22 : -22) + Math.sin(M.anim * 9 + i) * 6, py - 38 + ((M.anim * 130 + i * 22) % 42), 3, 0, 6.28); ctx.fill(); }
+      ctx.fillStyle = '#ff6a6a'; ctx.font = 'bold 16px "Trebuchet MS",sans-serif'; ctx.fillText('STEADY!', wx, py - 96);
+    }
+    // balance meter
+    const mx = W / 2, bw = 210;
+    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(mx - bw / 2, 30, bw, 16);
+    const safe = (0.45 / 1.1) * (bw / 2);
+    ctx.fillStyle = 'rgba(110,231,160,.35)'; ctx.fillRect(mx - safe, 30, safe * 2, 16);
+    const nx = mx + Math.max(-1, Math.min(1, M.angle / 1.1)) * (bw / 2);
+    ctx.fillStyle = lean > 0.45 ? '#ff5d6c' : '#ffe08a'; ctx.fillRect(nx - 3, 26, 6, 24);
+    ctx.fillStyle = '#cfe0ff'; ctx.font = 'bold 12px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.fillText('keep it level', mx, 22);
+    ctx.fillStyle = '#ffe6a8'; ctx.font = 'bold 15px "Trebuchet MS",sans-serif';
+    ctx.fillText(`Carried ${Math.round(M.dist * 100)}%  ·  in the mug: ${Math.round(Math.min(1, M.liquid + M.foam) * 100)}%`, W / 2, H - 14);
   }
 
   _barRender() {
     const M = this._bar, cv = this.el.mgCanvas; if (!M || !cv) return;
     const ctx = cv.getContext('2d'); const W = cv.width, H = cv.height;
     ctx.clearRect(0, 0, W, H);
+    if (M.phase === 'carry') { this._barRenderCarry(ctx, W, H, M); return; }
 
     // glass geometry
     const gx = W / 2, gw = 150, gh = 300, gy = H - gh - 30;

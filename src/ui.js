@@ -4,7 +4,6 @@ import { SPELL_ORDER, SPELLS } from './spells.js';
 import { TEMPLATES } from './recognizer.js';
 import * as meta from './meta.js';
 import { STAGES, STAGE_ORDER } from './story.js';
-import { NODE_META } from './runmap.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -85,9 +84,7 @@ export class UI {
       gold: $('gold'), wave: $('wave'), banner: $('banner'), interactPrompt: $('interact-prompt'), btnInteract: $('btn-interact'),
       shop: $('shop'), shopTitle: $('shop-title'), shopGold: $('shop-gold'), shopBody: $('shop-body'), shopClose: $('shop-close'),
       tavernHud: $('tavern-hud'), ruckusCount: $('ruckus-count'),
-      mapBar: $('map-bar'), mapNodeInfo: $('map-node-info'), mapStatus: $('map-status'),
-      worldmap: $('worldmap'), worldmapBody: $('worldmap-body'), worldmapDetail: $('worldmap-detail'), worldmapBack: $('worldmap-back'),
-      nodeEvent: $('node-event'), neTitle: $('ne-title'), neGold: $('ne-gold'), neBlurb: $('ne-blurb'), neBody: $('ne-body'),
+      worldHud: $('world-hud'), worldDetail: $('world-detail'),
       btnGuide: $('btn-guide'), btnPause: $('btn-pause'), btnMute: $('btn-mute'),
       joystick: $('joystick'), joyKnob: $('joy-knob'), blackout: $('blackout'),
       glyphGuide: $('glyph-guide'), guideCards: $('guide-cards'), btnGuideClose: $('btn-guide-close'),
@@ -133,22 +130,12 @@ export class UI {
       const b = e.target.closest('[data-act]');
       if (b) this._shopAction(b.dataset.act, b.dataset.id, b.dataset.slot);
     });
-    // map node-event buttons (also delegated)
-    if (this.el.neBody) this.el.neBody.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-ne]');
-      if (b && !b.disabled) this._neAction(b.dataset.ne, b.dataset.id);
+    // world-map HUD: Venture / Back buttons (region selection itself is 3D clicks)
+    if (this.el.worldDetail) this.el.worldDetail.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
+      if (b.dataset.act === 'venture') this.game.ventureSelected();
+      else if (b.dataset.act === 'back') { this.game.audio.play('click'); this.game.closeWorldMap(); }
     });
-    // world map: click a region pin to inspect it…
-    if (this.el.worldmapBody) this.el.worldmapBody.addEventListener('click', (e) => {
-      const g2 = e.target.closest('[data-stage]');
-      if (g2 && g2.dataset.stage) this.selectRegion(g2.dataset.stage);
-    });
-    // …then Venture from the details panel
-    if (this.el.worldmapDetail) this.el.worldmapDetail.addEventListener('click', (e) => {
-      const b = e.target.closest('.wmd-venture[data-stage]');
-      if (b && b.dataset.stage) { this.game.audio.play('click'); this.game.startRun(b.dataset.stage); }
-    });
-    if (this.el.worldmapBack) this.el.worldmapBack.addEventListener('click', () => { this.game.audio.play('click'); this.game.closeShop(); });
   }
 
   // build the spellbook from the 3 equipped spells (keys 1..3) + rebuild guide
@@ -216,11 +203,11 @@ export class UI {
     el.style.setProperty('--n', d.toFixed(3));
   }
 
-  // toggle which HUD bits show for the bar / your room / journey map / fight
+  // toggle which HUD bits show for the bar / room / world map / fight
   setPhase(phase, isTouch) {
-    const arena = phase === 'arena', map = phase === 'map', tavern = phase === 'tavern', room = phase === 'room';
-    const hub = tavern || room;
-    this.el.bars.classList.toggle('hidden', hub);        // vitals show in the fight & on the map
+    const arena = phase === 'arena', world = phase === 'world', tavern = phase === 'tavern', room = phase === 'room';
+    const hub = tavern || room || world;
+    this.el.bars.classList.toggle('hidden', hub);        // vitals only in the fight
     this.el.spellbook.classList.toggle('hidden', !arena);
     this.el.sobriety.classList.toggle('hidden', !arena);
     this.el.timer.classList.toggle('hidden', !arena);
@@ -230,12 +217,12 @@ export class UI {
     this.el.btnGuide.classList.toggle('hidden', !arena);
     if (this.el.btnDrink) this.el.btnDrink.classList.toggle('hidden', !arena); // drink only in the fight
     if (this.el.btnBuild) this.el.btnBuild.classList.toggle('hidden', !room);  // build only in your room
-    if (this.el.mapBar) this.el.mapBar.classList.toggle('hidden', !map);
     if (this.el.drunkWrap) this.el.drunkWrap.classList.toggle('hidden', !arena);
-    if (!hub) { this.el.interactPrompt.classList.add('hidden'); this.el.btnInteract.classList.add('hidden'); }
+    if (!world) this.hideWorldHud();
+    if (!arena && !world) { this.el.interactPrompt.classList.add('hidden'); this.el.btnInteract.classList.add('hidden'); }
     if (tavern) this.el.castHint.innerHTML = isTouch ? 'Drag the <b>left side</b> to wander · 🪜 stairs to your room · 🚪 door to venture' : 'Walk to the <b>🚪 door</b> to venture, the <b>🪜 stairs</b> to your room, or the <b>bar</b> to earn tips · press <b>E</b>';
     else if (room) this.el.castHint.innerHTML = isTouch ? 'Tap <b>🔨 Build</b> to place stations & furniture · tap a station to use it' : 'Press <b>🔨 Build</b> to craft & place stations · walk to one and press <b>E</b> to use it · stairs to go down';
-    else if (map) this.el.castHint.innerHTML = isTouch ? 'Tap a <b>glowing node</b> to travel there' : 'Click a <b>glowing node</b> to travel · plan your route to the 👑';
+    else if (world) this.el.castHint.innerHTML = isTouch ? 'Tap a <b>region</b> to scout it · then <b>Venture</b>' : 'Click a <b>region</b> to scout it · then <b>Venture</b>';
     else this.el.castHint.innerHTML = isTouch ? 'Left = move · <b>draw a glyph</b> on the right to cast · 🍺 to drink (refill mana)' : 'Hold <b>Right-Mouse</b> and draw a glyph · <b>WASD</b> move · <b>Q</b> drink to refill mana · keys <b>1–3</b>';
   }
 
@@ -243,47 +230,16 @@ export class UI {
   hideLoadScene() { if (this.el.loadscene) this.el.loadscene.classList.add('hidden'); }
 
   // update the map's hovered-node info bar
-  mapInfo(node) {
-    if (!this.el.mapNodeInfo) return;
-    if (!node) { this.el.mapNodeInfo.innerHTML = 'Tap a glowing node to set off.'; return; }
-    const m = NODE_META[node.type] || { icon: '•', label: node.type, blurb: '' };
-    this.el.mapNodeInfo.innerHTML = `${m.icon} <b>${m.label}</b> — ${m.blurb}`;
-  }
-  // ---- the world map (overworld): a region map; inspect a region then venture ----
+  // ---- the 3D world map HUD: a side panel that scouts the selected region ----
   _wmOrder() { return STAGE_ORDER.filter(id => STAGE_MAP[id] && STAGES[id]); }
   _wmUnlocked(id) { const o = this._wmOrder(), i = o.indexOf(id); return i === 0 || meta.stageCleared(o[i - 1]); }
-  showWorldMap() {
-    const order = this._wmOrder();
-    const poly = order.map(id => `${STAGE_MAP[id].x},${STAGE_MAP[id].y}`).join(' ');
-    let blobs = '', nodes = '';
-    order.forEach((id, i) => {
-      const s = STAGES[id], p = STAGE_MAP[id];
-      const unlocked = this._wmUnlocked(id), cleared = meta.stageCleared(id);
-      blobs += `<ellipse cx="${p.x}" cy="${p.y}" rx="11" ry="8.5" class="wm-region" style="--tone:${p.tone}" opacity="${unlocked ? 0.22 : 0.08}"/>`;
-      nodes += `<g class="wm-pin ${unlocked ? 'open' : 'locked'} ${cleared ? 'done' : ''}" data-stage="${id}" style="--tone:${p.tone}">
-        <circle cx="${p.x}" cy="${p.y}" r="4.4"></circle>
-        <text x="${p.x}" y="${p.y}" class="wm-ico">${unlocked ? p.icon : '🔒'}</text>
-        <text x="${p.x}" y="${p.y + 8}" class="wm-lab">${i + 1}. ${s.name}${cleared ? ' ✓' : ''}</text>
-      </g>`;
-    });
-    this.el.worldmapBody.innerHTML = `<svg viewBox="0 0 100 74" class="wm-svg" preserveAspectRatio="xMidYMid meet">
-      ${blobs}<polyline points="${poly}" class="wm-route"/>${nodes}</svg>`;
-    // default to the furthest region you can enter
-    let sel = order[0];
-    for (const id of order) if (this._wmUnlocked(id)) sel = id;
-    this._wmSel = sel;
-    this._renderWorldDetail();
-    this.el.worldmap.classList.remove('hidden');
-  }
-  selectRegion(id) { if (!STAGE_MAP[id]) return; this._wmSel = id; this.game.audio.play('click'); this._renderWorldDetail(); this._wmHighlight(); }
-  _wmHighlight() { const svg = this.el.worldmapBody.querySelector('svg'); if (!svg) return; svg.querySelectorAll('.wm-pin').forEach(g => g.classList.toggle('sel', g.dataset.stage === this._wmSel)); }
-  _renderWorldDetail() {
-    if (!this.el.worldmapDetail) return;
-    const id = this._wmSel, s = STAGES[id], m = STAGE_MAP[id];
+  showWorldHud(game, id) {
+    if (!this.el.worldDetail) return;
+    const s = STAGES[id], m = STAGE_MAP[id];
     const order = this._wmOrder(), idx = order.indexOf(id);
     const unlocked = this._wmUnlocked(id), cleared = meta.stageCleared(id);
-    const access = cleared ? '<span class="wm-done-t">✓ Conquered</span>' : unlocked ? '<span class="wm-open-t">Open — ready</span>' : `🔒 Clear <b>${STAGES[order[idx - 1]].name}</b> first`;
-    this.el.worldmapDetail.innerHTML = `
+    const access = cleared ? '<span class="wm-done-t">✓ Conquered</span>' : unlocked ? '<span class="wm-open-t">Open — ready to venture</span>' : `🔒 Clear <b>${STAGES[order[idx - 1]].name}</b> first`;
+    this.el.worldDetail.innerHTML = `
       <div class="wmd-head"><span class="wmd-ico" style="color:${m.tone};filter:drop-shadow(0 0 8px ${m.tone})">${unlocked ? m.icon : '🔒'}</span>
         <div><div class="wmd-name" style="color:${m.tone}">${s.name}</div>
         <div class="wmd-sub">Region ${idx + 1} of ${order.length} · 👑 ${s.bossName}</div></div></div>
@@ -292,18 +248,11 @@ export class UI {
         <div class="wmd-row"><span>Access</span><b>${access}</b></div>
         <div class="wmd-row"><span>Loot</span><b>${m.loot}</b></div>
       </div>
-      <button class="btn big wmd-venture" data-stage="${unlocked ? id : ''}" ${unlocked ? '' : 'disabled'}>${unlocked ? '▸ Venture here' : '🔒 Locked'}</button>`;
-    this._wmHighlight();
+      <button class="btn big wmd-venture" data-act="venture" ${unlocked ? '' : 'disabled'}>${unlocked ? '▸ Venture here' : '🔒 Locked'}</button>
+      <button class="btn wmd-back" data-act="back">◂ Back to the bar</button>`;
+    this.el.worldHud.classList.remove('hidden');
   }
-  hideWorldMap() { if (this.el.worldmap) this.el.worldmap.classList.add('hidden'); }
-
-  // your run progress, shown atop the map
-  mapStatus(game) {
-    if (!this.el.mapStatus) return;
-    const floor = game.runmap.currentFloor(), floors = game.runmap.floors();
-    const hp = Math.ceil(Math.max(0, game.wizard.hp)), hpMax = Math.ceil(game.stats.hpMax);
-    this.el.mapStatus.innerHTML = `<b>Lv ${game.level}</b> · ❤ ${hp}/${hpMax} · 🪙 ${meta.gold()} · ⬆ Floor <b>${floor}/${floors}</b> · ${game.stage ? game.stage.name : ''}`;
-  }
+  hideWorldHud() { if (this.el.worldHud) this.el.worldHud.classList.add('hidden'); }
 
   // hub prompt: show what the wizard can interact with
   updatePrompt(station, isTouch) {
@@ -485,7 +434,7 @@ export class UI {
   showResults(win, info) {
     this.el.endTitle.textContent = win ? `${info.stage} — Conquered!` : 'The Wizard Passed Out';
     this.el.endStats.innerHTML = `
-      <div class="end-summary">${info.stage} · 🗺 ${info.nodes} nodes · ☠ ${info.kills} · Lv ${info.level}</div>
+      <div class="end-summary">${info.stage} · 🌊 wave ${info.nodes} · ☠ ${info.kills} · Lv ${info.level}</div>
       <div class="loot-box">
         <div class="loot-row loot-total"><span>${win ? 'Conquest spoils' : 'Gold gathered'}</span><b>+${info.earned}🪙</b></div>
       </div>
@@ -494,63 +443,6 @@ export class UI {
       <div style="margin-top:6px;color:var(--ink-dim)">${win ? 'Spend your spoils at the tavern, then pick your next haunt!' : 'You keep every coin you earned. Regroup and try again.'}</div>`;
     this.el.btnAgain.textContent = '▸ Return to the Tavern';
     this.el.end.classList.remove('hidden');
-  }
-
-  // ---- Map node event: treasure / campfire / shop ----
-  showNodeEvent(node, game, onDone) {
-    this._neNode = node; this._neGame = game; this._neDone = onDone;
-    const m = NODE_META[node.type] || { icon: '•', label: node.type, blurb: '' };
-    this.el.neTitle.textContent = `${m.icon} ${m.label}`;
-    this.el.neGold.textContent = `🪙 ${meta.gold()}`;
-    this.el.neBlurb.textContent = m.blurb;
-    this._renderNodeEvent();
-    this.el.nodeEvent.classList.remove('hidden');
-  }
-  _shopWares() {
-    return [
-      { id: 'heal', label: '❤️ Healing Tonic — heal 55 HP', cost: 35, fn: g => { g.wizard.heal(55); this.toast('❤️ +55 HP'); } },
-      { id: 'bigheal', label: '❤️‍🔥 Greater Tonic — heal 120 HP', cost: 60, fn: g => { g.wizard.heal(120); this.toast('❤️‍🔥 +120 HP'); } },
-      { id: 'mana', label: '🍺 Stout Keg — refill mana & sober up', cost: 20, fn: g => { g.wizard.mana = g.stats.manaMax; g.drunkenness = Math.max(0, g.drunkenness - 0.35); this.toast('🍺 Topped up'); } },
-      { id: 'maxhp', label: '🍖 Hearty Meal — +25 max HP & heal 25', cost: 55, fn: g => { g.stats.hpMax += 25; g.wizard._maxHp = g.stats.hpMax; g.wizard.heal(25); this.toast('🍖 +25 max HP'); } },
-      { id: 'might', label: '⚔️ Elixir of Might — +15% damage (this run)', cost: 80, fn: g => { g.stats.damageMult += 0.15; this.toast('⚔️ +15% damage'); } },
-      { id: 'swift', label: '👟 Swift Tonic — +10% speed (this run)', cost: 55, fn: g => { g.stats.moveSpeed *= 1.1; this.toast('👟 Fleet of foot'); } },
-      { id: 'brew', label: '🧪 Brewmaster — +20 gulp potency', cost: 50, fn: g => { g.stats.drinkPower += 20; this.toast('🧪 Bigger gulps'); } },
-      { id: 'gear', label: '🎁 Mystery Gear', cost: 75, fn: g => { const inst = meta.dropGear(g.level + 1, false); meta.addGear(inst); this.lootToast(inst); } },
-    ];
-  }
-  _renderNodeEvent() {
-    const node = this._neNode, g = this._neGame;
-    let html = '';
-    if (node.type === 'treasure') {
-      html = `<div class="ne-opts"><button class="shop-btn" data-ne="take">Crack it open ▸ &nbsp;(+60🪙 &amp; a trinket)</button></div>`;
-    } else if (node.type === 'rest') {
-      const heal = Math.round(g.stats.hpMax * 0.45);
-      html = `<div class="ne-opts">
-        <button class="shop-btn" data-ne="rest">🔥 Rest — recover ${heal} HP</button>
-        <button class="shop-btn" data-ne="study">📜 Study — choose a boon</button>
-      </div>`;
-    } else if (node.type === 'shop') {
-      const wares = this._shopWares();
-      html = '<div class="ne-shop">' + wares.map(it => `<button class="shop-btn" data-ne="buy" data-id="${it.id}" ${meta.gold() < it.cost ? 'disabled' : ''}>${it.label} <span class="ne-cost">${it.cost}🪙</span></button>`).join('') + '</div>'
-        + `<button class="shop-btn ne-leave" data-ne="leave">Leave the shop ▸</button>`;
-    }
-    this.el.neBody.innerHTML = html;
-  }
-  _neAction(act, id) {
-    const g = this._neGame; if (!g) return;
-    g.audio.play('click');
-    if (act === 'rest') { g.wizard.heal(g.stats.hpMax * 0.45); this.toast('🔥 A moment of rest'); this._neComplete(); }
-    else if (act === 'study') { this.el.nodeEvent.classList.add('hidden'); g.offerUpgrade(() => this._neComplete()); }
-    else if (act === 'buy') {
-      const it = this._shopWares().find(w => w.id === id);
-      if (it && meta.spendGold(it.cost)) { it.fn(g); meta.save(); this.el.neGold.textContent = `🪙 ${meta.gold()}`; this.setGold(meta.gold()); this._renderNodeEvent(); }
-    }
-    else { this._neComplete(); } // 'take' / 'leave'
-  }
-  _neComplete() {
-    this.el.nodeEvent.classList.add('hidden');
-    const cb = this._neDone; this._neDone = null; this._neGame = null;
-    if (cb) cb();
   }
 
   comboToast(name) {

@@ -134,11 +134,11 @@ export function genGear(slot, rarity, level) {
 
 export const QUESTS = [
   { id: 'q_kill',   text: 'Vanquish 70 foes in one run', type: 'kills', goal: 70,  reward: 260 },
-  { id: 'q_wave',   text: 'Clear 3 map nodes in a run',   type: 'wave',  goal: 3,   reward: 320 },
-  { id: 'q_boss',   text: 'Defeat any stage boss',        type: 'boss',  goal: 1,   reward: 600 },
-  { id: 'q_clear',  text: 'Conquer a whole stage',        type: 'win',   goal: 1,   reward: 750 },
+  { id: 'q_wave',   text: 'Reach wave 4 in any level',    type: 'wave',  goal: 4,   reward: 320 },
+  { id: 'q_boss',   text: 'Defeat any region boss',       type: 'boss',  goal: 1,   reward: 600 },
+  { id: 'q_clear',  text: 'Conquer a whole region',       type: 'win',   goal: 1,   reward: 750 },
   { id: 'q_kill2',  text: 'Vanquish 120 foes in one run', type: 'kills', goal: 120, reward: 480 },
-  { id: 'q_wave2',  text: 'Clear 5 map nodes in a run',    type: 'wave',  goal: 5,   reward: 420 },
+  { id: 'q_wave2',  text: 'Reach the boss wave (6)',      type: 'wave',  goal: 6,   reward: 420 },
 ];
 
 // ---- idle / tycoon: the Tipsy Toad earns coin while patrons drink ----

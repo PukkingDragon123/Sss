@@ -72,12 +72,6 @@
     <button id="btn-drink" class="hidden" title="Drink to refill mana (Q)">🍺 Drink<span class="drink-key">Q</span></button>
     <button id="btn-build" class="hidden" title="Build &amp; place facilities in your room">🔨 Build</button>
 
-    <div id="map-bar" class="hidden">
-      <div class="map-title">⤴ Choose your path</div>
-      <div class="map-status" id="map-status"></div>
-      <div class="map-node-info" id="map-node-info">Tap a glowing node to set off.</div>
-      <div class="map-legend">⚔️ Skirmish &nbsp;·&nbsp; 💀 Elite &nbsp;·&nbsp; 💰 Treasure &nbsp;·&nbsp; 🔥 Campfire &nbsp;·&nbsp; 🛒 Shop &nbsp;·&nbsp; 👑 Boss</div>
-    </div>
 
     <div id="banner"></div>
     <div id="toast-area"></div>
@@ -97,8 +91,8 @@
 
   <!-- ===== Level up / upgrade choice ===== -->
   <div id="levelup" class="overlay hidden">
-    <h2 class="levelup-title">✦ Drunken Epiphany ✦</h2>
-    <p class="levelup-sub">The spirit grows stronger. Choose a boon:</p>
+    <h2 class="levelup-title">✦ Claim an Artifact ✦</h2>
+    <p class="levelup-sub">The spirit grows stronger. Choose a relic:</p>
     <div class="cards" id="upgrade-cards"></div>
   </div>
 
@@ -188,24 +182,10 @@
     <button class="btn" id="mg-quit">Clock out ▸</button>
   </div>
 
-  <!-- ===== World map (overworld stage select) ===== -->
-  <div id="worldmap" class="overlay hidden">
-    <h2 class="levelup-title">🗺 The Realm</h2>
-    <p class="levelup-sub">Tap a region to scout it — each boss you fell opens the road onward.</p>
-    <div id="worldmap-wrap">
-      <div id="worldmap-body"></div>
-      <div id="worldmap-detail"></div>
-    </div>
-    <button class="btn" id="worldmap-back">◂ Back to the bar</button>
-  </div>
-
-  <!-- ===== Map node event (treasure / campfire / shop) ===== -->
-  <div id="node-event" class="overlay hidden">
-    <div class="shop-box" style="max-width:500px">
-      <div class="shop-head"><h2 id="ne-title">Event</h2><div id="ne-gold">🪙 0</div></div>
-      <p class="ne-blurb" id="ne-blurb"></p>
-      <div id="ne-body"></div>
-    </div>
+  <!-- ===== World map HUD (the map itself is the 3D scene; this panel scouts it) ===== -->
+  <div id="world-hud" class="hidden">
+    <div class="world-title">🗺 The Realm — tap a region to scout it</div>
+    <div id="world-detail"></div>
   </div>
 
   <!-- ===== Spell drawing guide ===== -->

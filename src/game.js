@@ -12,7 +12,7 @@ import { UI } from './ui.js';
 import { Director, STAGES, OPENING, TAVERN_INTRO, TUTORIAL, BLACKOUT_LINES } from './story.js';
 import { Jobs } from './jobs.js';
 import { Tavern } from './tavern.js';
-import { RunMap, NODE_META } from './runmap.js';
+import { World } from './world.js';
 import { rollUpgrades } from './upgrades.js';
 import * as meta from './meta.js';
 import { COMBO_META } from './meta.js';
@@ -65,7 +65,7 @@ export class Game {
     this.spells = new SpellSystem(this.scene);
     this.jobs = new Jobs(this.scene);
     this.tavern = new Tavern(this.scene);
-    this.runmap = new RunMap(this.scene);
+    this.world = new World(this.scene);
     this.wizard = new Wizard(this.scene);
     this.director = new Director();
     this.ui = new UI();
@@ -364,19 +364,19 @@ export class Game {
     this.audio.play('levelup');
     const choices = rollUpgrades(this, 3);
     this.ui.showLevelUp(choices, (u) => {
-      u.apply(this);
+      this.applyArtifact(u);
       this.pendingLevels--;
       if (this.pendingLevels > 0) this._openLevelUp();
       else this.state = 'play';
     });
   }
 
-  // a one-off boon pick (used by the campfire "Study" option on the map)
+  // a one-off artifact pick (shrines / events)
   offerUpgrade(onPicked) {
     this.state = 'levelup';
     this.audio.play('levelup');
     const choices = rollUpgrades(this, 3);
-    this.ui.showLevelUp(choices, (u) => { u.apply(this); if (onPicked) onPicked(); });
+    this.ui.showLevelUp(choices, (u) => { this.applyArtifact(u); if (onPicked) onPicked(); });
   }
 
   // ---------- pickups ----------
@@ -530,7 +530,7 @@ export class Game {
   onBossDead() {
     this.bossActive = false; this.bossKilled = true;
     this.showStory('The Spirit', [`${this.stage.bossName} falls! ${this.stage.name} is conquered. Let's stagger home rich.`]);
-    this._endState = 'cleared';
+    this._endState = 'win';
     this.audio.play('win');
   }
 
@@ -551,13 +551,18 @@ export class Game {
   _showEnd(win) {
     if (win && this.stage) meta.markStageCleared(this.stage.id); // opens the next haunt on the world map
     if (win && !meta.tavernOwned()) { meta.setTavernOwned(true); this._justInherited = true; } // avenge -> inherit
+    const wave = this.director ? this.director.wave : 0;
+    // loot: survival + foes slain + a victory purse, plus a guaranteed boss drop
+    const loot = 25 + this.kills * 2 + wave * 16 + (win ? 260 : 0);
+    meta.addGold(loot);
+    if (win) meta.addGear(meta.dropGear(this.level + 3, true));
     const earned = Math.max(0, meta.gold() - (this.runGoldStart || 0));
-    const questDone = meta.evaluateQuest({ kills: this.kills, time: Math.floor(this.elapsed), wave: this.nodesCleared, bossKilled: this.bossKilled, win });
+    const questDone = meta.evaluateQuest({ kills: this.kills, time: Math.floor(this.elapsed), wave, bossKilled: this.bossKilled, win });
     meta.save();
     this.ui.closeModals();
     this.ui.setScreen('end');
     this.ui.showResults(win, {
-      nodes: this.nodesCleared, kills: this.kills, level: this.level, stage: this.stage ? this.stage.name : '',
+      nodes: wave, kills: this.kills, level: this.level, stage: this.stage ? this.stage.name : '',
       earned, gold: meta.gold(), questDone,
     });
   }
@@ -586,7 +591,7 @@ export class Game {
       this.cineT = 0;
       this.phase = 'intro'; this.state = 'story';
       this.stats = DEFAULT_STATS();
-      this.arenaGroup.visible = false; this.tavern.show(false); this.tavern.showRoom(false); this.runmap.show(false);
+      this.arenaGroup.visible = false; this.tavern.show(false); this.tavern.showRoom(false); this.world.show(false);
       this.wizard.reset(this.stats); this.wizard.setVisible(true); this.wizard.pos.set(0, 0, 0);
       this.scene.background.setHex(0x05040a);
       this.scene.fog.color.setHex(0x06050c); this.scene.fog.density = 0.035;
@@ -619,7 +624,7 @@ export class Game {
     this.tavern.show(true);
     this.tavern.showRoom(false);
     this.arenaGroup.visible = false;
-    this.runmap.show(false);
+    this.world.show(false);
     this.input.pointMode = false;
     this.wizard.reset(this.stats);
     this.wizard.setVisible(true);
@@ -665,8 +670,36 @@ export class Game {
   }
 
   _openShop(kind) { this._shopKind = kind; this.state = 'menu'; this.ui.openShop(kind, this); }
-  openWorldMap() { this._shopKind = 'world'; this.state = 'menu'; this.ui.showWorldMap(this); }
-  closeWorldMap() { this.ui.hideWorldMap(); this._shopKind = null; this.state = 'play'; }
+
+  // ---- the 3D top-down WORLD MAP: scout a region, then venture straight in ----
+  openWorldMap() {
+    this.phase = 'world'; this.state = 'world';
+    this.world.refresh((id) => this._stageUnlocked(id), (id) => meta.stageCleared(id));
+    this.tavern.show(false); this.tavern.showRoom(false); this.arenaGroup.visible = false;
+    this.world.show(true);
+    this.wizard.setVisible(false);
+    this.input.pointMode = true;
+    this.scene.background.setHex(0x0a1424); this.scene.fog.color.setHex(0x0e1a2c); this.scene.fog.density = 0.006;
+    this.hemi.color.setHex(0xbfd0ff); this.hemi.groundColor.setHex(0x2a3a4a); this.hemi.intensity = 1.0;
+    this.dir.color.setHex(0xffffff); this.dir.intensity = 1.3; this.ambient.color.setHex(0x44506a); this.ambient.intensity = 0.6;
+    let sel = this.world.order[0];
+    for (const id of this.world.order) if (this._stageUnlocked(id)) sel = id;
+    this._worldSel = sel; this.world.select(sel);
+    this.ui.setScreen('play'); this.ui.setPhase('world', this.input.isTouch);
+    this.ui.showWorldHud(this, sel);
+    this.ui.setGold(meta.gold());
+  }
+  _stageUnlocked(id) { const o = this.world.order, i = o.indexOf(id); return i <= 0 || meta.stageCleared(o[i - 1]); }
+  selectWorldRegion(id) {
+    if (!id) return;
+    this._worldSel = id; this.world.select(id); this.audio.play('click'); this.ui.showWorldHud(this, id);
+  }
+  ventureSelected() {
+    const id = this._worldSel;
+    if (!id || !this._stageUnlocked(id)) { this.ui.toast('🔒 Conquer the region before it to open this one'); return; }
+    this.ui.hideWorldHud(); this.input.pointMode = false; this.beginRun(id);
+  }
+  closeWorldMap() { this.ui.hideWorldHud(); this.world.show(false); this.input.pointMode = false; this.enterTavern(); }
   openBuild() { if (this.state === 'play' && this.phase === 'room') { this.audio.play('click'); this._openShop('build'); } }
   restAtBed() { if (meta.rest()) this.ui.toast('🛏 Rested — you\'ll wake with +HP for the next run'); else this.ui.toast('🛏 Already well-rested'); }
 
@@ -690,7 +723,7 @@ export class Game {
     this.nearStation = null; this.input.pointMode = false;
     this.tavern.refreshRoom(meta);
     this.tavern.show(false); this.tavern.showRoom(true);
-    this.arenaGroup.visible = false; this.runmap.show(false);
+    this.arenaGroup.visible = false; this.world.show(false);
     this.wizard.setVisible(true);
     this.stats = DEFAULT_STATS(); this.stats.wobble = 0.9;
     this.wizard.reset(this.stats);
@@ -712,15 +745,9 @@ export class Game {
       this.state = 'play';
     });
   }
-  startRun(stageId) {
-    this.ui.closeShop();
-    this.ui.hideWorldMap();
-    this._shopKind = null;
-    this.beginRun(stageId);
-  }
+  startRun(stageId) { this._shopKind = null; this.beginRun(stageId); }
   closeShop() {
-    if (this.state !== 'menu' || !this._shopKind) return; // bar shift & node events have their own buttons
-    if (this._shopKind === 'world') { this.closeWorldMap(); return; }
+    if (this.state !== 'menu' || !this._shopKind) return; // bar shift has its own button
     this._shopKind = null;
     this.ui.closeShop();
     this.tavern.refreshRoom(meta);   // reflect any newly built/sold furniture
@@ -728,7 +755,7 @@ export class Game {
     this.state = 'play';
   }
 
-  // Leave the tavern -> black out -> wake on the journey MAP for this haunt.
+  // Leave the world map -> black out -> drop straight into the chosen level.
   beginRun(stageId) {
     if (this._exiting) return;
     this._exiting = true;
@@ -737,13 +764,13 @@ export class Game {
     this.state = 'blackout';
     this.ui.fadeBlack(true);
     setTimeout(() => {
-      this.showStory(BLACKOUT_LINES.speaker, BLACKOUT_LINES.lines, () => this._startRunMap(this._pendingStage));
+      this.showStory(BLACKOUT_LINES.speaker, BLACKOUT_LINES.lines, () => this.enterArena(this._pendingStage));
     }, 1250);
   }
 
-  // initialise run-wide state (persists across every node of the journey)
-  _startRunMap(stage) {
-    this.stage = stage;
+  // ---- one full level: a long survival fight, six waves then the boss ----
+  enterArena(stage) {
+    this.stage = stage; this.phase = 'arena';
     this.stats = DEFAULT_STATS();
     if (meta.consumeRest()) this.stats.hpMax += meta.REST_BONUS + meta.roomComfort() * 4; // a good night's rest, comfier room = more
     this._applyEquipment();
@@ -753,112 +780,33 @@ export class Game {
     this.recognizer = new Recognizer();
     for (const id of this.loadout) { const g = SPELLS[id].gesture; this.recognizer.add(g, TEMPLATES[g]); }
     this.level = 1; this.xp = 0; this.xpNeed = this._xpForLevel(1);
-    this.kills = 0; this.chores = 0; this.pendingLevels = 0;
-    this.drunkenness = 0.2; this._drunkSurge = 0; this._drinkCd = 0;
-    this.runGoldStart = meta.gold();   // to tally what the run earned
-    this.nodesCleared = 0; this.bossKilled = false;
-    this.wizard.reset(this.stats);     // full HP/mana — the only full reset of the run
-    this.enemies.clear(); this.spells.reset(); this._clearPickups();
-    this.ui.setLoadout(this.loadout);
-    this.runmap.generate(stage);
-    this.runmap.setCurrent(-1);
-    this._enterMap(true);
-  }
-
-  // show the journey map and hand control to the path-picker
-  _enterMap(intro) {
-    this.phase = 'map'; this.state = 'map';
-    this._exiting = false; this.bossActive = false; this.bossCine = 0; this._endState = null;
-    this.enemies.clear(); this.spells.reset(); this._clearPickups();
-    this.tavern.show(false); this.tavern.showRoom(false); this.arenaGroup.visible = false; this.runmap.show(true);
-    this.wizard.setVisible(false);               // the spirit-orb marker stands in for him on the road
-    this._applyStageTheme(this.stage);          // fog/colours match the haunt
-    this.input.pointMode = true;                 // taps select nodes
-    this.ui.setPhase('map', this.input.isTouch);
-    this.ui.setScreen('map');
-    this.ui.setGold(meta.gold());
-    this.ui.closeModals();
-    this.ui.fadeBlack(false);
-    this.ui.mapInfo(null);
-    if (intro) {
-      this.state = 'story';
-      this.showStory('The Spirit', [
-        `${this.stage.name}. The road forks ahead, winding up into the murk.`,
-        'Pick our path one step at a time — fights, loot, a campfire to mend… and that crown up top? That\'s our quarry.',
-      ], () => { this.state = 'map'; });
-    }
-  }
-
-  // travel the spirit to a chosen node, then resolve what's there
-  travelTo(idx) {
-    if (this.state !== 'map' || !this.runmap.isReachable(idx)) return;
-    const node = this.runmap.node(idx);
-    this.state = 'traveling';
-    this.input.pointMode = false;
-    this.audio.play('click');
-    this.runmap.travelTo(idx, () => this._resolveNode(node));
-  }
-
-  _resolveNode(node) {
-    this._currentNode = node;
-    if (node.type === 'fight' || node.type === 'elite' || node.type === 'boss') {
-      this._enterArenaNode(node);
-    } else {
-      // non-combat node: a quick event, then back to the map
-      this.state = 'menu';
-      this.ui.showNodeEvent(node, this, () => { this._afterNode(node); });
-    }
-  }
-
-  _enterArenaNode(node) {
-    this.phase = 'arena';
-    this._currentNode = node;
-    this.input.pointMode = false;
-    this.bossActive = false; this.bossKilled = false; this.bossCine = 0;
-    this._endState = null; this._exiting = false; this._lastCast = null;
-    this.elapsed = 0;
-    this.drunkenness = Math.min(this.drunkenness, 0.3);
-    this.wizard.mana = this.stats.manaMax;     // stocked up before the fight (HP persists!)
-    this.wizard.pos.set(0, 0, 0); this.wizard.vel.set(0, 0, 0); this.wizard.alive = true;
+    this.kills = 0; this.chores = 0; this.pendingLevels = 0; this.elapsed = 0;
+    this.drunkenness = 0.22; this._drunkSurge = 0; this._drinkCd = 0;
+    this._artifactsTaken = new Set();
+    this.runGoldStart = meta.gold(); this.bossKilled = false;
+    this.bossActive = false; this.bossCine = 0; this._endState = null; this._exiting = false; this._lastCast = null;
     this.enemies.clear(); this.spells.reset(); this._clearPickups(); this.director.reset();
-    this.runmap.show(false); this.tavern.show(false); this.tavern.showRoom(false); this.arenaGroup.visible = true;
+    this.world.show(false); this.tavern.show(false); this.tavern.showRoom(false); this.arenaGroup.visible = true;
     this.wizard.setVisible(true);
+    this.wizard.reset(this.stats); this.wizard.pos.set(0, 0, 0);
+    this.input.pointMode = false;
     this.camOffset.set(0, 27, 22);
-    this._applyStageTheme(this.stage);
+    this._applyStageTheme(stage);
+    this._spawnBarrels();        // refreshing beer kegs scattered in the arena
     this.ui.setPhase('arena', this.input.isTouch);
     this.ui.setLoadout(this.loadout);
-    this.ui.hideJob(); this.ui.fadeBlack(false);
-    this.state = 'play';
-    const enc = node.type === 'boss' ? { waves: 1, boss: true, hpScale: 1, sizeMult: 1 }
-      : node.type === 'elite' ? { waves: 3, boss: false, hpScale: 1.4, sizeMult: 1.25 }
-      : { waves: 3, boss: false, hpScale: 1, sizeMult: 1 };
-    this.director.start(this.stage, enc);
-    if (!this._guideShown) {
-      this._guideShown = true;
-      this.showStory('The Spirit', this.stage.intro, () => { this._guideOpen = true; this.ui.showGuide(); this.state = 'paused'; });
-    } else if (node.type === 'boss') {
-      this.ui.toast('👑 The boss awaits…');
-    }
-  }
-
-  // called by the Director when a non-boss encounter is fully cleared
-  onEncounterCleared() {
-    if (this.state === 'gameover') return;
-    this._endState = 'cleared';
-  }
-
-  _afterNode(node) {
-    this.runmap.setCurrent(node.i);   // mark done + unlock the next row
-    this.nodesCleared++;
-    // gold reward by node type (combat already added kill gold)
-    const reward = { fight: 18, elite: 45, treasure: 60, rest: 0, shop: 0, boss: 220 }[node.type] || 0;
-    if (reward > 0) { meta.addGold(reward); }
-    if (node.type === 'elite' || node.type === 'boss') { meta.dropGear && meta.addGear(meta.dropGear(this.level + (node.type === 'boss' ? 3 : 1), node.type === 'boss')); }
-    meta.save();
+    this.ui.setScreen('play');
+    this.ui.hideJob(); this.ui.closeModals(); this.ui.fadeBlack(false);
     this.ui.setGold(meta.gold());
-    if (node.type === 'boss') { this._winRun(); return; }
-    this._enterMap(false);
+    this.state = 'play';
+    this.director.start(stage, { waves: 6, boss: true, hpScale: 1, sizeMult: 1 });
+    this.showStory('The Spirit', stage.intro, () => {
+      if (!this._guideShown) { this._guideShown = true; this._guideOpen = true; this.ui.showGuide(); this.state = 'paused'; }
+    });
   }
+
+  // apply a chosen artifact (and remember unique ones so they can't repeat)
+  applyArtifact(u) { u.apply(this); if (u.unique) { (this._artifactsTaken || (this._artifactsTaken = new Set())).add(u.id); } }
 
   _applyEquipment() {
     const m = meta.equipMods();
@@ -948,7 +896,7 @@ export class Game {
       if (e.type === 'mute') { this.toggleMute(); continue; }
       if (e.type === 'guide') { this.toggleGuide(); continue; }
       if (e.type === 'drink') { this.drink(); continue; }
-      if (e.type === 'select') { if (this.state === 'map') { const i = this.runmap.pick(e.x, e.y, this.camera); if (i >= 0) this.travelTo(i); } continue; }
+      if (e.type === 'select') { if (this.state === 'world') { const id = this.world.pick(e.x, e.y, this.camera); if (id) this.selectWorldRegion(id); } continue; }
       if (e.type === 'interact') { if (this.state === 'menu') this.closeShop(); else this.interact(); continue; }
 
       if (this.storyShowing) {
@@ -1114,12 +1062,12 @@ export class Game {
       this.camera.lookAt(this.wizard.pos.x, 1.4, this.wizard.pos.z);
       return;
     }
-    // journey map: a near top-down road-map view that follows the spirit up the path
-    if (this.phase === 'map') {
-      const mk = this.runmap.marker ? this.runmap.marker.position : new THREE.Vector3();
-      const desired = new THREE.Vector3(mk.x * 0.5, 31, mk.z + 6);
-      this.camera.position.lerp(desired, Math.min(1, dt * 3));
-      this.camera.lookAt(mk.x * 0.5, 0, mk.z - 2);
+    // world map: a true top-down view of the realm, easing toward the selected region
+    if (this.phase === 'world') {
+      const sel = this._worldSel ? this.world.regionPos(this._worldSel) : this.world.center;
+      const cx = sel.x * 0.4, cz = sel.z * 0.4 - 1.5;
+      this.camera.position.lerp(new THREE.Vector3(cx, 40, cz + 7), Math.min(1, dt * 2.5));
+      this.camera.lookAt(cx, 0, cz);
       return;
     }
     // boss reveal: pull out and frame the boss as it emerges
@@ -1178,8 +1126,8 @@ export class Game {
       if (this.phase === 'tavern') this._updateTavern(sdt);
       else if (this.phase === 'room') this._updateRoom(sdt);
       else this._updateArena(sdt);
-    } else if (this.state === 'map' || this.state === 'traveling' || (this.state === 'story' && this.phase === 'map')) {
-      this._updateMap(dt);
+    } else if (this.state === 'world') {
+      this._updateWorld(dt);
     } else if (this.state === 'title' && !this._openingCine) {
       this._updateDemo(dt);
     } else if (this._openingCine) {
@@ -1221,10 +1169,64 @@ export class Game {
     }
     if (this.stats.hpRegen > 0 && this.wizard.alive) this.wizard.heal(this.stats.hpRegen * sdt);
 
+    this._updateBarrels(sdt);
+
     if (!this.wizard.alive) this._loseRun();
     if (this.pendingLevels > 0 && this.state === 'play') this._openLevelUp();
-    // encounter cleared -> back to the map (or win the run if that was the boss)
-    if (this._endState === 'cleared' && !this.storyShowing && this.state === 'play') { this._endState = null; this._afterNode(this._currentNode); }
+    // boss slain -> win the whole level
+    if (this._endState === 'win' && !this.storyShowing && this.state === 'play') { this.state = 'win'; this._showEnd(true); }
+  }
+
+  // ---- interactive beer kegs scattered in the arena (drink for sustain / a golden one grants an artifact) ----
+  _spawnBarrels() {
+    if (!this._barrelGroup) { this._barrelGroup = new THREE.Group(); this.arenaGroup.add(this._barrelGroup); }
+    const grp = this._barrelGroup;
+    for (let i = grp.children.length - 1; i >= 0; i--) { const c = grp.children[i]; c.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); grp.remove(c); }
+    this.barrels = [];
+    const spots = [[-16, -11], [16, -11], [-13, 15], [13, 15], [0, -21]];
+    spots.forEach((p, i) => {
+      const golden = i === spots.length - 1;
+      const m = this._buildKeg(golden); m.position.set(p[0], 0, p[1]); grp.add(m);
+      this.barrels.push({ mesh: m, golden, full: true, t: 0, x: p[0], z: p[1] });
+    });
+  }
+  _buildKeg(golden) {
+    const g = new THREE.Group();
+    const woodMat = new THREE.MeshStandardMaterial({ color: golden ? 0xffce5c : 0x7a5230, roughness: 0.7, metalness: golden ? 0.4 : 0, emissive: golden ? 0x6a4a00 : 0x000000, emissiveIntensity: golden ? 0.5 : 0 });
+    const ironMat = new THREE.MeshStandardMaterial({ color: 0x33323a, roughness: 0.6, metalness: 0.3 });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.6, 1.4, 14), woodMat); body.position.y = 0.7; body.castShadow = true; g.add(body);
+    for (const y of [0.35, 1.05]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.71, 0.06, 6, 16), ironMat); r.position.y = y; r.rotation.x = Math.PI / 2; g.add(r); }
+    const foam = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8), new THREE.MeshBasicMaterial({ color: golden ? 0xfff0b0 : 0xfff7e8, transparent: true, opacity: 0.95 })); foam.position.y = 1.5; foam.scale.y = 0.4; g.add(foam); g.userData.foam = foam;
+    const mk = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), new THREE.MeshBasicMaterial({ color: golden ? 0xffd86a : 0x9bff7a, transparent: true, opacity: 0.9 })); mk.position.y = 2.2; g.add(mk); g.userData.mark = mk;
+    return g;
+  }
+  _updateBarrels(sdt) {
+    if (!this.barrels) return;
+    const w = this.wizard.pos;
+    for (const b of this.barrels) {
+      const mk = b.mesh.userData.mark, foam = b.mesh.userData.foam;
+      if (!b.full) {
+        b.t -= sdt;
+        if (b.t <= 0) { b.full = true; foam.visible = true; if (mk) mk.visible = true; } else { foam.visible = false; if (mk) mk.visible = false; }
+        continue;
+      }
+      if (mk) { mk.rotation.y += sdt * 2; mk.position.y = 2.2 + Math.sin(this.elapsed * 3 + b.x) * 0.12; }
+      const dx = w.x - b.x, dz = w.z - b.z;
+      if (dx * dx + dz * dz < 2.4 * 2.4) { this._drinkBarrel(b); if (b.golden) return; }
+    }
+  }
+  _drinkBarrel(b) {
+    b.full = false; b.t = b.golden ? 50 : 15;
+    this.audio.play('heal');
+    this.particles.burst({ pos: new THREE.Vector3(b.x, 1.6, b.z), color: b.golden ? 0xffe0a0 : 0xf6e3a0, count: b.golden ? 16 : 10, speed: 3, size: 0.2, life: 0.8, grav: 2, blend: 'normal' });
+    if (b.golden) {
+      this.ui.toast('🍺✦ A golden brew — choose an artifact!');
+      this.offerUpgrade(() => { this.state = 'play'; });
+    } else {
+      this.wizard.heal(22); this.wizard.mana = Math.min(this.stats.manaMax, this.wizard.mana + 50);
+      this.drunkenness = Math.min(1, this.drunkenness + 0.18); this._drunkSurge = 1;
+      this.ui.toast('🍺 A keg! +HP & mana — and a buzz');
+    }
   }
 
   _updateTavern(sdt) {
@@ -1241,15 +1243,10 @@ export class Game {
     if (meta.tavernOwned()) meta.accrueIdle(sdt);
   }
 
-  // ---- the journey map ----
-  _updateMap(dt) {
-    this.runmap.update(dt, this);
+  // ---- the 3D world map ----
+  _updateWorld(dt) {
+    this.world.update(dt);
     this.particles.update(dt);
-    this.ui.mapStatus(this);
-    if (this.state === 'map') {
-      const idx = this.runmap.hover(this.input.ndc, this.camera);
-      this.ui.mapInfo(idx >= 0 ? this.runmap.node(idx) : null);
-    }
   }
 
   // ---- animated title screen: a drunk wizard auto-blasting waves of foes ----
@@ -1259,7 +1256,7 @@ export class Game {
     this.stats = DEFAULT_STATS();
     this.tavern.show(false);
     this.tavern.showRoom(false);
-    this.runmap.show(false);
+    this.world.show(false);
     this.arenaGroup.visible = true;
     this._applyStageTheme(STAGES.forest);
     this.camOffset.set(0, 26, 22);

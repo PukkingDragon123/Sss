@@ -1,6 +1,6 @@
-// upgrades.js — the level-up boon pool (Vampire-Survivors style).
-// Includes spell-UNLOCK cards (you start with only Fireball + Gust) and gates
-// each spell's upgrades behind owning that spell.
+// upgrades.js — ARTIFACTS: the relics the spirit claims as it grows. Picked on
+// level-up (and from campfires/shrines). Includes spell-relics gated behind
+// owning that spell, plus rare UNIQUE artifacts with combined, build-defining power.
 
 export const UPGRADES = [
   // ----- general -----
@@ -92,11 +92,41 @@ export const UPGRADES = [
   { id: 'biggulp', name: 'Big Gulp',      icon: '🍺', tag: 'Mana', weight: 6,
     desc: 'Each drink restores +22 more mana.',
     apply: g => { g.stats.drinkPower += 22; } },
-];
 
-// Pick n distinct upgrades that are currently available, weighted.
+  // ===== UNIQUE ARTIFACTS — rare relics with combined, build-defining power =====
+  { id: 'a_tankard', name: 'The Bottomless Tankard', icon: '🍺', tag: '✦ Artifact', weight: 3, unique: true,
+    desc: 'Drinks restore +30 mana and leave you 40% less woozy. It never runs dry.',
+    apply: g => { g.stats.drinkPower += 30; g.stats.drinkChaos = Math.max(0.25, (g.stats.drinkChaos || 1) - 0.4); } },
+  { id: 'a_eye', name: 'The All-Seeing Eye', icon: '👁️', tag: '✦ Artifact', weight: 3, unique: true,
+    desc: '+40% crit damage and +60% pickup radius. Nothing escapes its gaze.',
+    apply: g => { g.stats.critMult = (g.stats.critMult || 2) + 0.4; g.stats.pickupRadius *= 1.6; } },
+  { id: 'a_fang', name: 'Vampiric Fang', icon: '🦷', tag: '✦ Artifact', weight: 3, unique: true,
+    desc: '+6 HP per kill and +18% damage. Drink deep of the swarm.',
+    apply: g => { g.stats.lifeOnKill += 6; g.stats.damageMult += 0.18; } },
+  { id: 'a_chrono', name: 'The Cracked Hourglass', icon: '⏳', tag: '✦ Artifact', weight: 3, unique: true,
+    desc: '−22% spell cooldowns and +12% movement. Time bends, tipsily.',
+    apply: g => { g.stats.cooldownMult = Math.max(0.25, g.stats.cooldownMult * 0.78); g.stats.moveSpeed *= 1.12; } },
+  { id: 'a_cinder', name: 'Cinder Heart', icon: '🔥', tag: '✦ Artifact', weight: 3, unique: true,
+    desc: '+28% damage and +2 HP regenerated per second. A furnace for a soul.',
+    apply: g => { g.stats.damageMult += 0.28; g.stats.hpRegen += 2; } },
+  { id: 'a_reaper', name: "The Reaper's Tab", icon: '☠️', tag: '✦ Artifact', weight: 2, unique: true,
+    desc: '+70% damage… but −40 max HP. The debt always comes due.',
+    apply: g => { g.stats.damageMult += 0.7; g.stats.hpMax = Math.max(35, g.stats.hpMax - 40); g.wizard.hp = Math.min(g.wizard.hp, g.stats.hpMax); } },
+  { id: 'a_anchor', name: 'Spirit Anchor', icon: '🧿', tag: '✦ Artifact', weight: 3, unique: true,
+    desc: '+45 max HP (and heal it now) and a thorny aura. Steady the old fool.',
+    apply: g => { g.stats.hpMax += 45; g.wizard.hp += 45; g.stats.thorns += 14; } },
+  { id: 'a_luck', name: "Drunkard's Luck", icon: '🍀', tag: '✦ Artifact', weight: 3, unique: true,
+    desc: '+40% XP and +5 mana per kill. Fortune favours the sloshed.',
+    apply: g => { g.stats.xpMult = (g.stats.xpMult || 1) + 0.4; g.stats.manaOnKill += 5; } },
+];
+export const ARTIFACTS = UPGRADES; // artifacts are the new name for the boon pool
+
+export const rollArtifacts = (game, n = 3) => rollUpgrades(game, n); // alias
+
+// Pick n distinct, currently-available artifacts (weighted; unique ones can't repeat).
 export function rollUpgrades(game, n = 3) {
-  const pool = UPGRADES.filter(u => !u.available || u.available(game));
+  const taken = game && game._artifactsTaken;
+  const pool = UPGRADES.filter(u => (!u.available || u.available(game)) && !(u.unique && taken && taken.has(u.id)));
   const chosen = [];
   while (chosen.length < n && pool.length) {
     let total = 0;

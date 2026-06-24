@@ -7,10 +7,12 @@
 
 **Plays on desktop and mobile** (virtual joystick + draw-to-cast). Includes an
 animated menu (live fight on the right), **3 save slots**, settings & credits, an
-**idle/tycoon** layer for running your **two-floor** tavern (a minstrels' gallery
-over the bar), a multi-room hub (your room starts bare but for a bed), **looted
-RPG gear** with rarity/levels + a Blacksmith, a **drink-to-refill-mana** drunk
-system with a queasy nausea effect, and a **physics beer-pouring bar shift** for tips.
+**idle/tycoon** layer for running your tavern, a **Clash-style den builder** (your
+own room, up the stairs, that you lay out tile-by-tile), an **Equipment Hall** for
+**looted RPG gear** with rarity/levels + a Blacksmith, **artifacts** (including rare
+✦ unique relics) claimed on level-up and from **rune shrines** & **beer kegs** in
+the arena, a **drink-to-refill-mana** drunk system with a queasy nausea effect, and
+a **physics beer-pouring bar shift** for tips.
 
 A self-contained 3D browser game: **floppy ragdoll-physics** characters (heavily
 inspired by **Human: Fall Flat** — dangling verlet-physics limbs, soft pastel
@@ -68,7 +70,7 @@ You are the **spirit**; the wizard is your wobbly puppet. The night runs in two 
 | Aim | **mouse** | auto-aims nearest foe |
 | **Cast** | hold **Right-Mouse** + draw a glyph | **draw on the right side**, or tap a spell |
 | **Drink** (refill mana) | **Q** | tap the 🍺 button |
-| Quick-cast | keys **1 – 5** | tap a spell chip |
+| Quick-cast | keys **1 – 3** | tap a spell chip |
 | Pause / Mute | **P**/**Esc**, **M** | on-screen ⏸ / 🔊 |
 | Spell guide | **H** | 📖 button |
 
@@ -82,43 +84,48 @@ slowly over time. Risk vs. reward: chug to keep casting, or stay steady to aim.
 to work a shift for tips, head out the **🚪 door** to pick a **stage**, or climb
 the **🪜 stairs** to your **room** (a separate scene). Press **E** (tap ✋) to interact.
 
-**Your room: craft & place.** Upstairs starts bare but for a **bed** (rest there
-for an HP bonus). Tap **🔨 Build** to spend gold on **stations** you place on a
-top-down grid — the **Spell Table** (unlock/upgrade & equip 3 spells), **Cauldron**
-(combos), **Wardrobe** (gear), **Anvil** (forge/salvage), **Ledger** (tavern idle
-income) and **Quest Board** (bounties) — plus comforts that raise your rest bonus.
-Walk up to a built station and press **E** to use it.
+**Your den: a Clash-style builder.** Climb the **🪜 stairs** to your **room** (a
+separate scene that starts bare but for a **bed** — rest there for an HP bonus).
+Tap **🔨 Build** to lay out your den tile-by-tile: pick a building, tap a tile to
+place it (tap a placed tile to sell it back at half). A tabbed palette splits
+**🏛 Stations** from **🛋 Comforts** — the **Spell Table** (unlock/upgrade & equip
+3 spells), **Cauldron** (combos), **Equipment Hall** (gear), **Anvil**
+(forge/salvage), **Ledger** (tavern idle income) and **Quest Board** (bounties),
+plus comforts that deepen your rest bonus. Walk up to a built station and press
+**E** to use it.
 
-**The world map & the journey.** Click the **door** for a full **world map** of
-the realm — **8 haunts** (🌲 Forest, 🦇 Cave, ⚰ Graveyard, 🐊 Swamp, ❄️ Frostspire,
-🔥 **Infernal Depths**, 🤖 **Neon Clockwork**, 🌌 the Void) that **unlock one by one**
-as you fell each boss. Pick one and it becomes a **branching top-down journey map**
-(Slay-the-Spire-style):
-click glowing nodes to plot your path through ⚔️ skirmishes, 💀 elites,
-💰 treasure, 🔥 campfires and 🛒 pop-up shops up to the 👑 **boss**. **Your HP,
-level, XP, gold and boons all carry between nodes** — it's a roguelite run, not a
-one-off fight. Bosses: the Goblin King, the Spider Queen, and the Skeleton King.
-Every node pays **gold**; clearing the boss conquers the haunt. Everything is
-**saved** to your browser.
+**The world map.** Click the **🚪 door** for a **3D top-down world map** of the
+realm — **8 regions** (🌲 Forest, 🦇 Cave, ⚰ Graveyard, 🐊 Swamp, ❄️ Frostspire,
+🔥 **Infernal Depths**, 🤖 **Neon Clockwork**, 🌌 the Void), each its own little
+island, that **unlock one by one** as you fell each boss. **Tap a region** to scout
+its danger tier and loot, then **Venture** to drop straight in. Each region is one
+continuous run — **six escalating waves, then the region 👑 boss** — and clearing
+the boss **conquers** the region and opens the next. Everything is **saved** to
+your browser.
 
-**Your room & the upper floor.** Climb the ramp to the tavern's **walkable second
-floor**. Your room starts bare but for a bed — **craft & place** furniture on a
-top-down build grid (spend gold); a comfier room gives a bigger rest bonus.
+**Artifacts & the arena.** Every level-up lets you **claim an artifact** — stack
+damage, life-on-kill, crit, mana and movement, or score a rare **✦ unique artifact**
+with build-defining power. You can also grab artifacts mid-fight by **interacting
+with the arena**: drink from a **🍺 beer keg** for instant HP & mana (the **golden
+keg** grants an artifact), or **draw any glyph** at the **✦ rune shrine** to channel
+one. Bosses drop the best loot.
 
 **Combos:** draw two equipped glyphs in quick succession to unleash a learned
 combo — e.g. **△ then —** = 🔥 Fire Tornado, **◯ then ϟ** = Ice Storm, **∨ then ★**
 = Holy Nova.
 
-**Progression & accuracy:** you start with just **Fireball (△)** and **Gust (—)**;
-**Lightning (Z)**, **Frost Splash (◯)** and **Heal (V)** are unlocked via level-up
-cards. The cleaner you draw a glyph, the more damage it deals — a **near-perfect
-glyph crits** (2×). The trail recolours live to show the predicted spell and its
-quality; the 📖 guide shows exactly how to draw each one.
+**Progression & accuracy:** you start with just **Fireball (△)** and **Gust (—)**.
+The full spellbook (a dozen signs — Lightning, Frost, Heal, Nova, Quake, Orb,
+Blink and more) is **unlocked and levelled with gold at the Spell Table**; **equip
+any 3** as your run loadout. Level-ups instead hand you **artifacts**. The cleaner
+you draw a glyph, the more damage it deals — a **near-perfect glyph crits** (2×).
+The trail recolours live to show the predicted spell and its quality; the 📖 guide
+shows exactly how to draw each one.
 
 While you draw a glyph, **time slows down** — sketch your sign, then let go to
 unleash it toward where you were aiming.
 
-### The five hand-signs
+### The core hand-signs (a dozen more unlock at the Spell Table)
 
 | Glyph | Draw | Spell | Does |
 | --- | --- | --- | --- |
@@ -133,13 +140,12 @@ unleash it toward where you were aiming.
 - Foes **swarm** from the dark. Spells leave glowing **XP motes** — soak them up.
 - Spells cost **mana**; **drink** (**Q** / 🍺) to refill it, at the cost of getting
   woozier. Hearts and 🧪 motes drop from foes too.
-- **Level up** to pick a **boon** (more damage, bigger booms, +1 chain, "Liquid
-  Courage" for risky power, "Sip of Coffee" to sober up, "Deep Flask" for bigger
-  gulps, etc.).
-- The landlady keeps assigning **chores** — a marker shows where. Cast the right
-  kind of spell near it (e.g. **◯ Frost Splash** to wash dishes / douse the
-  hearth, **— Gust** to sweep) to finish them for bonus XP.
-- Survive the night and slay the final boss — **The Tab Collector** — to win.
+- **Level up** to **claim an artifact** (more damage, bigger booms, +1 chain,
+  "Liquid Courage" for risky power, "Sip of Coffee" to sober up, "Deep Flask" for
+  bigger gulps, plus rare **✦ unique** relics). Grab more from **rune shrines** and
+  **golden kegs** in the arena.
+- Survive **six waves**, then fell the **region boss** to conquer the region and
+  unlock the next one on the world map.
 - **Between runs**, work a **bar shift** at the tavern: accept a patron's order
   and **pour beer to their line** in a physics pour mini-game — a clean pour
   (mind the foam, don't overflow) earns the fattest tip.
@@ -155,30 +161,29 @@ src/
   main.js         # bootstrap
   game.js         # the conductor: phases, state machine, main loop, camera
   wizard.js       # the wonky spring + verlet-ragdoll wizard rig
-  tavern.js       # the opening drunk-walk level (props, patrons, the door)
-  runmap.js       # the Slay-the-Spire-style branching journey map (3D)
-  enemies.js      # the 5 monsters, wobbly AI, pooling
-  spells.js       # the 5 spells, projectiles, chain lightning, effects
+  tavern.js       # the bar hub + your buildable room (props, patrons, stations)
+  world.js        # the 3D top-down world map (island regions, unlock gating)
+  enemies.js      # the monsters, wobbly AI, pooling
+  spells.js       # the spells, projectiles, chain lightning, effects
   recognizer.js   # $1 unistroke gesture recognizer
   input.js        # keyboard / pointer / glyph capture
   particles.js    # pooled particle bits + shockwave rings
-  upgrades.js     # roguelite boon pool
+  upgrades.js     # the artifact pool (incl. rare unique relics)
+  meta.js         # save slots, gear, quests, den builder, idle tavern
   jobs.js         # chores (dishes / sweep / douse)
-  story.js        # narrative beats + the swarm director
-  ui.js           # HUD, story modal, level-up cards, toasts
+  story.js        # narrative beats, the 8 regions + the swarm director
+  ui.js           # HUD, story modal, artifact cards, shop panels, toasts
   audio.js        # fully synthesized WebAudio SFX
 test/
-  sanity.mjs      # node tests for the recognizer + upgrade roller
-  mapgen.mjs      # graph tests for the journey map (connectivity/reachability)
+  sanity.mjs      # node tests for the recognizer + artifact roller
 ```
 
 ## 🧪 Tests
 
-The pure logic (gesture recognition, upgrade rolling, and the journey-map graph
-generation) has node-runnable checks:
+The pure logic (gesture recognition and artifact rolling) has node-runnable checks:
 
 ```bash
-npm test    # runs test/sanity.mjs + test/mapgen.mjs
+npm test    # runs test/sanity.mjs
 ```
 
 ## 🛠️ Design notes

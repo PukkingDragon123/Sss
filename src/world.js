@@ -115,6 +115,39 @@ export class World {
       this._hitMeshes.push(hit);
       this._views.push({ id, view, icon, lock, check, beam, sel, base, eyes });
     }
+    // ---- a forest scattered across the land (beyond the island props) ----
+    const treeMat = new THREE.MeshStandardMaterial({ color: 0x274d30, roughness: 0.9 });
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1e, roughness: 0.9 });
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x4a4438, roughness: 1 });
+    const onIsland = (x, z) => order.some(id => { const L = LAYOUT[id]; return (x - L.x) ** 2 + (z - (L.z)) ** 2 < 18; });
+    for (let i = 0; i < 34; i++) {
+      const ang = Math.random() * 6.28, rad = 7 + Math.random() * 21;
+      const x = Math.cos(ang) * rad * 1.15, z = -1.5 + Math.sin(ang) * rad * 0.82;
+      if (onIsland(x, z)) continue;
+      if (Math.random() < 0.78) {
+        const t = new THREE.Group();
+        const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.17, 0.7, 5), trunkMat); tr.position.y = 0.35; tr.castShadow = true;
+        const lf = new THREE.Mesh(new THREE.ConeGeometry(0.45 + Math.random() * 0.3, 1.0 + Math.random() * 0.6, 6), treeMat); lf.position.y = 1.05; lf.castShadow = true;
+        t.add(tr, lf); t.position.set(x, -0.12, z); g.add(t);
+      } else {
+        const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.28 + Math.random() * 0.3, 0), rockMat); r.position.set(x, 0.05, z); r.castShadow = true; g.add(r);
+      }
+    }
+
+    // ---- roaming monsters prowling the overworld (dark bodies, glowing red eyes) ----
+    this._mobs = [];
+    const mobMat = new THREE.MeshStandardMaterial({ color: 0x1a1420, roughness: 0.9 });
+    for (let i = 0; i < 12; i++) {
+      const m = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 7), mobMat); body.scale.set(1, 0.78, 1.12); body.position.y = 0.42; body.castShadow = true; m.add(body);
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.3, 5), mobMat); ear.position.set(0, 0.78, -0.05); m.add(ear);
+      for (const dx of [-0.13, 0.13]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 6), this._eyeMat); e.position.set(dx, 0.5, 0.34); m.add(e); }
+      const ang = Math.random() * 6.28, rad = 6 + Math.random() * 17;
+      m.position.set(Math.cos(ang) * rad * 1.1, -0.1, -1.5 + Math.sin(ang) * rad * 0.8);
+      m.userData = { vx: (Math.random() - 0.5) * 1.1, vz: (Math.random() - 0.5) * 1.1, ph: Math.random() * 6.28 };
+      g.add(m); this._mobs.push(m);
+    }
+
     this._built = true;
   }
 
@@ -152,6 +185,15 @@ export class World {
     if (this._eyeMat) { const blink = (this._t % 4) > 3.8 ? 0.1 : 1; this._eyeMat.opacity = (0.55 + Math.abs(Math.sin(this._t * 2.4)) * 0.4) * blink; }
     if (this._sea) this._sea.material.emissiveIntensity = 0.4 + Math.sin(this._t * 0.8) * 0.15;
     if (this._motes) for (const m of this._motes) { m.position.y = m.userData.base + Math.sin(this._t * m.userData.sp + m.userData.ph) * 0.5; m.position.x += Math.sin(this._t * 0.3 + m.userData.ph) * dt * 0.4; }
+    // monsters prowl the land, hopping along; they turn back at the coast
+    if (this._mobs) for (const m of this._mobs) {
+      const u = m.userData;
+      m.position.x += u.vx * dt; m.position.z += u.vz * dt;
+      const r = Math.hypot(m.position.x / 1.22, (m.position.z + 1.5) / 0.9);
+      if (r > 27) { u.vx = -u.vx; u.vz = -u.vz; m.position.x += u.vx * dt * 2; m.position.z += u.vz * dt * 2; }
+      m.rotation.y = Math.atan2(u.vx, u.vz);
+      m.position.y = -0.1 + Math.abs(Math.sin(this._t * 5 + u.ph)) * 0.14;
+    }
     for (const v of this._views) {
       v.icon.position.y = 2.7 + Math.sin(this._t * 2 + v.view.position.x) * 0.16;
       v.lock.position.y = v.icon.position.y;

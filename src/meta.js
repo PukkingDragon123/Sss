@@ -17,7 +17,7 @@ export const SPELL_META = {
 };
 export const SPELL_LIST = Object.keys(SPELL_META);
 export const MAX_LEVEL = 5;
-export function levelCost(level) { return 45 + (level - 1) * 40; } // cost from `level` -> level+1
+export function levelCost(level) { return 60 + (level - 1) * 55; } // cost from `level` -> level+1
 
 export const COMBO_META = {
   firetornado:  { name: 'Fire Tornado', a: 'fireball', b: 'gust',      cost: 150, desc: '△ then — : a roaming vortex of flame.' },
@@ -133,17 +133,19 @@ export function genGear(slot, rarity, level) {
 }
 
 export const QUESTS = [
-  { id: 'q_kill',   text: 'Vanquish 70 foes in one run',  type: 'kills', goal: 70,  reward: 260 },
-  { id: 'q_wave',   text: 'Clear 2 rooms in a single run', type: 'wave',  goal: 2,   reward: 320 },
-  { id: 'q_boss',   text: 'Defeat any region boss',        type: 'boss',  goal: 1,   reward: 600 },
-  { id: 'q_clear',  text: 'Conquer a whole region',        type: 'win',   goal: 1,   reward: 750 },
-  { id: 'q_kill2',  text: 'Vanquish 120 foes in one run',  type: 'kills', goal: 120, reward: 480 },
-  { id: 'q_wave2',  text: 'Fight your way to the boss lair', type: 'wave', goal: 3,   reward: 420 },
+  { id: 'q_kill',   text: 'Vanquish 60 foes in one run',    type: 'kills', goal: 60,  reward: 200 },
+  { id: 'q_wave',   text: 'Pass 2 forks in a single run',   type: 'wave',  goal: 2,   reward: 240 },
+  { id: 'q_boss',   text: 'Defeat any region boss',          type: 'boss',  goal: 1,   reward: 420 },
+  { id: 'q_kill2',  text: 'Vanquish 110 foes in one run',   type: 'kills', goal: 110, reward: 360 },
+  { id: 'q_clear',  text: 'Conquer a whole region',          type: 'win',   goal: 1,   reward: 520 },
+  { id: 'q_wave2',  text: 'Fight your way to the boss lair', type: 'wave',  goal: 3,   reward: 300 },
+  { id: 'q_kill3',  text: 'Vanquish 170 foes in one run',   type: 'kills', goal: 170, reward: 540 },
+  { id: 'q_clear2', text: 'Conquer another region',          type: 'win',   goal: 1,   reward: 640 },
 ];
 
 // ---- idle / tycoon: the Tipsy Toad earns coin while patrons drink ----
-export const TAVERN_BASE_RATE = 3;   // gold / minute, before upgrades
-export const TAVERN_BASE_CAP = 120;  // max gold banked while away
+export const TAVERN_BASE_RATE = 2;   // gold / minute, before upgrades (kept modest)
+export const TAVERN_BASE_CAP = 100;  // max gold banked while away
 export const TAVERN_UPGRADES = [
   { id: 'bar',    name: 'Polished Bar',   baseCost: 110, rate: 2, desc: '+2 gold/min' },
   { id: 'tables', name: 'More Tables',    baseCost: 150, rate: 3, desc: '+3 gold/min' },

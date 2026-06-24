@@ -368,7 +368,7 @@ export class Game {
   }
 
   // ---------- progression helpers ----------
-  _xpForLevel(lvl) { return Math.floor(5 + (lvl - 1) * 4 + Math.pow(Math.max(0, lvl - 1), 1.6) * 1.6); }
+  _xpForLevel(lvl) { return Math.floor(7 + (lvl - 1) * 6 + Math.pow(Math.max(0, lvl - 1), 1.72) * 2.3); }
 
   // sustain & rewards when a foe dies (on-kill boons)
   onKill(e, def) {
@@ -586,7 +586,7 @@ export class Game {
     if (win && !meta.tavernOwned()) { meta.setTavernOwned(true); this._justInherited = true; } // avenge -> inherit
     const depth = this._roomsCleared || 0; // rooms cleared (boss = combatRooms+1)
     // loot: survival + foes slain + a per-room purse, plus a guaranteed boss drop
-    const loot = 25 + this.kills * 2 + depth * 60 + (win ? 260 : 0);
+    const loot = 15 + Math.round(this.kills * 1.4) + depth * 38 + (win ? 170 : 0);
     meta.addGold(loot);
     if (win) meta.addGear(meta.dropGear(this.level + 3, true));
     const earned = Math.max(0, meta.gold() - (this.runGoldStart || 0));
@@ -964,7 +964,7 @@ export class Game {
 
   _makeReward(kind) {
     const lvl = Math.max(1, this.level);
-    if (kind === 'coin') { const amount = 70 + Math.floor(Math.random() * 5) * 20 + lvl * 8; return { kind, icon: '💰', name: 'Coin Cache', desc: `+${amount} gold`, amount }; }
+    if (kind === 'coin') { const amount = 45 + Math.floor(Math.random() * 4) * 15 + lvl * 5; return { kind, icon: '💰', name: 'Coin Cache', desc: `+${amount} gold`, amount }; }
     if (kind === 'heart') return { kind, icon: '❤️', name: 'Heart Idol', desc: '+25 max HP & a full heal' };
     if (kind === 'brew') return { kind, icon: '🍺', name: 'Brewfont', desc: '+30 max mana, +20/gulp & refill' };
     if (kind === 'gear') { const inst = meta.dropGear(lvl + 1, Math.random() < 0.3); const rc = meta.RARITIES[inst.rarity]; return { kind, icon: '🎁', name: inst.name, desc: `${rc.name} ${inst.slot}`, color: rc.color, inst }; }

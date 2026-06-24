@@ -82,8 +82,8 @@ export class UI {
       end: $('end'), endTitle: $('end-title'), endStats: $('end-stats'), btnAgain: $('btn-again'),
       loading: $('loading'),
       bars: document.querySelector('.bars'), spellbook: $('spellbook'), castHint: $('cast-hint'),
-      gold: $('gold'), wave: $('wave'), banner: $('banner'), interactPrompt: $('interact-prompt'), btnInteract: $('btn-interact'),
-      shop: $('shop'), shopTitle: $('shop-title'), shopGold: $('shop-gold'), shopBody: $('shop-body'), shopClose: $('shop-close'),
+      gold: $('gold'), gems: $('gems'), clock: $('clock'), wave: $('wave'), banner: $('banner'), interactPrompt: $('interact-prompt'), btnInteract: $('btn-interact'),
+      shop: $('shop'), shopTitle: $('shop-title'), shopGold: $('shop-gold'), shopGems: $('shop-gems'), shopBody: $('shop-body'), shopClose: $('shop-close'),
       tavernHud: $('tavern-hud'), ruckusCount: $('ruckus-count'),
       abilityTray: $('ability-tray'),
       pathChoice: $('path-choice'), pathDoors: $('path-doors'), pathTitle: $('path-title'), pathSub: $('path-sub'), pathBoss: $('path-boss'),
@@ -172,7 +172,9 @@ export class UI {
     this.buildGuide(loadout);
   }
 
-  setGold(n) { if (this.el.gold) this.el.gold.textContent = `🪙 ${n}`; if (this.el.shopGold) this.el.shopGold.textContent = `🪙 ${n}`; }
+  setGold(n) { if (this.el.gold) this.el.gold.textContent = `🪙 ${n}`; if (this.el.shopGold) this.el.shopGold.textContent = `🪙 ${n}`; this.setGems(meta.gems()); }
+  setGems(n) { if (this.el.gems) this.el.gems.textContent = `💎 ${n}`; if (this.el.shopGems) this.el.shopGems.textContent = `💎 ${n}`; }
+  setClock(day) { if (this.el.clock) this.el.clock.textContent = `☀️ Day ${day}`; }
 
   buildGuide(loadout) {
     if (!this.el.guideCards) return;
@@ -235,6 +237,7 @@ export class UI {
     this.el.sobriety.classList.toggle('hidden', !arena);
     this.el.timer.classList.toggle('hidden', !arena);
     this.el.kills.classList.toggle('hidden', !arena);
+    if (this.el.clock) this.el.clock.classList.toggle('hidden', arena); // clock shows in the hubs
     this.el.waveWrap.classList.add('hidden');
     this.el.tavernHud.classList.add('hidden');
     this.el.btnGuide.classList.toggle('hidden', !arena);
@@ -395,10 +398,10 @@ export class UI {
     this.el.eventOpts.classList.remove('hidden');
     this.el.eventOpts.innerHTML = '';
     ev.opts.forEach((o, i) => {
-      const afford = !o.minGold || meta.gold() >= o.minGold;
+      const afford = !o.minGems || meta.gems() >= o.minGems;
       const b = document.createElement('button');
       b.className = 'btn event-opt'; b.dataset.opt = i; if (!afford) b.disabled = true;
-      b.innerHTML = `<span class="eo-label">${o.label}</span><span class="eo-tip">${afford ? (o.tip || '') : 'not enough gold'}</span>`;
+      b.innerHTML = `<span class="eo-label">${o.label}</span><span class="eo-tip">${afford ? (o.tip || '') : 'not enough 💎'}</span>`;
       this.el.eventOpts.appendChild(b);
     });
     this.el.eventModal.classList.remove('hidden');
@@ -522,6 +525,8 @@ export class UI {
   updateHUD(game) {
     this.updateJoystick(game.input);
     this._updateNausea(game); // queasy overlay — runs in the hubs AND the fight
+    if (this.el.gems) this.el.gems.textContent = `💎 ${meta.gems()}`;   // live currency
+    if (this.el.clock) this.el.clock.textContent = `☀️ Day ${meta.currentDay()}`;
     if (game.phase === 'tavern' || game.phase === 'room') { // hubs: prompt only
       this.updatePrompt(game.state === 'play' ? game.nearStation : null, game.input.isTouch);
       return;
@@ -648,14 +653,15 @@ export class UI {
   showResults(win, info) {
     this.el.endTitle.textContent = win ? `${info.stage} — Conquered!` : 'The Wizard Passed Out';
     this.el.endStats.innerHTML = `
-      <div class="end-summary">${info.stage} · 🚪 ${info.rooms} rooms · ☠ ${info.kills} · Lv ${info.level}</div>
+      <div class="end-summary">${info.stage} · 🚪 ${info.rooms} rooms · ☠ ${info.kills} · Lv ${info.level} · ☀️ Day ${info.day}</div>
       ${info.artifact ? `<div class="end-artifact">✦✦ Claimed artifact: <b>${info.artifact}</b></div>` : ''}
+      ${info.research ? `<div class="end-artifact" style="color:var(--mana)">🔬 Research complete: <b>${info.research}</b></div>` : ''}
       <div class="loot-box">
-        <div class="loot-row loot-total"><span>${win ? 'Conquest spoils' : 'Gold gathered'}</span><b>+${info.earned}🪙</b></div>
+        <div class="loot-row loot-total"><span>Gems won</span><b>+${info.earnedGems}💎</b></div>
       </div>
-      <div class="loot-purse">Purse: <b>${info.gold}🪙</b></div>
-      ${info.questDone ? '<div style="color:var(--xp);font-weight:800">✓ Quest complete! Claim it from the Manager.</div>' : ''}
-      <div style="margin-top:6px;color:var(--ink-dim)">${win ? 'Spend your spoils at the tavern, then pick your next haunt!' : 'You keep every coin you earned. Regroup and try again.'}</div>`;
+      <div class="loot-purse">Gems: <b>${info.gems}💎</b> · spend them on spells & research</div>
+      ${info.questDone ? '<div style="color:var(--xp);font-weight:800">✓ Quest complete! Claim it from the Quest Board.</div>' : ''}
+      <div style="margin-top:6px;color:var(--ink-dim)">${win ? 'Back at the tavern: research, learn spells, then work a shift for coin!' : 'You keep every gem you won. Regroup and try again.'}</div>`;
     this.el.btnAgain.textContent = '▸ Return to the Tavern';
     this.el.end.classList.remove('hidden');
   }
@@ -916,6 +922,7 @@ export class UI {
     const g = this._shopGame;
     if (act === 'startrun') { g.startRun(id); return; }
     if (act === 'buildtab') { this._buildTab = id; this._buildSel = null; if (g) g.audio.play('click'); this._renderShop(); return; }
+    if (act === 'libtab') { this._libTab = id; if (g) g.audio.play('click'); this._renderShop(); return; }
     if (act === 'selbuild') { this._buildSel = (this._buildSel === id ? null : id); if (g) g.audio.play('click'); this._renderShop(); return; }
     if (act === 'place') {
       const [gx, gy] = id.split('_').map(Number);
@@ -942,6 +949,7 @@ export class UI {
     else if (act === 'equipgear') ok = meta.equipGear(id);
     else if (act === 'salvage') { const v = meta.salvageGear(id); ok = v > 0; if (ok) g.ui.toast(`Salvaged for ${v}🪙`); }
     else if (act === 'upgradegear') ok = meta.upgradeGear(id);
+    else if (act === 'research') { ok = meta.startResearch(id); if (ok) g.ui.toast('🔬 Research begun — it finishes as days pass'); }
     else if (act === 'claim') { const r = meta.claimQuest(); ok = r > 0; if (ok) g.ui.toast(`Quest reward: +${r}🪙`); }
     if (g) g.audio.play(ok ? 'click' : 'hiccup');
     this.setGold(meta.gold());
@@ -950,10 +958,11 @@ export class UI {
 
   _renderShop() {
     const kind = this._shopKind;
-    const titles = { skilltree: '✦ Spell Table', cauldron: '🜲 Cauldron', build: '🏛 Build Your Den', manager: '📜 Quest Board', wardrobe: '🎽 Equipment Hall', ledger: '📒 Tavern Ledger', blacksmith: '🔨 Anvil' };
+    const titles = { skilltree: '✦ Spell Table', library: '📖 Arcane Library', cauldron: '🜲 Cauldron', build: '🏛 Build Your Den', manager: '📜 Quest Board', wardrobe: '🎽 Equipment Hall', ledger: '📒 Tavern Ledger', blacksmith: '🔨 Anvil' };
     this.el.shopTitle.textContent = titles[kind] || 'Tavern';
     let html = '';
     if (kind === 'skilltree') html = this._renderSkillTree();
+    else if (kind === 'library') html = this._renderLibrary();
     else if (kind === 'cauldron') html = this._renderCauldron();
     else if (kind === 'build') html = this._renderBuild();
     else if (kind === 'manager') html = this._renderManager();
@@ -1039,29 +1048,100 @@ export class UI {
     return h;
   }
 
+  _elChip(elementId) {
+    const e = meta.ELEMENTS[elementId] || { icon: '✦', color: 'var(--magic)', name: '' };
+    return { e, chip: `<span class="spell-el" style="color:${e.color}">${e.icon} ${e.name}</span>` };
+  }
   _renderSkillTree() {
     const eq = meta.getLoadout();
-    let h = '<p class="shop-sub">Unlock & upgrade spells, then equip up to <b>3</b> (these are your run loadout).</p><div class="shop-grid">';
+    let h = '<p class="shop-sub">Unlock & upgrade spells with <b>💎 gems</b> (won in battle), then equip up to <b>3</b> as your loadout. Each channels one of the four elements.</p><div class="shop-grid">';
     for (const id of meta.SPELL_LIST) {
       const m = meta.SPELL_META[id];
-      const owned = meta.owns(id);
-      const lvl = meta.spellLevel(id);
-      const equipped = eq.includes(id);
-      let action = '';
+      const { e } = this._elChip(m.element);
+      const owned = meta.owns(id), lvl = meta.spellLevel(id), equipped = eq.includes(id);
+      let action;
       if (!owned) {
-        action = `<button class="shop-btn" data-act="unlock" data-id="${id}" ${meta.canAfford(m.unlock) ? '' : 'disabled'}>Unlock ${m.unlock}🪙</button>`;
+        const c = meta.spellUnlockGems(id);
+        action = `<button class="shop-btn gem" data-act="unlock" data-id="${id}" ${meta.canAffordGems(c) ? '' : 'disabled'}>Unlock 💎${c}</button>`;
       } else {
         const up = lvl >= meta.MAX_LEVEL ? `<button class="shop-btn" disabled>MAX</button>` :
-          `<button class="shop-btn" data-act="upgrade" data-id="${id}" ${meta.canAfford(meta.levelCost(lvl)) ? '' : 'disabled'}>Lv${lvl}→${lvl + 1} · ${meta.levelCost(lvl)}🪙</button>`;
-        const eqBtn = `<button class="shop-btn ${equipped ? 'on' : ''}" data-act="equip" data-id="${id}">${equipped ? '✓ Equipped' : 'Equip'}</button>`;
-        action = up + eqBtn;
+          `<button class="shop-btn gem" data-act="upgrade" data-id="${id}" ${meta.canAffordGems(meta.spellUpgradeGems(lvl)) ? '' : 'disabled'}>Lv${lvl}→${lvl + 1} · 💎${meta.spellUpgradeGems(lvl)}</button>`;
+        action = up + `<button class="shop-btn ${equipped ? 'on' : ''}" data-act="equip" data-id="${id}">${equipped ? '✓ Equipped' : 'Equip'}</button>`;
       }
-      h += `<div class="shop-card ${owned ? '' : 'locked'}">
-        <div class="shop-glyph">${m.glyph}</div>
+      h += `<div class="shop-card spell-card ${owned ? '' : 'locked'}" style="--el:${e.color}">
+        <div class="spell-el" style="color:${e.color}">${e.icon} ${e.name}</div>
+        <div class="shop-glyph" style="color:${e.color}">${m.glyph}</div>
         <div class="shop-name">${m.name}${owned ? ` <span class="lvtag">Lv${lvl}</span>` : ''}</div>
         <div class="shop-acts">${action}</div></div>`;
     }
     h += '</div>';
+    return h;
+  }
+
+  // ---- Arcane Library: tabbed Grimoire (showcase) / Research / Inventory ----
+  _renderLibrary() {
+    const tab = this._libTab || (this._libTab = 'grimoire');
+    let h = `<div class="vil-tabs">
+      <button class="vil-tab ${tab === 'grimoire' ? 'on' : ''}" data-act="libtab" data-id="grimoire">📖 Grimoire</button>
+      <button class="vil-tab ${tab === 'research' ? 'on' : ''}" data-act="libtab" data-id="research">🔬 Research</button>
+      <button class="vil-tab ${tab === 'inventory' ? 'on' : ''}" data-act="libtab" data-id="inventory">🎒 Inventory</button></div>`;
+    if (tab === 'research') h += this._renderResearch();
+    else if (tab === 'inventory') h += this._renderInventory();
+    else h += this._renderGrimoire();
+    return h;
+  }
+  _renderGrimoire() {
+    let h = '<p class="shop-sub">Every glyph in the realm — its element, its lore, and a glimpse of its magic. Owned spells show their level.</p><div class="shop-grid grim-grid">';
+    for (const id of meta.SPELL_LIST) {
+      const m = meta.SPELL_META[id];
+      const { e } = this._elChip(m.element);
+      const owned = meta.owns(id), lvl = meta.spellLevel(id);
+      h += `<div class="shop-card grim-card ${owned ? '' : 'locked'}" style="--el:${e.color}">
+        <div class="grim-vfx"><span class="vfx-orb" style="--c:${e.color}"></span><span class="grim-glyph" style="color:${e.color}">${m.glyph}</span></div>
+        <div class="spell-el" style="color:${e.color}">${e.icon} ${e.name}</div>
+        <div class="shop-name">${m.name} ${owned ? `<span class="lvtag">Lv${lvl}</span>` : '<span class="lvtag locked-tag">locked</span>'}</div>
+        <div class="shop-desc">${m.lore}</div></div>`;
+    }
+    h += '</div>';
+    return h;
+  }
+  _renderResearch() {
+    const active = meta.researchActive();
+    let h = '<p class="shop-sub">Spend <b>💎 gems</b> to research permanent boons. A project finishes after a few <b>days</b> — every shift you work and venture you take passes one. One project at a time.</p>';
+    if (active) h += `<div class="research-active">🔬 Researching <b>${active.name}</b> — <b>${meta.researchDaysLeft()}</b> day(s) to go.</div>`;
+    h += '<div class="shop-grid">';
+    for (const r of meta.RESEARCH) {
+      const done = meta.researchDone(r.id), isActive = active && active.id === r.id;
+      let btn;
+      if (done) btn = '<button class="shop-btn on" disabled>✓ Researched</button>';
+      else if (isActive) btn = `<button class="shop-btn" disabled>… ${meta.researchDaysLeft()}d left</button>`;
+      else if (active) btn = '<button class="shop-btn" disabled>Library busy</button>';
+      else btn = `<button class="shop-btn gem" data-act="research" data-id="${r.id}" ${meta.canAffordGems(r.gems) ? '' : 'disabled'}>Research 💎${r.gems}</button>`;
+      h += `<div class="shop-card ${done ? '' : 'locked'}">
+        <div class="shop-glyph">${r.icon}</div>
+        <div class="shop-name">${r.name}</div>
+        <div class="shop-desc">${r.desc} · takes <b>${r.days}d</b></div>
+        <div class="shop-acts">${btn}</div></div>`;
+    }
+    h += '</div>';
+    return h;
+  }
+  _renderInventory() {
+    const eqMods = meta.equipMods();
+    const statStr = Object.keys(eqMods).length ? Object.entries(eqMods).map(([k, v]) => meta.statLabel(k, v)).join(' · ') : 'No gear equipped';
+    const ownedSpells = meta.SPELL_LIST.filter(id => meta.owns(id)).length;
+    const tally = {}; for (const id of meta.SPELL_LIST) if (meta.owns(id)) { const el = meta.SPELL_META[id].element; tally[el] = (tally[el] || 0) + 1; }
+    const elh = meta.ELEMENT_LIST.map(el => { const e = meta.ELEMENTS[el]; return `<span class="inv-el" style="color:${e.color}">${e.icon} ${e.name} ×${tally[el] || 0}</span>`; }).join('');
+    let h = '<p class="shop-sub">Your satchel — currencies, gear and known magic at a glance.</p>';
+    h += `<div class="inv-cur">
+      <div class="inv-coin"><span class="inv-ico">🪙</span><b>${meta.gold()}</b><small>gold · earned by working</small></div>
+      <div class="inv-coin"><span class="inv-ico">💎</span><b>${meta.gems()}</b><small>gems · won in battle</small></div>
+      <div class="inv-coin"><span class="inv-ico">☀️</span><b>Day ${meta.currentDay()}</b><small>the tavern clock</small></div>
+    </div>`;
+    h += `<div class="eq-totals"><span>⚔ Equipped bonuses</span><b>${statStr}</b></div>`;
+    h += `<div class="inv-row"><span>Spells known</span><b>${ownedSpells} / ${meta.SPELL_LIST.length}</b></div>
+      <div class="inv-row"><span>Gear in stash</span><b>${meta.gearList().length}</b></div>
+      <div class="inv-els">${elh}</div>`;
     return h;
   }
 

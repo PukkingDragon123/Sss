@@ -632,6 +632,38 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
 .eq-empty{grid-column:1/-1;color:var(--ink-dim);font-size:13px;opacity:.8;padding:4px 2px;}
 .eq-grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr));}
 
+/* ===== Currencies + elemental spell cards + Library ===== */
+.shop-cur{display:flex;gap:8px;}
+#shop-gems{font-weight:800;color:#9fe0ff;background:rgba(0,0,0,.3);border-radius:10px;padding:4px 12px;}
+.shop-btn.gem{background:linear-gradient(#9fe0ff,#3f8fd0);color:#06243a;box-shadow:0 3px 0 #1c5a86;}
+.shop-btn.gem:active{box-shadow:0 1px 0 #1c5a86;}
+.shop-btn.gem:disabled{background:#5a5168;color:#9a90ad;box-shadow:none;}
+#gems{color:#bfe8ff;}
+
+.spell-el{font-size:11px;font-weight:800;letter-spacing:.4px;}
+.shop-card.spell-card,.shop-card.grim-card{position:relative;overflow:hidden;border-color:var(--el,var(--panel-edge));}
+.shop-card.spell-card::before,.shop-card.grim-card::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--el,var(--magic));opacity:.85;}
+
+.grim-grid{grid-template-columns:repeat(auto-fill,minmax(162px,1fr));}
+.grim-vfx{position:relative;height:64px;display:flex;align-items:center;justify-content:center;}
+.grim-glyph{position:relative;font-size:40px;line-height:1;z-index:2;filter:drop-shadow(0 0 8px var(--el));}
+.vfx-orb{position:absolute;left:50%;top:50%;width:54px;height:54px;border-radius:50%;transform:translate(-50%,-50%);
+  background:radial-gradient(circle,var(--c),transparent 65%);opacity:.5;animation:vfxPulse 2.3s ease-in-out infinite;}
+@keyframes vfxPulse{0%,100%{transform:translate(-50%,-50%) scale(.7);opacity:.32;}50%{transform:translate(-50%,-50%) scale(1.18);opacity:.7;}}
+.lvtag.locked-tag{color:var(--ink-dim);}
+
+.research-active{background:linear-gradient(90deg,rgba(86,184,255,.16),rgba(0,0,0,.2));border:1.5px solid rgba(86,184,255,.4);border-radius:12px;padding:8px 14px;margin-bottom:12px;font-size:14px;text-align:center;}
+.research-active b{color:var(--mana);}
+
+.inv-cur{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:12px;}
+.inv-coin{display:flex;flex-direction:column;align-items:center;background:rgba(0,0,0,.28);border:1.5px solid var(--panel-edge);border-radius:14px;padding:10px 18px;min-width:118px;}
+.inv-coin .inv-ico{font-size:26px;line-height:1;}
+.inv-coin b{font-size:19px;color:var(--gold);margin-top:2px;}
+.inv-coin small{font-size:10px;color:var(--ink-dim);text-align:center;}
+.inv-row{display:flex;justify-content:space-between;max-width:360px;margin:6px auto;font-size:14px;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:5px;}
+.inv-row b{color:var(--ink);}
+.inv-els{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:12px;font-size:13px;font-weight:800;}
+
 /* ===== Village builder bar (Clash-style) ===== */
 .vil-stats{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px;}
 .vil-stat{display:flex;flex-direction:column;align-items:center;background:rgba(0,0,0,.28);border:1.5px solid var(--panel-edge);border-radius:11px;padding:5px 14px;min-width:86px;}

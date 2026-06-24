@@ -37,17 +37,17 @@ const DEFAULT_STATS = () => ({
 });
 
 // choice-based path events (Slay-the-Spire dilemmas). Each option is pure data:
-// hp/heal/maxhp/gold(±)/mana/drunk deltas + an optional gain (ability|gear|gold).
-// minGold disables an option you can't afford.
+// hp/heal/maxhp/gems(±)/mana/drunk deltas + an optional gain (ability|gear|gems).
+// minGems disables an option you can't afford. (In a venture you spend 💎, not gold.)
 const EVENTS = [
   { icon: '🏺', title: 'The Hungry Altar', prompt: 'A cracked altar hums, hungry for tribute. The air tastes of old magic.', opts: [
     { label: 'Offer blood', tip: '−18 HP · gain an ability', hp: -18, gain: 'ability' },
-    { label: 'Pay tribute (70🪙)', tip: '−70🪙 · gain an ability', minGold: 70, gold: -70, gain: 'ability' },
+    { label: 'Pay tribute (💎6)', tip: '−💎6 · gain an ability', minGems: 6, gems: -6, gain: 'ability' },
     { label: 'Back away', tip: 'leave it be' },
   ] },
-  { icon: '👻', title: 'The Tipsy Ghost', prompt: 'A see-through sot rattles a hidden coin-stash and a dusty bottle at you.', opts: [
-    { label: 'Chug his brew', tip: '+60🪙 · full mana · a buzz', gold: 60, mana: 'full', drunk: 0.25, gain: 'gold', goldAmt: 60 },
-    { label: 'Pocket the coin', tip: '+120🪙', gain: 'gold', goldAmt: 120 },
+  { icon: '👻', title: 'The Tipsy Ghost', prompt: 'A see-through sot rattles a hidden gem-stash and a dusty bottle at you.', opts: [
+    { label: 'Chug his brew', tip: '+💎4 · full mana · a buzz', mana: 'full', drunk: 0.25, gain: 'gems', gemAmt: 4 },
+    { label: 'Pocket the gems', tip: '+💎9', gain: 'gems', gemAmt: 9 },
   ] },
   { icon: '🗡️', title: 'The Buried Blade', prompt: 'A faintly glowing weapon juts from a long-dead adventurer. It hums to be held.', opts: [
     { label: 'Wrench it free', tip: '−12 HP · take the gear', hp: -12, gain: 'gear' },
@@ -55,12 +55,12 @@ const EVENTS = [
   ] },
   { icon: '🍄', title: 'The Glowing Cap', prompt: 'Luminous mushrooms pulse on a stump. Definitely magical. Probably edible.', opts: [
     { label: 'Gobble them', tip: 'gain an ability · +woozy', gain: 'ability', drunk: 0.3 },
-    { label: 'Brew a tonic (40🪙)', tip: '−40🪙 · +20 max HP', minGold: 40, gold: -40, maxhp: 20 },
+    { label: 'Brew a tonic (💎4)', tip: '−💎4 · +20 max HP', minGems: 4, gems: -4, maxhp: 20 },
     { label: 'Leave them', tip: 'wise.' },
   ] },
   { icon: '⚖️', title: "A Devil's Bargain", prompt: 'A horned merchant grins. "Power now, pay later — only a sliver of your vigour."', opts: [
     { label: 'Take the deal', tip: '−25 max HP · gain an ability', maxhp: -25, gain: 'ability' },
-    { label: 'Decline politely', tip: '+45🪙 for your prudence', gain: 'gold', goldAmt: 45 },
+    { label: 'Decline politely', tip: '+💎3 for your prudence', gain: 'gems', gemAmt: 3 },
   ] },
 ];
 
@@ -585,20 +585,22 @@ export class Game {
   _showEnd(win) {
     if (win && this.stage) meta.markStageCleared(this.stage.id); // opens the next haunt on the world map
     if (win && !meta.tavernOwned()) { meta.setTavernOwned(true); this._justInherited = true; } // avenge -> inherit
-    const depth = this._roomsCleared || 0; // rooms cleared (boss = combatRooms+1)
-    // loot: survival + foes slain + a per-room purse, plus a guaranteed boss drop
-    const loot = 15 + Math.round(this.kills * 1.4) + depth * 38 + (win ? 170 : 0);
-    meta.addGold(loot);
+    const depth = this._roomsCleared || 0; // rooms cleared (boss = forks+2)
+    // ventures pay in 💎 GEMS (gold is earned only by WORKING), plus a guaranteed boss gear drop
+    const gemReward = Math.max(1, Math.round((2 + depth * 1.4 + this.kills * 0.06 + (win ? 6 : 0)) * meta.gemBonusMult()));
+    meta.addGems(gemReward);
     if (win) meta.addGear(meta.dropGear(this.level + 3, true));
-    const earned = Math.max(0, meta.gold() - (this.runGoldStart || 0));
+    const earnedGems = Math.max(0, meta.gems() - (this._runGemStart || 0));
     const questDone = meta.evaluateQuest({ kills: this.kills, time: Math.floor(this.elapsed), wave: depth, bossKilled: this.bossKilled, win });
+    const finishedResearch = meta.advanceDay(); // a venture spends a day (and ticks research)
     meta.save();
     this.ui.closeModals();
     this.ui.setScreen('end');
     this.ui.showResults(win, {
       nodes: depth, rooms: depth, kills: this.kills, level: this.level, stage: this.stage ? this.stage.name : '',
       artifact: win && this.runArtifacts.length ? this.runArtifacts[this.runArtifacts.length - 1].name : null,
-      earned, gold: meta.gold(), questDone,
+      earnedGems, gems: meta.gems(), day: meta.currentDay(),
+      research: finishedResearch ? meta.researchById(finishedResearch).name : null, questDone,
     });
   }
 
@@ -774,9 +776,12 @@ export class Game {
   startMinigame() {
     this.state = 'menu';
     this.ui.showBar((tips) => {
-      meta.addGold(tips); meta.save();
+      meta.addGold(tips);
+      const fin = meta.advanceDay(); // a day's work passes (and ticks research)
+      meta.save();
       this.ui.setGold(meta.gold());
       this.ui.toast(`🍺 Shift over — ${tips}🪙 in tips!`);
+      if (fin) this.ui.toast(`🔬 Research complete: ${meta.researchById(fin).name}`);
       this.state = 'play';
     });
   }
@@ -809,6 +814,7 @@ export class Game {
     this.stats = DEFAULT_STATS();
     if (meta.consumeRest()) this.stats.hpMax += meta.REST_BONUS + meta.roomComfort() * 4; // a good night's rest, comfier room = more
     this._applyEquipment();
+    meta.applyResearch(this.stats); // completed research bonuses
     this.loadout = meta.getLoadout();
     this.unlocked = new Set(this.loadout);
     this.activeCombos = meta.activeCombos(this.unlocked);
@@ -830,7 +836,7 @@ export class Game {
     this.runArtifacts = [];         // [{icon,name}]            (the OP relics)
     this._opArtifact = rollArtifact(this); // the end-of-level relic, previewed on the path
     this.ui.setAbilities([], []);
-    this.runGoldStart = meta.gold(); this.bossKilled = false;
+    this._runGemStart = meta.gems(); this.bossKilled = false;
     this.bossActive = false; this.bossCine = 0; this._endState = null; this._exiting = false; this._lastCast = null;
     this.enemies.clear(); this.spells.reset(); this._clearPickups(); this.director.reset();
     this.world.show(false); this.tavern.show(false); this.tavern.showRoom(false); this.arenaGroup.visible = true;
@@ -927,7 +933,7 @@ export class Game {
     if (type === 'event') return { type, icon: '❓', name: 'Mystery', desc: 'A strange encounter — your call', event: this._pickEvent(), lurk: '❓ who knows what' };
     return { type: 'skill', icon: '✶', name: 'Trial of Nerve', desc: 'Stop the marker on the mark to win', lurk: '✶ a test of nerve' };
   }
-  _randKind() { const k = ['coin', 'heart', 'brew', 'gear', 'ability', 'ability']; return k[Math.floor(Math.random() * k.length)]; }
+  _randKind() { const k = ['gems', 'heart', 'brew', 'gear', 'ability', 'ability']; return k[Math.floor(Math.random() * k.length)]; }
 
   // ----- choice events (Slay-the-Spire style dilemmas) -----
   _pickEvent() {
@@ -942,13 +948,12 @@ export class Game {
       if (opt.hp) w.hp = Math.max(1, w.hp + opt.hp);
       if (opt.heal) w.heal(opt.heal);
       if (opt.maxhp) { s.hpMax = Math.max(40, s.hpMax + opt.maxhp); w._maxHp = s.hpMax; w.hp = Math.max(1, Math.min(w.hp + opt.maxhp, s.hpMax)); }
-      if (opt.gold) { if (opt.gold < 0) meta.spendGold(-opt.gold); else meta.addGold(opt.gold); }
+      if (opt.gems) { if (opt.gems < 0) meta.spendGems(-opt.gems); else meta.addGems(opt.gems); }
       if (opt.mana === 'full') w.mana = s.manaMax;
       if (opt.drunk) { this.drunkenness = Math.min(1, this.drunkenness + opt.drunk); this._drunkSurge = 1; }
       if (opt.gain === 'ability') { const u = rollUpgrades(this, 1)[0]; if (u) { this.applyAbility(u); this.ui.toast(`✦ ${u.name}`); } }
       else if (opt.gain === 'gear') { const inst = meta.dropGear(Math.max(1, this.level) + 1, Math.random() < 0.4); meta.addGear(inst); this.ui.lootToast(inst); }
-      else if (opt.gain === 'gold') { const amt = opt.goldAmt || 60; meta.addGold(amt); this.ui.toast(`💰 +${amt}🪙`); }
-      this.ui.setGold(meta.gold());
+      else if (opt.gain === 'gems') { const amt = opt.gemAmt || 4; meta.addGems(amt); this.ui.toast(`💎 +${amt} gems`); }
       this.audio.play('click');
     }
     this._nextFork();
@@ -956,16 +961,16 @@ export class Game {
   resolveSkill(quality) {
     this.ui.hideEvent();
     let msg;
-    if (quality >= 0.82) { const u = rollUpgrades(this, 1)[0]; if (u) this.applyAbility(u); meta.addGold(90); msg = `✶ PERFECT! ✦ ${u ? u.name : 'ability'} + 90🪙`; this.audio.play('levelup'); }
+    if (quality >= 0.82) { const u = rollUpgrades(this, 1)[0]; if (u) this.applyAbility(u); meta.addGems(8); msg = `✶ PERFECT! ✦ ${u ? u.name : 'ability'} + 💎8`; this.audio.play('levelup'); }
     else if (quality >= 0.45) { const inst = meta.dropGear(Math.max(1, this.level), Math.random() < 0.3); meta.addGear(inst); msg = `✶ Steady — ${meta.RARITIES[inst.rarity].name} ${inst.slot}!`; this.audio.play('xp'); }
-    else { meta.addGold(35); msg = '✶ Shaky hand — 35🪙 for the effort'; this.audio.play('hiccup'); }
-    this.ui.setGold(meta.gold()); this.ui.toast(msg);
+    else { meta.addGems(3); msg = '✶ Shaky hand — 💎3 for the effort'; this.audio.play('hiccup'); }
+    this.ui.toast(msg);
     this._nextFork();
   }
 
   _makeReward(kind) {
     const lvl = Math.max(1, this.level);
-    if (kind === 'coin') { const amount = 45 + Math.floor(Math.random() * 4) * 15 + lvl * 5; return { kind, icon: '💰', name: 'Coin Cache', desc: `+${amount} gold`, amount }; }
+    if (kind === 'gems') { const amount = 3 + Math.floor(Math.random() * 3) + Math.floor(lvl / 3); return { kind, icon: '💎', name: 'Gem Vein', desc: `+${amount} gems`, amount }; }
     if (kind === 'heart') return { kind, icon: '❤️', name: 'Heart Idol', desc: '+25 max HP & a full heal' };
     if (kind === 'brew') return { kind, icon: '🍺', name: 'Brewfont', desc: '+30 max mana, +20/gulp & refill' };
     if (kind === 'gear') { const inst = meta.dropGear(lvl + 1, Math.random() < 0.3); const rc = meta.RARITIES[inst.rarity]; return { kind, icon: '🎁', name: inst.name, desc: `${rc.name} ${inst.slot}`, color: rc.color, inst }; }
@@ -973,7 +978,7 @@ export class Game {
   }
   _grantReward(r) {
     if (!r) return;
-    if (r.kind === 'coin') { meta.addGold(r.amount); this.ui.setGold(meta.gold()); this.ui.toast(`💰 +${r.amount}🪙`); }
+    if (r.kind === 'gems') { meta.addGems(r.amount); this.ui.toast(`💎 +${r.amount} gems`); }
     else if (r.kind === 'heart') { this.stats.hpMax += 25; this.wizard._maxHp = this.stats.hpMax; this.wizard.hp = this.stats.hpMax; this.ui.toast('❤️ +25 max HP — fully healed'); }
     else if (r.kind === 'brew') { this.stats.manaMax += 30; this.stats.drinkHeal += 20; this.wizard.mana = this.stats.manaMax; this.ui.toast('🍺 Brewfont — bigger mug & a heartier brew'); }
     else if (r.kind === 'gear') { meta.addGear(r.inst); this.ui.lootToast(r.inst); }

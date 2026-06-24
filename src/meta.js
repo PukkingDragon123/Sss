@@ -1,19 +1,29 @@
 // meta.js — persistent meta-progression (3 save slots in localStorage): gold,
 // spells/combos/loadout, room, equipment, quests, and the idle tavern tycoon.
 
+// the four elements every spell belongs to (shown in the Grimoire & Spell Table)
+export const ELEMENTS = {
+  fire:  { name: 'Fire',  icon: '🔥', color: '#ff7a3a' },
+  water: { name: 'Water', icon: '💧', color: '#5fb0ff' },
+  air:   { name: 'Air',   icon: '🌬️', color: '#cfeaff' },
+  earth: { name: 'Earth', icon: '🪨', color: '#c9a06a' },
+};
+export const ELEMENT_LIST = ['fire', 'water', 'air', 'earth'];
+
+// spells: element, glyph, the gem cost to unlock, and a line of lore for the showcase
 export const SPELL_META = {
-  fireball:  { name: 'Fireball',     glyph: '△', starter: true },
-  gust:      { name: 'Gust',         glyph: '—', starter: true },
-  lightning: { name: 'Lightning',    glyph: 'ϟ', unlock: 60 },
-  heal:      { name: 'Heal',         glyph: '∨', unlock: 70 },
-  frost:     { name: 'Frost Splash', glyph: '◯', unlock: 90 },
-  spike:     { name: 'Arcane Spike', glyph: '∧', unlock: 130 },
-  nova:      { name: 'Fire Nova',    glyph: '★', unlock: 180 },
-  acid:      { name: 'Acid Spray',   glyph: '@', unlock: 120 },
-  shield:    { name: 'Barrier',      glyph: '▢', unlock: 110 },
-  quake:     { name: 'Quake',        glyph: 'W', unlock: 160 },
-  orb:       { name: 'Arcane Orb',   glyph: 'S', unlock: 150 },
-  blink:     { name: 'Blink Strike', glyph: '↻', unlock: 140 },
+  fireball:  { name: 'Fireball',     glyph: '△', element: 'fire',  starter: true, lore: 'A lobbed bolt that bursts into splash flame.' },
+  gust:      { name: 'Gust',         glyph: '—', element: 'air',   starter: true, lore: 'A shove of wind that knocks the swarm back.' },
+  lightning: { name: 'Lightning',    glyph: 'ϟ', element: 'air',   gems: 4,  lore: 'A bolt that leaps between nearby foes.' },
+  heal:      { name: 'Heal',         glyph: '∨', element: 'water', gems: 5,  lore: 'Restorative waters mend the old fool.' },
+  frost:     { name: 'Frost Splash', glyph: '◯', element: 'water', gems: 5,  lore: 'A freezing burst that slows what it touches.' },
+  spike:     { name: 'Arcane Spike', glyph: '∧', element: 'earth', gems: 7,  lore: 'A spear of stone erupts from the ground.' },
+  nova:      { name: 'Fire Nova',    glyph: '★', element: 'fire',  gems: 10, lore: 'A ring of fire detonates all around you.' },
+  acid:      { name: 'Acid Spray',   glyph: '@', element: 'water', gems: 6,  lore: 'A spray of corrosive bile that lingers.' },
+  shield:    { name: 'Barrier',      glyph: '▢', element: 'earth', gems: 6,  lore: 'A wall of stone-light soaks the next hits.' },
+  quake:     { name: 'Quake',        glyph: 'W', element: 'earth', gems: 8,  lore: 'A shockwave that ruptures the earth.' },
+  orb:       { name: 'Arcane Orb',   glyph: 'S', element: 'fire',  gems: 8,  lore: 'A slow, searing orb that bores through ranks.' },
+  blink:     { name: 'Blink Strike', glyph: '↻', element: 'air',   gems: 7,  lore: 'Flicker forward in a crackle of air.' },
 };
 export const SPELL_LIST = Object.keys(SPELL_META);
 export const MAX_LEVEL = 5;
@@ -50,6 +60,7 @@ export const BUILDABLES = [
   // functional stations — walk up to a placed one to use it (kept cheap so you
   // can get your workshop going early)
   { id: 'spelltable', name: 'Spell Table',  icon: '✦',  cost: 0,   comfort: 0, station: 'skilltree' },
+  { id: 'library',    name: 'Arcane Library', icon: '📖', cost: 0,  comfort: 0, station: 'library' },
   { id: 'questboard', name: 'Quest Board',  icon: '📜', cost: 40,  comfort: 0, station: 'manager' },
   { id: 'ledger',     name: 'Ledger Desk',  icon: '📒', cost: 60,  comfort: 0, station: 'ledger' },
   { id: 'wardrobe',   name: 'Equipment Hall', icon: '🎽', cost: 70,  comfort: 0, station: 'wardrobe' },
@@ -143,6 +154,42 @@ export const QUESTS = [
   { id: 'q_clear2', text: 'Conquer another region',          type: 'win',   goal: 1,   reward: 640 },
 ];
 
+// ---- Research: spend 💎 gems at the Arcane Library; projects finish after some
+// DAYS pass (a day ticks each time you work a shift or return from a venture).
+// Completed research applies its bonus to every future run. ----
+export const RESEARCH = [
+  { id: 'r_power',  name: 'Battle Magic',       icon: '🔥', days: 2, gems: 8,  desc: '+15% spell damage, always.',        apply: s => { s.damageMult += 0.15; } },
+  { id: 'r_mana',   name: 'Deeper Draughts',    icon: '💧', days: 2, gems: 6,  desc: '+25 max mana, always.',             apply: s => { s.manaMax += 25; } },
+  { id: 'r_focus',  name: 'Steady Focus',       icon: '🌬️', days: 3, gems: 10, desc: '−12% spell cooldowns, always.',     apply: s => { s.cooldownMult = Math.max(0.4, s.cooldownMult * 0.88); } },
+  { id: 'r_vigor',  name: 'Iron Constitution',  icon: '🪨', days: 2, gems: 7,  desc: '+30 max HP, always.',               apply: s => { s.hpMax += 30; } },
+  { id: 'r_crit',   name: 'Killer Edge',        icon: '🎯', days: 3, gems: 12, desc: '+35% crit damage, always.',         apply: s => { s.critMult = (s.critMult || 2) + 0.35; } },
+  { id: 'r_divine', name: 'Gem Divining',       icon: '💎', days: 3, gems: 10, desc: '+60% gems won from every venture.', gemBonus: 0.6 },
+];
+export const researchById = (id) => RESEARCH.find(r => r.id === id);
+export const currentDay = () => state.day || 1;
+export const researchActive = () => state.research && state.research.activeId ? researchById(state.research.activeId) : null;
+export const researchDaysLeft = () => (state.research && state.research.daysLeft) || 0;
+export const researchDone = (id) => !!(state.research && state.research.done && state.research.done[id]);
+export function startResearch(id) {
+  const r = researchById(id);
+  if (!r || researchActive() || researchDone(id)) return false;
+  if (!spendGems(r.gems)) return false;
+  state.research.activeId = id; state.research.daysLeft = r.days; save(); return true;
+}
+// returns the id that completed this tick (or null)
+export function advanceDay() {
+  state.day = (state.day || 1) + 1;
+  let finished = null;
+  if (state.research && state.research.activeId) {
+    state.research.daysLeft = Math.max(0, (state.research.daysLeft || 0) - 1);
+    if (state.research.daysLeft <= 0) { finished = state.research.activeId; state.research.done[finished] = true; state.research.activeId = null; }
+  }
+  save(); return finished;
+}
+export function gemBonusMult() { let m = 1; for (const r of RESEARCH) if (r.gemBonus && researchDone(r.id)) m += r.gemBonus; return m; }
+// apply every completed research bonus to a fresh run's stats
+export function applyResearch(stats) { for (const r of RESEARCH) if (r.apply && researchDone(r.id)) r.apply(stats); }
+
 // ---- idle / tycoon: the Tipsy Toad earns coin while patrons drink ----
 export const TAVERN_BASE_RATE = 2;   // gold / minute, before upgrades (kept modest)
 export const TAVERN_BASE_CAP = 100;  // max gold banked while away
@@ -156,7 +203,10 @@ export const TAVERN_UPGRADES = [
 
 function defaultSave() {
   return {
-    gold: 80, // a little seed coin so you can build your first stations right away
+    gold: 40,  // a little seed coin (gold is earned by WORKING the bar)
+    gems: 6,   // 💎 a few starter gems to unlock your first spell
+    day: 1,    // the tavern clock — work by day, venture by night
+    research: { activeId: null, daysLeft: 0, done: {} },
     owned: { fireball: true, gust: true },
     level: { fireball: 1, gust: 1 },
     combos: {},
@@ -204,6 +254,10 @@ export function load() {
       state.gear = Array.isArray(state.gear) ? state.gear : [];
       state.equippedGear = Object.assign({ hat: null, robe: null, staff: null, charm: null }, state.equippedGear || {});
       state.tavern = Object.assign({ owned: false, bank: 0, lastSeen: Date.now(), upgrades: {} }, state.tavern || {});
+      state.gems = state.gems || 0;
+      state.day = state.day || 1;
+      state.research = Object.assign({ activeId: null, daysLeft: 0, done: {} }, state.research || {});
+      state.research.done = state.research.done || {};
       // offline earnings since last seen (capped)
       const dt = Math.max(0, (Date.now() - (state.tavern.lastSeen || Date.now())) / 1000);
       if (state.tavern.owned) state.tavern.bank = Math.min(tavernCap(), state.tavern.bank + tavernRate() / 60 * dt);
@@ -220,24 +274,33 @@ export function get() { return state; }
 export const gold = () => state.gold;
 export function addGold(n) { state.gold += n; save(); }
 export function spendGold(n) { if (state.gold < n) return false; state.gold -= n; save(); return true; }
+// 💎 gemstones — won in battle, spent on spells & research (gold is earned by WORKING)
+export const gems = () => state.gems || 0;
+export function addGems(n) { state.gems = (state.gems || 0) + n; save(); }
+export function spendGems(n) { if ((state.gems || 0) < n) return false; state.gems -= n; save(); return true; }
+export const canAffordGems = (n) => (state.gems || 0) >= n;
 export const owns = (id) => !!state.owned[id];
 export const spellLevel = (id) => state.level[id] || 0;
 export const learned = (id) => !!state.combos[id];
 export function spellDmgMult(id) { const l = state.level[id] || 1; return 1 + (l - 1) * 0.22; }
 export function canAfford(n) { return state.gold >= n; }
+// spells now cost GEMS to unlock & upgrade
+export const spellUnlockGems = (id) => (SPELL_META[id] && SPELL_META[id].gems) || 0;
+export const spellUpgradeGems = (level) => 3 + (level - 1) * 2;
 
 export function unlockSpell(id) {
   const m = SPELL_META[id];
-  if (!m || owns(id) || m.starter || !canAfford(m.unlock)) return false;
-  state.gold -= m.unlock; state.owned[id] = true; state.level[id] = 1; save(); return true;
+  if (!m || owns(id) || m.starter) return false;
+  const c = spellUnlockGems(id);
+  if (!spendGems(c)) return false;
+  state.owned[id] = true; state.level[id] = 1; save(); return true;
 }
 export function upgradeSpell(id) {
   if (!owns(id)) return false;
   const l = state.level[id] || 1;
   if (l >= MAX_LEVEL) return false;
-  const c = levelCost(l);
-  if (!canAfford(c)) return false;
-  state.gold -= c; state.level[id] = l + 1; save(); return true;
+  if (!spendGems(spellUpgradeGems(l))) return false;
+  state.level[id] = l + 1; save(); return true;
 }
 export const isEquipped = (id) => state.loadout.includes(id);
 export const getLoadout = () => state.loadout.slice();

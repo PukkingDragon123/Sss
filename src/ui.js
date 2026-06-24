@@ -84,6 +84,8 @@ export class UI {
       gold: $('gold'), wave: $('wave'), banner: $('banner'), interactPrompt: $('interact-prompt'), btnInteract: $('btn-interact'),
       shop: $('shop'), shopTitle: $('shop-title'), shopGold: $('shop-gold'), shopBody: $('shop-body'), shopClose: $('shop-close'),
       tavernHud: $('tavern-hud'), ruckusCount: $('ruckus-count'),
+      abilityTray: $('ability-tray'),
+      pathChoice: $('path-choice'), pathDoors: $('path-doors'), pathTitle: $('path-title'), pathSub: $('path-sub'), pathBoss: $('path-boss'),
       worldHud: $('world-hud'), worldDetail: $('world-detail'),
       btnGuide: $('btn-guide'), btnPause: $('btn-pause'), btnMute: $('btn-mute'),
       joystick: $('joystick'), joyKnob: $('joy-knob'), blackout: $('blackout'),
@@ -129,6 +131,11 @@ export class UI {
     this.el.shopBody.addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]');
       if (b) this._shopAction(b.dataset.act, b.dataset.id, b.dataset.slot);
+    });
+    // path doors: pick one to enter (combat resumes beyond it)
+    if (this.el.pathDoors) this.el.pathDoors.addEventListener('click', (e) => {
+      const d = e.target.closest('[data-door]'); if (!d) return;
+      game.audio.play('click'); game.choosePath(parseInt(d.dataset.door, 10));
     });
     // world-map HUD: Venture / Back buttons (region selection itself is 3D clicks)
     if (this.el.worldDetail) this.el.worldDetail.addEventListener('click', (e) => {
@@ -217,6 +224,7 @@ export class UI {
     this.el.btnGuide.classList.toggle('hidden', !arena);
     if (this.el.btnDrink) this.el.btnDrink.classList.toggle('hidden', !arena); // drink only in the fight
     if (this.el.btnBuild) this.el.btnBuild.classList.toggle('hidden', !room);  // build only in your room
+    if (this.el.abilityTray) this.el.abilityTray.classList.toggle('hidden', !arena || !this.el.abilityTray.innerHTML);
     if (this.el.drunkWrap) this.el.drunkWrap.classList.toggle('hidden', !arena);
     if (!world) this.hideWorldHud();
     if (!arena && !world) { this.el.interactPrompt.classList.add('hidden'); this.el.btnInteract.classList.add('hidden'); }
@@ -253,6 +261,111 @@ export class UI {
     this.el.worldHud.classList.remove('hidden');
   }
   hideWorldHud() { if (this.el.worldHud) this.el.worldHud.classList.add('hidden'); }
+
+  // ---- acquired abilities + artifacts: a stacking tray, top-left ----
+  setAbilities(abilities, artifacts) {
+    const tray = this.el.abilityTray; if (!tray) return;
+    abilities = abilities || []; artifacts = artifacts || [];
+    if (!abilities.length && !artifacts.length) { tray.innerHTML = ''; tray.classList.add('hidden'); return; }
+    let h = '<div class="abil-label">Abilities</div><div class="abil-row">';
+    for (const a of artifacts) h += `<div class="abil art" title="✦ ARTIFACT — ${a.name}"><span class="abil-ico">${a.icon}</span></div>`;
+    for (const a of abilities) h += `<div class="abil" title="${a.name}${a.count > 1 ? ` ×${a.count}` : ''}"><span class="abil-ico">${a.icon}</span>${a.count > 1 ? `<span class="abil-x">${a.count}</span>` : ''}</div>`;
+    h += '</div>';
+    tray.innerHTML = h;
+    tray.classList.toggle('hidden', !(this.game && this.game.phase === 'arena'));
+  }
+
+  // ---- Hades-style path choice: two doors, each previewing the prize beyond ----
+  showPathChoice(game, opts) {
+    const { bossNext, stage, rewards, artifact } = opts;
+    this.el.pathTitle.textContent = bossNext ? 'The Boss Lair Awaits' : 'Choose Your Path';
+    this.el.pathSub.innerHTML = bossNext
+      ? 'Beyond either door waits the boss — and the relic it guards. Pick your final boon:'
+      : 'Two ways through the dark forest. Each door shows the prize beyond it…';
+    if (bossNext && artifact) {
+      this.el.pathBoss.classList.remove('hidden');
+      this.el.pathBoss.innerHTML = `👑 <b>${stage.bossName}</b> guards a relic — clear the lair to claim <span class="pb-art">✦ ${artifact.name}</span>`;
+    } else this.el.pathBoss.classList.add('hidden');
+    this.el.pathDoors.innerHTML = '';
+    this._pathDoors = [];
+    rewards.forEach((r, i) => {
+      const door = document.createElement('div'); door.className = 'path-door'; door.dataset.door = i;
+      const cv = document.createElement('canvas'); cv.width = 300; cv.height = 150; cv.className = 'door-art';
+      const lurk = document.createElement('div'); lurk.className = 'door-lurk'; lurk.textContent = bossNext ? '👑 …and then the boss' : '👁 something lurks within…';
+      const reward = document.createElement('div'); reward.className = 'door-reward';
+      reward.innerHTML = `<span class="door-ico">${r.icon}</span><div class="door-rw-txt"><div class="door-name" ${r.color ? `style="color:${r.color}"` : ''}>${r.name}</div><div class="door-desc">${r.desc}</div></div>`;
+      const btn = document.createElement('button'); btn.className = 'btn big door-go'; btn.textContent = 'Enter ▸';
+      door.appendChild(cv); door.appendChild(lurk); door.appendChild(reward); door.appendChild(btn);
+      this.el.pathDoors.appendChild(door);
+      this._pathDoors.push(this._makeDoorArt(cv, i, bossNext));
+    });
+    this.el.pathChoice.classList.remove('hidden');
+    if (!this._pathLoopBound) this._pathLoopBound = this._pathLoop.bind(this);
+    cancelAnimationFrame(this._pathRaf); this._pathT = 0;
+    this._pathRaf = requestAnimationFrame(this._pathLoopBound);
+  }
+  hidePathChoice() {
+    this.el.pathChoice.classList.add('hidden');
+    cancelAnimationFrame(this._pathRaf); this._pathDoors = null;
+  }
+  _makeDoorArt(cv, idx, boss) {
+    const W = cv.width, H = cv.height;
+    const trees = [];
+    const n = 8 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < n; i++) trees.push({ x: Math.random() * W, w: 20 + Math.random() * 30, h: 55 + Math.random() * 80 });
+    trees.sort((a, b) => a.h - b.h); // shorter ones drawn behind
+    const creatures = [];
+    const cn = boss ? 1 : 2 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < cn; i++) creatures.push({ x: 44 + Math.random() * (W - 88), y: H * 0.5 + Math.random() * H * 0.3, phase: Math.random() * 6.28, blink: Math.random() * 3, sep: boss ? 9 : 5 + Math.random() * 3, sz: boss ? 3.6 : 1.8 + Math.random() * 1.1 });
+    return { canvas: cv, ctx: cv.getContext('2d'), trees, creatures, boss };
+  }
+  _pathLoop() {
+    if (!this._pathDoors) return;
+    this._pathT += 0.016;
+    for (const d of this._pathDoors) this._drawDoorArt(d, this._pathT);
+    this._pathRaf = requestAnimationFrame(this._pathLoopBound);
+  }
+  _drawDoorArt(d, t) {
+    const ctx = d.ctx, W = d.canvas.width, H = d.canvas.height;
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    if (d.boss) { sky.addColorStop(0, '#1a0608'); sky.addColorStop(1, '#070203'); }
+    else { sky.addColorStop(0, '#0a1018'); sky.addColorStop(1, '#04060b'); }
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+    // moon glow
+    const mg = ctx.createRadialGradient(W * 0.5, H * 0.12, 3, W * 0.5, H * 0.12, 90);
+    mg.addColorStop(0, d.boss ? 'rgba(210,90,70,0.5)' : 'rgba(150,170,210,0.45)'); mg.addColorStop(1, 'transparent');
+    ctx.fillStyle = mg; ctx.fillRect(0, 0, W, H);
+    // tree silhouettes (layered pines)
+    for (const tr of d.trees) {
+      const baseY = H + 4, depth = tr.h / 135;
+      ctx.fillStyle = `rgb(${Math.round(4 + depth * 8)},${Math.round(8 + depth * 10)},${Math.round(5 + depth * 7)})`;
+      for (let s = 0; s < 3; s++) {
+        const hh = tr.h * (1 - s * 0.26), ww = tr.w * (1 - s * 0.18), cy = baseY - tr.h * 0.5 * s;
+        ctx.beginPath(); ctx.moveTo(tr.x, cy - hh); ctx.lineTo(tr.x - ww / 2, cy); ctx.lineTo(tr.x + ww / 2, cy); ctx.closePath(); ctx.fill();
+      }
+    }
+    // creeping mist
+    ctx.save(); ctx.globalAlpha = 0.10 + 0.05 * Math.sin(t * 1.3);
+    ctx.fillStyle = '#7fa0b0'; ctx.fillRect(0, H * 0.7, W, H * 0.3); ctx.restore();
+    // lurking red eyes
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (const c of d.creatures) {
+      const period = 2.8 + c.blink; const bc = (t + c.phase * 0.5) % period;
+      let open = 1; if (bc > period - 0.16) open = Math.max(0, (period - bc) / 0.16);
+      const pulse = 0.55 + 0.45 * Math.sin(t * 3 + c.phase);
+      for (const dx of [-c.sep, c.sep]) {
+        const ex = c.x + dx, ey = c.y;
+        const g = ctx.createRadialGradient(ex, ey, 0, ex, ey, 14 + pulse * 8);
+        g.addColorStop(0, `rgba(255,40,26,${0.85 * open})`); g.addColorStop(0.5, `rgba(220,20,16,${0.4 * open})`); g.addColorStop(1, 'transparent');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ex, ey, 18 + pulse * 6, 0, 6.28); ctx.fill();
+        ctx.fillStyle = `rgba(255,${Math.round(120 + pulse * 80)},90,${open})`;
+        ctx.beginPath(); ctx.ellipse(ex, ey, c.sz, c.sz * (0.4 + 0.6 * open), 0, 0, 6.28); ctx.fill();
+      }
+    }
+    ctx.restore();
+    // vignette frame
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 8; ctx.strokeRect(0, 0, W, H);
+  }
 
   // hub prompt: show what the wizard can interact with
   updatePrompt(station, isTouch) {
@@ -297,6 +410,7 @@ export class UI {
     this.el.levelup.classList.add('hidden');
     this.el.howto.classList.add('hidden');
     this.el.glyphGuide.classList.add('hidden');
+    this.hidePathChoice();
   }
 
   setScreen(name) {
@@ -435,7 +549,8 @@ export class UI {
   showResults(win, info) {
     this.el.endTitle.textContent = win ? `${info.stage} — Conquered!` : 'The Wizard Passed Out';
     this.el.endStats.innerHTML = `
-      <div class="end-summary">${info.stage} · 🌊 wave ${info.nodes} · ☠ ${info.kills} · Lv ${info.level}</div>
+      <div class="end-summary">${info.stage} · 🚪 ${info.rooms} rooms · ☠ ${info.kills} · Lv ${info.level}</div>
+      ${info.artifact ? `<div class="end-artifact">✦✦ Claimed artifact: <b>${info.artifact}</b></div>` : ''}
       <div class="loot-box">
         <div class="loot-row loot-total"><span>${win ? 'Conquest spoils' : 'Gold gathered'}</span><b>+${info.earned}🪙</b></div>
       </div>

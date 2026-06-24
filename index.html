@@ -42,6 +42,9 @@
       </div>
     </div>
 
+    <!-- acquired abilities (and OP artifacts) — a stacking tray, top-left -->
+    <div id="ability-tray" class="hidden"></div>
+
     <div id="job-tracker" class="hidden">
       <div class="job-title">Chore</div>
       <div class="job-desc" id="job-desc"></div>
@@ -89,11 +92,19 @@
     </div>
   </div>
 
-  <!-- ===== Level up / upgrade choice ===== -->
+  <!-- ===== Level up / ability choice ===== -->
   <div id="levelup" class="overlay hidden">
-    <h2 class="levelup-title">✦ Claim an Artifact ✦</h2>
-    <p class="levelup-sub">The spirit grows stronger. Choose a relic:</p>
+    <h2 class="levelup-title">✦ Choose an Ability ✦</h2>
+    <p class="levelup-sub">The spirit grows stronger. Pick a boon:</p>
     <div class="cards" id="upgrade-cards"></div>
+  </div>
+
+  <!-- ===== Hades-style path choice: two doors, each previewing its reward ===== -->
+  <div id="path-choice" class="overlay hidden">
+    <h2 class="levelup-title" id="path-title">Choose Your Path</h2>
+    <p class="levelup-sub" id="path-sub">Two ways through the dark. Each holds a different prize…</p>
+    <div id="path-boss" class="path-boss hidden"></div>
+    <div class="path-doors" id="path-doors"></div>
   </div>
 
   <!-- ===== Title screen ===== -->

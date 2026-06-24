@@ -13,7 +13,7 @@ import { Director, STAGES, OPENING, TAVERN_INTRO, TUTORIAL, BLACKOUT_LINES } fro
 import { Jobs } from './jobs.js';
 import { Tavern } from './tavern.js';
 import { World } from './world.js';
-import { rollUpgrades } from './upgrades.js';
+import { rollUpgrades, rollArtifact } from './upgrades.js';
 import * as meta from './meta.js';
 import { COMBO_META } from './meta.js';
 
@@ -364,19 +364,19 @@ export class Game {
     this.audio.play('levelup');
     const choices = rollUpgrades(this, 3);
     this.ui.showLevelUp(choices, (u) => {
-      this.applyArtifact(u);
+      this.applyAbility(u);
       this.pendingLevels--;
       if (this.pendingLevels > 0) this._openLevelUp();
       else this.state = 'play';
     });
   }
 
-  // a one-off artifact pick (shrines / events)
+  // a one-off ability pick (shrines / golden kegs)
   offerUpgrade(onPicked) {
     this.state = 'levelup';
     this.audio.play('levelup');
     const choices = rollUpgrades(this, 3);
-    this.ui.showLevelUp(choices, (u) => { this.applyArtifact(u); if (onPicked) onPicked(); });
+    this.ui.showLevelUp(choices, (u) => { this.applyAbility(u); if (onPicked) onPicked(); });
   }
 
   // ---------- pickups ----------
@@ -528,8 +528,11 @@ export class Game {
   }
 
   onBossDead() {
-    this.bossActive = false; this.bossKilled = true;
-    this.showStory('The Spirit', [`${this.stage.bossName} falls! ${this.stage.name} is conquered. Let's stagger home rich.`]);
+    this.bossActive = false; this.bossKilled = true; this._roomsCleared = this._combatRooms + 1;
+    if (this._pendingReward) { this._grantReward(this._pendingReward); this._pendingReward = null; }
+    this.grantArtifact(this._opArtifact); // the guaranteed, build-defining end-of-level relic
+    const relic = this._opArtifact ? `, and the ${this._opArtifact.name} is ours` : '';
+    this.showStory('The Spirit', [`${this.stage.bossName} falls! ${this.stage.name} is conquered${relic}. Let's stagger home rich.`]);
     this._endState = 'win';
     this.audio.play('win');
   }
@@ -551,18 +554,19 @@ export class Game {
   _showEnd(win) {
     if (win && this.stage) meta.markStageCleared(this.stage.id); // opens the next haunt on the world map
     if (win && !meta.tavernOwned()) { meta.setTavernOwned(true); this._justInherited = true; } // avenge -> inherit
-    const wave = this.director ? this.director.wave : 0;
-    // loot: survival + foes slain + a victory purse, plus a guaranteed boss drop
-    const loot = 25 + this.kills * 2 + wave * 16 + (win ? 260 : 0);
+    const depth = this._roomsCleared || 0; // rooms cleared (boss = combatRooms+1)
+    // loot: survival + foes slain + a per-room purse, plus a guaranteed boss drop
+    const loot = 25 + this.kills * 2 + depth * 60 + (win ? 260 : 0);
     meta.addGold(loot);
     if (win) meta.addGear(meta.dropGear(this.level + 3, true));
     const earned = Math.max(0, meta.gold() - (this.runGoldStart || 0));
-    const questDone = meta.evaluateQuest({ kills: this.kills, time: Math.floor(this.elapsed), wave, bossKilled: this.bossKilled, win });
+    const questDone = meta.evaluateQuest({ kills: this.kills, time: Math.floor(this.elapsed), wave: depth, bossKilled: this.bossKilled, win });
     meta.save();
     this.ui.closeModals();
     this.ui.setScreen('end');
     this.ui.showResults(win, {
-      nodes: wave, kills: this.kills, level: this.level, stage: this.stage ? this.stage.name : '',
+      nodes: depth, rooms: depth, kills: this.kills, level: this.level, stage: this.stage ? this.stage.name : '',
+      artifact: win && this.runArtifacts.length ? this.runArtifacts[this.runArtifacts.length - 1].name : null,
       earned, gold: meta.gold(), questDone,
     });
   }
@@ -783,6 +787,17 @@ export class Game {
     this.kills = 0; this.chores = 0; this.pendingLevels = 0; this.elapsed = 0;
     this.drunkenness = 0.22; this._drunkSurge = 0; this._drinkCd = 0;
     this._artifactsTaken = new Set();
+    // ---- Hades-style path: a few combat rooms, a 2-door choice before each next
+    // one (the door previews its reward), then the boss + a guaranteed OP artifact ----
+    this._combatRooms = 3;          // entrance + two more, then the boss
+    this._roomIndex = 0;            // combat rooms cleared so far
+    this._roomsCleared = 0;         // depth, for loot & quests
+    this._pendingReward = null;     // the prize the door you walked through promised
+    this._nextIsBoss = false;
+    this.runAbilities = new Map();  // id -> {icon,name,count}  (shown top-left)
+    this.runArtifacts = [];         // [{icon,name}]            (the OP relics)
+    this._opArtifact = rollArtifact(this); // the end-of-level relic, previewed on the path
+    this.ui.setAbilities([], []);
     this.runGoldStart = meta.gold(); this.bossKilled = false;
     this.bossActive = false; this.bossCine = 0; this._endState = null; this._exiting = false; this._lastCast = null;
     this.enemies.clear(); this.spells.reset(); this._clearPickups(); this.director.reset();
@@ -800,14 +815,90 @@ export class Game {
     this.ui.hideJob(); this.ui.closeModals(); this.ui.fadeBlack(false);
     this.ui.setGold(meta.gold());
     this.state = 'play';
-    this.director.start(stage, { waves: 6, boss: true, hpScale: 1, sizeMult: 1 });
+    this._beginRoom(false); // the entrance fight (no choice before it)
     this.showStory('The Spirit', stage.intro, () => {
       if (!this._guideShown) { this._guideShown = true; this._guideOpen = true; this.ui.showGuide(); this.state = 'paused'; }
     });
   }
 
-  // apply a chosen artifact (and remember unique ones so they can't repeat)
-  applyArtifact(u) { u.apply(this); if (u.unique) { (this._artifactsTaken || (this._artifactsTaken = new Set())).add(u.id); } }
+  // ---- run path: rooms, the 2-door junctions, and rewards ----
+  _beginRoom(isBoss) {
+    const scale = 1 + this._roomIndex * 0.16;
+    this.director.start(this.stage, { waves: isBoss ? 1 : 2, boss: isBoss, hpScale: scale, sizeMult: 1 + this._roomIndex * 0.08 });
+    if (isBoss) this.ui.toast('👑 The boss lair — survive!');
+    else this.ui.toast(`⚔ Room ${this._roomIndex + 1} of ${this._combatRooms}`);
+  }
+
+  // a non-boss room cleared -> pay out the door's promise, then offer the next fork
+  onEncounterCleared() {
+    if (this._pendingReward) { this._grantReward(this._pendingReward); this._pendingReward = null; }
+    this._roomIndex++; this._roomsCleared = this._roomIndex;
+    this._showJunction(this._roomIndex >= this._combatRooms); // boss comes after the last combat room
+  }
+
+  _showJunction(bossNext) {
+    this._nextIsBoss = bossNext;
+    this.state = 'path';
+    this.audio.play('levelup');
+    this._pathRewards = this._makeRewardPair(bossNext);
+    this.ui.showPathChoice(this, {
+      bossNext, stage: this.stage,
+      cur: this._roomIndex, total: this._combatRooms,
+      rewards: this._pathRewards,
+      artifact: bossNext ? this._opArtifact : null,
+    });
+  }
+  choosePath(i) {
+    if (this.state !== 'path') return;
+    this._pendingReward = (this._pathRewards && this._pathRewards[i]) || null;
+    this.ui.hidePathChoice();
+    this.audio.play('click');
+    this.state = 'play';
+    this._beginRoom(this._nextIsBoss);
+  }
+
+  // two distinct previewed rewards for a junction (Binding-of-Isaac: see it, earn it on clear)
+  _makeRewardPair() {
+    const kinds = ['coin', 'heart', 'brew', 'gear', 'ability', 'ability'];
+    const a = kinds.splice(Math.floor(Math.random() * kinds.length), 1)[0];
+    const b = kinds.splice(Math.floor(Math.random() * kinds.length), 1)[0];
+    return [this._makeReward(a), this._makeReward(b)];
+  }
+  _makeReward(kind) {
+    const lvl = Math.max(1, this.level);
+    if (kind === 'coin') { const amount = 70 + Math.floor(Math.random() * 5) * 20 + lvl * 8; return { kind, icon: '💰', name: 'Coin Cache', desc: `+${amount} gold`, amount }; }
+    if (kind === 'heart') return { kind, icon: '❤️', name: 'Heart Idol', desc: '+25 max HP & a full heal' };
+    if (kind === 'brew') return { kind, icon: '🍺', name: 'Brewfont', desc: '+30 max mana, +20/gulp & refill' };
+    if (kind === 'gear') { const inst = meta.dropGear(lvl + 1, Math.random() < 0.3); const rc = meta.RARITIES[inst.rarity]; return { kind, icon: '🎁', name: inst.name, desc: `${rc.name} ${inst.slot}`, color: rc.color, inst }; }
+    const u = rollUpgrades(this, 1)[0]; return { kind: 'ability', icon: u.icon, name: u.name, desc: u.desc, u };
+  }
+  _grantReward(r) {
+    if (!r) return;
+    if (r.kind === 'coin') { meta.addGold(r.amount); this.ui.setGold(meta.gold()); this.ui.toast(`💰 +${r.amount}🪙`); }
+    else if (r.kind === 'heart') { this.stats.hpMax += 25; this.wizard._maxHp = this.stats.hpMax; this.wizard.hp = this.stats.hpMax; this.ui.toast('❤️ +25 max HP — fully healed'); }
+    else if (r.kind === 'brew') { this.stats.manaMax += 30; this.stats.drinkPower += 20; this.wizard.mana = this.stats.manaMax; this.ui.toast('🍺 Brewfont — mana boosted & topped up'); }
+    else if (r.kind === 'gear') { meta.addGear(r.inst); this.ui.lootToast(r.inst); }
+    else if (r.kind === 'ability') { this.applyAbility(r.u); this.ui.toast(`✦ ${r.name}`); }
+    this.audio.play('levelup');
+  }
+
+  // apply a chosen ability (level-up / shrine / keg) and log it in the top-left tray
+  applyAbility(u) {
+    u.apply(this);
+    const e = this.runAbilities.get(u.id) || { icon: u.icon, name: u.name, count: 0 };
+    e.count++; this.runAbilities.set(u.id, e);
+    this._refreshBoonHud();
+  }
+  // grant a very-OP artifact (end of level) — never repeats within a run
+  grantArtifact(a) {
+    if (!a) return;
+    a.apply(this);
+    (this._artifactsTaken || (this._artifactsTaken = new Set())).add(a.id);
+    this.runArtifacts.push({ icon: a.icon, name: a.name });
+    this._refreshBoonHud();
+    this.ui.toast(`✦✦ ARTIFACT — ${a.name}!`);
+  }
+  _refreshBoonHud() { if (this.ui.setAbilities) this.ui.setAbilities([...this.runAbilities.values()], this.runArtifacts); }
 
   _applyEquipment() {
     const m = meta.equipMods();
@@ -874,7 +965,8 @@ export class Game {
     if (this._drinkCd > 0) return;
     const w = this.wizard, s = this.stats;
     if (w.mana >= s.manaMax - 0.5) { this.ui.toast('🍺 Mug\'s already brimming'); return; }
-    this._drinkCd = 0.45;
+    this._drinkCd = 0.3;        // snappy: you can chug again quickly (and while running)
+    w.triggerDrink();           // pull out the tankard & swing it up to his mouth
     w.mana = Math.min(s.manaMax, w.mana + s.drinkPower);
     // the gulp makes the spirit's puppet woozier — the core risk/reward
     this.drunkenness = Math.min(1, this.drunkenness + 0.26 * (s.drinkChaos || 1));
@@ -1223,7 +1315,7 @@ export class Game {
     this.audio.play('heal');
     this.particles.burst({ pos: new THREE.Vector3(b.x, 1.6, b.z), color: b.golden ? 0xffe0a0 : 0xf6e3a0, count: b.golden ? 16 : 10, speed: 3, size: 0.2, life: 0.8, grav: 2, blend: 'normal' });
     if (b.golden) {
-      this.ui.toast('🍺✦ A golden brew — choose an artifact!');
+      this.ui.toast('🍺✦ A golden brew — gain an ability!');
       this.offerUpgrade(() => { this.state = 'play'; });
     } else {
       this.wizard.heal(22); this.wizard.mana = Math.min(this.stats.manaMax, this.wizard.mana + 50);
@@ -1279,7 +1371,7 @@ export class Game {
     const w = this.wizard.pos, dx = w.x - sh.x, dz = w.z - sh.z;
     const near = sh.armed && dx * dx + dz * dz < 3.4 * 3.4;
     sh.near = near;
-    if (near && !sh.hinted) { sh.hinted = true; this.ui.toast('✦ Rune shrine — draw any glyph to channel a relic!'); }
+    if (near && !sh.hinted) { sh.hinted = true; this.ui.toast('✦ Rune shrine — draw any glyph to channel an ability!'); }
     if (!near) sh.hinted = false;
   }
   _maybeChannelShrine() {
@@ -1288,7 +1380,7 @@ export class Game {
     sh.armed = false; sh.t = 55; sh.hinted = false; sh.near = false;
     this.audio.play('levelup');
     this.particles.burst({ pos: new THREE.Vector3(sh.x, 1.8, sh.z), color: 0x9b7bff, count: 24, speed: 4.5, size: 0.24, life: 1.1, grav: 0, blend: 'add' });
-    this.ui.toast('✦ The runes answer — claim a relic!');
+    this.ui.toast('✦ The runes answer — gain an ability!');
     this.offerUpgrade(() => { this.state = 'play'; });
     return true;
   }

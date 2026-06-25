@@ -235,7 +235,7 @@ export function unlockFeature(id) { if (!state.features) state.features = {}; if
 export function unlockNextFeature() { const next = FEATURE_ORDER.find(f => !featureUnlocked(f)); if (next) { unlockFeature(next); return next; } return null; }
 
 // ---- the tavern DEBT (the main quest is to pay it off) ----
-export const DEBT_TOTAL = 600;
+export const DEBT_TOTAL = 450;
 export const debt = () => state.debt || 0;
 export function payDebt(n) { const pay = Math.min(n, state.gold, state.debt || 0); if (pay <= 0) return 0; state.gold -= pay; state.debt -= pay; save(); return pay; }
 
@@ -252,15 +252,15 @@ export const TAVERN_UPGRADES = [
 
 function defaultSave() {
   return {
-    gold: 40,  // a little seed coin (gold is earned by WORKING the bar)
-    gems: 6,   // 💎 a few starter gems to unlock your first spell
+    gold: 60,  // a little seed coin (gold is earned by WORKING the bar) — enough for a Quest Board
+    gems: 8,   // 💎 a few starter gems to unlock your first spell
     day: 1,    // the tavern clock — work by day, venture by night
     research: { activeId: null, daysLeft: 0, done: {} },
     artifacts: [],          // ✦ artifacts collected from bosses (persistent)
     equippedArtifacts: [],  // which ones you carry into a run (max 3)
     deckOff: {},            // ability ids the player has removed from their level-up deck
     features: {},           // quest-unlocked features (build / gear / combos / deck …)
-    debt: 600,              // the tavern debt — the main quest is to pay it off
+    debt: 450,              // the tavern debt — the main quest is to pay it off
     owned: { fireball: true, gust: true },
     level: { fireball: 1, gust: 1 },
     combos: {},

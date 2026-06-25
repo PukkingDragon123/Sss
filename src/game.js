@@ -20,8 +20,8 @@ import { COMBO_META } from './meta.js';
 
 const DEFAULT_STATS = () => ({
   hpMax: 130, moveSpeed: 7.2, wobble: 1.0,
-  manaMax: 110, manaRegen: 0, // mana does NOT auto-regen — you must DRINK (Q) to refill it
-  drinkPower: 46,             // mana restored per gulp (charm gear adds to this)
+  manaMax: 120, manaRegen: 0, // mana does NOT auto-regen — you must DRINK (Q) to refill it
+  drinkPower: 50,             // mana restored per gulp (charm gear adds to this)
   damageMult: 1, cooldownMult: 1,
   fireballDmg: 24, fireballRadius: 3.4,
   lightningDmg: 14, lightningChains: 3,
@@ -590,7 +590,7 @@ export class Game {
     if (win && !meta.tavernOwned()) { meta.setTavernOwned(true); this._justInherited = true; } // avenge -> inherit
     const depth = this._roomsCleared || 0; // rooms cleared (boss = forks+2)
     // ventures pay in 💎 GEMS (gold is earned only by WORKING), plus a guaranteed boss gear drop
-    const gemReward = Math.max(1, Math.round((2 + depth * 1.4 + this.kills * 0.06 + (win ? 6 : 0)) * meta.gemBonusMult()));
+    const gemReward = Math.max(1, Math.round((3 + depth * 1.5 + this.kills * 0.06 + (win ? 7 : 0)) * meta.gemBonusMult()));
     meta.addGems(gemReward);
     if (win) meta.addGear(meta.dropGear(this.level + 3, true));
     const earnedGems = Math.max(0, meta.gems() - (this._runGemStart || 0));
@@ -880,7 +880,7 @@ export class Game {
     this.state = 'play';
     if (this._introRun) {
       // ===== the guided first fight (the wisp cutscene already taught the basics) =====
-      this.director.start(stage, { waves: 3, boss: false, hpScale: 0.8, sizeMult: 0.85 });
+      this.director.start(stage, { waves: 3, boss: false, hpScale: 0.9, sizeMult: 0.85 });
       if (!this._guideShown) { this._guideShown = true; this._guideOpen = true; this.ui.showGuide(); this.state = 'paused'; }
       this._introTutorial();
       return;

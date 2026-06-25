@@ -488,6 +488,14 @@ export class UI {
 
   fadeBlack(on) { this.el.blackout.classList.toggle('show', !!on); }
 
+  // opening rampage objective (reuses the tavern HUD banner)
+  showRampage(done, total) {
+    if (!this.el.tavernHud) return;
+    this.el.tavernHud.classList.remove('hidden');
+    const obj = this.el.tavernHud.querySelector('.tavern-obj'); if (obj) obj.textContent = '🍺 SMASH THE TAVERN — wreck it all!';
+    if (this.el.ruckusCount) this.el.ruckusCount.textContent = `${done} / ${total}`;
+  }
+
   bumpTavern(n) {
     this.el.ruckusCount.textContent = n;
     this.el.tavernHud.classList.remove('flash');

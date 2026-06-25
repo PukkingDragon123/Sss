@@ -293,6 +293,17 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
 .quest-title{color:var(--magic);font-weight:800;letter-spacing:1px;}
 .quest-text{font-size:18px;margin:8px 0;}
 .quest-reward{color:var(--gold);margin-bottom:10px;}
+.quest-box.main-quest{border-color:var(--gold);background:linear-gradient(160deg,rgba(70,52,30,.5),rgba(0,0,0,.25));max-width:520px;}
+.quest-box.main-quest .quest-title{color:var(--gold);}
+.quest-box.main-quest.done{border-color:var(--xp);}
+.debt-bar{position:relative;height:22px;border-radius:11px;background:rgba(0,0,0,.5);border:1.5px solid var(--panel-edge);overflow:hidden;margin:10px 0;}
+.debt-fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#ffe08a,#e8a83c);transition:width .3s ease;}
+.debt-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#2a1a06;text-shadow:0 1px 1px rgba(255,255,255,.3);}
+.unlock-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+.unlock-chip{font-size:12px;font-weight:800;padding:4px 12px;border-radius:20px;background:rgba(0,0,0,.3);border:1.5px solid rgba(255,255,255,.14);color:var(--ink-dim);}
+.unlock-chip.on{color:#08240f;background:linear-gradient(#6ee7a0,#2f9c63);border-color:#bff0d0;}
+.build-item.locked{opacity:.55;}
+.build-item.locked .bi-cost{color:#ff9a6a;}
 
 /* ===== Results loot ===== */
 .end-summary{font-size:15px;color:var(--ink-dim);}

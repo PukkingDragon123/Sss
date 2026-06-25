@@ -60,12 +60,13 @@ export const BUILDABLES = [
   // functional stations — walk up to a placed one to use it (kept cheap so you
   // can get your workshop going early)
   { id: 'spelltable', name: 'Spell Table',  icon: '✦',  cost: 0,   comfort: 0, station: 'skilltree' },
-  { id: 'library',    name: 'Arcane Library', icon: '📖', cost: 0,  comfort: 0, station: 'library' },
   { id: 'questboard', name: 'Quest Board',  icon: '📜', cost: 40,  comfort: 0, station: 'manager' },
   { id: 'ledger',     name: 'Ledger Desk',  icon: '📒', cost: 60,  comfort: 0, station: 'ledger' },
-  { id: 'wardrobe',   name: 'Equipment Hall', icon: '🎽', cost: 70,  comfort: 0, station: 'wardrobe' },
-  { id: 'cauldron',   name: 'Cauldron',     icon: '🜲', cost: 80,  comfort: 0, station: 'cauldron' },
-  { id: 'anvil',      name: 'Anvil',        icon: '🔨', cost: 90,  comfort: 0, station: 'blacksmith' },
+  // feature-gated stations — unlocked by completing quests
+  { id: 'wardrobe',   name: 'Equipment Hall', icon: '🎽', cost: 70,  comfort: 0, station: 'wardrobe',   feature: 'gear' },
+  { id: 'cauldron',   name: 'Cauldron',     icon: '🜲', cost: 80,  comfort: 0, station: 'cauldron',   feature: 'combos' },
+  { id: 'anvil',      name: 'Anvil',        icon: '🔨', cost: 90,  comfort: 0, station: 'blacksmith', feature: 'forge' },
+  { id: 'library',    name: 'Arcane Library', icon: '📖', cost: 0,  comfort: 0, station: 'library',    feature: 'research' },
   // comforts — raise your rest bonus
   { id: 'rug',     name: 'Woven Rug',       icon: '🟫', cost: 55,  comfort: 1 },
   { id: 'chair',   name: 'Armchair',        icon: '🪑', cost: 60,  comfort: 1 },
@@ -82,6 +83,7 @@ export const cellOccupied = (gx, gy) => placedItems().some(p => p.gx === gx && p
 export const stationBuilt = (id) => placedItems().some(p => p.id === id);
 export function placeItem(id, gx, gy) {
   const b = buildableById(id); if (!b) return false;
+  if (b.feature && !featureUnlocked(b.feature)) return false; // locked until a quest unlocks it
   if (gx < 0 || gy < 0 || gx >= ROOM_GW || gy >= ROOM_GH) return false;
   if (cellOccupied(gx, gy) || !canAfford(b.cost)) return false;
   if (b.station && stationBuilt(id)) return false; // only one of each station
@@ -147,12 +149,12 @@ export function genGear(slot, rarity, level) {
 }
 
 export const QUESTS = [
-  { id: 'q_kill',   text: 'Vanquish 60 foes in one run',    type: 'kills', goal: 60,  reward: 200 },
   { id: 'q_wave',   text: 'Pass 2 forks in a single run',   type: 'wave',  goal: 2,   reward: 240 },
+  { id: 'q_kill',   text: 'Vanquish 50 foes in one run',    type: 'kills', goal: 50,  reward: 200 },
+  { id: 'q_wave2',  text: 'Fight your way to the boss lair', type: 'wave',  goal: 3,   reward: 300 },
   { id: 'q_boss',   text: 'Defeat any region boss',          type: 'boss',  goal: 1,   reward: 420 },
   { id: 'q_kill2',  text: 'Vanquish 110 foes in one run',   type: 'kills', goal: 110, reward: 360 },
   { id: 'q_clear',  text: 'Conquer a whole region',          type: 'win',   goal: 1,   reward: 520 },
-  { id: 'q_wave2',  text: 'Fight your way to the boss lair', type: 'wave',  goal: 3,   reward: 300 },
   { id: 'q_kill3',  text: 'Vanquish 170 foes in one run',   type: 'kills', goal: 170, reward: 540 },
   { id: 'q_clear2', text: 'Conquer another region',          type: 'win',   goal: 1,   reward: 640 },
 ];
@@ -216,6 +218,27 @@ export function toggleArtifactEquip(id) {
   save(); return true;
 }
 
+// ---- deck-building: which abilities are allowed to appear on level-up ----
+export const isDeckOff = (id) => !!(state.deckOff && state.deckOff[id]);
+export const deckOffIds = () => Object.keys(state.deckOff || {});
+export function toggleDeck(id) {
+  if (!state.deckOff) state.deckOff = {};
+  if (state.deckOff[id]) delete state.deckOff[id]; else state.deckOff[id] = 1;
+  save(); return true;
+}
+
+// ---- quest-unlocked features (each claimed bounty opens the next) ----
+export const FEATURE_ORDER = ['gear', 'combos', 'forge', 'research'];
+export const FEATURE_LABELS = { gear: 'Equipment Hall', combos: 'Cauldron (combos)', forge: 'Anvil (forge)', research: 'Arcane Library' };
+export const featureUnlocked = (id) => !!(state.features && state.features[id]);
+export function unlockFeature(id) { if (!state.features) state.features = {}; if (!state.features[id]) { state.features[id] = 1; save(); return true; } return false; }
+export function unlockNextFeature() { const next = FEATURE_ORDER.find(f => !featureUnlocked(f)); if (next) { unlockFeature(next); return next; } return null; }
+
+// ---- the tavern DEBT (the main quest is to pay it off) ----
+export const DEBT_TOTAL = 600;
+export const debt = () => state.debt || 0;
+export function payDebt(n) { const pay = Math.min(n, state.gold, state.debt || 0); if (pay <= 0) return 0; state.gold -= pay; state.debt -= pay; save(); return pay; }
+
 // ---- idle / tycoon: the Tipsy Toad earns coin while patrons drink ----
 export const TAVERN_BASE_RATE = 2;   // gold / minute, before upgrades (kept modest)
 export const TAVERN_BASE_CAP = 100;  // max gold banked while away
@@ -235,6 +258,9 @@ function defaultSave() {
     research: { activeId: null, daysLeft: 0, done: {} },
     artifacts: [],          // ✦ artifacts collected from bosses (persistent)
     equippedArtifacts: [],  // which ones you carry into a run (max 3)
+    deckOff: {},            // ability ids the player has removed from their level-up deck
+    features: {},           // quest-unlocked features (build / gear / combos / deck …)
+    debt: 600,              // the tavern debt — the main quest is to pay it off
     owned: { fireball: true, gust: true },
     level: { fireball: 1, gust: 1 },
     combos: {},
@@ -288,6 +314,9 @@ export function load() {
       state.research.done = state.research.done || {};
       state.artifacts = Array.isArray(state.artifacts) ? state.artifacts : [];
       state.equippedArtifacts = Array.isArray(state.equippedArtifacts) ? state.equippedArtifacts.slice(0, 3) : [];
+      state.deckOff = state.deckOff || {};
+      state.features = state.features || {};
+      state.debt = (typeof state.debt === 'number') ? state.debt : 600;
       // offline earnings since last seen (capped)
       const dt = Math.max(0, (Date.now() - (state.tavern.lastSeen || Date.now())) / 1000);
       if (state.tavern.owned) state.tavern.bank = Math.min(tavernCap(), state.tavern.bank + tavernRate() / 60 * dt);
@@ -459,6 +488,8 @@ export function evaluateQuest(run) {
 export function claimQuest() {
   if (!state.questDone) return 0;
   const r = currentQuest().reward;
-  state.gold += r; state.questIdx += 1; state.questDone = false; save();
-  return r;
+  state.gold += r; state.questIdx += 1; state.questDone = false;
+  const unlocked = unlockNextFeature(); // each claimed bounty opens the next facility
+  save();
+  return { reward: r, unlocked };
 }

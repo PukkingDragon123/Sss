@@ -801,6 +801,18 @@ export class Game {
       if (fin) this.ui.toast(`🔬 Research complete: ${meta.researchById(fin).name}`);
     }
   }
+  // the main quest is done — the tavern is yours, free and clear
+  onDebtCleared() {
+    this.audio.play('win');
+    for (const f of meta.FEATURE_ORDER) meta.unlockFeature(f); // owning the place opens everything
+    meta.setTavernOwned(true);
+    this.ui.setGold(meta.gold());
+    this.showStory('The Spirit', [
+      'The last coin clinks into the strongbox. The debt is PAID — in full.',
+      'The Tipsy Toad is ours now, free and clear. No more creditors, no more scolding.',
+      'Now we drink, we brawl, and we get filthy rich. To glorious, catastrophic mayhem!',
+    ]);
+  }
   startRun(stageId) { this._shopKind = null; this.beginRun(stageId); }
   closeShop() {
     if (this.state !== 'menu' || !this._shopKind) return; // bar shift has its own button
@@ -840,6 +852,7 @@ export class Game {
     this.kills = 0; this.chores = 0; this.pendingLevels = 0; this.elapsed = 0;
     this.drunkenness = 0.22; this._drunkSurge = 0; this._drinkCd = 0; this._drinking = false;
     this._artifactsTaken = new Set(meta.ownedArtifacts()); // don't re-drop ones you already own
+    this._deckOff = new Set(meta.deckOffIds());             // your curated level-up deck
     // ---- the run path: an entrance fight, then a left/right fork before each step
     // (combat / treasure / campfire / choice-event / skill-trial, Slay-the-Spire
     // style), then the boss + a guaranteed OP artifact previewed at the boss fork ----

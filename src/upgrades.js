@@ -136,9 +136,14 @@ export const UPGRADES = [
 // abilities = the level-up boon pool (kept under the legacy name for the tests)
 export const ABILITIES = UPGRADES;
 
-// Pick n distinct, currently-available abilities (weighted).
+// Pick n distinct, currently-available abilities (weighted). Honours the player's
+// curated deck (game._deckOff = a Set of ability ids removed from the pool).
 export function rollUpgrades(game, n = 3) {
-  const pool = UPGRADES.filter(u => !u.available || u.available(game));
+  const avail = UPGRADES.filter(u => !u.available || u.available(game));
+  const off = game && game._deckOff;
+  let pool = off ? avail.filter(u => !off.has(u.id)) : avail;
+  if (pool.length < n) pool = avail; // deck too thin → fall back to the full pool
+  else pool = pool.slice();
   const chosen = [];
   while (chosen.length < n && pool.length) {
     let total = 0;

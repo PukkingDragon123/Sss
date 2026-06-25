@@ -4,7 +4,7 @@ import { SPELL_ORDER, SPELLS } from './spells.js';
 import { TEMPLATES } from './recognizer.js';
 import * as meta from './meta.js';
 import { STAGES, STAGE_ORDER } from './story.js';
-import { ARTIFACTS, artifactById } from './upgrades.js';
+import { ARTIFACTS, artifactById, UPGRADES } from './upgrades.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -1044,7 +1044,9 @@ export class UI {
     else if (act === 'forge') { const inst = meta.forgeGear(id); ok = !!inst; if (ok) { g.ui.lootToast(inst); g.audio.play('levelup'); } }
     else if (act === 'research') { ok = meta.startResearch(id); if (ok) g.ui.toast('🔬 Research begun — it finishes as days pass'); }
     else if (act === 'artieq') { ok = meta.toggleArtifactEquip(id); if (!ok) g.ui.toast(`✦ You can carry only ${meta.MAX_ARTIFACTS} artifacts`); }
-    else if (act === 'claim') { const r = meta.claimQuest(); ok = r > 0; if (ok) g.ui.toast(`Quest reward: +${r}🪙`); }
+    else if (act === 'deck') { const inDeck = UPGRADES.length - meta.deckOffIds().length; if (!meta.isDeckOff(id) && inDeck <= 6) { g.ui.toast('Keep at least 6 boons in your deck'); ok = false; } else { meta.toggleDeck(id); ok = true; } }
+    else if (act === 'paydebt') { const p = meta.payDebt(meta.gold()); ok = p > 0; if (ok) { g.ui.toast(`💰 Paid ${p}🪙 off the debt`); if (meta.debt() <= 0) g.onDebtCleared(); } }
+    else if (act === 'claim') { const res = meta.claimQuest(); ok = !!(res && res.reward > 0); if (ok) { g.ui.toast(`Quest reward: +${res.reward}🪙`); if (res.unlocked) g.ui.toast(`🔓 Unlocked: ${meta.FEATURE_LABELS[res.unlocked]} — build it in your room!`); } }
     if (g) g.audio.play(ok ? 'click' : 'hiccup');
     this.setGold(meta.gold());
     this._renderShop();
@@ -1188,11 +1190,28 @@ export class UI {
     const tab = this._libTab || (this._libTab = 'grimoire');
     let h = `<div class="vil-tabs">
       <button class="vil-tab ${tab === 'grimoire' ? 'on' : ''}" data-act="libtab" data-id="grimoire">📖 Grimoire</button>
+      <button class="vil-tab ${tab === 'deck' ? 'on' : ''}" data-act="libtab" data-id="deck">🃏 Deck</button>
       <button class="vil-tab ${tab === 'research' ? 'on' : ''}" data-act="libtab" data-id="research">🔬 Research</button>
       <button class="vil-tab ${tab === 'inventory' ? 'on' : ''}" data-act="libtab" data-id="inventory">🎒 Inventory</button></div>`;
-    if (tab === 'research') h += this._renderResearch();
+    if (tab === 'deck') h += this._renderDeck();
+    else if (tab === 'research') h += this._renderResearch();
     else if (tab === 'inventory') h += this._renderInventory();
     else h += this._renderGrimoire();
+    return h;
+  }
+  _renderDeck() {
+    const total = UPGRADES.length, inDeck = total - meta.deckOffIds().length;
+    let h = `<p class="shop-sub">Your level-up <b>deck</b> — toggle which boons can appear when you level up, and craft the run you want. (Keep at least 6 in.)</p>`;
+    h += `<div class="eq-section-head">🃏 In your deck <span class="eq-count">${inDeck}/${total}</span></div><div class="shop-grid grim-grid">`;
+    for (const u of UPGRADES) {
+      const on = !meta.isDeckOff(u.id);
+      h += `<div class="shop-card deck-card ${on ? '' : 'locked'}">
+        <div class="shop-glyph">${u.icon}</div>
+        <div class="shop-name">${u.name}</div>
+        <div class="shop-desc">${u.desc}</div>
+        <div class="shop-acts"><button class="shop-btn ${on ? 'on' : ''}" data-act="deck" data-id="${u.id}">${on ? '✓ In deck' : '+ Add'}</button></div></div>`;
+    }
+    h += '</div>';
     return h;
   }
   _renderGrimoire() {
@@ -1314,11 +1333,13 @@ export class UI {
     h += '<div class="build-cat">';
     for (const b of meta.BUILDABLES) {
       if ((tab === 'station') !== !!b.station) continue;
+      const locked = b.feature && !meta.featureUnlocked(b.feature);
       const sel = this._buildSel === b.id;
       const built = b.station && meta.stationBuilt(b.id);
-      const dis = built || !meta.canAfford(b.cost);
-      h += `<button class="build-item ${sel ? 'sel' : ''} ${b.station ? 'is-station' : ''}" data-act="selbuild" data-id="${b.id}" ${dis ? 'disabled' : ''}>
-        <span class="bi-icon">${b.icon}</span><span class="bi-name">${b.name}</span><span class="bi-cost">${built ? '✓ Built' : b.cost === 0 ? 'Free' : b.cost + '🪙'}</span></button>`;
+      const dis = locked || built || !meta.canAfford(b.cost);
+      const cost = locked ? '🔒 quest' : built ? '✓ Built' : b.cost === 0 ? 'Free' : b.cost + '🪙';
+      h += `<button class="build-item ${sel ? 'sel' : ''} ${b.station ? 'is-station' : ''} ${locked ? 'locked' : ''}" data-act="selbuild" data-id="${b.id}" ${dis ? 'disabled' : ''} title="${locked ? 'Unlock by claiming a Quest Board bounty' : b.name}">
+        <span class="bi-icon">${locked ? '🔒' : b.icon}</span><span class="bi-name">${b.name}</span><span class="bi-cost">${cost}</span></button>`;
     }
     h += '</div>';
     if (this._buildSel) { const sb = meta.buildableById(this._buildSel); if (sb) h += `<p class="build-hint">Placing <b>${sb.icon} ${sb.name}</b> — tap an empty tile. <span data-act="selbuild" data-id="${this._buildSel}" style="text-decoration:underline;cursor:pointer">cancel</span></p>`; }
@@ -1326,16 +1347,32 @@ export class UI {
   }
 
   _renderManager() {
-    const q = meta.currentQuest();
-    const done = meta.questDone();
-    return `<p class="shop-sub">"Evenin'. Mind the furniture. Here's a bit of work if you want coin…"</p>
-      <div class="quest-box">
-        <div class="quest-title">📜 Bounty</div>
-        <div class="quest-text">${q.text}</div>
-        <div class="quest-reward">Reward: <b>${q.reward}🪙</b></div>
-        <div class="shop-acts">${done
-          ? '<button class="shop-btn big on" data-act="claim">✓ Claim reward</button>'
-          : '<button class="shop-btn big" disabled>Complete it in a run</button>'}</div>
+    const q = meta.currentQuest(), done = meta.questDone();
+    const debt = meta.debt(), total = meta.DEBT_TOTAL, paid = Math.max(0, total - debt), pct = Math.round(paid / total * 100);
+    let h = '<p class="shop-sub">"Evenin\'. Mind the furniture. Here\'s the ledger — and a bit of work if you want coin…"</p>';
+    // ---- MAIN QUEST: the debt ----
+    if (debt > 0) {
+      const pay = Math.min(meta.gold(), debt);
+      h += `<div class="quest-box main-quest">
+        <div class="quest-title">⚜ MAIN QUEST · The Tavern Debt</div>
+        <div class="quest-text">Old Tomas left the Tipsy Toad drowning in debt — and you smashed up the rest on your way in. Pay it off to truly own the place.</div>
+        <div class="debt-bar"><div class="debt-fill" style="width:${pct}%"></div><span class="debt-label">${paid} / ${total}🪙 paid</span></div>
+        <div class="shop-acts"><button class="shop-btn big" data-act="paydebt" ${pay > 0 ? '' : 'disabled'}>Pay ${pay}🪙</button></div>
       </div>`;
+    } else {
+      h += `<div class="quest-box main-quest done"><div class="quest-title">⚜ MAIN QUEST · Debt Cleared!</div><div class="quest-text">Paid in full. The Tipsy Toad is yours, free and clear. 🍺</div></div>`;
+    }
+    // ---- side bounty ----
+    h += `<div class="quest-box">
+      <div class="quest-title">📜 Bounty</div>
+      <div class="quest-text">${q.text}</div>
+      <div class="quest-reward">Reward: <b>${q.reward}🪙</b> · claim it to unlock a new facility</div>
+      <div class="shop-acts">${done ? '<button class="shop-btn big on" data-act="claim">✓ Claim reward</button>' : '<button class="shop-btn big" disabled>Complete it in a run</button>'}</div>
+    </div>`;
+    // ---- unlock track ----
+    h += '<div class="eq-section-head" style="margin-top:12px">🔓 Facilities (claim bounties to unlock, then build them)</div><div class="unlock-row">';
+    for (const f of meta.FEATURE_ORDER) { const u = meta.featureUnlocked(f); h += `<span class="unlock-chip ${u ? 'on' : ''}">${u ? '✓' : '🔒'} ${meta.FEATURE_LABELS[f]}</span>`; }
+    h += '</div>';
+    return h;
   }
 }

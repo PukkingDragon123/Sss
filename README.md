@@ -5,9 +5,17 @@
 > **moonlit forest** beside a glowing **wisp guide**. Draw arcane hand-signs to
 > sling spells, survive the swarm — then work off the **debt** you racked up.
 
-**Plays on desktop and mobile** (virtual joystick + draw-to-cast). Includes a
-**cinematic opening** (trash the bar → thrown out → wake in the woods with a **wisp
-guide** + interactive tutorial), a **pay-the-debt main quest**, **deck-building**
+**Plays on desktop and mobile** (virtual joystick + draw-to-cast). Opens with a
+**real cinematic cutscene system** — **5 scripted cutscenes** with a moving,
+keyframed **camera** (push-ins + handheld sway), **letterbox** bars and
+**portrait dialogue** (not plain text), playing out on **dedicated 3D sets** built
+just for the cutscenes (a warm cutscene bar + a moonlit forest, separate from the
+tavern you actually play in): the spirit **possesses** Wobblesworth, you **spam-click
+a smash QTE** to trash the bar, get **hurled out**, wake in the woods where the
+**wisp guide** makes an **animated entrance** (grows in with a particle burst, then
+bobs with orbiting motes) and **traces an arcane glyph to teach you to draw** before
+your guided first fight and the morning-after **scold**. Plus a **pay-the-debt main
+quest**, **deck-building**
 (curate which boons appear on level-up), **quest-gated facilities** (Equipment
 Hall, Cauldron, Anvil, Library unlock as you claim bounties), **3 save slots**,
 settings & credits, an **idle/tycoon** layer for running your tavern, a
@@ -183,6 +191,8 @@ styles.css        # all UI styling
 src/
   main.js         # bootstrap
   game.js         # the conductor: phases, state machine, main loop, camera
+  cinematics.js   # the cutscene engine: camera keyframes, letterbox, dialogue,
+                  #   dedicated bar/forest sets, smash QTE, wisp + draw lesson
   wizard.js       # the wonky spring + verlet-ragdoll wizard rig
   tavern.js       # the bar hub + your buildable room (props, patrons, stations)
   world.js        # the 3D top-down world map (island regions, unlock gating)

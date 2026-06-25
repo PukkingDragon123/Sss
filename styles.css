@@ -6,8 +6,8 @@
   --hp:#ff5d6c;
   --mana:#56b8ff;
   --xp:#6ee7a0;
-  --panel:rgba(28,18,40,0.82);
-  --panel-edge:rgba(255,207,92,0.35);
+  --panel:linear-gradient(158deg, rgba(46,31,64,0.90), rgba(19,12,29,0.95));
+  --panel-edge:rgba(255,207,92,0.42);
 }
 
 *{box-sizing:border-box;}
@@ -737,3 +737,36 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
 .vil-tab{font-family:inherit;font-weight:800;font-size:13.5px;color:var(--ink-dim);background:rgba(0,0,0,.3);border:1.5px solid rgba(255,255,255,.12);border-radius:20px;padding:6px 16px;cursor:pointer;transition:.1s;}
 .vil-tab:hover{color:var(--ink);}
 .vil-tab.on{color:#1a1020;background:linear-gradient(#ffd873,#f0a83c);border-color:#fff3d0;box-shadow:0 3px 0 #9c641b;}
+
+/* ===== Material & juice polish (a made mobile game, not a flat template) ===== */
+/* an art-directed vignette over the 3D scene — sits below the glyph canvas + all UI */
+body::after{content:"";position:fixed;inset:0;z-index:4;pointer-events:none;
+  background:radial-gradient(ellipse 132% 120% at 50% 38%, transparent 56%, rgba(5,2,10,0.52) 100%);}
+
+/* big panels get carved depth: a crisp top sheen, a soft inner basin, a deeper drop */
+.story-box,.shop-box,.card,.event-box,.slot-card,#world-detail,.stage-card,
+.path-door,.howto,.quest-box{
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10), inset 0 -9px 22px rgba(0,0,0,.22), 0 16px 38px rgba(0,0,0,.55);
+}
+
+/* glossier "candy" buttons — bright top stop + a hard inner highlight (tactile, mobile) */
+.btn{background:linear-gradient(180deg,#ffe79a 0%,#ffce5e 46%,#ef9f30 100%);
+  box-shadow:0 5px 0 #9c641b, inset 0 2px 0 rgba(255,255,255,.6), 0 9px 20px rgba(0,0,0,.45);}
+.shop-btn{background:linear-gradient(180deg,#ffe28a 0%,#f7b545 50%,#ef9f30 100%);
+  box-shadow:0 3px 0 #9c641b, inset 0 1px 0 rgba(255,255,255,.5);}
+.shop-btn.gem{background:linear-gradient(180deg,#bfecff 0%,#73c2ef 52%,#3f8fd0 100%);
+  box-shadow:0 3px 0 #1c5a86, inset 0 1px 0 rgba(255,255,255,.55);}
+.shop-btn.on{background:linear-gradient(180deg,#a9f0c2 0%,#5fc888 52%,#2f9c63 100%);}
+
+/* chiselled headings — a hard drop under the soft glow so they read as carved, not flat */
+.shop-head h2{text-shadow:0 2px 0 rgba(0,0,0,.4), 0 0 16px rgba(155,123,255,.4);}
+.levelup-title{text-shadow:0 2px 0 rgba(0,0,0,.4), 0 0 18px rgba(155,123,255,.6);}
+.end-title{text-shadow:0 3px 0 rgba(0,0,0,.45), 0 0 22px rgba(155,123,255,.55);}
+.event-title{text-shadow:0 2px 0 rgba(0,0,0,.4), 0 0 14px rgba(255,207,92,.4);}
+
+/* tap feedback: cards & doors give a satisfying little press */
+.card:active,.path-door:active,.stage-card:active{transform:translateY(-3px) scale(.99);}
+
+/* the virtual joystick knob gets a glossy bead */
+#joy-knob{background:radial-gradient(circle at 38% 32%, rgba(210,190,255,.95), rgba(140,108,235,.7) 60%, rgba(110,80,210,.6));
+  box-shadow:0 3px 10px rgba(0,0,0,.5), inset 0 2px 4px rgba(255,255,255,.4);}

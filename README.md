@@ -1,13 +1,17 @@
 # 🧙 Wonky Wizard
 
 > A spirit possesses **Wobblesworth the Sloshed**, the realm's drunkest wizard.
-> First, steer his blind-drunk stagger **out of the tavern** without wrecking the
-> place. Then black out… and wake in a **moonlit forest**, swarmed by monsters.
-> Draw arcane hand-signs to sling spells and survive the night.
+> It **trashes the tavern** for fun, gets hurled out into the night, and wakes in a
+> **moonlit forest** beside a glowing **wisp guide**. Draw arcane hand-signs to
+> sling spells, survive the swarm — then work off the **debt** you racked up.
 
-**Plays on desktop and mobile** (virtual joystick + draw-to-cast). Includes an
-animated menu (live fight on the right), **3 save slots**, settings & credits, an
-**idle/tycoon** layer for running your tavern, a **Clash-style den builder** (your
+**Plays on desktop and mobile** (virtual joystick + draw-to-cast). Includes a
+**cinematic opening** (trash the bar → thrown out → wake in the woods with a **wisp
+guide** + interactive tutorial), a **pay-the-debt main quest**, **deck-building**
+(curate which boons appear on level-up), **quest-gated facilities** (Equipment
+Hall, Cauldron, Anvil, Library unlock as you claim bounties), **3 save slots**,
+settings & credits, an **idle/tycoon** layer for running your tavern, a
+**Clash-style den builder** (your
 own room, up the stairs, that you lay out tile-by-tile), an **Equipment Hall** for
 **looted RPG gear** with rarity/levels + a **gacha forge** (spend gold + gems to
 cast random gear), a **persistent ✦ artifact collection** you carry up to 3 of into

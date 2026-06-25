@@ -546,8 +546,11 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
 .abil.art .abil-ico{filter:drop-shadow(0 0 5px rgba(255,207,92,.8));}
 @keyframes abilGlow{0%,100%{box-shadow:0 0 8px rgba(255,207,92,.4);}50%{box-shadow:0 0 15px rgba(255,207,92,.75);}}
 
-/* ===== Hades-style path choice (two doors, forest + red eyes) ===== */
-#path-choice{background:radial-gradient(ellipse at center, rgba(10,4,16,0.78), rgba(3,1,6,0.97));}
+/* ===== Hades-style path choice (two doors, forest + red eyes) =====
+   The top fades to transparent so the wizard stands in the live 3D scene above the doors. */
+#path-choice{justify-content:flex-end;padding-bottom:4vh;
+  background:linear-gradient(to bottom, rgba(6,3,12,0.12) 0%, rgba(6,3,12,0.40) 30%, rgba(5,2,9,0.86) 64%, rgba(3,1,6,0.95) 100%);}
+.path-choice-tag{color:var(--ink-dim);font-size:13px;letter-spacing:1px;text-transform:uppercase;text-shadow:0 2px 6px #000;margin-bottom:2px;}
 .path-boss{background:linear-gradient(90deg,rgba(255,93,108,.16),rgba(0,0,0,.22));border:1.5px solid rgba(255,93,108,.42);
   border-radius:12px;padding:8px 18px;font-size:15px;color:var(--ink);max-width:min(640px,92vw);}
 .path-boss b{color:var(--hp);}

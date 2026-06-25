@@ -876,8 +876,17 @@ export class Game {
     this._nextFork();
   }
 
+  // a short travelling beat between nodes (a little cutscene)
+  _travel(line, cb) {
+    const lines = ['Traveling deeper into the dark…', 'Onward, wizard — mind your step…', 'The path winds on through the trees…', 'Something watches from the dark…'];
+    this.state = 'loading';
+    this.ui.showLoadScene(line || lines[Math.floor(Math.random() * lines.length)]);
+    setTimeout(() => { this.ui.hideLoadScene(); cb(); }, 1150);
+  }
+
   _nextFork() {
     this._roomsCleared = this._forksDone;
+    this.enemies.clear(); this._clearPickups(); // a calm clearing to choose your path in
     this.state = 'path';
     this.audio.play('levelup');
     const bossNext = this._forksDone >= this._forksTotal;
@@ -898,8 +907,8 @@ export class Game {
     this._forksDone++;
     if (node.type === 'combat' || node.type === 'elite') {
       this._pendingReward = node.reward || null;
-      this.state = 'play';
-      this._beginRoom(!!node.bossNext, node.type === 'elite');
+      const boss = !!node.bossNext, elite = node.type === 'elite';
+      this._travel(boss ? 'Approaching the lair…' : null, () => { this.state = 'play'; this._beginRoom(boss, elite); });
     } else if (node.type === 'treasure') {
       this._grantReward(node.reward); this._nextFork();
     } else if (node.type === 'campfire') {
@@ -930,7 +939,7 @@ export class Game {
     const lvl = Math.max(1, this.level);
     if (type === 'combat') { const r = this._makeReward(this._randKind()); return { type, icon: '⚔️', name: 'Skirmish', desc: `Fight · win ${r.icon} ${r.name}`, reward: r, lurk: '⚔ foes ahead' }; }
     if (type === 'elite') { const r = this._makeReward(Math.random() < 0.5 ? 'gear' : 'ability'); return { type, icon: '💀', name: 'Elite Pack', desc: `Tough fight · win ${r.icon} ${r.name}`, reward: r, lurk: '💀 something big stirs' }; }
-    if (type === 'treasure') { const r = this._makeReward(Math.random() < 0.5 ? 'coin' : 'gear'); return { type, icon: '💰', name: 'Hidden Cache', desc: `Free · ${r.icon} ${r.name}`, reward: r, lurk: '✨ unguarded loot' }; }
+    if (type === 'treasure') { const r = this._makeReward(Math.random() < 0.5 ? 'gems' : 'gear'); return { type, icon: '💰', name: 'Hidden Cache', desc: `Free · ${r.icon} ${r.name}`, reward: r, lurk: '✨ unguarded loot' }; }
     if (type === 'campfire') return { type, icon: '🔥', name: 'Campfire', desc: 'Rest — full heal & +12 max HP', lurk: '🔥 a safe little fire' };
     if (type === 'event') return { type, icon: '❓', name: 'Mystery', desc: 'A strange encounter — your call', event: this._pickEvent(), lurk: '❓ who knows what' };
     return { type: 'skill', icon: '✶', name: 'Trial of Nerve', desc: 'Stop the marker on the mark to win', lurk: '✶ a test of nerve' };

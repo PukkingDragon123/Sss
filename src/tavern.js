@@ -27,9 +27,12 @@ export class Tavern {
     this.start = new THREE.Vector3(0, 0, 4.5);       // bar spawn
     this.roomStart = new THREE.Vector3(-1.5, 0, 4.5); // room spawn
     this.door = new THREE.Vector3(DOOR_X, 0, NORTH);
+    this.tables = [];                              // the 4 serving tables
+    this.order = { table: null, stage: 'idle' };   // 'idle' | 'taken' | 'carrying'
     this._build();
     this._buildAmbience();
     this._buildBarFittings();
+    this._buildTavernTables();
     this._buildRoomScene();
     this.roomItems = new THREE.Group(); this.roomScene.add(this.roomItems); // player-placed things
   }
@@ -189,6 +192,103 @@ export class Tavern {
 
     // the venture door
     this.stations.push({ type: 'door', label: 'venture out on a run', pos: this.door.clone(), mark: null });
+  }
+
+  // ===================== the 4 serving tables (the WORK loop) =====================
+  _makeBubble() {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const ctx = c.getContext('2d');
+    const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    s.scale.set(1.5, 1.5, 1.5);
+    s.userData = { canvas: c, ctx, tex };
+    return s;
+  }
+  _drawBubble(table, icon) {
+    const s = table.bubble, ud = s.userData, x = ud.ctx;
+    x.clearRect(0, 0, 128, 128);
+    x.fillStyle = 'rgba(255,255,255,0.95)'; x.strokeStyle = 'rgba(20,12,28,0.55)'; x.lineWidth = 5;
+    x.beginPath(); x.arc(64, 50, 42, 0, 6.28); x.fill(); x.stroke();
+    x.beginPath(); x.moveTo(50, 86); x.lineTo(64, 116); x.lineTo(78, 86); x.closePath(); x.fillStyle = 'rgba(255,255,255,0.95)'; x.fill();
+    x.font = '50px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#1a1020'; x.fillText(icon, 64, 50);
+    ud.tex.needsUpdate = true;
+    table.want = icon;
+  }
+  _buildTavernTables() {
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x6a4528, roughness: 0.88 });
+    const robeColors = [0x7a8bd0, 0xcf6f6f, 0x6fb08a, 0xc9a24a];
+    const pos = [[-4.6, 2], [4.6, 2], [-4.6, -8.5], [4.6, -8.5]];
+    pos.forEach(([x, z], i) => {
+      const grp = new THREE.Group(); grp.position.set(x, 0, z);
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.16, 16), woodMat); top.position.y = 0.92; top.castShadow = true; top.receiveShadow = true; grp.add(top);
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, 0.92, 8), woodMat); leg.position.y = 0.46; grp.add(leg);
+      const cust = this._buildPatron(robeColors[i % robeColors.length], i % 2 === 0);
+      cust.position.set(0, 0, -1.05); cust.rotation.y = 0; cust.scale.setScalar(0.92); cust.visible = false; grp.add(cust);
+      const bubble = this._makeBubble(); bubble.position.set(0, 2.5, -1.0); bubble.visible = false; grp.add(bubble);
+      this.group.add(grp);
+      const table = { grp, top, cust, bubble, pos: new THREE.Vector3(x, 0, z), state: 'empty', t: 1.5 + i * 1.2 + Math.random() * 2, phase: Math.random() * 6 };
+      this.tables.push(table);
+      this.stations.push({ type: 'table', label: 'a table', pos: new THREE.Vector3(x, 0, z + 0.7), mark: null, table });
+    });
+    // a full mug that rides in the wizard's hands while carrying a drink to a table
+    this.carryMug = new THREE.Group();
+    const mb = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.13, 0.3, 12), new THREE.MeshStandardMaterial({ color: 0x9a6a3a, roughness: 0.6 }));
+    const foam = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshStandardMaterial({ color: 0xfff7e8, roughness: 0.7 })); foam.position.y = 0.17; foam.scale.y = 0.55;
+    this.carryMug.add(mb, foam); this.carryMug.visible = false; this.group.add(this.carryMug);
+  }
+
+  resetTables() {
+    this.order = { table: null, stage: 'idle' };
+    if (this.carryMug) this.carryMug.visible = false;
+    for (let i = 0; i < this.tables.length; i++) {
+      const tb = this.tables[i];
+      // a couple of patrons already waiting, the rest trickle in
+      if (i < 2) { tb.state = 'waiting'; tb.cust.visible = true; tb.bubble.visible = true; this._drawBubble(tb, '🍺'); }
+      else { tb.state = 'empty'; tb.cust.visible = false; tb.bubble.visible = false; tb.t = 2 + i + Math.random() * 4; }
+    }
+  }
+
+  // interact with a table: take an order, or serve the drink you're carrying
+  tableAction(table, game) {
+    const o = this.order;
+    if (o.stage === 'carrying' && o.table === table) {
+      // serve!
+      this.order = { table: null, stage: 'idle' };
+      this.carryMug.visible = false;
+      table.state = 'happy'; table.t = 3 + Math.random() * 4; this._drawBubble(table, '😄');
+      game.onTavernServe();
+      return;
+    }
+    if (table.state !== 'waiting') { game.ui.toast('Nobody\'s waiting at that table.'); return; }
+    if (o.stage === 'idle') {
+      this.order = { table, stage: 'taken' };
+      this._drawBubble(table, '✅'); game.audio.play('click');
+      game.ui.toast('📝 Order taken — now pour it at the Bar!');
+    } else if (o.stage === 'carrying') {
+      game.ui.toast('That pint is for another table!');
+    } else {
+      game.ui.toast('You\'ve already taken an order — pour it at the Bar.');
+    }
+  }
+  // interact at the bar: pour the taken order, then you carry it
+  barAction(game) {
+    const o = this.order;
+    if (o.stage === 'taken') {
+      o.stage = 'carrying'; this.carryMug.visible = true;
+      game.audio.play('levelup');
+      game.ui.toast('🍺 Poured! Carry it to the table — mind the crowd, don\'t spill!');
+    } else if (o.stage === 'carrying') {
+      game.ui.toast('Already poured — take it to the table!');
+    } else {
+      game.ui.toast('Take an order from a waiting table first.');
+    }
+  }
+  _spill(game) {
+    if (this.order.stage !== 'carrying') return;
+    this.order.stage = 'taken';
+    this.carryMug.visible = false;
+    game.audio.play('hiccup'); game.shake(0.6);
+    game.ui.toast('💦 You sloshed it everywhere! Re-pour at the Bar.');
   }
 
   // ===================== YOUR ROOM (separate scene) =====================
@@ -370,6 +470,7 @@ export class Tavern {
       const dx = w.pos.x - n.pos.x, dz = w.pos.z - n.pos.z; const d = Math.hypot(dx, dz) || 1e-4; const minD = wr + n.r;
       if (d < minD) {
         const push = (minD - d); w.pos.x += (dx / d) * push; w.pos.z += (dz / d) * push; w.vel.x += (dx / d) * 3; w.vel.z += (dz / d) * 3; w.leanV.x += (dx / d) * 5; w.leanV.z += (dz / d) * 5;
+        if (this.order.stage === 'carrying') this._spill(game); // bumped a patron — spill!
         if (n.annoyedCd <= 0) { n.annoyedCd = 1.2; n.wob = 1; this.ruckus.patrons++; game.audio.play('hurt'); game.shake(0.5); if (this.ruckus.patrons === 1) game.showStory('Patron', ['OI! Watch where you\'re flailing, you soggy old fool!']); }
       }
       if (n.annoyedCd > 0) n.annoyedCd -= dt;
@@ -381,6 +482,7 @@ export class Tavern {
         const dx = p.mesh.position.x - w.pos.x, dz = p.mesh.position.z - w.pos.z; const d = Math.hypot(dx, dz) || 1e-4;
         if (d < wr + p.r) {
           p.knocked = true; this.ruckus.props++;
+          if (this.order.stage === 'carrying') this._spill(game); // knocked furniture — spill!
           const sp = Math.max(2, 6 - p.mass) + Math.hypot(w.vel.x, w.vel.z) * 0.4; p.vel.set((dx / d) * sp, 2, (dz / d) * sp);
           w.leanV.x -= (dx / d) * 4 / p.mass; w.leanV.z -= (dz / d) * 4 / p.mass; game.audio.play('hit'); game.shake(0.4);
           game.particles.burst({ pos: p.mesh.position.clone().setY(0.6), color: 0x7a5230, count: 8, speed: 4, size: 0.25, life: 0.6, grav: -12, blend: 'normal' });
@@ -391,6 +493,30 @@ export class Tavern {
         p.vel.x *= Math.pow(0.05, dt); p.vel.z *= Math.pow(0.05, dt);
         p.mesh.rotation.x = p.axis.z * p.fall * 1.5; p.mesh.rotation.z = -p.axis.x * p.fall * 1.5;
         p.mesh.position.x = Math.max(MINX, Math.min(MAXX, p.mesh.position.x)); p.mesh.position.z = Math.max(NORTH, Math.min(SOUTH, p.mesh.position.z));
+      }
+    }
+
+    // ---- serving tables: customers trickle in, bubbles bob ----
+    for (const tb of this.tables) {
+      tb.phase += dt;
+      if (tb.bubble.visible) tb.bubble.position.y = 2.5 + Math.sin(this.phase * 2 + tb.pos.x) * 0.12;
+      if (tb.cust.visible) { tb.cust.position.y = Math.abs(Math.sin(this.phase * 3 + tb.phase)) * 0.04; tb.cust.rotation.y = Math.sin(this.phase + tb.phase) * 0.15; }
+      if (tb.state === 'empty') { tb.t -= dt; if (tb.t <= 0) { tb.state = 'waiting'; tb.cust.visible = true; tb.bubble.visible = true; this._drawBubble(tb, '🍺'); } }
+      else if (tb.state === 'happy') { tb.t -= dt; if (tb.t <= 0) { tb.state = 'empty'; tb.cust.visible = false; tb.bubble.visible = false; tb.t = 5 + Math.random() * 7; } }
+    }
+    // the full mug rides in the wizard's hands while delivering
+    if (this.carryMug && this.carryMug.visible) {
+      const fwd = new THREE.Vector3(Math.sin(w.yaw), 0, Math.cos(w.yaw));
+      this.carryMug.position.set(w.pos.x + fwd.x * 0.5, 1.45 + Math.sin(this.phase * 8) * 0.03, w.pos.z + fwd.z * 0.5);
+    }
+    // contextual labels for the prompt
+    for (const s of this.stations) {
+      if (s.type === 'serve') s.label = this.order.stage === 'taken' ? 'pour the drink (the Bar)' : 'tend the Bar';
+      else if (s.type === 'table') {
+        const tb = s.table;
+        s.label = (this.order.stage === 'carrying' && this.order.table === tb) ? 'serve the drink here'
+          : (tb.state === 'waiting' && this.order.stage === 'idle') ? 'take their order'
+            : 'a table';
       }
     }
 

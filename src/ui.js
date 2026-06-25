@@ -252,7 +252,7 @@ export class UI {
     if (this.el.drunkWrap) this.el.drunkWrap.classList.toggle('hidden', !arena);
     if (!world) this.hideWorldHud();
     if (!arena && !world) { this.el.interactPrompt.classList.add('hidden'); this.el.btnInteract.classList.add('hidden'); }
-    if (tavern) this.el.castHint.innerHTML = isTouch ? 'Drag the <b>left side</b> to wander · 🪜 stairs to your room · 🚪 door to venture' : 'Walk to the <b>🚪 door</b> to venture, the <b>🪜 stairs</b> to your room, or the <b>bar</b> to earn tips · press <b>E</b>';
+    if (tavern) this.el.castHint.innerHTML = isTouch ? 'Wander to a <b>table</b> for an order, pour at the <b>bar</b>, carry it back · 🪜 room · 🚪 venture' : 'Take an order at a <b>table</b>, pour at the <b>bar</b>, carry it back to <b>serve</b> for tips · <b>🚪</b> venture · <b>🪜</b> room · press <b>E</b>';
     else if (room) this.el.castHint.innerHTML = isTouch ? 'Tap <b>🔨 Build</b> to place stations & furniture · tap a station to use it' : 'Press <b>🔨 Build</b> to craft & place stations · walk to one and press <b>E</b> to use it · stairs to go down';
     else if (world) this.el.castHint.innerHTML = isTouch ? 'Tap a <b>region</b> to scout it · then <b>Venture</b>' : 'Click a <b>region</b> to scout it · then <b>Venture</b>';
     else this.el.castHint.innerHTML = isTouch ? 'Left = move · <b>draw a glyph</b> on the right to cast · 🍺 hold to chug (fills mana)' : 'Hold <b>Right-Mouse</b> and draw a glyph · <b>WASD</b> move · <b>Q</b> to chug (fills mana) · keys <b>1–3</b>';

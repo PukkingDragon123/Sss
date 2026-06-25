@@ -657,6 +657,7 @@ export class Game {
     this.drunkenness = 0.45;        // you spawn here good and sloshed — hence the queasy nausea swim
     this._drunkSurge = 0;
     this.tavern.reset();
+    this.tavern.resetTables();       // seat fresh patrons & clear any half-poured order
     this.tavern.refreshRoom(meta);
     this.tavern.show(true);
     this.tavern.showRoom(false);
@@ -698,7 +699,8 @@ export class Game {
     if (this.phase === 'tavern') {
       if (t === 'door') { this.openWorldMap(); return; }
       if (t === 'stairs') { this.goUpstairs(); return; }
-      if (t === 'serve') { this.startMinigame(); return; }
+      if (t === 'serve') { this.tavern.barAction(this); return; }
+      if (t === 'table') { this.tavern.tableAction(s.table, this); return; }
     } else if (this.phase === 'room') {
       if (t === 'down') { this.goDownstairs(); return; }
       if (t === 'rest') { this.restAtBed(); return; }
@@ -784,6 +786,20 @@ export class Game {
       if (fin) this.ui.toast(`🔬 Research complete: ${meta.researchById(fin).name}`);
       this.state = 'play';
     });
+  }
+  // a customer served in the in-world bar loop — pay the tip; every 3 served is a day's work
+  onTavernServe() {
+    const tip = 7 + Math.floor(Math.random() * 6); // 7–12 gold
+    meta.addGold(tip); meta.save();
+    this.ui.setGold(meta.gold());
+    this.audio.play('levelup');
+    this.ui.toast(`🍺 Served! +${tip}🪙 tip`);
+    this._servedToday = (this._servedToday || 0) + 1;
+    if (this._servedToday % 3 === 0) {
+      const fin = meta.advanceDay();
+      this.ui.toast('☀️ A good day\'s work — a day passes');
+      if (fin) this.ui.toast(`🔬 Research complete: ${meta.researchById(fin).name}`);
+    }
   }
   startRun(stageId) { this._shopKind = null; this.beginRun(stageId); }
   closeShop() {

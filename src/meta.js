@@ -190,6 +190,29 @@ export function gemBonusMult() { let m = 1; for (const r of RESEARCH) if (r.gemB
 // apply every completed research bonus to a fresh run's stats
 export function applyResearch(stats) { for (const r of RESEARCH) if (r.apply && researchDone(r.id)) r.apply(stats); }
 
+// ---- ✦ artifact collection: bosses drop them; you carry up to 3 into a run ----
+export const MAX_ARTIFACTS = 3;
+export const ownedArtifacts = () => state.artifacts || [];
+export const hasArtifact = (id) => (state.artifacts || []).includes(id);
+export function addArtifact(id) {
+  if (!state.artifacts) state.artifacts = [];
+  if (state.artifacts.includes(id)) return false;
+  state.artifacts.push(id);
+  if (!state.equippedArtifacts) state.equippedArtifacts = [];
+  if (state.equippedArtifacts.length < MAX_ARTIFACTS) state.equippedArtifacts.push(id); // auto-carry a fresh one if there's room
+  save(); return true;
+}
+export const equippedArtifacts = () => state.equippedArtifacts || [];
+export const artifactEquipped = (id) => (state.equippedArtifacts || []).includes(id);
+export function toggleArtifactEquip(id) {
+  if (!hasArtifact(id)) return false;
+  if (!state.equippedArtifacts) state.equippedArtifacts = [];
+  const i = state.equippedArtifacts.indexOf(id);
+  if (i >= 0) state.equippedArtifacts.splice(i, 1);
+  else { if (state.equippedArtifacts.length >= MAX_ARTIFACTS) return false; state.equippedArtifacts.push(id); }
+  save(); return true;
+}
+
 // ---- idle / tycoon: the Tipsy Toad earns coin while patrons drink ----
 export const TAVERN_BASE_RATE = 2;   // gold / minute, before upgrades (kept modest)
 export const TAVERN_BASE_CAP = 100;  // max gold banked while away
@@ -207,6 +230,8 @@ function defaultSave() {
     gems: 6,   // 💎 a few starter gems to unlock your first spell
     day: 1,    // the tavern clock — work by day, venture by night
     research: { activeId: null, daysLeft: 0, done: {} },
+    artifacts: [],          // ✦ artifacts collected from bosses (persistent)
+    equippedArtifacts: [],  // which ones you carry into a run (max 3)
     owned: { fireball: true, gust: true },
     level: { fireball: 1, gust: 1 },
     combos: {},
@@ -258,6 +283,8 @@ export function load() {
       state.day = state.day || 1;
       state.research = Object.assign({ activeId: null, daysLeft: 0, done: {} }, state.research || {});
       state.research.done = state.research.done || {};
+      state.artifacts = Array.isArray(state.artifacts) ? state.artifacts : [];
+      state.equippedArtifacts = Array.isArray(state.equippedArtifacts) ? state.equippedArtifacts.slice(0, 3) : [];
       // offline earnings since last seen (capped)
       const dt = Math.max(0, (Date.now() - (state.tavern.lastSeen || Date.now())) / 1000);
       if (state.tavern.owned) state.tavern.bank = Math.min(tavernCap(), state.tavern.bank + tavernRate() / 60 * dt);

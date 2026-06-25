@@ -676,6 +676,9 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
 .inv-row{display:flex;justify-content:space-between;max-width:360px;margin:6px auto;font-size:14px;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:5px;}
 .inv-row b{color:var(--ink);}
 .inv-els{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:12px;font-size:13px;font-weight:800;}
+.shop-card.art-card{position:relative;overflow:hidden;border-color:rgba(255,207,92,.4);background:linear-gradient(160deg,rgba(70,52,30,.5),rgba(0,0,0,.3));}
+.shop-card.art-card::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),#fff3c0,var(--gold));opacity:.85;}
+.shop-card.art-card.worn{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),0 0 16px rgba(255,207,92,.5);}
 
 /* ===== Village builder bar (Clash-style) ===== */
 .vil-stats{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px;}

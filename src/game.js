@@ -13,7 +13,7 @@ import { Director, STAGES, OPENING, TAVERN_INTRO, TUTORIAL, BLACKOUT_LINES } fro
 import { Jobs } from './jobs.js';
 import { Tavern } from './tavern.js';
 import { World } from './world.js';
-import { rollUpgrades, rollArtifact } from './upgrades.js';
+import { rollUpgrades, rollArtifact, artifactById } from './upgrades.js';
 import * as meta from './meta.js';
 import { COMBO_META } from './meta.js';
 
@@ -823,7 +823,7 @@ export class Game {
     this.level = 1; this.xp = 0; this.xpNeed = this._xpForLevel(1);
     this.kills = 0; this.chores = 0; this.pendingLevels = 0; this.elapsed = 0;
     this.drunkenness = 0.22; this._drunkSurge = 0; this._drinkCd = 0; this._drinking = false;
-    this._artifactsTaken = new Set();
+    this._artifactsTaken = new Set(meta.ownedArtifacts()); // don't re-drop ones you already own
     // ---- the run path: an entrance fight, then a left/right fork before each step
     // (combat / treasure / campfire / choice-event / skill-trial, Slay-the-Spire
     // style), then the boss + a guaranteed OP artifact previewed at the boss fork ----
@@ -835,7 +835,9 @@ export class Game {
     this.runAbilities = new Map();  // id -> {icon,name,count}  (shown top-left)
     this.runArtifacts = [];         // [{icon,name}]            (the OP relics)
     this._opArtifact = rollArtifact(this); // the end-of-level relic, previewed on the path
-    this.ui.setAbilities([], []);
+    // carry your equipped artifacts into the run — each applies its bonus & shows in the tray
+    for (const id of meta.equippedArtifacts()) { const a = artifactById(id); if (a) { a.apply(this); this.runArtifacts.push({ icon: a.icon, name: a.name }); } }
+    this.ui.setAbilities([...this.runAbilities.values()], this.runArtifacts);
     this._runGemStart = meta.gems(); this.bossKilled = false;
     this.bossActive = false; this.bossCine = 0; this._endState = null; this._exiting = false; this._lastCast = null;
     this.enemies.clear(); this.spells.reset(); this._clearPickups(); this.director.reset();
@@ -993,13 +995,11 @@ export class Game {
     e.count++; this.runAbilities.set(u.id, e);
     this._refreshBoonHud();
   }
-  // grant a very-OP artifact (end of level) — never repeats within a run
+  // collect a very-OP artifact into your persistent stash (carry it into future runs)
   grantArtifact(a) {
     if (!a) return;
-    a.apply(this);
-    (this._artifactsTaken || (this._artifactsTaken = new Set())).add(a.id);
-    this.runArtifacts.push({ icon: a.icon, name: a.name });
-    this._refreshBoonHud();
+    const fresh = meta.addArtifact(a.id); // adds to the collection (auto-carried if you have a free slot)
+    if (!fresh) meta.addGems(10);          // already owned → a few gems instead
   }
   _refreshBoonHud() { if (this.ui.setAbilities) this.ui.setAbilities([...this.runAbilities.values()], this.runArtifacts); }
 

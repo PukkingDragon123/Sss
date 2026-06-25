@@ -4,6 +4,7 @@ import { SPELL_ORDER, SPELLS } from './spells.js';
 import { TEMPLATES } from './recognizer.js';
 import * as meta from './meta.js';
 import { STAGES, STAGE_ORDER } from './story.js';
+import { ARTIFACTS, artifactById } from './upgrades.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -1041,6 +1042,7 @@ export class UI {
     else if (act === 'salvage') { const v = meta.salvageGear(id); ok = v > 0; if (ok) g.ui.toast(`Salvaged for ${v}🪙`); }
     else if (act === 'upgradegear') ok = meta.upgradeGear(id);
     else if (act === 'research') { ok = meta.startResearch(id); if (ok) g.ui.toast('🔬 Research begun — it finishes as days pass'); }
+    else if (act === 'artieq') { ok = meta.toggleArtifactEquip(id); if (!ok) g.ui.toast(`✦ You can carry only ${meta.MAX_ARTIFACTS} artifacts`); }
     else if (act === 'claim') { const r = meta.claimQuest(); ok = r > 0; if (ok) g.ui.toast(`Quest reward: +${r}🪙`); }
     if (g) g.audio.play(ok ? 'click' : 'hiccup');
     this.setGold(meta.gold());
@@ -1233,6 +1235,21 @@ export class UI {
     h += `<div class="inv-row"><span>Spells known</span><b>${ownedSpells} / ${meta.SPELL_LIST.length}</b></div>
       <div class="inv-row"><span>Gear in stash</span><b>${meta.gearList().length}</b></div>
       <div class="inv-els">${elh}</div>`;
+    // collected artifacts — carry up to MAX into your runs
+    const owned = meta.ownedArtifacts();
+    h += `<div class="eq-section-head" style="margin-top:14px">✦ Artifacts <span class="eq-count">${meta.equippedArtifacts().length} carried · ${owned.length}/${ARTIFACTS.length} found</span></div>`;
+    h += `<p class="shop-sub" style="margin:.2em 0 .6em">Won from bosses. <b>Carry up to ${meta.MAX_ARTIFACTS}</b> into a run — each grants its full power.</p><div class="shop-grid eq-grid">`;
+    if (!owned.length) h += '<div class="eq-empty">No artifacts yet — fell a region boss to claim one.</div>';
+    for (const id of owned) {
+      const a = artifactById(id); if (!a) continue;
+      const on = meta.artifactEquipped(id);
+      h += `<div class="shop-card art-card ${on ? 'worn' : ''}" style="--rc:var(--gold)">
+        <div class="grim-vfx"><span class="vfx-orb" style="--c:#ffcf5c"></span><span class="grim-glyph" style="color:var(--gold)">${a.icon}</span></div>
+        <div class="shop-name" style="color:var(--gold)">${a.name}</div>
+        <div class="shop-desc">${a.desc}</div>
+        <div class="shop-acts"><button class="shop-btn ${on ? 'on' : ''}" data-act="artieq" data-id="${id}">${on ? '✓ Carrying' : 'Carry'}</button></div></div>`;
+    }
+    h += '</div>';
     return h;
   }
 

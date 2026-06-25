@@ -202,7 +202,7 @@ export class Cinematics {
 
   _resetSets() {
     for (const p of this._barProps) { p.down = false; p.mesh.rotation.set(0, 0, 0); p.mesh.position.copy(p.home); }
-    for (const p of this._patrons) { p.mesh.position.copy(p.home); p.mesh.rotation.set(0, 0, 0); }
+    for (const p of this._patrons) { p.mesh.position.copy(p.home); p.mesh.rotation.set(0, 0, 0); p.lurch = false; }
     if (this._doorPanel) this._doorPanel.rotation.y = 0;
     if (this._spirit) { this._spirit.visible = false; this._spirit.userData.light.intensity = 0; }
     this._possess = null; this._throw = null; this._wispBurst = false;

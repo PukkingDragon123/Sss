@@ -1041,6 +1041,7 @@ export class UI {
     else if (act === 'equipgear') ok = meta.equipGear(id);
     else if (act === 'salvage') { const v = meta.salvageGear(id); ok = v > 0; if (ok) g.ui.toast(`Salvaged for ${v}🪙`); }
     else if (act === 'upgradegear') ok = meta.upgradeGear(id);
+    else if (act === 'forge') { const inst = meta.forgeGear(id); ok = !!inst; if (ok) { g.ui.lootToast(inst); g.audio.play('levelup'); } }
     else if (act === 'research') { ok = meta.startResearch(id); if (ok) g.ui.toast('🔬 Research begun — it finishes as days pass'); }
     else if (act === 'artieq') { ok = meta.toggleArtifactEquip(id); if (!ok) g.ui.toast(`✦ You can carry only ${meta.MAX_ARTIFACTS} artifacts`); }
     else if (act === 'claim') { const r = meta.claimQuest(); ok = r > 0; if (ok) g.ui.toast(`Quest reward: +${r}🪙`); }
@@ -1129,12 +1130,23 @@ export class UI {
     return h;
   }
   _renderBlacksmith() {
-    let h = '<p class="shop-sub">Forge gear to a higher level (stronger stats), or salvage spares for coin.</p><div class="shop-grid eq-grid">';
+    let h = '<p class="shop-sub">⚒️ The forge-gacha: spend 🪙 gold &amp; 💎 gems to <b>cast a random piece of gear</b>. Richer ingredients tilt the odds toward the good stuff.</p><div class="shop-grid">';
+    for (const t of meta.FORGE_TIERS) {
+      const odds = meta.GEAR_RARITY_ORDER.filter(r => t.w[r]).map(r => `<span style="color:${meta.RARITIES[r].color}">${t.w[r]}%</span>`).join(' / ');
+      const can = meta.canForge(t.id);
+      h += `<div class="shop-card forge-card">
+        <div class="shop-glyph">${t.icon}</div>
+        <div class="shop-name">${t.name}</div>
+        <div class="shop-desc">Cast a random piece.<br><span style="font-size:11px">${odds}</span></div>
+        <div class="shop-acts"><button class="shop-btn gem" data-act="forge" data-id="${t.id}" ${can ? '' : 'disabled'}>🪙${t.gold} · 💎${t.gems}</button></div></div>`;
+    }
+    h += '</div>';
     const items = meta.gearList().slice().sort((a, b) => meta.RARITIES[b.rarity].mult * b.level - meta.RARITIES[a.rarity].mult * a.level);
-    if (!items.length) h += '<div class="eq-empty">No gear to forge yet — go find some loot!</div>';
+    h += `<div class="eq-section-head" style="margin-top:14px">Your gear — forge up or salvage <span class="eq-count">${items.length}</span></div><div class="shop-grid eq-grid">`;
+    if (!items.length) h += '<div class="eq-empty">No gear yet — cast some above, or loot it on a venture!</div>';
     for (const g of items) {
       const cost = meta.upgradeGearCost(g), max = g.level >= 10;
-      const acts = `${max ? '<button class="shop-btn" disabled>MAX</button>' : `<button class="shop-btn" data-act="upgradegear" data-id="${g.id}" ${meta.canAfford(cost) ? '' : 'disabled'}>⚒ Forge ${cost}🪙</button>`}<button class="shop-btn ghost" data-act="salvage" data-id="${g.id}">♻ ${meta.gearValue(g)}🪙</button>`;
+      const acts = `${max ? '<button class="shop-btn" disabled>MAX</button>' : `<button class="shop-btn" data-act="upgradegear" data-id="${g.id}" ${meta.canAfford(cost) ? '' : 'disabled'}>⚒ +Lv ${cost}🪙</button>`}<button class="shop-btn ghost" data-act="salvage" data-id="${g.id}">♻ ${meta.gearValue(g)}🪙</button>`;
       h += this._gearCard(g, acts, false);
     }
     h += '</div>';

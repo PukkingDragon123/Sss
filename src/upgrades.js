@@ -106,6 +106,32 @@ export const UPGRADES = [
   { id: 'beer_stout', name: '🖤 Imperial Stout', icon: '🖤', tag: 'Brew', weight: 5,
     desc: 'Every chug heals +20 HP and grants a 30-point shield.',
     apply: g => { g.stats.drinkHeal += 20; g.stats.drinkShield += 30; } },
+
+  // ----- more boons -----
+  { id: 'trollblood', name: 'Troll Blood',  icon: '🩸', tag: 'Vitality', weight: 7,
+    desc: '+50 max HP, healed now, and +1 HP per second.',
+    apply: g => { g.stats.hpMax += 50; g.wizard.hp += 50; g.stats.hpRegen += 1; } },
+  { id: 'spellfury', name: 'Spellfury',     icon: '⚡', tag: 'Power', weight: 8,
+    desc: '+25% damage for every spell.',
+    apply: g => { g.stats.damageMult += 0.25; } },
+  { id: 'nimble',    name: 'Nimble Casting', icon: '🎐', tag: 'Tempo', weight: 7,
+    desc: '−12% spell cooldowns.',
+    apply: g => { g.stats.cooldownMult = Math.max(0.3, g.stats.cooldownMult * 0.88); } },
+  { id: 'quicksilver', name: 'Quicksilver', icon: '🪽', tag: 'Mobility', weight: 7,
+    desc: '+16% movement speed.',
+    apply: g => { g.stats.moveSpeed *= 1.16; } },
+  { id: 'spikedhide', name: 'Spiked Hide',  icon: '🦔', tag: 'Defense', weight: 6,
+    desc: '+20 thorns and +20 max HP.',
+    apply: g => { g.stats.thorns += 20; g.stats.hpMax += 20; g.wizard.hp += 20; } },
+  { id: 'sanguine',  name: 'Sanguine Pact', icon: '🧛', tag: 'Lifesteal', weight: 6,
+    desc: '+5 HP and +4 mana for every foe you slay.',
+    apply: g => { g.stats.lifeOnKill += 5; g.stats.manaOnKill += 4; } },
+  { id: 'greed',     name: 'Greedy Eyes',   icon: '🤑', tag: 'Utility', weight: 6,
+    desc: '+90% pickup radius and +25% XP.',
+    apply: g => { g.stats.pickupRadius *= 1.9; g.stats.xpMult = (g.stats.xpMult || 1) + 0.25; } },
+  { id: 'glasscannon', name: 'Glass Cannon', icon: '💥', tag: 'Risk', weight: 5,
+    desc: '+55% damage, but −20 max HP. All-in.',
+    apply: g => { g.stats.damageMult += 0.55; g.stats.hpMax = Math.max(40, g.stats.hpMax - 20); g.wizard.hp = Math.min(g.wizard.hp, g.stats.hpMax); } },
 ];
 // abilities = the level-up boon pool (kept under the legacy name for the tests)
 export const ABILITIES = UPGRADES;

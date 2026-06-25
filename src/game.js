@@ -1007,6 +1007,8 @@ export class Game {
     const m = meta.equipMods();
     const s = this.stats;
     if (m.hpMax) s.hpMax += m.hpMax;
+    if (m.manaMax) s.manaMax += m.manaMax;
+    if (m.hpRegen) s.hpRegen += m.hpRegen;
     if (m.manaRegen) s.drinkPower += m.manaRegen * 2.2; // gear "mana" rolls now boost how much each gulp restores
     if (m.moveSpeed) s.moveSpeed += m.moveSpeed;
     if (m.pickupRadius) s.pickupRadius += m.pickupRadius;

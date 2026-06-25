@@ -103,16 +103,17 @@ export const RARITIES = {
   epic:      { name: 'Epic',      mult: 2.6, color: '#b97bff', extra: 1, weight: 13 },
   legendary: { name: 'Legendary', mult: 3.8, color: '#ffcf5c', extra: 2, weight: 5 },
 };
+export const GEAR_RARITY_ORDER = ['common', 'rare', 'epic', 'legendary'];
 const SLOT_DEF = {
   hat:   { noun: 'Hat',   primary: 'hpMax',      base: 16 },
   robe:  { noun: 'Robe',  primary: 'damageMult', base: 0.08 },
   staff: { noun: 'Staff', primary: 'damageMult', base: 0.12 },
   charm: { noun: 'Charm', primary: 'manaRegen',  base: 3 },
 };
-const SECONDARY_BASE = { hpMax: 14, damageMult: 0.06, moveSpeed: 0.6, manaRegen: 2.5, pickupRadius: 0.6, thorns: 6, cooldownMult: -0.05, lifeOnKill: 2, critMult: 0.18, xpMult: 0.1 };
+const SECONDARY_BASE = { hpMax: 14, damageMult: 0.06, moveSpeed: 0.6, manaRegen: 2.5, manaMax: 12, hpRegen: 1.2, pickupRadius: 0.6, thorns: 6, cooldownMult: -0.05, lifeOnKill: 2, critMult: 0.18, xpMult: 0.1 };
 const PREFIX = { common: ['Worn', 'Plain', 'Sturdy'], rare: ['Fine', 'Keen', 'Warded'], epic: ['Arcane', 'Runed', 'Gilded'], legendary: ['Mythic', 'Dragonbone', 'Ancient'] };
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
-function roundStat(stat, v) { return (stat === 'damageMult' || stat === 'cooldownMult' || stat === 'moveSpeed' || stat === 'pickupRadius' || stat === 'critMult' || stat === 'xpMult') ? Math.round(v * 100) / 100 : Math.round(v); }
+function roundStat(stat, v) { return (stat === 'damageMult' || stat === 'cooldownMult' || stat === 'moveSpeed' || stat === 'pickupRadius' || stat === 'critMult' || stat === 'xpMult' || stat === 'hpRegen') ? Math.round(v * 100) / 100 : Math.round(v); }
 export function statLabel(stat, v) {
   const sign = v > 0 ? '+' : '';
   if (stat === 'damageMult') return `${sign}${Math.round(v * 100)}% dmg`;
@@ -121,6 +122,8 @@ export function statLabel(stat, v) {
   if (stat === 'pickupRadius') return `${sign}${v} pickup`;
   if (stat === 'manaRegen') return `${sign}${Math.round(v * 2.2)} per gulp`;
   if (stat === 'hpMax') return `${sign}${v} HP`;
+  if (stat === 'manaMax') return `${sign}${v} max mana`;
+  if (stat === 'hpRegen') return `${sign}${v} HP/sec`;
   if (stat === 'thorns') return `${sign}${v} thorns`;
   if (stat === 'lifeOnKill') return `${sign}${v} HP/kill`;
   if (stat === 'critMult') return `${sign}${Math.round(v * 100)}% crit dmg`;
@@ -390,6 +393,24 @@ export const equippedGearId = (slot) => state.equippedGear[slot];
 export function addGear(inst) { state.gear.push(inst); save(); return inst; }
 // generate + grant a random drop (used when an enemy dies)
 export function dropGear(level, boss) { const inst = genGear(null, rollRarity(boss), level); return inst; }
+
+// ---- the Anvil GACHA: spend gold + gems to cast a random gear piece; richer
+// ingredients tilt the rarity odds upward (better ingredients = better gear) ----
+export const FORGE_TIERS = [
+  { id: 'crude',  name: 'Crude Cast', icon: '🔩', gold: 40,  gems: 2,  w: { common: 60, rare: 30, epic: 9,  legendary: 1 } },
+  { id: 'fine',   name: 'Fine Forge', icon: '⚒️', gold: 95,  gems: 5,  w: { common: 22, rare: 46, epic: 26, legendary: 6 } },
+  { id: 'master', name: 'Masterwork', icon: '🏆', gold: 180, gems: 12, w: { common: 4,  rare: 28, epic: 46, legendary: 22 } },
+];
+export const forgeTierById = (id) => FORGE_TIERS.find(t => t.id === id);
+function rollWeighted(w) { let tot = 0; for (const k in w) tot += w[k]; let r = Math.random() * tot; for (const k in w) { r -= w[k]; if (r <= 0) return k; } return 'common'; }
+export const canForge = (id) => { const t = forgeTierById(id); return !!t && state.gold >= t.gold && (state.gems || 0) >= t.gems; };
+export function forgeGear(id) {
+  const t = forgeTierById(id); if (!t || !canForge(id)) return null;
+  state.gold -= t.gold; state.gems -= t.gems;
+  const lvl = 1 + ((state.cleared || []).length) + FORGE_TIERS.indexOf(t);
+  const inst = genGear(null, rollWeighted(t.w), lvl);
+  state.gear.push(inst); save(); return inst;
+}
 export function equipGear(id) {
   const inst = gearById(id); if (!inst) return false;
   state.equippedGear[inst.slot] = (state.equippedGear[inst.slot] === id) ? null : id; save(); return true;

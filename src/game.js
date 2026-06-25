@@ -9,10 +9,11 @@ import { Recognizer, TEMPLATES } from './recognizer.js';
 import { Input } from './input.js';
 import { AudioEngine } from './audio.js';
 import { UI } from './ui.js';
-import { Director, STAGES, OPENING, TAVERN_INTRO, TUTORIAL, BLACKOUT_LINES } from './story.js';
+import { Director, STAGES, TUTORIAL, BLACKOUT_LINES } from './story.js';
 import { Jobs } from './jobs.js';
 import { Tavern } from './tavern.js';
 import { World } from './world.js';
+import { Cinematics } from './cinematics.js';
 import { rollUpgrades, rollArtifact, artifactById } from './upgrades.js';
 import * as meta from './meta.js';
 import { COMBO_META } from './meta.js';
@@ -98,6 +99,7 @@ export class Game {
     this.world = new World(this.scene);
     this.wizard = new Wizard(this.scene);
     this.director = new Director();
+    this.cine = new Cinematics(this);
     this.ui = new UI();
     this.input = new Input(this.canvas);
 
@@ -622,10 +624,13 @@ export class Game {
     this.ui.setMuteIcon(this.audio.muted);
 
     if (!this._opened) {
-      // first launch: a possessing spirit, a bar to wreck — the opening rampage.
-      this._opened = true;
-      this._introStage = 'rampage';
-      this.enterTavern(); // enterTavern runs the rampage intro when _introStage === 'rampage'
+      // first launch: a chain of real cutscenes — possess, wreck the bar (QTE),
+      // get hurled out, wake in the forest with the wisp — then the guided fight.
+      this._opened = true; this._hubShown = false;
+      this.cine.play('possession', () =>
+        this.cine.play('rampage', () =>
+          this.cine.play('thrown', () =>
+            this.cine.play('wisp', () => { this._introRun = true; this.enterArena(STAGES.forest); }))));
     } else {
       this.enterTavern();
     }
@@ -661,30 +666,10 @@ export class Game {
     this.ui.setPhase('tavern', this.input.isTouch);
     this.ui.setGold(meta.gold());
     this.state = 'play';
-    if (this._introStage === 'rampage') {
-      // ===== OPENING: stagger in and WRECK the place =====
-      this._rampageMode = true; this._rampageEnding = false; this.tavernReady = true;
-      this.showStory(OPENING.speaker, OPENING.lines);
-      this.showStory('The Spirit', [
-        'Heh — this old soak\'s body is ours now, and oh, look at all this lovely BREAKABLE furniture.',
-        'Let\'s announce ourselves properly. SMASH EVERYTHING — stagger into every table, mug and barrel!',
-      ]);
-      return; // skip the normal intro/inheritance chatter
-    }
-    if (this._justScolded) {
-      // ===== back from the woods — get an earful, then the main quest =====
-      this._justScolded = false; this._introShown = true; this.tavernReady = true;
-      this.showStory('Barkeep Tomas', [
-        'YOU. You wrecked my tavern, then passed out face-down in the forest. Wonderful.',
-        'You owe me for the damages — six hundred gold. There\'s a Quest Board you can build for work. PAY. UP.',
-      ]);
+    if (!this._hubShown) {
+      // first time in the hub (after the opening cutscenes) — a quick how-to
+      this._hubShown = true; this._introShown = true; this.tavernReady = false; this.cineT = 0;
       this.showStory(TUTORIAL.speaker, TUTORIAL.lines, () => { this.tavernReady = true; });
-      return;
-    }
-    if (!this._introShown) {
-      this._introShown = true; this.tavernReady = false; this.cineT = 0;
-      this.showStory(TAVERN_INTRO.speaker, TAVERN_INTRO.lines);
-      this.showStory(TUTORIAL.speaker, TUTORIAL.lines, () => { this.tavernReady = true; }); // first-run tutorial
     } else {
       this.tavernReady = true;
     }
@@ -705,7 +690,6 @@ export class Game {
     const s = this.nearStation, t = s.type;
     this.audio.play('click');
     if (this.phase === 'tavern') {
-      if (this._rampageMode) { this.ui.toast('🍺 SMASH THE PLACE first — wreck every last bit of it!'); return; }
       if (t === 'door') { this.openWorldMap(); return; }
       if (t === 'stairs') { this.goUpstairs(); return; }
       if (t === 'serve') { this.tavern.barAction(this); return; }
@@ -895,12 +879,10 @@ export class Game {
     this.ui.setGold(meta.gold());
     this.state = 'play';
     if (this._introRun) {
-      // ===== the guided first fight: wake in the forest, the wisp teaches you =====
+      // ===== the guided first fight (the wisp cutscene already taught the basics) =====
       this.director.start(stage, { waves: 3, boss: false, hpScale: 0.8, sizeMult: 0.85 });
-      this.showStory('The Spirit', [
-        'You come to face-down in cold moss — a moonlit forest. Far from home, and not alone.',
-        'A little light drifts close… a WISP. "Hello, possessed one. I\'ll be your guide. Up — and DRAW to cast!"',
-      ], () => { if (!this._guideShown) { this._guideShown = true; this._guideOpen = true; this.ui.showGuide(); this.state = 'paused'; } this._introTutorial(); });
+      if (!this._guideShown) { this._guideShown = true; this._guideOpen = true; this.ui.showGuide(); this.state = 'paused'; }
+      this._introTutorial();
       return;
     }
     this._beginRoom(false); // the entrance fight (no choice before it)
@@ -944,8 +926,7 @@ export class Game {
     this._introRun = false;
     meta.addGems(3); // a little starter pocketful
     this.state = 'blackout'; this.ui.fadeBlack(true); this.audio.play('win');
-    this._justScolded = true; this._introStage = 'done';
-    setTimeout(() => this.enterTavern(), 1300);
+    setTimeout(() => this.cine.play('scold', () => this.enterTavern()), 900);
   }
 
   // ---- run path: a left/right fork before each step. Nodes are typed
@@ -1424,6 +1405,8 @@ export class Game {
     if (dt > 0.05) dt = 0.05; // clamp big hitches
 
     this._handleInput();
+    // cutscenes drive their own camera, actors & render — bypass the normal loop
+    if (this.state === 'cutscene') { this.cine.update(dt); return; }
     this._updateAim();
     this._drawTrail();
     if (this.bossCine > 0) this.bossCine -= dt;
@@ -1612,23 +1595,7 @@ export class Game {
     this.wizard.update(sdt, this);
     this.tavern.update(sdt, this);
     this.particles.update(sdt);
-    if (this._rampageMode) {
-      const total = this.tavern.props.length, done = this.tavern.ruckus.props;
-      this.ui.showRampage(done, total);
-      if (done >= total && !this._rampageEnding) { this._rampageEnding = true; this._endRampage(); }
-      return;
-    }
     if (meta.tavernOwned()) meta.accrueIdle(sdt); // tycoon ticks while you potter about
-  }
-  // the bar is wrecked — the patrons hurl you out into the night
-  _endRampage() {
-    this.showStory('The Patrons', [
-      'OUT! Get OUT, you flailing menace! That\'s the last pint you smash here!',
-      '(They seize the wizard by the robes and hurl him bodily through the door, into the cold dark…)',
-    ], () => {
-      this.state = 'blackout'; this.ui.fadeBlack(true); this.audio.play('gameover');
-      setTimeout(() => { this._rampageMode = false; this._introStage = 'forest'; this._introRun = true; this.enterArena(STAGES.forest); }, 1300);
-    });
   }
 
   _updateRoom(sdt) {

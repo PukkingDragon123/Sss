@@ -142,6 +142,23 @@
     <button class="btn big" id="art-claim">Claim ▸</button>
   </div>
 
+  <!-- ===== Cinematic cutscenes (letterbox + dialogue + QTE) ===== -->
+  <div id="cinema" class="hidden">
+    <div class="cine-bar cine-top"></div>
+    <div class="cine-bar cine-bot"></div>
+    <div id="cine-qte" class="hidden">
+      <div class="cine-qte-prompt" id="cine-qte-prompt">MASH!</div>
+      <div class="cine-qte-track"><div class="cine-qte-fill" id="cine-qte-fill"></div></div>
+      <div class="cine-qte-hint">tap / click as fast as you can!</div>
+    </div>
+    <div id="cine-dialogue" class="hidden">
+      <div class="cine-portrait" id="cine-portrait">🧙</div>
+      <div class="cine-text-wrap"><div class="cine-speaker" id="cine-speaker"></div><div class="cine-line" id="cine-line"></div></div>
+      <button class="cine-next" id="cine-next">▸</button>
+    </div>
+    <button id="cine-skip">skip ▸</button>
+  </div>
+
   <!-- ===== Title screen ===== -->
   <div id="title" class="overlay">
     <h1 class="game-title">WONKY<span>WIZARD</span></h1>

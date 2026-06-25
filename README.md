@@ -9,7 +9,9 @@
 animated menu (live fight on the right), **3 save slots**, settings & credits, an
 **idle/tycoon** layer for running your tavern, a **Clash-style den builder** (your
 own room, up the stairs, that you lay out tile-by-tile), an **Equipment Hall** for
-**looted RPG gear** with rarity/levels + a Blacksmith, an **Arcane Library** (📖
+**looted RPG gear** with rarity/levels + a **gacha forge** (spend gold + gems to
+cast random gear), a **persistent ✦ artifact collection** you carry up to 3 of into
+a run, **crowned king bosses** with their own health bar, an **Arcane Library** (📖
 Grimoire showcase, gem-funded **research**, and an inventory), a **two-currency
 economy** — 💎 **gems** won in battle (spent on spells & research) and 🪙 **gold**
 earned only by **working** — on a **day/night clock**, a **Slay-the-Spire path** of
@@ -160,10 +162,12 @@ unleash it toward where you were aiming.
 - Clear each **room**, pick a **door** (and its previewed prize), then fell the
   **region boss** to claim its **✦ artifact**, conquer the region and unlock the
   next on the world map.
-- **Money comes only from working.** By day, tend the **bar shift**: take an order,
-  **pour to the line**, then **carry the mug across without tipping it** (tap ◀ / ▶
-  to counter the wobble). A clean pour *and* a steady carry earn the fattest tip —
-  your gold. Spend gems & research at the **Arcane Library** between ventures.
+- **Money comes only from working** (or finishing quests). The Tipsy Toad has **4
+  tables**; patrons sit down and wait with a 🍺 thought bubble. Walk up to **take
+  their order**, go to the **bar to pour it**, then **carry the full mug back** to
+  their table to **serve** — bump a patron or knock a table on the way and you'll
+  **spill** (re-pour!). Each serve pays a tip; every few is a day's work. Spend
+  gems & research at the **Arcane Library** between ventures.
 
 ---
 

@@ -26,11 +26,11 @@ export const TUTORIAL = {
   lines: [
     '⚔️ CAST: hold Right-Mouse (or draw on the right half on phone) and trace a glyph. Cleaner lines hit harder — a PERFECT glyph CRITS. Or tap a spell / press 1–3 to quick-cast.',
     '🍺 MANA = BEER, and it does NOT refill itself. Press Q (or tap 🍺) to CHUG: a 3-second drink — watch the bar — that fills your mana to FULL. You can still move while chugging, but every chug makes the room spin.',
-    '💎 vs 🪙: ventures pay in GEMS — spend them on spells & research. GOLD comes only from WORKING the bar by day. Two purses, two jobs.',
+    '💎 vs 🪙: ventures pay in GEMS — spend them on spells & research. GOLD comes only from WORKING the bar or finishing quests. Two purses, two jobs.',
     '✦ ABILITIES: level-ups, kegs, shrines & events let you claim an ability — they stack in the tray, top-LEFT. The four elements (🔥💧🌬️🪨) colour every spell.',
-    '🗺️ THE PATH: out the door lies the world map — tap a region, then venture in. After each step pick a door, LEFT or RIGHT: a fight, an elite, treasure, a campfire, a Mystery (a choice) or a Trial (a skill test). The final fork leads to the boss, who drops a build-defining ✦ ARTIFACT.',
+    '🗺️ THE PATH: out the door lies the world map — tap a region, then venture in. After each step pick a door, LEFT or RIGHT: a fight, an elite, treasure, a campfire, a Mystery (a choice) or a Trial (a skill test). The final fork leads to the crowned boss, who drops a build-defining ✦ ARTIFACT — collect them and carry up to 3 into future runs (Inventory).',
     '🔨 YOUR ROOM: up the stairs, press BUILD to lay out stations — the Spell Table (learn spells with 💎), the Arcane Library (📖 Grimoire, Research & Inventory), Equipment Hall, Cauldron — then walk up to use them. Rest at the bed for bonus HP.',
-    '🍺 WORK by day: tend the bar — take an order, pour to the line, then CARRY the mug over without tipping it (◀ / ▶). Clean pours and steady hands earn the best tips — your gold.',
+    '🍺 WORK by day: walk up to a TABLE to take a patron\'s order (watch the thought bubble), pour it at the BAR, then carry the mug back to their table to SERVE. Bump a patron or knock a table while carrying and you\'ll spill! Tips are your gold.',
     'That\'s the lot. Now go make some beautiful, catastrophic magic.',
   ],
 };

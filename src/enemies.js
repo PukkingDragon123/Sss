@@ -101,11 +101,20 @@ export class Enemies {
         body.scale.set(1.1, 0.85, 1.3);
       }
     }
-    if (type === 'goblinking' || type === 'spiderqueen' || type === 'skeletonking' || type === 'bogwretch' || type === 'frostmaw' || type === 'overmind' || type === 'voidmaw') {
-      const crownMat = new THREE.MeshStandardMaterial({ color: 0xffd98a, metalness: 0.3, roughness: 0.4, emissive: 0x3a2c00 });
-      const crown = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.55, 5), crownMat);
-      crown.position.y = 1.45; crown.rotation.z = 0.18; crown.castShadow = true;
-      g.add(crown);
+    if (def.boss) {
+      // ---- regal KING kit: a jewelled crown, royal cape, pauldrons & a menacing aura ----
+      const goldMat = new THREE.MeshStandardMaterial({ color: 0xffd98a, metalness: 0.55, roughness: 0.32, emissive: 0x4a3400, emissiveIntensity: 0.5 });
+      const gemMat = new THREE.MeshStandardMaterial({ color: 0xff3a5a, emissive: 0x6a0a1a, emissiveIntensity: 0.85, roughness: 0.2, metalness: 0.2 });
+      const crown = new THREE.Group(); crown.position.y = 1.5;
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.22, 12), goldMat); crown.add(band);
+      for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; const spike = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.36, 5), goldMat); spike.position.set(Math.cos(a) * 0.48, 0.26, Math.sin(a) * 0.48); crown.add(spike); }
+      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.14, 0), gemMat); gem.position.set(0, 0.06, 0.5); crown.add(gem);
+      crown.castShadow = true; g.add(crown);
+      const capeMat = new THREE.MeshStandardMaterial({ color: 0x6a1020, roughness: 0.7, side: THREE.DoubleSide, emissive: 0x1a0206 });
+      const cape = new THREE.Mesh(new THREE.ConeGeometry(0.82, 1.7, 14, 1, true), capeMat); cape.position.set(0, 0.7, -0.36); cape.castShadow = true; g.add(cape); if (!anim.cape) anim.cape = cape;
+      const palMat = new THREE.MeshStandardMaterial({ color: 0xffd98a, metalness: 0.5, roughness: 0.4 });
+      for (const side of [-1, 1]) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.27, 10, 8), palMat); p.position.set(side * 0.62, 0.96, 0); p.scale.set(1, 0.68, 1); p.castShadow = true; g.add(p); }
+      const aura = new THREE.Mesh(new THREE.SphereGeometry(0.88, 16, 12), new THREE.MeshBasicMaterial({ color: def.emissive ? def.color : 0xff5a8a, transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, depthWrite: false })); aura.position.y = 0.7; g.add(aura); anim.aura = aura;
     }
     // horns for the fiery folk
     if (type === 'imp' || type === 'hellhound' || type === 'demonlord') {
@@ -192,7 +201,7 @@ export class Enemies {
     e.hp = e.maxHp;
     e.speed = def.speed * (0.85 + Math.random() * 0.3);
     e.dmg = def.dmg;
-    e.r = def.r * def.size;
+    e.r = def.r; // collision radius (already final — do NOT multiply by size again; that was the boss hitbox bug)
     e.xp = def.xp;
     e.baseY = def.baseY;
     e.alive = true;
@@ -310,6 +319,7 @@ export class Enemies {
       e.mesh.position.y = hover;
       if (e.anim.wings) { const f = Math.sin(e.phase * 6); e.anim.wings[0].rotation.y = f * 0.7; e.anim.wings[1].rotation.y = Math.PI - f * 0.7; }
       if (e.anim.cape) e.anim.cape.rotation.x = Math.sin(e.phase * 1.5) * 0.12;
+      if (e.anim.aura) { e.anim.aura.material.opacity = 0.1 + Math.abs(Math.sin(e.phase * 1.4)) * 0.12; e.anim.aura.scale.setScalar(1 + Math.sin(e.phase) * 0.06); }
 
       if (e.flash > 0) {
         e.flash -= dt;

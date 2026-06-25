@@ -76,6 +76,7 @@ export class UI {
       settings: $('settings'), settingsClose: $('settings-close'), setVol: $('set-vol'), setMute: $('set-mute'), setShake: $('set-shake'), setErase: $('set-erase'),
       credits: $('credits'), creditsClose: $('credits-close'),
       waveWrap: $('wave-wrap'), wavePips: $('wave-pips'),
+      bossBar: $('boss-bar'), bossBarName: $('boss-bar-name'), bossBarFill: $('boss-bar-fill'),
       minigame: $('minigame'), mgScore: $('mg-score'), mgTitle: $('mg-title'), mgSub: $('mg-sub'),
       mgOrder: $('mg-order'), mgCanvas: $('mg-canvas'), mgPour: $('mg-pour'), mgServe: $('mg-serve'),
       mgAccept: $('mg-accept'), mgServed: $('mg-served'), mgTotal: $('mg-total'), mgQuit: $('mg-quit'),
@@ -240,6 +241,7 @@ export class UI {
     this.el.kills.classList.toggle('hidden', !arena);
     if (this.el.clock) this.el.clock.classList.toggle('hidden', arena); // clock shows in the hubs
     this.el.waveWrap.classList.add('hidden');
+    if (this.el.bossBar) this.el.bossBar.classList.add('hidden');
     this.el.tavernHud.classList.add('hidden');
     this.el.btnGuide.classList.toggle('hidden', !arena);
     if (this.el.btnDrink) this.el.btnDrink.classList.toggle('hidden', !arena); // drink only in the fight
@@ -555,6 +557,15 @@ export class UI {
       this._renderPips(d);
     } else this.el.waveWrap.classList.add('hidden');
     this.el.kills.textContent = `☠ ${game.kills}`;
+    // boss health bar
+    const be = game._bossEnemy;
+    if (this.el.bossBar) {
+      if (game.bossActive && be && be.alive) {
+        this.el.bossBar.classList.remove('hidden');
+        this.el.bossBarName.textContent = `👑 ${game.stage ? game.stage.bossName : 'Boss'}`;
+        this.el.bossBarFill.style.width = `${Math.max(0, be.hp / be.maxHp) * 100}%`;
+      } else this.el.bossBar.classList.add('hidden');
+    }
     const wob = s.wobble;
     const label = wob <= 0.6 ? '🍵 Tipsy' : (wob <= 1.15 ? '🍺 Sloshed' : '🥴 Hammered');
     this.el.sobriety.textContent = label;

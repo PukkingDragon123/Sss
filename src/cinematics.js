@@ -205,10 +205,14 @@ export class Cinematics {
   }
 
   _setScene(which) {
+    const g = this.game;
+    // ALWAYS set visibility first — a prior same-scene cutscene leaves scene_ stale while
+    // _finish() hid the set, so gating visibility behind the guard left the set invisible
+    // (the bug where the rampage/thrown bar showed empty). The guard only skips the heavy
+    // fog/light churn when the scene is genuinely unchanged.
+    this.bar.visible = which === 'bar'; this.forest.visible = which === 'forest';
     if (this.scene_ === which && this._sceneSet) return;
     this.scene_ = which; this._sceneSet = true;
-    const g = this.game;
-    this.bar.visible = which === 'bar'; this.forest.visible = which === 'forest';
     if (which === 'bar') {
       g.scene.background.setHex(0x241a18); g.scene.fog.color.setHex(0x241a18); g.scene.fog.density = 0.008;
       g.hemi.color.setHex(0xffd9a0); g.hemi.groundColor.setHex(0x3a2418); g.hemi.intensity = 0.5;

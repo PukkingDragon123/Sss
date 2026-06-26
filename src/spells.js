@@ -146,6 +146,14 @@ export class SpellSystem {
     this.projectiles.push({ kind: 'orb', mesh, vel: dir.clone().multiplyScalar(16), life: 2.0, dmg: game.stats.orbDmg * game.stats.damageMult * this.power, radius: game.stats.orbRadius, crit: this.crit });
   }
 
+  // an ENEMY projectile that flies at the wizard (ranged foes use this via game.spawnHostileOrb)
+  spawnHostile(from, dir, dmg) {
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.34, 12, 12), new THREE.MeshBasicMaterial({ color: 0xff5a7a, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.95, depthWrite: false }));
+    mesh.position.copy(from);
+    this.group.add(mesh);
+    this.projectiles.push({ hostile: true, mesh, vel: dir.clone().setY(0).normalize().multiplyScalar(14), life: 3.0, dmg });
+  }
+
   _blink(game, aim) {
     game.audio.play('zap');
     const from = game.wizard.pos.clone();
@@ -438,6 +446,31 @@ export class SpellSystem {
       const p = this.projectiles[i];
       p.life -= dt;
       p.mesh.position.addScaledVector(p.vel, dt);
+
+      if (p.hostile) {                       // enemy shot — flies at the wizard
+        if (Math.random() < 0.6) game.particles.spawn({ pos: p.mesh.position.clone(), color: 0xff7aa0, vel: new THREE.Vector3((Math.random() - 0.5) * 1.2, Math.random() * 0.5, (Math.random() - 0.5) * 1.2), size: 0.2, life: 0.3, blend: 'add' });
+        const wx = game.wizard.pos.x - p.mesh.position.x, wz = game.wizard.pos.z - p.mesh.position.z;
+        const hitPlayer = (wx * wx + wz * wz) < 1.0;
+        if (hitPlayer) { game.wizard.takeDamage(p.dmg, p.mesh.position); game.audio.play('hurt'); game.shake(0.4); }
+        if (hitPlayer || p.life <= 0 || Math.abs(p.mesh.position.x) > 48 || Math.abs(p.mesh.position.z) > 48) { this.group.remove(p.mesh); p.mesh.geometry.dispose(); this.projectiles.splice(i, 1); }
+        continue;
+      }
+
+      if (p.kind === 'orb') {                // arcane orb: a slow heavy bolt with a small AoE pop
+        p.mesh.rotation.y += dt * 4;
+        if (Math.random() < 0.7) game.particles.spawn({ pos: p.mesh.position.clone(), color: 0xc9a8ff, vel: new THREE.Vector3((Math.random() - 0.5) * 1.5, Math.random(), (Math.random() - 0.5) * 1.5), size: 0.28, life: 0.4, blend: 'add' });
+        let hit = false;
+        for (const e of game.enemies.list) { if (!e.alive) continue; const dx = e.mesh.position.x - p.mesh.position.x, dz = e.mesh.position.z - p.mesh.position.z; if (dx * dx + dz * dz < (e.r + 0.6) * (e.r + 0.6)) { hit = true; break; } }
+        if (hit || p.life <= 0) {
+          const R = p.radius * (p.crit ? 1.3 : 1);
+          game.particles.ring({ pos: p.mesh.position.clone().setY(0.4), color: 0xb98cff, r0: 0.4, r1: R, life: 0.5 });
+          game.particles.burst({ pos: p.mesh.position.clone().setY(0.6), color: 0xc9a8ff, count: 20, speed: 7, size: 0.3, life: 0.6, blend: 'add' });
+          for (const e of game.enemies.inRadius(p.mesh.position, R)) game.enemies.damage(e, p.dmg, game, new THREE.Vector3().subVectors(e.mesh.position, p.mesh.position), 4);
+          game.shake(0.5);
+          this.group.remove(p.mesh); p.mesh.geometry.dispose(); this.projectiles.splice(i, 1);
+        }
+        continue;
+      }
 
       if (p.kind === 'spike') {
         // pierces through foes, damaging each once

@@ -506,6 +506,8 @@ export class Game {
 
   // ---------- effects helpers used by subsystems ----------
   shake(a) { if (this.shakeEnabled === false) return; this.shakeAmt = Math.min(2.5, this.shakeAmt + a); }
+  // ranged enemies fire a hostile projectile at the wizard through the spell system
+  spawnHostileOrb(from, dir, dmg) { if (this.spells) this.spells.spawnHostile(from, dir, dmg); }
 
   popDamage(worldPos, n) {
     const v = worldPos.clone(); v.y += 1.2;

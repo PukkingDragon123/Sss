@@ -31,6 +31,36 @@ const TYPES = {
   bogwretch:{ hp: 1250, speed: 1.8, dmg: 21, r: 2.0, xp: 290, color: 0x5a7a3a, size: 3.1, baseY: 0, boss: true, emissive: 0x16240e },
   frostmaw: { hp: 1400, speed: 2.1, dmg: 22, r: 2.0, xp: 300, color: 0xbfe6ff, size: 3.2, baseY: 0, boss: true, emissive: 0x2a5a7a },
   voidmaw:  { hp: 1900, speed: 2.0, dmg: 26, r: 2.2, xp: 400, color: 0x7a4ad0, size: 3.4, baseY: 0, boss: true, emissive: 0x2a1060 },
+  // ---- special-ability foes (woven into the regions for variety) ----
+  houndling:  { hp: 30,  speed: 3.2, dmg: 13, r: 0.7,  xp: 11, color: 0xc2702a, size: 1.05, baseY: 0, ability: 'charge', atkInterval: 3.0 },
+  cultist:    { hp: 22,  speed: 2.3, dmg: 6,  r: 0.6,  xp: 13, color: 0x7a4ad0, size: 1.05, baseY: 0, emissive: 0x2a1060, ability: 'shoot', atkInterval: 2.4, shotDmg: 8 },
+  splitslime: { hp: 40,  speed: 1.8, dmg: 9,  r: 0.85, xp: 12, color: 0x4ad08a, size: 1.2,  baseY: 0, splitInto: 'goblin', splitCount: 2 },
+  broodmother:{ hp: 120, speed: 1.5, dmg: 10, r: 1.1,  xp: 34, color: 0x8a3a6a, size: 1.7,  baseY: 0, ability: 'summon', atkInterval: 4.2, summonType: 'bat' },
+  warden:     { hp: 60,  speed: 2.0, dmg: 11, r: 0.9,  xp: 18, color: 0x9aa6c0, size: 1.3,  baseY: 0, metalness: 0.3, shield: 50, ability: 'guard', atkInterval: 3.5 },
+  bomber:     { hp: 16,  speed: 3.4, dmg: 6,  r: 0.6,  xp: 9,  color: 0xff7a2a, size: 0.95, baseY: 0, emissive: 0x5a2008, explodeDmg: 22, explodeR: 3.2 },
+};
+
+// per-type special behaviours, fired on each enemy's attack cooldown. (e,def,game,d,dx,dz)
+const ENEMY_ABILITIES = {
+  shoot(e, def, game, d, dx, dz) {                       // ranged: lob a hostile orb at the wizard
+    if (d > 24 || !game.spawnHostileOrb) return;
+    const from = e.mesh.position.clone().setY(1.0);
+    const dir = new THREE.Vector3(dx, 0, dz);
+    game.spawnHostileOrb(from, dir, def.shotDmg || 8);
+    game.particles.burst({ pos: from, color: 0xff7aa0, count: 5, speed: 3, size: 0.18, life: 0.4, blend: 'add' });
+  },
+  charge(e, def, game, d) {                              // lunge in a quick burst when fairly close
+    if (d < 11 && d > 1.6) { e.charging = 0.45; game.particles.burst({ pos: e.mesh.position.clone().setY(0.35), color: 0xffcaa0, count: 6, speed: 4, size: 0.2, life: 0.4 }); }
+  },
+  summon(e, def, game) {                                 // birth little minions near itself
+    if (game.enemies.countNonBoss() > 92) return;
+    const c = game.enemies.spawn(def.summonType || 'bat', 0.6, e.mesh.position.clone(), game);
+    if (c) c.spawnT = 0.3;
+  },
+  guard(e, def, game) {                                  // re-shield self + buff nearby allies
+    e.shield = Math.max(e.shield, def.shield || 50);
+    for (const o of game.enemies.inRadius(e.mesh.position, 5)) { if (o !== e && !TYPES[o.type].boss) o.shield = Math.max(o.shield || 0, 20); }
+  },
 };
 
 const MAX_ENEMIES = 140;
@@ -211,6 +241,9 @@ export class Enemies {
     e.phase = Math.random() * 10;
     e.spawnT = 0.45; // emerging from a portal
     e.knock = new THREE.Vector3();
+    e.atkCd = def.atkInterval ? def.atkInterval * (0.5 + Math.random() * 0.6) : 0; // stagger first ability use
+    e.shield = def.shield || 0;
+    e.charging = 0;
 
     const center = near || new THREE.Vector3();
     const ang = Math.random() * Math.PI * 2;
@@ -233,6 +266,7 @@ export class Enemies {
 
   damage(e, n, game, knockDir = null, knockAmt = 0) {
     if (!e.alive) return;
+    if (e.shield > 0) { const a = Math.min(e.shield, n); e.shield -= a; n -= a; e.flash = 0.12; if (n <= 0) { if (game) game.popDamage(e.mesh.position, a); return; } }
     e.hp -= n;
     e.flash = 0.12;
     if (knockDir && knockAmt) e.knock.addScaledVector(knockDir.clone().setY(0).normalize(), knockAmt);
@@ -257,6 +291,19 @@ export class Enemies {
       if (def.boss) { this.bossAlive = false; game.particles.ring({ pos: e.mesh.position.clone(), color: 0xffd98a, r0: 1, r1: 16, life: 0.9 }); game.onBossDead(); }
       game.kills++;
       if (game.onKill) game.onKill(e, def);
+      // splitter: birth smaller foes where it died
+      if (def.splitInto && this.countNonBoss() < MAX_ENEMIES - 4) {
+        for (let k = 0; k < (def.splitCount || 2); k++) { const c = this.spawn(def.splitInto, 0.5, e.mesh.position.clone(), game); if (c) c.spawnT = 0.15; }
+      }
+      // bomber: a final AoE blast that can catch the wizard
+      if (def.explodeDmg) {
+        const R = def.explodeR || 3;
+        game.particles.ring({ pos: e.mesh.position.clone().setY(0.3), color: 0xff7a3a, r0: 0.4, r1: R, life: 0.5 });
+        game.particles.burst({ pos: e.mesh.position.clone().setY(0.6), color: 0xff7a3a, count: 22, speed: 8, size: 0.32, life: 0.7 });
+        game.shake(1.0);
+        const pd = Math.hypot(game.wizard.pos.x - e.mesh.position.x, game.wizard.pos.z - e.mesh.position.z);
+        if (pd < R) game.wizard.takeDamage(def.explodeDmg, e.mesh.position);
+      }
     }
   }
 
@@ -284,8 +331,12 @@ export class Enemies {
       const dx = player.x - e.mesh.position.x;
       const dz = player.z - e.mesh.position.z;
       const d = Math.hypot(dx, dz) || 1;
-      let vx = (dx / d) * speed;
-      let vz = (dz / d) * speed;
+      // special abilities (ranged shots / summons / shield upkeep); chargers lunge in bursts
+      const adef = TYPES[e.type];
+      if (adef.ability) { e.atkCd -= dt; if (e.atkCd <= 0) { e.atkCd = adef.atkInterval; const fn = ENEMY_ABILITIES[adef.ability]; if (fn) fn(e, adef, game, d, dx, dz); } }
+      let chargeMul = 1; if (e.charging > 0) { e.charging -= dt; chargeMul = 3; }
+      let vx = (dx / d) * speed * chargeMul;
+      let vz = (dz / d) * speed * chargeMul;
 
       // separation
       for (let j = 0; j < this.list.length; j++) {
@@ -331,6 +382,7 @@ export class Enemies {
       if (e.contactCd > 0) e.contactCd -= dt;
       const pr = 0.7 + e.r;
       if (d < pr && e.contactCd <= 0) {
+        if (adef.explodeDmg) { this._kill(e, game); continue; } // bombers detonate on contact
         if (game.wizard.takeDamage(e.dmg, e.mesh.position)) {
           game.audio.play('hurt');
           game.shake(0.5 + e.dmg * 0.02);

@@ -67,6 +67,8 @@
     </div>
 
     <div id="top-buttons">
+      <button class="iconbtn" id="btn-quests" title="Quest log">📜</button>
+      <button class="iconbtn" id="btn-inv" title="Inventory / satchel">🎒</button>
       <button class="iconbtn" id="btn-guide" title="How to draw spells (H)">📖</button>
       <button class="iconbtn" id="btn-pause" title="Pause (P)">⏸</button>
       <button class="iconbtn" id="btn-mute" title="Mute (M)">🔊</button>
@@ -101,6 +103,12 @@
     <div id="interact-prompt" class="hidden"></div>
     <button id="btn-interact" class="hidden">✋ Interact</button>
     <div id="cast-hint">Hold <b>Right-Mouse</b> and draw a glyph to cast · <b>WASD</b> to stagger · <b>Q</b> to drink (refills mana, makes you woozy)</div>
+  </div>
+
+  <!-- ===== Quest log: a slide-in side panel tracking the debt, bounties &amp; every mechanic ===== -->
+  <div id="quest-panel">
+    <div class="qp-head"><span>📜 Quest Log</span><button class="qp-close" id="qp-close">✕</button></div>
+    <div class="qp-body" id="qp-body"></div>
   </div>
 
   <!-- ===== Story / dialogue popup ===== -->

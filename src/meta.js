@@ -60,7 +60,6 @@ export const BUILDABLES = [
   // functional stations — walk up to a placed one to use it (kept cheap so you
   // can get your workshop going early)
   { id: 'spelltable', name: 'Spell Table',  icon: '✦',  cost: 0,   comfort: 0, station: 'skilltree' },
-  { id: 'questboard', name: 'Quest Board',  icon: '📜', cost: 40,  comfort: 0, station: 'manager' },
   { id: 'ledger',     name: 'Ledger Desk',  icon: '📒', cost: 60,  comfort: 0, station: 'ledger' },
   // feature-gated stations — unlocked by completing quests
   { id: 'wardrobe',   name: 'Equipment Hall', icon: '🎽', cost: 70,  comfort: 0, station: 'wardrobe',   feature: 'gear' },
@@ -261,6 +260,7 @@ function defaultSave() {
     herbs: 0,  // 🌿 brewing materials gathered while venturing
     gemstones: { fire: 0, water: 0, air: 0, earth: 0 }, // elemental gemstones won in battle
     brews: {}, // brewed-potion counts (each is a small permanent boon)
+    seen: {},  // which mechanics the player has tried (tutorial quest log)
     day: 1,    // the tavern clock — work by day, venture by night
     research: { activeId: null, daysLeft: 0, done: {} },
     artifacts: [],          // ✦ artifacts collected from bosses (persistent)
@@ -320,6 +320,7 @@ export function load() {
       state.herbs = (typeof state.herbs === 'number') ? state.herbs : 0;
       state.gemstones = Object.assign({ fire: 0, water: 0, air: 0, earth: 0 }, state.gemstones || {});
       state.brews = state.brews || {};
+      state.seen = state.seen || {};
       state.day = state.day || 1;
       state.research = Object.assign({ activeId: null, daysLeft: 0, done: {} }, state.research || {});
       state.research.done = state.research.done || {};
@@ -355,7 +356,7 @@ export function addHerbs(n) { state.herbs = (state.herbs || 0) + n; save(); }
 export function spendHerbs(n) { if ((state.herbs || 0) < n) return false; state.herbs -= n; save(); return true; }
 const _emptyGemstones = () => ({ fire: 0, water: 0, air: 0, earth: 0 });
 export const gemstones = () => state.gemstones || _emptyGemstones();
-export function addGemstone(el, n = 1) { if (!state.gemstones) state.gemstones = _emptyGemstones(); state.gemstones[el] = (state.gemstones[el] || 0) + n; save(); }
+export function addGemstone(el, n = 1) { if (!state.gemstones) state.gemstones = _emptyGemstones(); state.gemstones[el] = (state.gemstones[el] || 0) + n; markSeen('gemstone'); save(); }
 export function spendGemstone(el, n = 1) { const g = state.gemstones || _emptyGemstones(); if ((g[el] || 0) < n) return false; g[el] -= n; state.gemstones = g; save(); return true; }
 export const totalGemstones = () => { const g = state.gemstones || {}; return (g.fire || 0) + (g.water || 0) + (g.air || 0) + (g.earth || 0); };
 
@@ -483,7 +484,7 @@ export function forgeGear(id) {
   state.gold -= t.gold; state.gems -= t.gems;
   const lvl = 1 + ((state.cleared || []).length) + FORGE_TIERS.indexOf(t);
   const inst = genGear(null, rollWeighted(t.w), lvl);
-  state.gear.push(inst); save(); return inst;
+  state.gear.push(inst); markSeen('forge'); save(); return inst;
 }
 export function equipGear(id) {
   const inst = gearById(id); if (!inst) return false;
@@ -538,3 +539,37 @@ export function claimQuest() {
   save();
   return { reward: r, unlocked };
 }
+
+// ---- tutorial quest log: a checklist that tracks trying every mechanic (mostly derived from save state) ----
+export const TUTORIAL_QUESTS = [
+  { id: 'cast',      text: 'Cast a spell by drawing its glyph' },
+  { id: 'chug',      text: 'Chug a beer to refill your mana' },
+  { id: 'level',     text: 'Level up and pick a power' },
+  { id: 'boss',      text: 'Defeat a region boss' },
+  { id: 'work',      text: 'Serve a drink at the bar for gold' },
+  { id: 'spell',     text: 'Learn a new spell at the Spell Table' },
+  { id: 'build',     text: 'Build a station in your room' },
+  { id: 'gemstone',  text: 'Collect an elemental gemstone' },
+  { id: 'brew',      text: 'Brew a potion at the Cauldron' },
+  { id: 'forge',     text: 'Forge gear at the Anvil' },
+  { id: 'research',  text: 'Begin a research project' },
+  { id: 'combo',     text: 'Learn a spell combo' },
+  { id: 'playstyle', text: 'Pick a playstyle before a venture' },
+  { id: 'artifact',  text: 'Carry an artifact into a run' },
+];
+export const hasSeen = (id) => !!(state.seen && state.seen[id]);
+export function markSeen(id) { if (!state.seen) state.seen = {}; if (state.seen[id]) return false; state.seen[id] = 1; save(); return true; }
+export function tutDone(id) {
+  switch (id) {
+    case 'spell':     return SPELL_LIST.some(x => owns(x) && !(SPELL_META[x] && SPELL_META[x].starter));
+    case 'build':     return placedItems().some(p => { const b = buildableById(p.id); return b && b.station; });
+    case 'brew':      return Object.values(state.brews || {}).some(n => n > 0);
+    case 'research':  return !!(state.research && (state.research.activeId || Object.keys(state.research.done || {}).length));
+    case 'combo':     return Object.keys(state.combos || {}).length > 0;
+    case 'playstyle': return !!state.archetype;
+    case 'artifact':  return (state.equippedArtifacts || []).length > 0;
+    default:          return hasSeen(id); // cast/chug/level/boss/work/forge/gemstone (flagged as you do them)
+  }
+}
+export const tutorialChecklist = () => TUTORIAL_QUESTS.map(q => ({ id: q.id, text: q.text, done: tutDone(q.id) }));
+export const tutorialProgress = () => { let n = 0; for (const q of TUTORIAL_QUESTS) if (tutDone(q.id)) n++; return { done: n, total: TUTORIAL_QUESTS.length }; };

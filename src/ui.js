@@ -98,6 +98,8 @@ export class UI {
       artReveal: $('art-reveal'), artRevealIcon: $('art-icon'), artRevealName: $('art-name'), artRevealDesc: $('art-desc'), artClaim: $('art-claim'),
       worldHud: $('world-hud'), worldDetail: $('world-detail'),
       btnGuide: $('btn-guide'), btnPause: $('btn-pause'), btnMute: $('btn-mute'),
+      btnQuests: $('btn-quests'), btnInv: $('btn-inv'),
+      questPanel: $('quest-panel'), qpBody: $('qp-body'), qpClose: $('qp-close'),
       joystick: $('joystick'), joyKnob: $('joy-knob'), blackout: $('blackout'),
       glyphGuide: $('glyph-guide'), guideCards: $('guide-cards'), btnGuideClose: $('btn-guide-close'),
     };
@@ -132,6 +134,22 @@ export class UI {
     this.el.btnPause.addEventListener('click', () => { game.audio.play('click'); game.togglePause(); });
     this.el.btnMute.addEventListener('click', () => { game.toggleMute(); });
     this.el.btnGuide.addEventListener('click', () => { game.audio.play('click'); game.toggleGuide(); });
+    if (this.el.btnQuests) this.el.btnQuests.addEventListener('click', () => { game.audio.play('click'); this.toggleQuestPanel(game); });
+    if (this.el.btnInv) this.el.btnInv.addEventListener('click', () => { game.audio.play('click'); this.openInventory(game); });
+    if (this.el.qpClose) this.el.qpClose.addEventListener('click', () => { game.audio.play('click'); this.el.questPanel.classList.remove('show'); });
+    if (this.el.questPanel) this.el.questPanel.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-act]'); if (!b) return;
+      const act = b.dataset.act;
+      if (act === 'paydebt') {
+        const p = meta.payDebt(meta.gold());
+        if (p > 0) { this.toast(`💰 Paid ${p} gold off the debt`); this.setGold(meta.gold()); if (meta.debt() <= 0) game.onDebtCleared(); }
+        else this.wispSay('No gold to pay with yet. Work the bar or finish a bounty.', { tone: 'warn' });
+      } else if (act === 'claim') {
+        const res = meta.claimQuest();
+        if (res && res.reward > 0) { this.toast(`Bounty reward: +${res.reward} gold`); this.setGold(meta.gold()); if (res.unlocked) this.wispSay(`🔓 Unlocked the ${meta.FEATURE_LABELS[res.unlocked]}. Build it up in your room!`, { big: true, ms: 4200 }); }
+      }
+      this.renderQuestPanel(game);
+    });
     this.el.btnGuideClose.addEventListener('click', () => { game.audio.play('click'); game.toggleGuide(); });
     this.el.btnInteract.addEventListener('click', () => game.interact());
     if (this.el.btnDrink) this.el.btnDrink.addEventListener('click', () => game.drink());
@@ -179,6 +197,34 @@ export class UI {
   }
 
   setGold(n) { if (this.el.gold) this.el.gold.textContent = `🪙 ${n}`; if (this.el.shopGold) this.el.shopGold.textContent = `🪙 ${n}`; this.setGems(meta.gems()); }
+
+  // ---- the quest log side panel (debt + bounty + the learn-the-ropes checklist) ----
+  toggleQuestPanel(game) {
+    const p = this.el.questPanel; if (!p) return;
+    if (p.classList.contains('show')) { p.classList.remove('show'); return; }
+    this.renderQuestPanel(game); p.classList.add('show');
+  }
+  openInventory(game) { this._libTab = 'inventory'; if (game._openShop) game._openShop('library'); else this.openShop('library', game); }
+  renderQuestPanel(game) {
+    const body = this.el.qpBody; if (!body) return;
+    const debt = meta.debt(), total = meta.DEBT_TOTAL || 1, paid = Math.max(0, total - debt);
+    const q = meta.currentQuest(), done = meta.questDone(), prog = meta.tutorialProgress();
+    let h = `<div class="qp-card"><h4>⚜ Main Quest: The Tavern Debt</h4>
+      <p class="qp-sub">Pay Barkeep Tomas back and the Tipsy Toad is yours.</p>
+      <div class="debt-bar"><div class="debt-fill" style="width:${100 * paid / total}%"></div></div>
+      <div class="qp-progress">${paid} / ${total} gold paid</div>`;
+    h += debt > 0
+      ? `<div class="shop-acts" style="margin-top:8px"><button class="shop-btn" data-act="paydebt" ${meta.gold() > 0 ? '' : 'disabled'}>Pay ${Math.min(meta.gold(), debt)} gold</button></div></div>`
+      : `<div class="qp-progress" style="color:var(--xp)">Debt cleared. The Toad is yours!</div></div>`;
+    h += `<div class="qp-card"><h4>📌 Bounty</h4>
+      <p class="qp-sub">${q ? q.text + ' (reward ' + q.reward + ' gold)' : 'No bounty right now.'}</p>
+      <div class="shop-acts"><button class="shop-btn ${done ? 'on' : ''}" data-act="claim" ${done ? '' : 'disabled'}>${done ? 'Claim reward' : 'In progress'}</button></div></div>`;
+    h += `<div class="qp-card"><h4>🧭 Learn the Ropes</h4>
+      <p class="qp-sub">Try every part of the realm. The wisp will guide you.</p><div class="qp-tasklist">`;
+    for (const t of meta.tutorialChecklist()) h += `<div class="qp-task ${t.done ? 'done' : ''}"><span class="tick">${t.done ? '✓' : '○'}</span><span>${t.text}</span></div>`;
+    h += `</div><div class="qp-progress">${prog.done} / ${prog.total} mechanics tried</div></div>`;
+    body.innerHTML = h;
+  }
   setGems(n) { if (this.el.gems) this.el.gems.textContent = `💎 ${n}`; if (this.el.shopGems) this.el.shopGems.textContent = `💎 ${n}`; }
   setClock(day) { if (this.el.clock) this.el.clock.textContent = `☀️ Day ${day}`; }
 
@@ -248,6 +294,9 @@ export class UI {
     if (this.el.bossBar) this.el.bossBar.classList.add('hidden');
     this.el.tavernHud.classList.add('hidden');
     this.el.btnGuide.classList.toggle('hidden', !arena);
+    if (this.el.btnQuests) this.el.btnQuests.classList.toggle('hidden', !(tavern || room)); // quest log + satchel in the hub
+    if (this.el.btnInv) this.el.btnInv.classList.toggle('hidden', !(tavern || room));
+    if (this.el.questPanel && !(tavern || room)) this.el.questPanel.classList.remove('show');
     if (this.el.btnDrink) this.el.btnDrink.classList.toggle('hidden', !arena); // drink only in the fight
     if (this.el.drinkBar && !arena) this.el.drinkBar.classList.add('hidden');
     if (this.el.btnBuild) this.el.btnBuild.classList.toggle('hidden', !room);  // build only in your room
@@ -638,10 +687,10 @@ export class UI {
       if (meta.featureUnlocked(f)) { const b = meta.BUILDABLES.find(x => x.feature === f); if (b && !meta.stationBuilt(b.id)) { unbuilt = b; break; } }
     }
     let step;
-    if (done) step = 'Claim your bounty at the 📜 Quest Board';
+    if (done) step = 'Claim your bounty in the 📜 quest log';
     else if (unbuilt) step = `Build the ${unbuilt.name} up in your 🪜 room`;
     else if (debt > 0 && meta.gold() < debt) step = 'Earn coin: serve at the 🍺 Bar or finish a bounty';
-    else if (debt > 0) step = 'Pay it down at the 📜 Quest Board';
+    else if (debt > 0) step = 'Pay it down in the 📜 quest log';
     else step = 'Venture out and grow stronger';
     this.el.qtStep.textContent = '➤ ' + step;
     this.el.qtBounty.textContent = q ? `Bounty: ${q.text} (+${q.reward}🪙)${done ? ' ✓' : ''}` : '';
@@ -745,7 +794,7 @@ export class UI {
         <div class="loot-row loot-total"><span>Gems won</span><b>+${info.earnedGems}💎</b></div>
       </div>
       <div class="loot-purse">Gems: <b>${info.gems}💎</b> · spend them on spells & research</div>
-      ${info.questDone ? '<div style="color:var(--xp);font-weight:800">✓ Quest complete! Claim it from the Quest Board.</div>' : ''}
+      ${info.questDone ? '<div style="color:var(--xp);font-weight:800">✓ Bounty complete! Claim it in your 📜 quest log.</div>' : ''}
       <div style="margin-top:6px;color:var(--ink-dim)">${win ? 'Back at the tavern: research, learn spells, then work a shift for coin!' : 'You keep every gem you won. Regroup and try again.'}</div>`;
     this.el.btnAgain.textContent = '▸ Return to the Tavern';
     this.el.end.classList.remove('hidden');
@@ -1430,7 +1479,7 @@ export class UI {
       const built = b.station && meta.stationBuilt(b.id);
       const dis = locked || built || !meta.canAfford(b.cost);
       const cost = locked ? '🔒 quest' : built ? '✓ Built' : b.cost === 0 ? 'Free' : b.cost + '🪙';
-      h += `<button class="build-item ${sel ? 'sel' : ''} ${b.station ? 'is-station' : ''} ${locked ? 'locked' : ''}" data-act="selbuild" data-id="${b.id}" ${dis ? 'disabled' : ''} title="${locked ? 'Unlock by claiming a Quest Board bounty' : b.name}">
+      h += `<button class="build-item ${sel ? 'sel' : ''} ${b.station ? 'is-station' : ''} ${locked ? 'locked' : ''}" data-act="selbuild" data-id="${b.id}" ${dis ? 'disabled' : ''} title="${locked ? 'Unlock by claiming a bounty in your quest log' : b.name}">
         <span class="bi-icon">${locked ? '🔒' : b.icon}</span><span class="bi-name">${b.name}</span><span class="bi-cost">${cost}</span></button>`;
     }
     h += '</div>';

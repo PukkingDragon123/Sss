@@ -474,7 +474,7 @@ const SCRIPTS = {
   // 5) SCOLD — back at the bar, get an earful and the debt
   scold: [
     { scene: 'bar', pose: [0, 0, 0], yaw: 0.1, cam: { pos: [2.5, 1.6, 4.5], look: [0, 1.5, 0], push: true }, speaker: 'Barkeep Tomas', portrait: '😠', text: 'You! You wrecked my tavern and then passed out in the woods.' },
-    { scene: 'bar', cam: { pos: [0.5, 1.8, 3], look: [0, 1.6, 0] }, speaker: 'Barkeep Tomas', portrait: '🧾', text: 'You owe me 600 gold. Build a quest board and work it off.' },
+    { scene: 'bar', cam: { pos: [0.5, 1.8, 3], look: [0, 1.6, 0] }, speaker: 'Barkeep Tomas', portrait: '🧾', text: 'You owe me 600 gold. Track it in your quest log and work it off.' },
     { scene: 'bar', cam: { pos: [-2, 1.5, 4.5], look: [0, 1.6, 0], push: true }, speaker: 'Wobblesworth', portrait: '🧙', text: 'Fine, you old goat. I will get rich and pay off your debt. Now, to mayhem!' },
   ],
 };

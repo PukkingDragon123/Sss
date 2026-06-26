@@ -567,9 +567,13 @@ export class Game {
     this.audio.play('gameover'); // ominous sting
   }
 
+  // mark a mechanic as tried (fills the quest-log checklist) and let the wisp teach it the first time
+  _learn(id, tip) { if (meta.markSeen(id) && tip && this.ui) this.ui.wispSay(tip); }
+
   onBossDead() {
     if (this._drinking) this._cancelDrink();
     this.bossActive = false; this.bossKilled = true; this._roomsCleared = this._forksTotal + 2;
+    this._learn('boss', 'Boss down! It dropped an artifact and gemstones. Carry artifacts from your satchel into a run.');
     if (this._pendingReward) { this._grantReward(this._pendingReward); this._pendingReward = null; }
     this.grantArtifact(this._opArtifact); // the guaranteed, build-defining end-of-level relic
     this.audio.play('win');
@@ -675,8 +679,9 @@ export class Game {
     this.ui.setGold(meta.gold());
     this.state = 'play';
     if (!this._hubShown) {
-      // first time in the hub — the wisp already taught the basics in the cutscene; no modal
+      // first time in the hub — point at the quest log + satchel buttons (top-right)
       this._hubShown = true; this._introShown = true;
+      setTimeout(() => { if (this.phase === 'tavern') this.ui.wispSay('Tap 📜 for your quest log and 🎒 for your satchel any time. Your goals live there.', { big: true, ms: 5200 }); }, 900);
     }
     this.tavernReady = true;
     if (this._justInherited) {
@@ -793,6 +798,7 @@ export class Game {
     meta.addGold(tip); meta.save();
     this.ui.setGold(meta.gold());
     this.audio.play('levelup');
+    this._learn('work', 'Tip earned! Keep serving to pay off your debt. Track it in your quest log.');
     this.ui.toast(`🍺 Served! +${tip}🪙 tip`);
     this._servedToday = (this._servedToday || 0) + 1;
     if (this._servedToday % 3 === 0) {
@@ -1081,6 +1087,7 @@ export class Game {
   // apply a chosen ability (level-up / shrine / keg) and log it in the top-left tray
   applyAbility(u) {
     u.apply(this);
+    this._learn('level', 'You leveled up! Pick a power, and lean into one playstyle for a strong build.');
     const e = this.runAbilities.get(u.id) || { icon: u.icon, name: u.name, count: 0 };
     e.count++; this.runAbilities.set(u.id, e);
     this._refreshBoonHud();
@@ -1111,6 +1118,7 @@ export class Game {
   }
 
   _registerCast(id) {
+    this._learn('cast');
     const now = performance.now() / 1000;
     if (this._lastCast && now - this._lastCast.t < 1.4) {
       const prev = this._lastCast.id;
@@ -1178,6 +1186,7 @@ export class Game {
   }
   _cancelDrink() { this._drinking = false; this.wizard.endDrink(); this.ui.hideDrinkBar(); }
   _finishDrink() {
+    this._learn('chug');
     const w = this.wizard, s = this.stats;
     this._drinking = false; w.endDrink(); this.ui.hideDrinkBar();
     w.mana = s.manaMax;                        // chugged it dry → FULL mana

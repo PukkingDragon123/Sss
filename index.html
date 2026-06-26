@@ -58,6 +58,14 @@
       <div class="tavern-ruckus">Ruckus caused: <b id="ruckus-count">0</b></div>
     </div>
 
+    <!-- persistent main-quest tracker (shown while roaming the hub/room) -->
+    <div id="quest-tracker" class="hidden">
+      <div class="qt-goal">⚜ <span id="qt-goal-text">The Tavern Debt</span></div>
+      <div class="debt-bar"><div class="debt-fill" id="qt-fill"></div></div>
+      <div class="qt-step" id="qt-step"></div>
+      <div class="qt-bounty" id="qt-bounty"></div>
+    </div>
+
     <div id="top-buttons">
       <button class="iconbtn" id="btn-guide" title="How to draw spells (H)">📖</button>
       <button class="iconbtn" id="btn-pause" title="Pause (P)">⏸</button>
@@ -88,6 +96,8 @@
 
     <div id="banner"></div>
     <div id="toast-area"></div>
+    <!-- the wisp speaks: warnings &amp; tips (replaces blunt popups) -->
+    <div id="wisp-bubble" class="hidden"><div class="wisp-portrait">✨</div><div class="wisp-text" id="wisp-text"></div></div>
     <div id="interact-prompt" class="hidden"></div>
     <button id="btn-interact" class="hidden">✋ Interact</button>
     <div id="cast-hint">Hold <b>Right-Mouse</b> and draw a glyph to cast · <b>WASD</b> to stagger · <b>Q</b> to drink (refills mana, makes you woozy)</div>

@@ -266,15 +266,15 @@ export class Tavern {
       game.onTavernServe();
       return;
     }
-    if (table.state !== 'waiting') { game.ui.toast('Nobody\'s waiting at that table.'); return; }
+    if (table.state !== 'waiting') { game.ui.wispSay('Nobody\'s waiting at that table.', { tone: 'warn' }); return; }
     if (o.stage === 'idle') {
       this.order = { table, stage: 'taken' };
       this._drawBubble(table, '✅'); game.audio.play('click');
       game.ui.toast('📝 Order taken — now pour it at the Bar!');
     } else if (o.stage === 'carrying') {
-      game.ui.toast('That pint is for another table!');
+      game.ui.wispSay('That pint is for another table!', { tone: 'warn' });
     } else {
-      game.ui.toast('You\'ve already taken an order — pour it at the Bar.');
+      game.ui.wispSay('You\'ve already taken an order — pour it at the Bar.', { tone: 'warn' });
     }
   }
   // interact at the bar: pour the taken order, then you carry it
@@ -285,9 +285,9 @@ export class Tavern {
       game.audio.play('levelup');
       game.ui.toast('🍺 Poured! Carry it to the table — mind the crowd, don\'t spill!');
     } else if (o.stage === 'carrying') {
-      game.ui.toast('Already poured — take it to the table!');
+      game.ui.wispSay('Already poured — take it to the table!', { tone: 'warn' });
     } else {
-      game.ui.toast('Take an order from a waiting table first.');
+      game.ui.wispSay('Take an order from a waiting table first.', { tone: 'warn' });
     }
   }
   _spill(game) {
@@ -295,7 +295,7 @@ export class Tavern {
     this.order.stage = 'taken';
     this.carryMug.visible = false;
     game.audio.play('hiccup'); game.shake(0.6);
-    game.ui.toast('💦 You sloshed it everywhere! Re-pour at the Bar.');
+    game.ui.wispSay('💦 You sloshed it everywhere! Re-pour at the Bar.', { tone: 'warn' });
   }
 
   // ===================== YOUR ROOM (separate scene) =====================

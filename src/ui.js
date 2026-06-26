@@ -89,6 +89,8 @@ export class UI {
       shop: $('shop'), shopTitle: $('shop-title'), shopGold: $('shop-gold'), shopGems: $('shop-gems'), shopBody: $('shop-body'), shopClose: $('shop-close'),
       tavernHud: $('tavern-hud'), ruckusCount: $('ruckus-count'),
       abilityTray: $('ability-tray'),
+      wispBubble: $('wisp-bubble'), wispText: $('wisp-text'),
+      questTracker: $('quest-tracker'), qtGoalText: $('qt-goal-text'), qtFill: $('qt-fill'), qtStep: $('qt-step'), qtBounty: $('qt-bounty'),
       pathChoice: $('path-choice'), pathDoors: $('path-doors'), pathTitle: $('path-title'), pathSub: $('path-sub'), pathBoss: $('path-boss'),
       eventModal: $('event-modal'), eventIcon: $('event-icon'), eventTitle: $('event-title'), eventPrompt: $('event-prompt'),
       eventOpts: $('event-opts'), eventSkill: $('event-skill'), skillCanvas: $('skill-canvas'), skillStop: $('skill-stop'),
@@ -238,8 +240,8 @@ export class UI {
     this.el.bars.classList.toggle('hidden', hub);        // vitals only in the fight
     this.el.spellbook.classList.toggle('hidden', !arena);
     this.el.sobriety.classList.toggle('hidden', !arena);
-    this.el.timer.classList.toggle('hidden', !arena);
-    this.el.kills.classList.toggle('hidden', !arena);
+    this.el.timer.classList.toggle('hidden', !arena || isTouch);  // calmer fight HUD on phones
+    this.el.kills.classList.toggle('hidden', !arena || isTouch);
     if (this.el.clock) this.el.clock.classList.toggle('hidden', arena); // clock shows in the hubs
     this.el.waveWrap.classList.add('hidden');
     if (this.el.bossBar) this.el.bossBar.classList.add('hidden');
@@ -250,6 +252,7 @@ export class UI {
     if (this.el.btnBuild) this.el.btnBuild.classList.toggle('hidden', !room);  // build only in your room
     if (this.el.abilityTray) this.el.abilityTray.classList.toggle('hidden', !arena || !this.el.abilityTray.innerHTML);
     if (this.el.drunkWrap) this.el.drunkWrap.classList.toggle('hidden', !arena);
+    if (this.el.questTracker) { this.el.questTracker.classList.toggle('hidden', !(tavern || room)); this._qtSig = null; } // main-quest tracker in the hub
     if (!world) this.hideWorldHud();
     if (!arena && !world) { this.el.interactPrompt.classList.add('hidden'); this.el.btnInteract.classList.add('hidden'); }
     if (tavern) this.el.castHint.innerHTML = isTouch ? 'Wander to a <b>table</b> for an order, pour at the <b>bar</b>, carry it back · 🪜 room · 🚪 venture' : 'Take an order at a <b>table</b>, pour at the <b>bar</b>, carry it back to <b>serve</b> for tips · <b>🚪</b> venture · <b>🪜</b> room · press <b>E</b>';
@@ -539,8 +542,9 @@ export class UI {
     this._updateNausea(game); // queasy overlay — runs in the hubs AND the fight
     if (this.el.gems) this.el.gems.textContent = `💎 ${meta.gems()}`;   // live currency
     if (this.el.clock) this.el.clock.textContent = `☀️ Day ${meta.currentDay()}`;
-    if (game.phase === 'tavern' || game.phase === 'room') { // hubs: prompt only
+    if (game.phase === 'tavern' || game.phase === 'room') { // hubs: prompt + main-quest tracker
       this.updatePrompt(game.state === 'play' ? game.nearStation : null, game.input.isTouch);
+      this.updateQuestTracker(game);
       return;
     }
     const s = game.stats, w = game.wizard;
@@ -600,6 +604,46 @@ export class UI {
     t.textContent = text;
     this.el.toastArea.appendChild(t);
     setTimeout(() => t.remove(), 1700);
+  }
+
+  // the wisp speaks — a cozy, non-blocking bubble for warnings & tips (replaces blunt toasts).
+  // tone:'warn' tints the edge red; big:true makes the wisp "zoom in" with a bigger pop for key tips.
+  wispSay(text, opts = {}) {
+    const { ms = 2600, tone = 'tip', big = false } = opts;
+    const b = this.el.wispBubble; if (!b) { this.toast(text); return; }
+    this.el.wispText.textContent = text;
+    b.classList.toggle('warn', tone === 'warn');
+    b.classList.toggle('big', !!big);
+    b.classList.remove('hidden');
+    void b.offsetWidth;                 // reflow so a repeated line re-animates
+    b.classList.add('show');
+    clearTimeout(this._wispT);
+    this._wispT = setTimeout(() => { b.classList.remove('show'); setTimeout(() => b.classList.add('hidden'), 220); }, ms);
+  }
+
+  // persistent main-quest tracker — read-only over meta; repaint only when the state signature changes
+  updateQuestTracker(game) {
+    const t = this.el.questTracker; if (!t || t.classList.contains('hidden')) return;
+    const debt = meta.debt(), total = meta.DEBT_TOTAL || 1;
+    const q = meta.currentQuest(), done = meta.questDone();
+    const featSig = (meta.FEATURE_ORDER || []).map(f => meta.featureUnlocked(f) ? 1 : 0).join('');
+    const sig = `${debt}|${done ? 1 : 0}|${q ? q.id : '-'}|${meta.gold()}|${featSig}`;
+    if (sig === this._qtSig) return; this._qtSig = sig;
+    this.el.qtGoalText.textContent = debt > 0 ? 'Pay off the Tavern Debt' : 'The Toad is yours — adventure on!';
+    this.el.qtFill.style.width = (100 * Math.max(0, total - debt) / total) + '%';
+    // a just-unlocked feature whose station isn't built yet takes priority — names exactly what to do next
+    let unbuilt = null;
+    for (const f of (meta.FEATURE_ORDER || [])) {
+      if (meta.featureUnlocked(f)) { const b = meta.BUILDABLES.find(x => x.feature === f); if (b && !meta.stationBuilt(b.id)) { unbuilt = b; break; } }
+    }
+    let step;
+    if (done) step = 'Claim your bounty at the 📜 Quest Board';
+    else if (unbuilt) step = `Build the ${unbuilt.name} up in your 🪜 room`;
+    else if (debt > 0 && meta.gold() < debt) step = 'Earn coin: serve at the 🍺 Bar or finish a bounty';
+    else if (debt > 0) step = 'Pay it down at the 📜 Quest Board';
+    else step = 'Venture out and grow stronger';
+    this.el.qtStep.textContent = '➤ ' + step;
+    this.el.qtBounty.textContent = q ? `Bounty: ${q.text} (+${q.reward}🪙)${done ? ' ✓' : ''}` : '';
   }
 
   // floating damage / pickup number at screen coords (capped so big AoE
@@ -1031,7 +1075,7 @@ export class UI {
       else if (this._buildSel) { const sb = meta.buildableById(this._buildSel); ok = meta.placeItem(this._buildSel, gx, gy); if (ok) { placedStation = sb && sb.station ? sb : null; if (placedStation) this._buildSel = null; } }
       else ok = false;
       if (g) { g.audio.play(ok ? 'click' : 'hiccup'); if (ok && g.tavern.refreshRoom) g.tavern.refreshRoom(meta); }
-      if (placedStation) this.toast(`✓ Built ${placedStation.name} — walk up & press E to use it`);
+      if (placedStation) this.wispSay(`✓ Built the ${placedStation.name} — walk up and press E to use it!`);
       this.setGold(meta.gold());
       this._renderShop();
       return;
@@ -1050,11 +1094,11 @@ export class UI {
     else if (act === 'salvage') { const v = meta.salvageGear(id); ok = v > 0; if (ok) g.ui.toast(`Salvaged for ${v}🪙`); }
     else if (act === 'upgradegear') ok = meta.upgradeGear(id);
     else if (act === 'forge') { const inst = meta.forgeGear(id); ok = !!inst; if (ok) { g.ui.lootToast(inst); g.audio.play('levelup'); } }
-    else if (act === 'research') { ok = meta.startResearch(id); if (ok) g.ui.toast('🔬 Research begun — it finishes as days pass'); }
-    else if (act === 'artieq') { ok = meta.toggleArtifactEquip(id); if (!ok) g.ui.toast(`✦ You can carry only ${meta.MAX_ARTIFACTS} artifacts`); }
-    else if (act === 'deck') { const inDeck = UPGRADES.length - meta.deckOffIds().length; if (!meta.isDeckOff(id) && inDeck <= 6) { g.ui.toast('Keep at least 6 boons in your deck'); ok = false; } else { meta.toggleDeck(id); ok = true; } }
+    else if (act === 'research') { ok = meta.startResearch(id); if (ok) g.ui.wispSay('🔬 Research begun — it finishes as the days pass.'); }
+    else if (act === 'artieq') { ok = meta.toggleArtifactEquip(id); if (!ok) g.ui.wispSay(`✦ You can only carry ${meta.MAX_ARTIFACTS} artifacts into a run.`, { tone: 'warn' }); }
+    else if (act === 'deck') { const inDeck = UPGRADES.length - meta.deckOffIds().length; if (!meta.isDeckOff(id) && inDeck <= 6) { g.ui.wispSay('Keep at least 6 boons in your deck!', { tone: 'warn' }); ok = false; } else { meta.toggleDeck(id); ok = true; } }
     else if (act === 'paydebt') { const p = meta.payDebt(meta.gold()); ok = p > 0; if (ok) { g.ui.toast(`💰 Paid ${p}🪙 off the debt`); if (meta.debt() <= 0) g.onDebtCleared(); } }
-    else if (act === 'claim') { const res = meta.claimQuest(); ok = !!(res && res.reward > 0); if (ok) { g.ui.toast(`Quest reward: +${res.reward}🪙`); if (res.unlocked) g.ui.toast(`🔓 Unlocked: ${meta.FEATURE_LABELS[res.unlocked]} — build it in your room!`); } }
+    else if (act === 'claim') { const res = meta.claimQuest(); ok = !!(res && res.reward > 0); if (ok) { g.ui.toast(`Quest reward: +${res.reward}🪙`); if (res.unlocked) g.ui.wispSay(`🔓 Unlocked the ${meta.FEATURE_LABELS[res.unlocked]} — build it up in your room!`, { big: true, ms: 4200 }); } }
     if (g) g.audio.play(ok ? 'click' : 'hiccup');
     this.setGold(meta.gold());
     this._renderShop();

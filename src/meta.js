@@ -149,14 +149,14 @@ export function genGear(slot, rarity, level) {
 }
 
 export const QUESTS = [
-  { id: 'q_wave',   text: 'Pass 2 forks in a single run',   type: 'wave',  goal: 2,   reward: 240 },
-  { id: 'q_kill',   text: 'Vanquish 50 foes in one run',    type: 'kills', goal: 50,  reward: 200 },
-  { id: 'q_wave2',  text: 'Fight your way to the boss lair', type: 'wave',  goal: 3,   reward: 300 },
-  { id: 'q_boss',   text: 'Defeat any region boss',          type: 'boss',  goal: 1,   reward: 420 },
-  { id: 'q_kill2',  text: 'Vanquish 110 foes in one run',   type: 'kills', goal: 110, reward: 360 },
-  { id: 'q_clear',  text: 'Conquer a whole region',          type: 'win',   goal: 1,   reward: 520 },
-  { id: 'q_kill3',  text: 'Vanquish 170 foes in one run',   type: 'kills', goal: 170, reward: 540 },
-  { id: 'q_clear2', text: 'Conquer another region',          type: 'win',   goal: 1,   reward: 640 },
+  { id: 'q_wave',   text: 'Pass 2 forks in a single run',   type: 'wave',  goal: 2,   reward: 140 },
+  { id: 'q_kill',   text: 'Vanquish 50 foes in one run',    type: 'kills', goal: 50,  reward: 120 },
+  { id: 'q_wave2',  text: 'Fight your way to the boss lair', type: 'wave',  goal: 3,   reward: 180 },
+  { id: 'q_boss',   text: 'Defeat any region boss',          type: 'boss',  goal: 1,   reward: 280 },
+  { id: 'q_kill2',  text: 'Vanquish 110 foes in one run',   type: 'kills', goal: 110, reward: 280 },
+  { id: 'q_clear',  text: 'Conquer a whole region',          type: 'win',   goal: 1,   reward: 420 },
+  { id: 'q_kill3',  text: 'Vanquish 170 foes in one run',   type: 'kills', goal: 170, reward: 460 },
+  { id: 'q_clear2', text: 'Conquer another region',          type: 'win',   goal: 1,   reward: 560 },
 ];
 
 // ---- Research: spend 💎 gems at the Arcane Library; projects finish after some
@@ -235,7 +235,7 @@ export function unlockFeature(id) { if (!state.features) state.features = {}; if
 export function unlockNextFeature() { const next = FEATURE_ORDER.find(f => !featureUnlocked(f)); if (next) { unlockFeature(next); return next; } return null; }
 
 // ---- the tavern DEBT (the main quest is to pay it off) ----
-export const DEBT_TOTAL = 450;
+export const DEBT_TOTAL = 600;
 export const debt = () => state.debt || 0;
 export function payDebt(n) { const pay = Math.min(n, state.gold, state.debt || 0); if (pay <= 0) return 0; state.gold -= pay; state.debt -= pay; save(); return pay; }
 
@@ -260,7 +260,7 @@ function defaultSave() {
     equippedArtifacts: [],  // which ones you carry into a run (max 3)
     deckOff: {},            // ability ids the player has removed from their level-up deck
     features: {},           // quest-unlocked features (build / gear / combos / deck …)
-    debt: 450,              // the tavern debt — the main quest is to pay it off
+    debt: 600,              // the tavern debt — the main quest is to pay it off (a multi-run arc)
     owned: { fireball: true, gust: true },
     level: { fireball: 1, gust: 1 },
     combos: {},

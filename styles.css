@@ -8,6 +8,10 @@
   --xp:#6ee7a0;
   --panel:linear-gradient(158deg, rgba(46,31,64,0.90), rgba(19,12,29,0.95));
   --panel-edge:rgba(255,207,92,0.42);
+  --r:16px;        /* one radius for buttons & chips */
+  --r-lg:18px;     /* one radius for panels */
+  --tap:50px;      /* min mobile touch target */
+  --go:#5fb85f;    /* the single allowed alt-action (build/confirm) green */
 }
 
 *{box-sizing:border-box;}
@@ -756,3 +760,46 @@ body::after{content:"";position:fixed;inset:0;z-index:4;pointer-events:none;
 /* the virtual joystick knob gets a glossy bead */
 #joy-knob{background:radial-gradient(circle at 38% 32%, rgba(210,190,255,.95), rgba(140,108,235,.7) 60%, rgba(110,80,210,.6));
   box-shadow:0 3px 10px rgba(0,0,0,.5), inset 0 2px 4px rgba(255,255,255,.4);}
+
+/* ===== Cozy + mobile pass: one chunky button token, fewer gauges, calmer motion ===== */
+/* every button shares one rounded shape + a comfy tap height */
+.btn,.shop-btn,.iconbtn,#btn-drink,#btn-build,#btn-interact,.cine-next,#btn-guide,#btn-pause,#btn-mute{border-radius:var(--r);}
+.btn,#btn-drink,#btn-build,#btn-interact{min-height:var(--tap);}
+.iconbtn{width:52px;height:52px;font-size:20px;}
+.shop-btn{min-height:44px;padding:10px 16px;}
+/* #btn-build keeps ONE green alt instead of a bespoke recipe */
+#btn-build{background:linear-gradient(180deg,#8fe0a0,var(--go));box-shadow:0 5px 0 #2f7a3f, inset 0 2px 0 rgba(255,255,255,.5);}
+/* panels share one rounded token for a calm, consistent feel */
+.story-box,.shop-box,.card,.event-box,.slot-card,#world-detail,.stage-card,.path-door,.howto,.quest-box,#job-tracker,#tavern-hud,.guide-card{border-radius:var(--r-lg);}
+/* fewer simultaneous gauges: the "Spins" bar duplicates the 🍺 sobriety chip — drop it */
+#drunk-wrap{display:none;}
+/* quiet the always-on glows so the HUD feels cozy, not busy */
+.abil.art{animation:none;}
+.vfx-orb{animation-duration:4s;opacity:.4;}
+.card.card-unique::before{animation-duration:5s;}
+/* the controls ribbon is smaller, dimmer and out of the way */
+#cast-hint{font-size:11px;opacity:.5;transition:opacity .4s ease;}
+
+/* ===== The wisp speaks: cozy warning/tip bubble (replaces blunt toasts) ===== */
+#wisp-bubble{position:absolute;left:50%;bottom:20%;transform:translateX(-50%) translateY(10px) scale(.92);
+  display:flex;align-items:center;gap:11px;max-width:min(86vw,460px);z-index:12;
+  padding:11px 16px;border-radius:var(--r-lg);background:var(--panel);border:1.5px solid var(--panel-edge);
+  color:var(--ink);box-shadow:0 8px 24px rgba(0,0,0,.5);opacity:0;pointer-events:none;
+  transition:opacity .2s ease, transform .2s ease;}
+#wisp-bubble.show{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}
+#wisp-bubble.warn{border-color:var(--hp);}
+#wisp-bubble.big{bottom:32%;}
+#wisp-bubble.big.show{transform:translateX(-50%) translateY(0) scale(1.14);}   /* important tips "zoom in" */
+.wisp-portrait{font-size:30px;line-height:1;flex:0 0 auto;filter:drop-shadow(0 0 8px var(--magic));animation:wispBob 2.4s ease-in-out infinite;}
+.wisp-text{font-size:15px;line-height:1.3;}
+@keyframes wispBob{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
+
+/* ===== Persistent main-quest tracker (hub/room) ===== */
+#quest-tracker{position:absolute;top:64px;left:12px;width:min(62vw,252px);z-index:9;
+  padding:9px 12px;border-radius:var(--r-lg);background:var(--panel);border:1.5px solid var(--panel-edge);
+  color:var(--ink);font-size:13px;pointer-events:none;display:flex;flex-direction:column;gap:5px;
+  box-shadow:0 6px 18px rgba(0,0,0,.45);}
+#quest-tracker .qt-goal{font-weight:800;color:var(--gold);letter-spacing:.3px;}
+#quest-tracker .debt-bar{height:12px;margin:1px 0;}
+#quest-tracker .qt-step{color:var(--xp);font-size:12px;line-height:1.25;}
+#quest-tracker .qt-bounty{color:var(--ink-dim);font-size:11.5px;line-height:1.2;}

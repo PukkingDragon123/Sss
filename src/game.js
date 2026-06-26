@@ -370,7 +370,7 @@ export class Game {
   }
 
   // ---------- progression helpers ----------
-  _xpForLevel(lvl) { return Math.floor(7 + (lvl - 1) * 6 + Math.pow(Math.max(0, lvl - 1), 1.72) * 2.3); }
+  _xpForLevel(lvl) { return Math.floor(9 + (lvl - 1) * 7.5 + Math.pow(Math.max(0, lvl - 1), 1.72) * 2.6); }
 
   // sustain & rewards when a foe dies (on-kill boons)
   onKill(e, def) {
@@ -590,7 +590,7 @@ export class Game {
     if (win && !meta.tavernOwned()) { meta.setTavernOwned(true); this._justInherited = true; } // avenge -> inherit
     const depth = this._roomsCleared || 0; // rooms cleared (boss = forks+2)
     // ventures pay in 💎 GEMS (gold is earned only by WORKING), plus a guaranteed boss gear drop
-    const gemReward = Math.max(1, Math.round((3 + depth * 1.5 + this.kills * 0.06 + (win ? 7 : 0)) * meta.gemBonusMult()));
+    const gemReward = Math.max(1, Math.round((2 + depth * 1.2 + this.kills * 0.05 + (win ? 5 : 0)) * meta.gemBonusMult()));
     meta.addGems(gemReward);
     if (win) meta.addGear(meta.dropGear(this.level + 3, true));
     const earnedGems = Math.max(0, meta.gems() - (this._runGemStart || 0));
@@ -679,7 +679,7 @@ export class Game {
         'Run the place! It earns coin even while you\'re out causing mayhem — manage it at the Ledger.',
       ]);
     } else if (meta.tavernOwned() && meta.tavernBank() > 0) {
-      this.ui.toast(`🍺 The Toad earned ${meta.tavernBank()}🪙 — collect at the Ledger`);
+      this.ui.wispSay(`🍺 The Toad earned ${meta.tavernBank()}🪙 — collect it at the Ledger.`);
     }
   }
 
@@ -726,12 +726,12 @@ export class Game {
   }
   ventureSelected() {
     const id = this._worldSel;
-    if (!id || !this._stageUnlocked(id)) { this.ui.toast('🔒 Conquer the region before it to open this one'); return; }
+    if (!id || !this._stageUnlocked(id)) { this.ui.wispSay('🔒 Conquer the region before it to open this one.', { tone: 'warn' }); return; }
     this.ui.hideWorldHud(); this.input.pointMode = false; this.beginRun(id);
   }
   closeWorldMap() { this.ui.hideWorldHud(); this.world.show(false); this.input.pointMode = false; this.enterTavern(); }
   openBuild() { if (this.state === 'play' && this.phase === 'room') { this.audio.play('click'); this._openShop('build'); } }
-  restAtBed() { if (meta.rest()) this.ui.toast('🛏 Rested — you\'ll wake with +HP for the next run'); else this.ui.toast('🛏 Already well-rested'); }
+  restAtBed() { if (meta.rest()) this.ui.toast('🛏 Rested — you\'ll wake with +HP for the next run'); else this.ui.wispSay('🛏 You\'re already well-rested.', { tone: 'warn' }); }
 
   // ---- stairs: a quick loading transition between the bar and your room ----
   goUpstairs() {
@@ -780,7 +780,7 @@ export class Game {
   }
   // a customer served in the in-world bar loop — pay the tip; every 3 served is a day's work
   onTavernServe() {
-    const tip = 7 + Math.floor(Math.random() * 6); // 7–12 gold
+    const tip = 5 + Math.floor(Math.random() * 4); // 5–8 gold (work the bar a while to pay the debt)
     meta.addGold(tip); meta.save();
     this.ui.setGold(meta.gold());
     this.audio.play('levelup');
@@ -930,7 +930,7 @@ export class Game {
   _beginRoom(isBoss, elite) {
     const scale = (1 + this._forksDone * 0.12) * (elite ? 1.5 : 1);
     this.director.start(this.stage, { waves: isBoss ? 1 : 2, boss: isBoss, hpScale: scale, sizeMult: 1 + this._forksDone * 0.06 + (elite ? 0.2 : 0) });
-    this.ui.toast(isBoss ? '👑 The boss lair — survive!' : elite ? '💀 An elite pack!' : '⚔ A skirmish');
+    this.ui.wispSay(isBoss ? '👑 The boss lair — survive!' : elite ? '💀 An elite pack — careful!' : '⚔ A skirmish ahead.');
   }
 
   // a combat room cleared -> pay out its promised reward, then offer the next fork
@@ -1144,7 +1144,7 @@ export class Game {
     if (this.state !== 'play' || this.phase !== 'arena' || !this.wizard.alive) return;
     if (this._drinking) return; // already chugging
     const w = this.wizard, s = this.stats;
-    if (w.mana >= s.manaMax - 0.5) { this.ui.toast('🍺 Mug\'s already full'); return; }
+    if (w.mana >= s.manaMax - 0.5) { this.ui.wispSay('🍺 Your mug\'s already full!', { tone: 'warn' }); return; }
     this._drinking = true; this._drinkProg = 0; this._drinkDur = 3;
     w.startDrink(this._drinkDur);
     this.audio.play('heal');
@@ -1236,11 +1236,11 @@ export class Game {
         if (!crit && !channeled) this.ui.accuracyToast(accuracy);
         return;
       }
-      if (id) { this.ui.toast(`✋ ${SPELLS[id].name} — not equipped`); this.audio.play('hiccup'); return; }
+      if (id) { this.ui.wispSay(`✋ ${SPELLS[id].name} isn't equipped — learn it at the Spell Table.`, { tone: 'warn' }); this.audio.play('hiccup'); return; }
     }
     // a fizzle — show a little puff so it still feels responsive
     this.audio.play('hiccup');
-    this.ui.toast('…the glyph fizzles');
+    this.ui.wispSay('…the glyph fizzles — try a cleaner line.', { tone: 'warn' });
     const hp = this.wizard.handPosition();
     this.particles.burst({ pos: hp, color: 0x6a5a82, count: 6, speed: 2, size: 0.2, life: 0.5, grav: 1, blend: 'normal' });
   }
@@ -1575,7 +1575,7 @@ export class Game {
     const w = this.wizard.pos, dx = w.x - sh.x, dz = w.z - sh.z;
     const near = sh.armed && dx * dx + dz * dz < 3.4 * 3.4;
     sh.near = near;
-    if (near && !sh.hinted) { sh.hinted = true; this.ui.toast('✦ Rune shrine — draw any glyph to channel an ability!'); }
+    if (near && !sh.hinted) { sh.hinted = true; this.ui.wispSay('✦ A rune shrine! Draw any glyph here to channel an ability.', { big: true, ms: 4200 }); }
     if (!near) sh.hinted = false;
   }
   _maybeChannelShrine() {

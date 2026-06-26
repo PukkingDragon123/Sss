@@ -132,6 +132,28 @@ export const UPGRADES = [
   { id: 'glasscannon', name: 'Glass Cannon', icon: '💥', tag: 'Risk', weight: 5,
     desc: '+55% damage, but −20 max HP. All-in.',
     apply: g => { g.stats.damageMult += 0.55; g.stats.hpMax = Math.max(40, g.stats.hpMax - 20); g.wizard.hp = Math.min(g.wizard.hp, g.stats.hpMax); } },
+
+  // ----- synergy boons (reward leaning into a playstyle) -----
+  { id: 'wildfire', name: 'Wildfire', icon: '🔥', tag: 'Fireball', weight: 5,
+    desc: 'Fireball blasts +25% bigger & +12% damage; Fire Nova feeds the flames (+15%).',
+    apply: g => { g.stats.fireballRadius *= 1.25; g.stats.fireballDmg *= 1.12; g.stats.novaDmg *= 1.15; } },
+  { id: 'overload', name: 'Overload', icon: '⚡', tag: 'Lightning', weight: 5,
+    available: g => g.unlocked.has('lightning'),
+    desc: '+1 Lightning chain, and +6% Lightning damage for each chain you have.',
+    apply: g => { g.stats.lightningChains += 1; g.stats.lightningDmg *= (1 + 0.06 * g.stats.lightningChains); } },
+  { id: 'shatter', name: 'Shatter', icon: '🧊', tag: 'Frost', weight: 5,
+    available: g => g.unlocked.has('frost'),
+    desc: 'Deeper freeze, and +35% damage to anything you\'ve slowed.',
+    apply: g => { g.stats.frostSlow = Math.min(0.9, g.stats.frostSlow + 0.1); g.stats.shatterDmg = (g.stats.shatterDmg || 0) + 0.35; } },
+  { id: 'berserkbrew', name: 'Berserker Brew', icon: '🍺', tag: 'Risk', weight: 5,
+    desc: 'Embrace the chaos: Drunken Fury, AND every gulp leaves you wonkier (harder hits).',
+    apply: g => { g.stats.angryDrunk = 1; g.stats.drinkChaos = (g.stats.drinkChaos || 1) + 0.4; } },
+  { id: 'executioner', name: 'Executioner', icon: '🎯', tag: 'Power', weight: 5,
+    desc: '+0.5 crit damage, and crits restore 6 mana — perfect casting pays for itself.',
+    apply: g => { g.stats.critMult = (g.stats.critMult || 2) + 0.5; g.stats.manaOnCrit = (g.stats.manaOnCrit || 0) + 6; } },
+  { id: 'gluttonous', name: 'Gluttonous Aura', icon: '🩸', tag: 'Lifesteal', weight: 5,
+    desc: '+4 HP per kill, and your thorns heal you for half the damage they deal.',
+    apply: g => { g.stats.lifeOnKill += 4; g.stats.thornsLifesteal = (g.stats.thornsLifesteal || 0) + 0.5; } },
 ];
 // abilities = the level-up boon pool (kept under the legacy name for the tests)
 export const ABILITIES = UPGRADES;
@@ -144,13 +166,17 @@ export function rollUpgrades(game, n = 3) {
   let pool = off ? avail.filter(u => !off.has(u.id)) : avail;
   if (pool.length < n) pool = avail; // deck too thin → fall back to the full pool
   else pool = pool.slice();
+  // a chosen playstyle (game._archetype) doubles the weight of its favoured tags.
+  // With no archetype (e.g. the unit tests), wOf === u.weight, so behaviour is unchanged.
+  const arch = game && game._archetype;
+  const wOf = (u) => (arch && arch.favorTags && arch.favorTags.includes(u.tag)) ? u.weight * 2.2 : u.weight;
   const chosen = [];
   while (chosen.length < n && pool.length) {
     let total = 0;
-    for (const u of pool) total += u.weight;
+    for (const u of pool) total += wOf(u);
     let r = Math.random() * total;
     let idx = 0;
-    for (let i = 0; i < pool.length; i++) { r -= pool[i].weight; if (r <= 0) { idx = i; break; } }
+    for (let i = 0; i < pool.length; i++) { r -= wOf(pool[i]); if (r <= 0) { idx = i; break; } }
     chosen.push(pool[idx]);
     pool.splice(idx, 1);
   }
@@ -213,3 +239,26 @@ export const rollArtifacts = (game, n = 3) => { // legacy alias: n distinct arti
   while (out.length < n) { const pool = ARTIFACTS.filter(a => !taken.has(a.id)); if (!pool.length) break; const a = pool[Math.floor(Math.random() * pool.length)]; out.push(a); taken.add(a.id); }
   return out;
 };
+
+// ===== PLAYSTYLES — pick one at the start of a run. Each biases your boon pool
+// (favourite tags weigh ×2.2 in rollUpgrades), forces a signature starter spell,
+// and grants a build-shaping passive. Pure data + a passive(g) like any apply(). =====
+export const ARCHETYPES = [
+  { id: 'pyromancer', name: 'Pyromancer', icon: '🔥', element: 'fire',
+    desc: 'Born of cinders — fire hits harder. Boons favour Power & Fireball.',
+    starter: 'fireball', favorTags: ['Fireball', 'Nova', 'Power', 'Risk'],
+    passive: g => { g.stats.fireballDmg *= 1.15; g.stats.novaDmg *= 1.15; g.stats.damageMult += 0.10; } },
+  { id: 'frostbinder', name: 'Frostbinder', icon: '❄️', element: 'water',
+    desc: 'Freeze the swarm — slows bite deeper. Favours Frost, Heal & Defense.',
+    starter: 'frost', favorTags: ['Frost', 'Heal', 'Defense', 'Vitality'],
+    passive: g => { g.stats.frostSlow = Math.min(0.9, g.stats.frostSlow + 0.12); g.stats.frostSlowTime += 1; g.stats.hpMax += 20; g.wizard.hp += 20; } },
+  { id: 'stormcaller', name: 'Stormcaller', icon: '⚡', element: 'air',
+    desc: 'Chain death across the horde. Favours Lightning, Tempo & Mobility.',
+    starter: 'lightning', favorTags: ['Lightning', 'Tempo', 'Mobility'],
+    passive: g => { g.stats.lightningChains += 1; g.stats.cooldownMult = Math.max(0.3, g.stats.cooldownMult * 0.9); g.stats.moveSpeed *= 1.08; } },
+  { id: 'brawler', name: 'Brawler', icon: '🍺', element: null,
+    desc: 'The more you drink, the harder you swing. Favours Brew, Risk & Lifesteal.',
+    starter: 'gust', favorTags: ['Brew', 'Risk', 'Lifesteal', 'Control'],
+    passive: g => { g.stats.angryDrunk = 1; g.stats.lifeOnKill += 3; g.stats.drinkHeal += 20; } },
+];
+export const archetypeById = (id) => ARCHETYPES.find(a => a.id === id);

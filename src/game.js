@@ -14,7 +14,7 @@ import { Jobs } from './jobs.js';
 import { Tavern } from './tavern.js';
 import { World } from './world.js';
 import { Cinematics } from './cinematics.js';
-import { rollUpgrades, rollArtifact, artifactById } from './upgrades.js';
+import { rollUpgrades, rollArtifact, artifactById, ARCHETYPES, archetypeById } from './upgrades.js';
 import * as meta from './meta.js';
 import { COMBO_META } from './meta.js';
 
@@ -35,6 +35,9 @@ const DEFAULT_STATS = () => ({
   lifeOnKill: 0, manaOnKill: 0, xpMult: 1, critMult: 2, angryDrunk: 0, drinkChaos: 1,
   // beer types: what a drink does besides refilling mana (set by beer abilities)
   drinkHeal: 0, drinkShield: 0,
+  // synergy-card hooks (each read at one call-site): bonus dmg to slowed foes,
+  // mana refunded on a crit, and thorns that heal you for a fraction of their bite
+  shatterDmg: 0, manaOnCrit: 0, thornsLifesteal: 0,
 });
 
 // choice-based path events (Slay-the-Spire dilemmas). Each option is pure data:
@@ -729,7 +732,8 @@ export class Game {
   ventureSelected() {
     const id = this._worldSel;
     if (!id || !this._stageUnlocked(id)) { this.ui.wispSay('🔒 Conquer the region before it to open this one.', { tone: 'warn' }); return; }
-    this.ui.hideWorldHud(); this.input.pointMode = false; this.beginRun(id);
+    this.ui.hideWorldHud(); this.input.pointMode = false;
+    this.ui.showArchetypePick(ARCHETYPES, meta.getArchetype(), (pickedId) => { meta.setArchetype(pickedId); this.beginRun(id); });
   }
   closeWorldMap() { this.ui.hideWorldHud(); this.world.show(false); this.input.pointMode = false; this.enterTavern(); }
   openBuild() { if (this.state === 'play' && this.phase === 'room') { this.audio.play('click'); this._openShop('build'); } }
@@ -838,6 +842,13 @@ export class Game {
     meta.applyResearch(this.stats); // completed research bonuses
     this.loadout = meta.getLoadout();
     this.unlocked = new Set(this.loadout);
+    // playstyle/archetype: force the signature spell, set the level-up bias, run the passive
+    this._archetype = archetypeById(meta.getArchetype && meta.getArchetype());
+    if (this._archetype) {
+      const st = this._archetype.starter;
+      if (st && SPELLS[st]) { if (!this.loadout.includes(st)) this.loadout = [st, ...this.loadout.filter(x => x !== st)].slice(0, 3); this.unlocked = new Set(this.loadout); }
+      this._archetype.passive(this);
+    }
     this.activeCombos = meta.activeCombos(this.unlocked);
     this.recognizer = new Recognizer();
     for (const id of this.loadout) { const g = SPELLS[id].gesture; this.recognizer.add(g, TEMPLATES[g]); }
@@ -1462,7 +1473,7 @@ export class Game {
       for (const e of this.enemies.list) {
         if (!e.alive) continue;
         const dx = e.mesh.position.x - this.wizard.pos.x, dz = e.mesh.position.z - this.wizard.pos.z;
-        if (dx * dx + dz * dz < (e.r + 0.8) * (e.r + 0.8)) this.enemies.damage(e, this.stats.thorns * sdt, this);
+        if (dx * dx + dz * dz < (e.r + 0.8) * (e.r + 0.8)) { this.enemies.damage(e, this.stats.thorns * sdt, this); if (this.stats.thornsLifesteal) this.wizard.heal(this.stats.thorns * sdt * this.stats.thornsLifesteal); }
       }
     }
     if (this.stats.hpRegen > 0 && this.wizard.alive) this.wizard.heal(this.stats.hpRegen * sdt);

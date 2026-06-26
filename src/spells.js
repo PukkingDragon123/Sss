@@ -89,6 +89,7 @@ export class SpellSystem {
       game.shake(0.6);
       game.particles.burst({ pos: origin.clone(), color: 0xffe08a, count: 14, speed: 7, size: 0.32, life: 0.6 });
       game.ui.critToast();
+      if (game.stats.manaOnCrit) game.wizard.mana = Math.min(game.stats.manaMax, game.wizard.mana + game.stats.manaOnCrit); // Executioner
     }
 
     switch (id) {

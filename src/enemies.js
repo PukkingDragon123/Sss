@@ -266,6 +266,7 @@ export class Enemies {
 
   damage(e, n, game, knockDir = null, knockAmt = 0) {
     if (!e.alive) return;
+    if (game && e.slow > 0 && game.stats && game.stats.shatterDmg) n *= (1 + game.stats.shatterDmg); // Shatter: bonus vs slowed
     if (e.shield > 0) { const a = Math.min(e.shield, n); e.shield -= a; n -= a; e.flash = 0.12; if (n <= 0) { if (game) game.popDamage(e.mesh.position, a); return; } }
     e.hp -= n;
     e.flash = 0.12;

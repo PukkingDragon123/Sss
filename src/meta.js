@@ -227,6 +227,10 @@ export function toggleDeck(id) {
   save(); return true;
 }
 
+// ---- playstyle / archetype chosen for the next run (persists) ----
+export const getArchetype = () => state.archetype || null;
+export function setArchetype(id) { state.archetype = id || null; save(); }
+
 // ---- quest-unlocked features (each claimed bounty opens the next) ----
 export const FEATURE_ORDER = ['gear', 'combos', 'forge', 'research'];
 export const FEATURE_LABELS = { gear: 'Equipment Hall', combos: 'Cauldron (combos)', forge: 'Anvil (forge)', research: 'Arcane Library' };
@@ -259,6 +263,7 @@ function defaultSave() {
     artifacts: [],          // ✦ artifacts collected from bosses (persistent)
     equippedArtifacts: [],  // which ones you carry into a run (max 3)
     deckOff: {},            // ability ids the player has removed from their level-up deck
+    archetype: null,        // chosen playstyle for the next run (null = none yet)
     features: {},           // quest-unlocked features (build / gear / combos / deck …)
     debt: 600,              // the tavern debt — the main quest is to pay it off (a multi-run arc)
     owned: { fireball: true, gust: true },

@@ -91,6 +91,7 @@ export class UI {
       abilityTray: $('ability-tray'),
       wispBubble: $('wisp-bubble'), wispText: $('wisp-text'),
       questTracker: $('quest-tracker'), qtGoalText: $('qt-goal-text'), qtFill: $('qt-fill'), qtStep: $('qt-step'), qtBounty: $('qt-bounty'),
+      archetypePick: $('archetype-pick'), archRow: $('arch-row'), archGo: $('arch-go'),
       pathChoice: $('path-choice'), pathDoors: $('path-doors'), pathTitle: $('path-title'), pathSub: $('path-sub'), pathBoss: $('path-boss'),
       eventModal: $('event-modal'), eventIcon: $('event-icon'), eventTitle: $('event-title'), eventPrompt: $('event-prompt'),
       eventOpts: $('event-opts'), eventSkill: $('event-skill'), skillCanvas: $('skill-canvas'), skillStop: $('skill-stop'),
@@ -644,6 +645,25 @@ export class UI {
     else step = 'Venture out and grow stronger';
     this.el.qtStep.textContent = '➤ ' + step;
     this.el.qtBounty.textContent = q ? `Bounty: ${q.text} (+${q.reward}🪙)${done ? ' ✓' : ''}` : '';
+  }
+
+  // playstyle picker shown before a venture; cb(id) proceeds with the chosen archetype
+  showArchetypePick(list, current, cb) {
+    const row = this.el.archRow; if (!row || !this.el.archetypePick) { cb(current); return; }
+    const ELCOL = { fire: '#ff7a3a', water: '#7fe0ff', air: '#9fe8ff', earth: '#c9a06a' };
+    row.innerHTML = '';
+    let sel = current || (list[0] && list[0].id);
+    const cards = {};
+    for (const a of list) {
+      const c = document.createElement('div');
+      c.className = 'arch-card' + (a.id === sel ? ' sel' : '');
+      c.style.setProperty('--el', ELCOL[a.element] || '#ffcf5c');
+      c.innerHTML = `<div class="arch-ico">${a.icon}</div><div class="arch-name">${a.name}</div><div class="arch-desc">${a.desc}</div>`;
+      c.addEventListener('click', () => { sel = a.id; for (const k in cards) cards[k].classList.toggle('sel', k === a.id); });
+      row.appendChild(c); cards[a.id] = c;
+    }
+    this.el.archGo.onclick = () => { this.el.archetypePick.classList.add('hidden'); cb(sel); };
+    this.el.archetypePick.classList.remove('hidden');
   }
 
   // floating damage / pickup number at screen coords (capped so big AoE

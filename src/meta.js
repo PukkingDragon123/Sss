@@ -258,6 +258,9 @@ function defaultSave() {
   return {
     gold: 60,  // a little seed coin (gold is earned by WORKING the bar) — enough for a Quest Board
     gems: 8,   // 💎 a few starter gems to unlock your first spell
+    herbs: 0,  // 🌿 brewing materials gathered while venturing
+    gemstones: { fire: 0, water: 0, air: 0, earth: 0 }, // elemental gemstones won in battle
+    brews: {}, // brewed-potion counts (each is a small permanent boon)
     day: 1,    // the tavern clock — work by day, venture by night
     research: { activeId: null, daysLeft: 0, done: {} },
     artifacts: [],          // ✦ artifacts collected from bosses (persistent)
@@ -314,6 +317,9 @@ export function load() {
       state.equippedGear = Object.assign({ hat: null, robe: null, staff: null, charm: null }, state.equippedGear || {});
       state.tavern = Object.assign({ owned: false, bank: 0, lastSeen: Date.now(), upgrades: {} }, state.tavern || {});
       state.gems = state.gems || 0;
+      state.herbs = (typeof state.herbs === 'number') ? state.herbs : 0;
+      state.gemstones = Object.assign({ fire: 0, water: 0, air: 0, earth: 0 }, state.gemstones || {});
+      state.brews = state.brews || {};
       state.day = state.day || 1;
       state.research = Object.assign({ activeId: null, daysLeft: 0, done: {} }, state.research || {});
       state.research.done = state.research.done || {};
@@ -343,6 +349,40 @@ export const gems = () => state.gems || 0;
 export function addGems(n) { state.gems = (state.gems || 0) + n; save(); }
 export function spendGems(n) { if ((state.gems || 0) < n) return false; state.gems -= n; save(); return true; }
 export const canAffordGems = (n) => (state.gems || 0) >= n;
+// 🌿 herbs (gathered venturing) + elemental gemstones (won in battle) — brewing materials, kept in the satchel
+export const herbs = () => state.herbs || 0;
+export function addHerbs(n) { state.herbs = (state.herbs || 0) + n; save(); }
+export function spendHerbs(n) { if ((state.herbs || 0) < n) return false; state.herbs -= n; save(); return true; }
+const _emptyGemstones = () => ({ fire: 0, water: 0, air: 0, earth: 0 });
+export const gemstones = () => state.gemstones || _emptyGemstones();
+export function addGemstone(el, n = 1) { if (!state.gemstones) state.gemstones = _emptyGemstones(); state.gemstones[el] = (state.gemstones[el] || 0) + n; save(); }
+export function spendGemstone(el, n = 1) { const g = state.gemstones || _emptyGemstones(); if ((g[el] || 0) < n) return false; g[el] -= n; state.gemstones = g; save(); return true; }
+export const totalGemstones = () => { const g = state.gemstones || {}; return (g.fire || 0) + (g.water || 0) + (g.air || 0) + (g.earth || 0); };
+
+// ---- brewing: spend 🌿 herbs + an elemental gemstone at the Cauldron for a lasting potion (a permanent boon) ----
+export const POTIONS = [
+  { id: 'vigor', name: 'Potion of Vigor',   icon: '🧪', el: 'fire',  herbs: 3, gems: 2, perHp: 8,     desc: '+8 max health, for good.' },
+  { id: 'focus', name: 'Potion of Focus',   icon: '🧪', el: 'air',   herbs: 3, gems: 2, perMana: 6,   desc: '+6 max mana, for good.' },
+  { id: 'might', name: 'Potion of Might',   icon: '🧪', el: 'earth', herbs: 3, gems: 2, perDmg: 0.04, desc: '+4% spell damage, for good.' },
+  { id: 'ward',  name: 'Potion of Warding', icon: '🧪', el: 'water', herbs: 3, gems: 2, perRegen: 0.6, desc: '+0.6 health per second, for good.' },
+];
+export const potionById = (id) => POTIONS.find(p => p.id === id);
+export const brewCount = (id) => (state.brews && state.brews[id]) || 0;
+export function canBrew(id) { const p = potionById(id); if (!p) return false; return herbs() >= p.herbs && (gemstones()[p.el] || 0) >= p.gems; }
+export function brewPotion(id) {
+  const p = potionById(id); if (!p || !canBrew(id)) return false;
+  spendHerbs(p.herbs); spendGemstone(p.el, p.gems);
+  if (!state.brews) state.brews = {}; state.brews[id] = (state.brews[id] || 0) + 1; save(); return true;
+}
+export function applyBrews(stats) {
+  const b = state.brews || {};
+  for (const p of POTIONS) { const n = b[p.id] || 0; if (!n) continue;
+    if (p.perHp) stats.hpMax += p.perHp * n;
+    if (p.perMana) stats.manaMax += p.perMana * n;
+    if (p.perDmg) stats.damageMult += p.perDmg * n;
+    if (p.perRegen) stats.hpRegen += p.perRegen * n;
+  }
+}
 export const owns = (id) => !!state.owned[id];
 export const spellLevel = (id) => state.level[id] || 0;
 export const learned = (id) => !!state.combos[id];

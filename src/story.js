@@ -1,23 +1,11 @@
 // story.js — stages, the wave director, and narration.
 import * as THREE from 'three';
 
-export const TUTORIAL = {
-  speaker: '📖 Quick Guide',
-  lines: [
-    '⚔️ CAST — hold Right-Mouse (draw on the right half on phone) and trace a glyph. Cleaner = harder; a PERFECT glyph CRITS. Or tap a spell / press 1–3.',
-    '🍺 MANA is beer — it won\'t refill itself. Tap 🍺 (or Q) to CHUG: a 3-second drink fills your mana, but spins the room.',
-    '💎 vs 🪙 — GEMS (from venturing) buy spells & research. GOLD (from working & quests) builds your den. Two purses, two jobs.',
-    '🗺️ Out the door: pick a region, then a door each step — fight, elite, treasure, mystery. The last fork is the boss, who drops a ✦ ARTIFACT (carry up to 3).',
-    '🔨 Up the stairs is YOUR room — tap BUILD to place stations, then walk up to use them. By day, serve patrons at the bar for gold tips.',
-    'That\'s the lot. Now go make some beautiful, catastrophic magic.',
-  ],
-};
-
 export const BLACKOUT_LINES = {
   speaker: 'Wobblesworth',
   lines: [
-    'You knock back one for the road… the room tips… your knees buckle…',
-    '…………',
+    'You knock back one for the road. The room tips. Your knees buckle.',
+    '...',
   ],
 };
 
@@ -26,7 +14,7 @@ export const STAGES = {
     id: 'forest', name: 'Moonlit Forest', bossType: 'goblinking', bossName: 'The Goblin King',
     roster: [{ t: 'goblin', w: 1 }, { t: 'bat', w: 1 }, { t: 'zombie', w: 3 }, { t: 'vampire', w: 4 }, { t: 'houndling', w: 3 }, { t: 'splitslime', w: 4 }, { t: 'bomber', w: 5 }],
     theme: { bg: 0x16223a, fog: 0x1b2b44, fogD: 0.011, hemi: 0x9fb6e8, hemiG: 0x223a2a, dir: 0xcdd8ff, dirI: 1.5, amb: 0x3a4a6a, floor: 0x2f4a32, rug: 0x3f6440, scatter: 'trees' },
-    intro: ['You come to face-down in cold moss — a moonlit forest. This is NOT the way home.', 'Red eyes blink awake between the trees. Up, wizard — DRAW to cast!'],
+    intro: ['You wake face-down in cold moss. A moonlit forest, far from home.', 'Red eyes blink awake between the trees. Get up, wizard, and draw to cast!'],
   },
   cave: {
     id: 'cave', name: 'Dripstone Cave', bossType: 'spiderqueen', bossName: 'The Spider Queen',
@@ -38,19 +26,19 @@ export const STAGES = {
     id: 'graveyard', name: 'Cursed Graveyard', bossType: 'skeletonking', bossName: 'The Skeleton King',
     roster: [{ t: 'skeleton', w: 1 }, { t: 'zombie', w: 1 }, { t: 'wraith', w: 3 }, { t: 'warden', w: 2 }, { t: 'cultist', w: 3 }, { t: 'bomber', w: 4 }],
     theme: { bg: 0x101626, fog: 0x141b30, fogD: 0.016, hemi: 0x8fa0c8, hemiG: 0x20283a, dir: 0xbfd0ff, dirI: 1.1, amb: 0x33405a, floor: 0x33384a, rug: 0x3a3f52, scatter: 'graves' },
-    intro: ['Crooked stones and cold mist. A graveyard — and the soil is moving.', 'The dead do not care for visitors. Make some room.'],
+    intro: ['Crooked stones and cold mist. A graveyard, and the soil is moving.', 'The dead do not care for visitors. Make some room.'],
   },
   swamp: {
     id: 'swamp', name: 'Mire of Murmurs', bossType: 'bogwretch', bossName: 'The Bog Wretch',
     roster: [{ t: 'zombie', w: 1 }, { t: 'bat', w: 1 }, { t: 'spider', w: 2 }, { t: 'vampire', w: 4 }, { t: 'splitslime', w: 2 }, { t: 'broodmother', w: 3 }],
     theme: { bg: 0x16241c, fog: 0x18271d, fogD: 0.026, hemi: 0x7fae7a, hemiG: 0x1a2a1a, dir: 0xbfe0a0, dirI: 1.0, amb: 0x33503a, floor: 0x2a3a26, rug: 0x33482e, scatter: 'swamp' },
-    intro: ['Knee-deep muck and the reek of rot. Something gurgles beneath the reeds.', 'Watch your step, wizard — the bog bites back.'],
+    intro: ['Knee-deep muck and the reek of rot. Something gurgles beneath the reeds.', 'Watch your step, wizard. The bog bites back.'],
   },
   frost: {
     id: 'frost', name: 'Frostspire Peaks', bossType: 'frostmaw', bossName: 'Frostmaw the Devourer',
     roster: [{ t: 'skeleton', w: 1 }, { t: 'brutebat', w: 1 }, { t: 'wraith', w: 2 }, { t: 'zombie', w: 4 }, { t: 'houndling', w: 2 }, { t: 'warden', w: 3 }],
     theme: { bg: 0xbfd6ee, fog: 0xcfe2f4, fogD: 0.012, hemi: 0xdcefff, hemiG: 0x9fb6cf, dir: 0xffffff, dirI: 1.7, amb: 0x8fb0d8, floor: 0xc6d6e6, rug: 0xa8c0d8, scatter: 'ice' },
-    intro: ['A howling white waste. The cold gnaws even at a spirit.', 'Move fast and hit hard, or freeze solid out here.'],
+    intro: ['A howling white waste. The cold gnaws right through you.', 'Move fast and hit hard, or freeze solid out here.'],
   },
   inferno: {
     id: 'inferno', name: 'Infernal Depths', bossType: 'demonlord', bossName: 'Azkar, Lord of Cinders',
@@ -62,13 +50,13 @@ export const STAGES = {
     id: 'clockwork', name: 'Neon Clockwork', bossType: 'overmind', bossName: 'The Overmind',
     roster: [{ t: 'drone', w: 1 }, { t: 'rat', w: 1 }, { t: 'bot', w: 2 }, { t: 'spider', w: 4 }, { t: 'warden', w: 2 }, { t: 'bomber', w: 3 }, { t: 'broodmother', w: 4 }],
     theme: { bg: 0x0a1422, fog: 0x0c1a2c, fogD: 0.016, hemi: 0x3fd0e8, hemiG: 0x10242c, dir: 0x8fefff, dirI: 1.3, amb: 0x1f5a6a, floor: 0x16222e, rug: 0x123040, scatter: 'tech' },
-    intro: ['Humming pylons and cold neon. Some clockwork god has woken, and it is not pleased.', 'Steel and circuitry — smash it to scrap.'],
+    intro: ['Humming pylons and cold neon. Some clockwork god has woken, and it is not pleased.', 'Steel and circuitry. Smash it to scrap.'],
   },
   void: {
     id: 'void', name: 'The Shattered Void', bossType: 'voidmaw', bossName: 'Voidmaw, the All-Hunger',
     roster: [{ t: 'wraith', w: 1 }, { t: 'bat', w: 1 }, { t: 'imp', w: 2 }, { t: 'vampire', w: 3 }, { t: 'cultist', w: 2 }, { t: 'warden', w: 3 }, { t: 'bomber', w: 3 }],
     theme: { bg: 0x0a0612, fog: 0x0e0820, fogD: 0.018, hemi: 0x8f6fd0, hemiG: 0x150a28, dir: 0xc6a3ff, dirI: 1.2, amb: 0x3a2a5a, floor: 0x14102a, rug: 0x1f1840, scatter: 'void' },
-    intro: ['Stars wheel underfoot. There is no up here, only the Hunger at the end of all things.', 'Finish it, spirit. Send the Void back to nothing.'],
+    intro: ['Stars wheel underfoot. There is no up here, only the Hunger at the end of all things.', 'Finish it, wizard. Send the Void back to nothing.'],
   },
 };
 

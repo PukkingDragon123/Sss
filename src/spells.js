@@ -64,7 +64,7 @@ export class SpellSystem {
     if (!def) return false;
     if (this.cd[id] > 0) return false;
     if (!game.wizard.alive) return false;
-    if (!game.wizard.spendMana(def.mana)) { game.ui.wispSay('Too sober… need mana — chug a beer! 🍺', { tone: 'warn' }); return false; }
+    if (!game.wizard.spendMana(def.mana)) { game.ui.wispSay('Too sober to cast. Chug a beer to refill your mana!', { tone: 'warn' }); return false; }
 
     // accuracy -> power: sloppy draws hit softer, a perfect glyph crits;
     // skill-tree level scales it further

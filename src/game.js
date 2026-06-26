@@ -9,7 +9,7 @@ import { Recognizer, TEMPLATES } from './recognizer.js';
 import { Input } from './input.js';
 import { AudioEngine } from './audio.js';
 import { UI } from './ui.js';
-import { Director, STAGES, TUTORIAL, BLACKOUT_LINES } from './story.js';
+import { Director, STAGES, BLACKOUT_LINES } from './story.js';
 import { Jobs } from './jobs.js';
 import { Tavern } from './tavern.js';
 import { World } from './world.js';
@@ -406,7 +406,7 @@ export class Game {
     });
   }
 
-  // a one-off ability pick (shrines / golden kegs)
+  // a one-off ability pick (rune shrines)
   offerUpgrade(onPicked) {
     this.state = 'levelup';
     this.audio.play('levelup');
@@ -438,12 +438,15 @@ export class Game {
   // loot table when an enemy dies
   enemyDrop(pos, def) {
     const lvl = Math.max(1, this.level);
-    if (def.boss) { // bosses always drop a good piece + a potion
+    if (def.boss) { // bosses always drop a good piece, a heart, and a couple of gemstones
       this.spawnGear(pos.clone(), meta.dropGear(lvl + 2, true));
       this.spawnHeart(pos.clone().add(new THREE.Vector3(1, 0, 0)));
+      const els = meta.ELEMENT_LIST; for (let k = 0; k < 2; k++) meta.addGemstone(els[Math.floor(Math.random() * els.length)]);
+      this.ui.toast('💎 Elemental gemstones recovered!');
       return;
     }
     const big = def.size >= 1.4;
+    if (Math.random() < (big ? 0.10 : 0.035)) meta.addGemstone(meta.ELEMENT_LIST[Math.floor(Math.random() * meta.ELEMENT_LIST.length)]); // a gemstone into the satchel
     const r = Math.random();
     if (r < (big ? 0.30 : 0.06)) this.spawnHeart(pos);
     else if (r < (big ? 0.50 : 0.13)) this.spawnMana(pos);
@@ -545,7 +548,7 @@ export class Game {
     this.ui.hideJob();
     this.ui.toast(`✓ ${name}!`);
     this.gainXP(14);
-    this.showStory('Wisp', [`"${name}" — done! Who says a drunk can\'t multitask? (+XP)`]);
+    this.showStory('Wisp', [`Nice work, that ${name} is done. Even drunk, you can multitask.`]);
   }
 
   announceWave(w, total, isBoss) {
@@ -679,12 +682,12 @@ export class Game {
     if (this._justInherited) {
       this._justInherited = false;
       this.showStory('Wisp', [
-        'You did it — the brute that ambushed old Barkeep Tomas lies in pieces.',
-        'Tomas had no kin… and a wizard who avenges him is kin enough. The Tipsy Toad is YOURS now.',
-        'Run the place! It earns coin even while you\'re out causing mayhem — manage it at the Ledger.',
+        'You did it. The brute that ambushed old Barkeep Tomas lies in pieces.',
+        'Tomas had no family, and a wizard who avenges him is family enough. The Tipsy Toad is yours now.',
+        'Run the place! It earns coin even while you are out causing mayhem. Manage it at the Ledger.',
       ]);
     } else if (meta.tavernOwned() && meta.tavernBank() > 0) {
-      this.ui.wispSay(`🍺 The Toad earned ${meta.tavernBank()}🪙 — collect it at the Ledger.`);
+      this.ui.wispSay(`🍺 The Toad earned ${meta.tavernBank()} gold. Collect it at the Ledger.`);
     }
   }
 
@@ -805,9 +808,9 @@ export class Game {
     meta.setTavernOwned(true);
     this.ui.setGold(meta.gold());
     this.showStory('Wobblesworth', [
-      'The last coin clinks into the strongbox. The debt is PAID — in full.',
-      'The Tipsy Toad is MINE now, free and clear. No more creditors, no more scolding.',
-      'Now I drink, I brawl, and I get filthy rich. To glorious, catastrophic mayhem!',
+      'The last coin drops into the box. The debt is paid in full.',
+      'The Tipsy Toad is mine now, free and clear. No more creditors, no more scolding.',
+      'Now I drink, I brawl, and I get rich. To glorious mayhem!',
     ]);
   }
   startRun(stageId) { this._shopKind = null; this.beginRun(stageId); }
@@ -840,6 +843,7 @@ export class Game {
     if (meta.consumeRest()) this.stats.hpMax += meta.REST_BONUS + meta.roomComfort() * 4; // a good night's rest, comfier room = more
     this._applyEquipment();
     meta.applyResearch(this.stats); // completed research bonuses
+    meta.applyBrews(this.stats);    // brewed-potion boons (permanent)
     this.loadout = meta.getLoadout();
     this.unlocked = new Set(this.loadout);
     // playstyle/archetype: force the signature spell, set the level-up bias, run the passive
@@ -943,7 +947,7 @@ export class Game {
   _beginRoom(isBoss, elite) {
     const scale = (1 + this._forksDone * 0.12) * (elite ? 1.5 : 1);
     this.director.start(this.stage, { waves: isBoss ? 1 : 2, boss: isBoss, hpScale: scale, sizeMult: 1 + this._forksDone * 0.06 + (elite ? 0.2 : 0) });
-    this.ui.wispSay(isBoss ? '👑 The boss lair — survive!' : elite ? '💀 An elite pack — careful!' : '⚔ A skirmish ahead.');
+    this.ui.wispSay(isBoss ? '👑 The boss lair. Survive!' : elite ? '💀 An elite pack. Be careful!' : '⚔ A skirmish ahead.');
   }
 
   // a combat room cleared -> pay out its promised reward, then offer the next fork
@@ -1249,11 +1253,11 @@ export class Game {
         if (!crit && !channeled) this.ui.accuracyToast(accuracy);
         return;
       }
-      if (id) { this.ui.wispSay(`✋ ${SPELLS[id].name} isn't equipped — learn it at the Spell Table.`, { tone: 'warn' }); this.audio.play('hiccup'); return; }
+      if (id) { this.ui.wispSay(`✋ ${SPELLS[id].name} is not equipped. Learn it at the Spell Table.`, { tone: 'warn' }); this.audio.play('hiccup'); return; }
     }
     // a fizzle — show a little puff so it still feels responsive
     this.audio.play('hiccup');
-    this.ui.wispSay('…the glyph fizzles — try a cleaner line.', { tone: 'warn' });
+    this.ui.wispSay('The glyph fizzles. Try a cleaner line.', { tone: 'warn' });
     const hp = this.wizard.handPosition();
     this.particles.burst({ pos: hp, color: 0x6a5a82, count: 6, speed: 2, size: 0.2, life: 0.5, grav: 1, blend: 'normal' });
   }
@@ -1489,56 +1493,67 @@ export class Game {
     if (this._endState === 'win' && !this.storyShowing && this.state === 'play') { this.state = 'win'; this._showEnd(true); }
   }
 
-  // ---- interactive beer kegs scattered in the arena (drink for sustain / a golden one grants an artifact) ----
+  // ---- forageables scattered in the arena: mushrooms (eat for a random effect) + herbs (gather to brew) ----
   _spawnBarrels() {
     if (!this._barrelGroup) { this._barrelGroup = new THREE.Group(); this.arenaGroup.add(this._barrelGroup); }
     const grp = this._barrelGroup;
     for (let i = grp.children.length - 1; i >= 0; i--) { const c = grp.children[i]; c.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); grp.remove(c); }
     this.barrels = [];
-    const spots = [[-16, -11], [16, -11], [-13, 15], [13, 15], [0, -21]];
-    spots.forEach((p, i) => {
-      const golden = i === spots.length - 1;
-      const m = this._buildKeg(golden); m.position.set(p[0], 0, p[1]); grp.add(m);
-      this.barrels.push({ mesh: m, golden, full: true, t: 0, x: p[0], z: p[1] });
-    });
+    const spots = [['shroom', -16, -11], ['herb', 16, -11], ['shroom', -13, 15], ['herb', 13, 15], ['shroom', 0, -21]];
+    for (const [kind, x, z] of spots) {
+      const m = this._buildForage(kind); m.position.set(x, 0, z); grp.add(m);
+      this.barrels.push({ mesh: m, kind, full: true, t: 0, x, z });
+    }
   }
-  _buildKeg(golden) {
+  _buildForage(kind) {
     const g = new THREE.Group();
-    const woodMat = new THREE.MeshStandardMaterial({ color: golden ? 0xffce5c : 0x7a5230, roughness: 0.7, metalness: golden ? 0.4 : 0, emissive: golden ? 0x6a4a00 : 0x000000, emissiveIntensity: golden ? 0.5 : 0 });
-    const ironMat = new THREE.MeshStandardMaterial({ color: 0x33323a, roughness: 0.6, metalness: 0.3 });
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.6, 1.4, 14), woodMat); body.position.y = 0.7; body.castShadow = true; g.add(body);
-    for (const y of [0.35, 1.05]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.71, 0.06, 6, 16), ironMat); r.position.y = y; r.rotation.x = Math.PI / 2; g.add(r); }
-    const foam = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8), new THREE.MeshBasicMaterial({ color: golden ? 0xfff0b0 : 0xfff7e8, transparent: true, opacity: 0.95 })); foam.position.y = 1.5; foam.scale.y = 0.4; g.add(foam); g.userData.foam = foam;
-    const mk = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), new THREE.MeshBasicMaterial({ color: golden ? 0xffd86a : 0x9bff7a, transparent: true, opacity: 0.9 })); mk.position.y = 2.2; g.add(mk); g.userData.mark = mk;
+    if (kind === 'herb') {
+      const stemMat = new THREE.MeshStandardMaterial({ color: 0x3a6a2a, roughness: 0.85 });
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x5fb84a, roughness: 0.8 });
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.5, 6), stemMat); stem.position.y = 0.25; g.add(stem);
+      for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.5, 5), leafMat); leaf.position.set(Math.cos(a) * 0.2, 0.5, Math.sin(a) * 0.2); leaf.rotation.z = Math.cos(a) * 0.7; leaf.rotation.x = Math.sin(a) * 0.7; leaf.castShadow = true; g.add(leaf); }
+      const mk = new THREE.Mesh(new THREE.OctahedronGeometry(0.2, 0), new THREE.MeshBasicMaterial({ color: 0x6fe89a, transparent: true, opacity: 0.9 })); mk.position.y = 1.5; g.add(mk); g.userData.mark = mk;
+    } else { // mushroom
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.55, 10), new THREE.MeshStandardMaterial({ color: 0xf0e6d0, roughness: 0.85 })); stem.position.y = 0.3; stem.castShadow = true; g.add(stem);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.45, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xc8402a, roughness: 0.6, emissive: 0x3a0a04, emissiveIntensity: 0.3 })); cap.position.y = 0.6; cap.scale.y = 0.8; cap.castShadow = true; g.add(cap);
+      for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; const dot = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), new THREE.MeshStandardMaterial({ color: 0xfff0e0, roughness: 0.7 })); dot.position.set(Math.cos(a) * 0.27, 0.72, Math.sin(a) * 0.27); g.add(dot); }
+      const mk = new THREE.Mesh(new THREE.OctahedronGeometry(0.2, 0), new THREE.MeshBasicMaterial({ color: 0xff7a5a, transparent: true, opacity: 0.9 })); mk.position.y = 1.5; g.add(mk); g.userData.mark = mk;
+    }
     return g;
   }
   _updateBarrels(sdt) {
     if (!this.barrels) return;
     const w = this.wizard.pos;
     for (const b of this.barrels) {
-      const mk = b.mesh.userData.mark, foam = b.mesh.userData.foam;
+      const mk = b.mesh.userData.mark;
       if (!b.full) {
         b.t -= sdt;
-        if (b.t <= 0) { b.full = true; foam.visible = true; if (mk) mk.visible = true; } else { foam.visible = false; if (mk) mk.visible = false; }
+        if (b.t <= 0) { b.full = true; b.mesh.visible = true; } else { b.mesh.visible = false; }
         continue;
       }
-      if (mk) { mk.rotation.y += sdt * 2; mk.position.y = 2.2 + Math.sin(this.elapsed * 3 + b.x) * 0.12; }
+      if (mk) { mk.rotation.y += sdt * 2; mk.position.y = 1.5 + Math.sin(this.elapsed * 3 + b.x) * 0.12; }
       const dx = w.x - b.x, dz = w.z - b.z;
-      if (dx * dx + dz * dz < 2.4 * 2.4) { this._drinkBarrel(b); if (b.golden) return; }
+      if (dx * dx + dz * dz < 1.7 * 1.7) this._forage(b);
     }
   }
-  _drinkBarrel(b) {
-    b.full = false; b.t = b.golden ? 50 : 15;
-    this.audio.play('heal');
-    this.particles.burst({ pos: new THREE.Vector3(b.x, 1.6, b.z), color: b.golden ? 0xffe0a0 : 0xf6e3a0, count: b.golden ? 16 : 10, speed: 3, size: 0.2, life: 0.8, grav: 2, blend: 'normal' });
-    if (b.golden) {
-      this.ui.toast('🍺✦ A golden brew — gain an ability!');
-      this.offerUpgrade(() => { this.state = 'play'; });
-    } else {
-      this.wizard.heal(22); this.wizard.mana = Math.min(this.stats.manaMax, this.wizard.mana + 50);
-      this.drunkenness = Math.min(1, this.drunkenness + 0.18); this._drunkSurge = 1;
-      this.ui.toast('🍺 A keg! +HP & mana — and a buzz');
+  _forage(b) {
+    b.full = false; b.t = b.kind === 'herb' ? 24 : 20; b.mesh.visible = false;
+    if (b.kind === 'herb') {
+      meta.addHerbs(1);
+      this.audio.play('xp');
+      this.particles.burst({ pos: new THREE.Vector3(b.x, 0.8, b.z), color: 0x5fb84a, count: 8, speed: 3, size: 0.2, life: 0.7, grav: 2, blend: 'normal' });
+      this.ui.wispSay('🌿 You gathered a herb. Brew it into a potion at the Cauldron.');
+      return;
     }
+    // mushroom: a random effect. Most are good, one just gets you drunk.
+    this.audio.play('heal');
+    this.particles.burst({ pos: new THREE.Vector3(b.x, 0.9, b.z), color: 0xff8a5a, count: 12, speed: 4, size: 0.22, life: 0.8, grav: 2, blend: 'normal' });
+    const w = this.wizard, s = this.stats, roll = Math.floor(Math.random() * 5);
+    if (roll === 0) { w.heal(35); this.ui.wispSay('🍄 A healing cap. You feel patched up.'); }
+    else if (roll === 1) { w.mana = Math.min(s.manaMax, w.mana + 60); this.ui.wispSay('🍄 A glowing cap. Your mana surges back.'); }
+    else if (roll === 2) { this.drunkenness = Math.max(0, this.drunkenness - 0.3); this.ui.wispSay('🍄 A bitter cap. Your head clears a little.'); }
+    else if (roll === 3) { this.gainXP(25); this.ui.wispSay('🍄 A wise cap. You feel a little wiser.'); }
+    else { this.drunkenness = Math.min(1, this.drunkenness + 0.35); this._drunkSurge = 1; this.ui.wispSay('🍄 A funny cap. Whoa, the room is spinning!'); }
   }
 
   // ---- rune shrine: walk up & DRAW a glyph to channel a free artifact (re-arms slowly) ----

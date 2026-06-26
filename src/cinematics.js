@@ -444,9 +444,9 @@ export class Cinematics {
 const SCRIPTS = {
   // 1) DRUNK — Wobblesworth drinks himself silly at the bar (no spirit — he's just plastered)
   drunk: [
-    { scene: 'bar', pose: [0, 0, 0], yaw: 0.2, cam: { pos: [3.2, 1.6, 5], look: [0, 1.5, 0], push: true }, speaker: 'Wobblesworth', portrait: '🧙', text: 'Another, Tomas! Keep \'em coming — it has been a long, DRY week.' },
-    { scene: 'bar', pose: [0, 0, 0], cam: { pos: [-1.4, 1.9, 3.2], look: [0, 1.5, 0] }, special: 'getDrunk', speaker: 'Wobblesworth', portrait: '🥴', text: '*GULP* …hoo. The room has gone all… swimmy. I feel GREAT.' },
-    { scene: 'bar', cam: { pos: [0, 1.4, 4.5], look: [0, 1.6, 0], push: true }, speaker: 'Wobblesworth', portrait: '😜', text: 'You know what this dusty old tavern needs? A bit of CHAOS. Heh heh…' },
+    { scene: 'bar', pose: [0, 0, 0], yaw: 0.2, cam: { pos: [3.2, 1.6, 5], look: [0, 1.5, 0], push: true }, speaker: 'Wobblesworth', portrait: '🧙', text: 'Another ale, Tomas! Keep them coming. It has been a long, dry week.' },
+    { scene: 'bar', pose: [0, 0, 0], cam: { pos: [-1.4, 1.9, 3.2], look: [0, 1.5, 0] }, special: 'getDrunk', speaker: 'Wobblesworth', portrait: '🥴', text: 'Gulp. Whew. The room is going all swimmy. I feel great.' },
+    { scene: 'bar', cam: { pos: [0, 1.4, 4.5], look: [0, 1.6, 0], push: true }, speaker: 'Wobblesworth', portrait: '😜', text: 'You know what this dusty old place needs? A bit of chaos. Hehe.' },
   ],
   // 2) RAMPAGE — just the drunk wizard wrecking the place; a smash QTE, no narration.
   // Wide shots keep the whole dressed bar (counter, fireplace, barrels, tables) in frame.
@@ -457,24 +457,24 @@ const SCRIPTS = {
   ],
   // 3) THROWN OUT — the patrons hurl the wizard through the door
   thrown: [
-    { scene: 'bar', pose: [4.5, 0, -2], yaw: 2.4, cam: { pos: [1.4, 2.0, 1.5], look: [4.4, 1.4, -4], snap: true }, speaker: 'Barkeep Tomas', portrait: '😡', text: 'OUT! Get OUT, you flailing menace!' },
-    { scene: 'bar', pose: [4.5, 0.6, -2], cam: { pos: [1.4, 2.7, 2.2], look: [6.0, 1.5, -4.5] }, special: 'throw', speaker: 'The Patrons', portrait: '😡', text: 'And STAY out!' },
+    { scene: 'bar', pose: [4.5, 0, -2], yaw: 2.4, cam: { pos: [1.4, 2.0, 1.5], look: [4.4, 1.4, -4], snap: true }, speaker: 'Barkeep Tomas', portrait: '😡', text: 'Out! Get out, you clumsy fool!' },
+    { scene: 'bar', pose: [4.5, 0.6, -2], cam: { pos: [1.4, 2.7, 2.2], look: [6.0, 1.5, -4.5] }, special: 'throw', speaker: 'The Patrons', portrait: '😡', text: 'And stay out!' },
   ],
   // 4) WISP — wake in the forest; the wisp ZOOMS IN and is the SOLE teacher of every
   // core mechanic (cast, crit, mana/chug, motes/level, gems vs gold). Short lines.
   wisp: [
-    { scene: 'forest', pose: [0, 0, 0], yaw: 0, cam: { pos: [0, 1.0, 5.5], look: [0, 1.0, 0], push: true }, speaker: 'Wobblesworth', portrait: '🥴', text: 'Ugh… cold moss, moonlight. This is NOT home.' },
-    { scene: 'forest', cam: { pos: [1.75, 1.9, 2.6], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Hello there, wizard! I am your wisp — your guide. Stay close, and I will teach you everything.' },
-    { scene: 'forest', cam: { pos: [0, 1.2, 4.4], look: [0, 1.4, 0] }, special: 'drawDemo', speaker: 'Wisp', portrait: '✨', text: 'To cast, you TRACE a glyph. A triangle is Fireball — watch me draw it in the air.' },
-    { scene: 'forest', cam: { pos: [1.6, 1.85, 2.8], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Now you: hold right-click (or draw on the right on phone). Cleaner lines hit harder — a PERFECT glyph CRITS.' },
-    { scene: 'forest', cam: { pos: [1.55, 1.85, 2.9], look: [1.6, 1.78, 0.5] }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Spells cost mana — and your mana is BEER. It will not refill itself: tap the beer button to chug it full (it spins the room!).' },
-    { scene: 'forest', cam: { pos: [1.65, 1.85, 3.0], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Slain foes drop glowing motes — soak them up to LEVEL UP and pick a power. Winning a run earns gems for new spells.' },
-    { scene: 'forest', cam: { pos: [-1.5, 1.4, 4], look: [0, 1.3, 0], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Gold you earn back at the bar. That is the gist — they are coming. Up, wizard, and DRAW!' },
+    { scene: 'forest', pose: [0, 0, 0], yaw: 0, cam: { pos: [0, 1.0, 5.5], look: [0, 1.0, 0], push: true }, speaker: 'Wobblesworth', portrait: '🥴', text: 'Ugh. Cold moss and moonlight. This is not home.' },
+    { scene: 'forest', cam: { pos: [1.75, 1.9, 2.6], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Hello there, wizard. I am your wisp, your guide. Stay close and I will teach you everything.' },
+    { scene: 'forest', cam: { pos: [0, 1.2, 4.4], look: [0, 1.4, 0] }, special: 'drawDemo', speaker: 'Wisp', portrait: '✨', text: 'To cast a spell you draw a shape. A triangle makes a fireball. Watch me draw it.' },
+    { scene: 'forest', cam: { pos: [1.6, 1.85, 2.8], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Now you try. Hold right click, or draw on the right side on a phone. Neater shapes hit harder, and a perfect one is a critical hit.' },
+    { scene: 'forest', cam: { pos: [1.55, 1.85, 2.9], look: [1.6, 1.78, 0.5] }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Spells cost mana, and your mana is beer. It does not refill on its own. Tap the beer button to chug and fill it up. It will make the room spin.' },
+    { scene: 'forest', cam: { pos: [1.65, 1.85, 3.0], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Beaten foes drop glowing motes. Soak them up to level up and pick a new power. Winning a run earns gems for new spells.' },
+    { scene: 'forest', cam: { pos: [-1.5, 1.4, 4], look: [0, 1.3, 0], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Gold you earn back at the bar. That is the gist of it. They are coming now. Get up and draw!' },
   ],
   // 5) SCOLD — back at the bar, get an earful and the debt
   scold: [
-    { scene: 'bar', pose: [0, 0, 0], yaw: 0.1, cam: { pos: [2.5, 1.6, 4.5], look: [0, 1.5, 0], push: true }, speaker: 'Barkeep Tomas', portrait: '😠', text: 'YOU. You wrecked my tavern, then passed out in the woods.' },
-    { scene: 'bar', cam: { pos: [0.5, 1.8, 3], look: [0, 1.6, 0] }, speaker: 'Barkeep Tomas', portrait: '🧾', text: 'You owe me 450 gold. Build a Quest Board and WORK it off.' },
-    { scene: 'bar', cam: { pos: [-2, 1.5, 4.5], look: [0, 1.6, 0], push: true }, speaker: 'Wobblesworth', portrait: '🧙', text: 'Fine, old goat. I will get rich and clear your debt. To mayhem!' },
+    { scene: 'bar', pose: [0, 0, 0], yaw: 0.1, cam: { pos: [2.5, 1.6, 4.5], look: [0, 1.5, 0], push: true }, speaker: 'Barkeep Tomas', portrait: '😠', text: 'You! You wrecked my tavern and then passed out in the woods.' },
+    { scene: 'bar', cam: { pos: [0.5, 1.8, 3], look: [0, 1.6, 0] }, speaker: 'Barkeep Tomas', portrait: '🧾', text: 'You owe me 600 gold. Build a quest board and work it off.' },
+    { scene: 'bar', cam: { pos: [-2, 1.5, 4.5], look: [0, 1.6, 0], push: true }, speaker: 'Wobblesworth', portrait: '🧙', text: 'Fine, you old goat. I will get rich and pay off your debt. Now, to mayhem!' },
   ],
 };

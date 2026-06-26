@@ -12,6 +12,7 @@
   --r-lg:18px;     /* one radius for panels */
   --tap:50px;      /* min mobile touch target */
   --go:#5fb85f;    /* the single allowed alt-action (build/confirm) green */
+  --panel-edge:rgba(214,178,120,0.5);  /* warm parchment edge (hand-made, not neon gold) */
 }
 
 *{box-sizing:border-box;}
@@ -816,3 +817,15 @@ body::after{content:"";position:fixed;inset:0;z-index:4;pointer-events:none;
 .arch-name{font-weight:900;font-size:18px;color:var(--el,var(--gold));}
 .arch-desc{font-size:12px;color:var(--ink-dim);line-height:1.35;}
 @media (max-width:760px),(pointer:coarse){ .arch-card{width:44vw;padding:12px;} .arch-ico{font-size:34px;} }
+
+/* ===== Hand-made warmth: matte (less glossy/AI) buttons, softer title, faint paper grain on menus ===== */
+.btn{background:linear-gradient(180deg,#f0bd5e,#d68d33);box-shadow:0 5px 0 #8f5d1c, 0 6px 14px rgba(0,0,0,.35);}
+.shop-btn{background:linear-gradient(180deg,#e8b552,#cf8c32);box-shadow:0 3px 0 #8f5d1c;}
+.shop-btn.gem{background:linear-gradient(180deg,#9cd8f0,#4f93c4);box-shadow:0 3px 0 #2b5f80;}
+.shop-btn.on{background:linear-gradient(180deg,#8fd99e,#4ea35f);box-shadow:0 3px 0 #2f6e3c;}
+#btn-build{background:linear-gradient(180deg,#86d695,#4ea35f);box-shadow:0 5px 0 #2f6e3c, inset 0 2px 0 rgba(255,255,255,.35);}
+.game-title{text-shadow:0 0 16px rgba(155,123,255,.45), 3px 5px 0 #2a1840;}
+/* a faint warm paper grain over the full-screen menus — subtle, hand-made; never over the live 3D scene */
+.overlay > *{position:relative;z-index:1;}
+.overlay::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.05;z-index:0;
+  background-image:repeating-linear-gradient(24deg, rgba(255,240,205,.7) 0 1px, transparent 1px 4px), repeating-linear-gradient(-66deg, rgba(40,20,10,.6) 0 1px, transparent 1px 5px);}

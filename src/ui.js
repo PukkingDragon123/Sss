@@ -1095,7 +1095,7 @@ export class UI {
       else if (this._buildSel) { const sb = meta.buildableById(this._buildSel); ok = meta.placeItem(this._buildSel, gx, gy); if (ok) { placedStation = sb && sb.station ? sb : null; if (placedStation) this._buildSel = null; } }
       else ok = false;
       if (g) { g.audio.play(ok ? 'click' : 'hiccup'); if (ok && g.tavern.refreshRoom) g.tavern.refreshRoom(meta); }
-      if (placedStation) this.wispSay(`✓ Built the ${placedStation.name} — walk up and press E to use it!`);
+      if (placedStation) this.wispSay(`✓ Built the ${placedStation.name}. Walk up and press E to use it!`);
       this.setGold(meta.gold());
       this._renderShop();
       return;
@@ -1105,6 +1105,7 @@ export class UI {
     else if (act === 'upgrade') ok = meta.upgradeSpell(id);
     else if (act === 'equip') ok = meta.toggleEquip(id);
     else if (act === 'learn') ok = meta.learnCombo(id);
+    else if (act === 'brew') { ok = meta.brewPotion(id); if (ok) g.ui.wispSay('🧪 Potion brewed! Its boon is yours for good.'); }
     else if (act === 'buyroom') ok = meta.buyRoom();
     else if (act === 'buydecor') ok = meta.buyDecor(id);
     else if (act === 'rest') ok = meta.rest();
@@ -1114,11 +1115,11 @@ export class UI {
     else if (act === 'salvage') { const v = meta.salvageGear(id); ok = v > 0; if (ok) g.ui.toast(`Salvaged for ${v}🪙`); }
     else if (act === 'upgradegear') ok = meta.upgradeGear(id);
     else if (act === 'forge') { const inst = meta.forgeGear(id); ok = !!inst; if (ok) { g.ui.lootToast(inst); g.audio.play('levelup'); } }
-    else if (act === 'research') { ok = meta.startResearch(id); if (ok) g.ui.wispSay('🔬 Research begun — it finishes as the days pass.'); }
+    else if (act === 'research') { ok = meta.startResearch(id); if (ok) g.ui.wispSay('🔬 Research begun. It finishes as the days pass.'); }
     else if (act === 'artieq') { ok = meta.toggleArtifactEquip(id); if (!ok) g.ui.wispSay(`✦ You can only carry ${meta.MAX_ARTIFACTS} artifacts into a run.`, { tone: 'warn' }); }
     else if (act === 'deck') { const inDeck = UPGRADES.length - meta.deckOffIds().length; if (!meta.isDeckOff(id) && inDeck <= 6) { g.ui.wispSay('Keep at least 6 boons in your deck!', { tone: 'warn' }); ok = false; } else { meta.toggleDeck(id); ok = true; } }
     else if (act === 'paydebt') { const p = meta.payDebt(meta.gold()); ok = p > 0; if (ok) { g.ui.toast(`💰 Paid ${p}🪙 off the debt`); if (meta.debt() <= 0) g.onDebtCleared(); } }
-    else if (act === 'claim') { const res = meta.claimQuest(); ok = !!(res && res.reward > 0); if (ok) { g.ui.toast(`Quest reward: +${res.reward}🪙`); if (res.unlocked) g.ui.wispSay(`🔓 Unlocked the ${meta.FEATURE_LABELS[res.unlocked]} — build it up in your room!`, { big: true, ms: 4200 }); } }
+    else if (act === 'claim') { const res = meta.claimQuest(); ok = !!(res && res.reward > 0); if (ok) { g.ui.toast(`Quest reward: +${res.reward}🪙`); if (res.unlocked) g.ui.wispSay(`🔓 Unlocked the ${meta.FEATURE_LABELS[res.unlocked]}. Build it up in your room!`, { big: true, ms: 4200 }); } }
     if (g) g.audio.play(ok ? 'click' : 'hiccup');
     this.setGold(meta.gold());
     this._renderShop();
@@ -1332,12 +1333,19 @@ export class UI {
     h += `<div class="inv-cur">
       <div class="inv-coin"><span class="inv-ico">🪙</span><b>${meta.gold()}</b><small>gold · earned by working</small></div>
       <div class="inv-coin"><span class="inv-ico">💎</span><b>${meta.gems()}</b><small>gems · won in battle</small></div>
+      <div class="inv-coin"><span class="inv-ico">🌿</span><b>${meta.herbs()}</b><small>herbs · brew potions</small></div>
       <div class="inv-coin"><span class="inv-ico">☀️</span><b>Day ${meta.currentDay()}</b><small>the tavern clock</small></div>
     </div>`;
     h += `<div class="eq-totals"><span>⚔ Equipped bonuses</span><b>${statStr}</b></div>`;
     h += `<div class="inv-row"><span>Spells known</span><b>${ownedSpells} / ${meta.SPELL_LIST.length}</b></div>
       <div class="inv-row"><span>Gear in stash</span><b>${meta.gearList().length}</b></div>
       <div class="inv-els">${elh}</div>`;
+    // elemental gemstones — collected from battle, brewed at the Cauldron
+    const gs = meta.gemstones();
+    const gsh = meta.ELEMENT_LIST.map(el => { const e = meta.ELEMENTS[el]; return `<span class="inv-el" style="color:${e.color}">${e.icon} ${e.name} ×${gs[el] || 0}</span>`; }).join('');
+    h += `<div class="eq-section-head" style="margin-top:14px">💎 Elemental Gemstones <span class="eq-count">${meta.totalGemstones()} total</span></div>
+      <p class="shop-sub" style="margin:.2em 0 .5em">Won in battle. Brew them with 🌿 herbs into potions at the Cauldron.</p>
+      <div class="inv-els">${gsh}</div>`;
     // collected artifacts — carry up to MAX into your runs
     const owned = meta.ownedArtifacts();
     h += `<div class="eq-section-head" style="margin-top:14px">✦ Artifacts <span class="eq-count">${meta.equippedArtifacts().length} carried · ${owned.length}/${ARTIFACTS.length} found</span></div>`;
@@ -1372,6 +1380,18 @@ export class UI {
         <div class="shop-name">${c.name}</div>
         <div class="shop-desc">${c.desc}</div>
         <div class="shop-acts">${action}</div></div>`;
+    }
+    h += '</div>';
+    // ---- brew lasting potions from gathered herbs + elemental gemstones ----
+    h += `<div class="eq-section-head" style="margin-top:14px">🧪 Brew Potions <span class="eq-count">🌿 ${meta.herbs()} herbs</span></div>
+      <p class="shop-sub" style="margin:.2em 0 .6em">Spend 🌿 herbs (gathered while venturing) and an elemental 💎 gemstone for a <b>permanent</b> boon.</p><div class="shop-grid">`;
+    for (const p of meta.POTIONS) {
+      const e = meta.ELEMENTS[p.el], can = meta.canBrew(p.id), have = meta.brewCount(p.id);
+      h += `<div class="shop-card" style="--el:${e.color}">
+        <div class="shop-glyph">${p.icon}</div>
+        <div class="shop-name">${p.name}${have ? ` ×${have}` : ''}</div>
+        <div class="shop-desc">${p.desc}</div>
+        <div class="shop-acts"><button class="shop-btn" data-act="brew" data-id="${p.id}" ${can ? '' : 'disabled'}>🌿${p.herbs} + ${e.icon}${p.gems}</button></div></div>`;
     }
     h += '</div>';
     return h;

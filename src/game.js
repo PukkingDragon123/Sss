@@ -540,7 +540,7 @@ export class Game {
     this.ui.hideJob();
     this.ui.toast(`✓ ${name}!`);
     this.gainXP(14);
-    this.showStory('The Spirit', [`"${name}" — done! Who says a drunk can\'t multitask? (+XP)`]);
+    this.showStory('Wisp', [`"${name}" — done! Who says a drunk can\'t multitask? (+XP)`]);
   }
 
   announceWave(w, total, isBoss) {
@@ -624,10 +624,10 @@ export class Game {
     this.ui.setMuteIcon(this.audio.muted);
 
     if (!this._opened) {
-      // first launch: a chain of real cutscenes — possess, wreck the bar (QTE),
+      // first launch: a chain of real cutscenes — get drunk, wreck the bar (QTE),
       // get hurled out, wake in the forest with the wisp — then the guided fight.
       this._opened = true; this._hubShown = false;
-      this.cine.play('possession', () =>
+      this.cine.play('drunk', () =>
         this.cine.play('rampage', () =>
           this.cine.play('thrown', () =>
             this.cine.play('wisp', () => { this._introRun = true; this.enterArena(STAGES.forest); }))));
@@ -673,10 +673,10 @@ export class Game {
     this.tavernReady = true;
     if (this._justInherited) {
       this._justInherited = false;
-      this.showStory('The Spirit', [
+      this.showStory('Wisp', [
         'You did it — the brute that ambushed old Barkeep Tomas lies in pieces.',
         'Tomas had no kin… and a wizard who avenges him is kin enough. The Tipsy Toad is YOURS now.',
-        'Run the place! It earns coin even while we\'re out causing mayhem — manage it at the Ledger.',
+        'Run the place! It earns coin even while you\'re out causing mayhem — manage it at the Ledger.',
       ]);
     } else if (meta.tavernOwned() && meta.tavernBank() > 0) {
       this.ui.toast(`🍺 The Toad earned ${meta.tavernBank()}🪙 — collect at the Ledger`);
@@ -798,10 +798,10 @@ export class Game {
     for (const f of meta.FEATURE_ORDER) meta.unlockFeature(f); // owning the place opens everything
     meta.setTavernOwned(true);
     this.ui.setGold(meta.gold());
-    this.showStory('The Spirit', [
+    this.showStory('Wobblesworth', [
       'The last coin clinks into the strongbox. The debt is PAID — in full.',
-      'The Tipsy Toad is ours now, free and clear. No more creditors, no more scolding.',
-      'Now we drink, we brawl, and we get filthy rich. To glorious, catastrophic mayhem!',
+      'The Tipsy Toad is MINE now, free and clear. No more creditors, no more scolding.',
+      'Now I drink, I brawl, and I get filthy rich. To glorious, catastrophic mayhem!',
     ]);
   }
   startRun(stageId) { this._shopKind = null; this.beginRun(stageId); }
@@ -883,7 +883,7 @@ export class Game {
       return;
     }
     this._beginRoom(false); // the entrance fight (no choice before it)
-    this.showStory('The Spirit', stage.intro);
+    this.showStory('Wisp', stage.intro);
   }
   // wisp tutorial: a few timed, friendly prompts during the first fight
   _introTutorial() {

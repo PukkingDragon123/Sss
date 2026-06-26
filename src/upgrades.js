@@ -179,7 +179,7 @@ export const ARTIFACTS = [
   { id: 'a_reaper', name: "The Reaper's Tab", icon: '☠️', tag: '✦ Artifact',
     desc: '+120% damage… but −45 max HP. The debt always comes due.',
     apply: g => { g.stats.damageMult += 1.2; g.stats.hpMax = Math.max(35, g.stats.hpMax - 45); g.wizard.hp = Math.min(g.wizard.hp, g.stats.hpMax); } },
-  { id: 'a_anchor', name: 'Spirit Anchor', icon: '🧿', tag: '✦ Artifact',
+  { id: 'a_anchor', name: 'Iron Anchor', icon: '⚓', tag: '✦ Artifact',
     desc: '+80 max HP (healed now), a thorny aura, and +6 HP/sec. Steady the old fool.',
     apply: g => { g.stats.hpMax += 80; g.wizard.hp += 80; g.stats.thorns += 24; g.stats.hpRegen += 6; } },
   { id: 'a_luck', name: "Drunkard's Luck", icon: '🍀', tag: '✦ Artifact',

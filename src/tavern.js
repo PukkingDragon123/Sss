@@ -197,21 +197,27 @@ export class Tavern {
 
   // ===================== the 4 serving tables (the WORK loop) =====================
   _makeBubble() {
-    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const c = document.createElement('canvas'); c.width = c.height = 256;
     const ctx = c.getContext('2d');
     const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-    s.scale.set(1.5, 1.5, 1.5);
+    s.scale.set(2.4, 2.4, 2.4);
     s.userData = { canvas: c, ctx, tex };
     return s;
   }
   _drawBubble(table, icon) {
     const s = table.bubble, ud = s.userData, x = ud.ctx;
-    x.clearRect(0, 0, 128, 128);
-    x.fillStyle = 'rgba(255,255,255,0.95)'; x.strokeStyle = 'rgba(20,12,28,0.55)'; x.lineWidth = 5;
-    x.beginPath(); x.arc(64, 50, 42, 0, 6.28); x.fill(); x.stroke();
-    x.beginPath(); x.moveTo(50, 86); x.lineTo(64, 116); x.lineTo(78, 86); x.closePath(); x.fillStyle = 'rgba(255,255,255,0.95)'; x.fill();
-    x.font = '50px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#1a1020'; x.fillText(icon, 64, 50);
+    x.clearRect(0, 0, 256, 256);
+    // pointer triangle aimed down at the patron
+    x.fillStyle = 'rgba(255,255,255,0.97)'; x.beginPath(); x.moveTo(98, 168); x.lineTo(128, 232); x.lineTo(158, 168); x.closePath(); x.fill();
+    // the bubble: white disc with a soft drop shadow so it reads against any background
+    x.save(); x.shadowColor = 'rgba(0,0,0,0.4)'; x.shadowBlur = 16; x.shadowOffsetY = 7;
+    x.fillStyle = 'rgba(255,255,255,0.97)'; x.beginPath(); x.arc(128, 100, 86, 0, 6.28); x.fill(); x.restore();
+    // a bold gold ring + thin dark outline for contrast
+    x.lineWidth = 9; x.strokeStyle = '#ffcf5c'; x.beginPath(); x.arc(128, 100, 84, 0, 6.28); x.stroke();
+    x.lineWidth = 3; x.strokeStyle = 'rgba(20,12,28,0.5)'; x.beginPath(); x.arc(128, 100, 89, 0, 6.28); x.stroke();
+    // the order icon, large and centred
+    x.font = '110px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#1a1020'; x.fillText(icon, 128, 104);
     ud.tex.needsUpdate = true;
     table.want = icon;
   }
@@ -225,7 +231,7 @@ export class Tavern {
       const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, 0.92, 8), woodMat); leg.position.y = 0.46; grp.add(leg);
       const cust = this._buildPatron(robeColors[i % robeColors.length], i % 2 === 0);
       cust.position.set(0, 0, -1.05); cust.rotation.y = 0; cust.scale.setScalar(0.92); cust.visible = false; grp.add(cust);
-      const bubble = this._makeBubble(); bubble.position.set(0, 2.5, -1.0); bubble.visible = false; grp.add(bubble);
+      const bubble = this._makeBubble(); bubble.position.set(0, 2.9, -1.0); bubble.visible = false; grp.add(bubble);
       this.group.add(grp);
       const table = { grp, top, cust, bubble, pos: new THREE.Vector3(x, 0, z), state: 'empty', t: 1.5 + i * 1.2 + Math.random() * 2, phase: Math.random() * 6 };
       this.tables.push(table);
@@ -319,22 +325,19 @@ export class Tavern {
     const mattress = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.3, 2.4), new THREE.MeshStandardMaterial({ color: 0x8a7bc0, roughness: 0.9 })); mattress.position.y = 0.6;
     const pillow = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.22, 0.6), new THREE.MeshStandardMaterial({ color: 0xf2efe6, roughness: 0.9 })); pillow.position.set(0, 0.78, -0.9);
     bed.add(frame, mattress, pillow); bed.position.set(-5.4, 0, -4.4); bed.rotation.y = 0.2; g.add(bed);
-    const bedMark = new THREE.Mesh(new THREE.OctahedronGeometry(0.26, 0), new THREE.MeshBasicMaterial({ color: 0xb6a6ff, transparent: true, opacity: 0.95 })); bedMark.position.set(-5.4, 2.2, -4.4); g.add(bedMark);
 
     // stairs back down (front-right)
     const downStair = new THREE.Group();
     for (let i = 0; i < 5; i++) { const step = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.24, 0.6), new THREE.MeshStandardMaterial({ color: 0x4a3018, roughness: 0.9 })); step.position.set(6, 0.2 - i * 0.18, 4.0 + i * 0.5); downStair.add(step); }
     g.add(downStair);
-    const downMark = new THREE.Mesh(new THREE.OctahedronGeometry(0.26, 0), new THREE.MeshBasicMaterial({ color: 0xffd08a, transparent: true, opacity: 0.95 })); downMark.position.set(6, 2.0, 4.4); g.add(downMark);
 
     // a small rug + the "empty room" feel
     const rug = new THREE.Mesh(new THREE.CircleGeometry(2.0, 24), new THREE.MeshStandardMaterial({ color: 0x6a3a5a, roughness: 0.95 })); rug.rotation.x = -Math.PI / 2; rug.position.set(0.5, 0.02, 1); rug.receiveShadow = true; g.add(rug);
 
-    this._roomFixed = { bedMark, downMark };
-    // fixed room interactables (placed stations get added in refreshRoom)
+    // fixed room interactables — no floating markers (the bed & stairs are obvious; the prompt guides you)
     this._roomFixedStations = [
-      { type: 'rest', label: 'your Bed — rest before a run', pos: new THREE.Vector3(-5.4, 0, -4.4), mark: bedMark },
-      { type: 'down', label: 'head back down to the Bar', pos: new THREE.Vector3(6, 0, 4.4), mark: downMark },
+      { type: 'rest', label: 'your Bed — rest before a run', pos: new THREE.Vector3(-5.4, 0, -4.4), mark: null },
+      { type: 'down', label: 'head back down to the Bar', pos: new THREE.Vector3(6, 0, 4.4), mark: null },
     ];
   }
 
@@ -351,9 +354,7 @@ export class Tavern {
       const x = G.ox + p.gx * G.cell, z = G.oz + p.gy * G.cell;
       m.position.set(x, 0, z); m.rotation.y = (p.gx * 1.7 + p.gy) % 6.28; grp.add(m);
       if (b && b.station) {
-        const mark = new THREE.Mesh(new THREE.OctahedronGeometry(0.24, 0), new THREE.MeshBasicMaterial({ color: 0xffe6a8, transparent: true, opacity: 0.95 }));
-        mark.position.set(x, 1.9, z); grp.add(mark);
-        this.roomStations.push({ type: 'station', kind: b.station, label: `the ${b.name}`, pos: new THREE.Vector3(x, 0, z), mark });
+        this.roomStations.push({ type: 'station', kind: b.station, label: `the ${b.name}`, pos: new THREE.Vector3(x, 0, z), mark: null });
       }
     }
   }
@@ -366,7 +367,7 @@ export class Tavern {
     switch (id) {
       // ---- functional stations ----
       case 'spelltable': { const top = add(new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.18, 1.0), wood)); top.position.y = 0.95; const leg = add(new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.95, 8), wood)); leg.position.y = 0.47; const book = add(new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.14, 0.42), M(0x6f5fc4, 0.7))); book.position.set(0, 1.1, 0); book.rotation.y = 0.3; const rune = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.05, 8, 18), new THREE.MeshBasicMaterial({ color: 0x9b7bff, transparent: true, opacity: 0.85 })); rune.rotation.x = Math.PI / 2; rune.position.y = 1.42; g.add(rune); break; }
-      case 'cauldron': { const pot = add(new THREE.Mesh(new THREE.SphereGeometry(0.62, 14, 12, 0, Math.PI * 2, 0, Math.PI * 0.6), iron)); pot.rotation.x = Math.PI; pot.position.y = 0.68; const brew = new THREE.Mesh(new THREE.CylinderGeometry(0.54, 0.54, 0.08, 14), new THREE.MeshBasicMaterial({ color: 0x9bff7a, transparent: true, opacity: 0.8 })); brew.position.y = 0.92; g.add(brew); for (const a of [0, 2.1, 4.2]) { const leg = add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.4, 6), iron)); leg.position.set(Math.cos(a) * 0.4, 0.2, Math.sin(a) * 0.4); } break; }
+      case 'cauldron': { const pot = add(new THREE.Mesh(new THREE.SphereGeometry(0.62, 14, 12, 0, Math.PI * 2, 0, Math.PI * 0.6), iron)); pot.rotation.x = Math.PI; pot.position.y = 0.68; const brew = new THREE.Mesh(new THREE.CylinderGeometry(0.54, 0.54, 0.08, 14), new THREE.MeshBasicMaterial({ color: 0x9a5ad0, transparent: true, opacity: 0.8 })); brew.position.y = 0.92; g.add(brew); for (const a of [0, 2.1, 4.2]) { const leg = add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.4, 6), iron)); leg.position.set(Math.cos(a) * 0.4, 0.2, Math.sin(a) * 0.4); } break; }
       case 'wardrobe': { const cab = add(new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.8, 0.6), M(0x4a3322))); cab.position.y = 0.9; const dl = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.6, 0.05), M(0x6f5fc4, 0.7))); dl.position.set(-0.27, 0.95, 0.31); const dr = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.6, 0.05), M(0x6f5fc4, 0.7))); dr.position.set(0.27, 0.95, 0.31); const knob = add(new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), gold)); knob.position.set(0.05, 0.95, 0.34); break; }
       case 'anvil': { const stump = add(new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.46, 0.7, 10), wood)); stump.position.y = 0.35; const base = add(new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.28, 0.8), M(0x3a3a42, 0.6, 0.4))); base.position.y = 0.84; const topa = add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.16, 0.42), M(0x3a3a42, 0.6, 0.4))); topa.position.y = 1.02; break; }
       case 'ledger': { const desk = add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.9, 0.8), wood)); desk.position.y = 0.45; const book = add(new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.12, 0.4), M(0x7a3a2a, 0.7))); book.position.set(-0.3, 0.97, 0); for (let i = 0; i < 3; i++) { const c = add(new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.06, 10), gold)); c.position.set(0.4, 0.97 + i * 0.07, 0.1); } break; }

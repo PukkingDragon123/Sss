@@ -1,6 +1,6 @@
 // cinematics.js — a little cutscene director: keyframed camera moves, letterbox,
 // dialogue with portraits, posed real 3D models on dedicated, dressed sets, a smash
-// QTE, a possession swirl, a thrown-out-the-door beat, and the wisp's animated
+// QTE, a drunk-chug beat, a thrown-out-the-door beat, and the wisp's animated
 // entrance + draw-a-glyph lesson. Self-contained: it owns its sets, its actors, and
 // the #cinema DOM.
 import * as THREE from 'three';
@@ -28,16 +28,18 @@ export class Cinematics {
 
     // ===== the cutscene BAR set (a composed, dressed corner — NOT the playable tavern) =====
     const bar = this.bar = new THREE.Group(); bar.visible = false; this.scene.add(bar);
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(22, 22), M(0x3a2614, 0.95)); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; bar.add(floor);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(34, 32), M(0x3a2614, 0.95)); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; bar.add(floor);
     for (let i = -5; i <= 5; i++) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 18), M(0x2a1a0e, 0.95)); pl.rotation.x = -Math.PI / 2; pl.position.set(i * 1.1, 0.01, -2); bar.add(pl); }
     // a worn red rug under the centre of the room
     const rug = new THREE.Mesh(new THREE.PlaneGeometry(6.5, 5), M(0x6a2420, 0.98)); rug.rotation.x = -Math.PI / 2; rug.position.set(0.5, 0.02, 0.2); bar.add(rug);
     const rugTrim = new THREE.Mesh(new THREE.RingGeometry(2.9, 3.15, 4), M(0xb88a3a, 0.9)); rugTrim.rotation.x = -Math.PI / 2; rugTrim.position.set(0.5, 0.025, 0.2); rugTrim.rotation.z = Math.PI / 4; bar.add(rugTrim);
     // walls
-    const backWall = new THREE.Mesh(new THREE.BoxGeometry(22, 8, 0.5), M(0x4a3422, 0.95)); backWall.position.set(0, 3.2, -6); bar.add(backWall);
-    const sideWall = new THREE.Mesh(new THREE.BoxGeometry(0.5, 8, 14), M(0x42301f, 0.95)); sideWall.position.set(-10.5, 3.2, -2); bar.add(sideWall);
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(34, 11, 0.5), M(0x4a3422, 0.95)); backWall.position.set(0, 4, -6); bar.add(backWall);
+    // tall, wide side walls on BOTH sides so the cutscene camera never sees past the set into the void
+    const sideWallL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 11, 24), M(0x42301f, 0.95)); sideWallL.position.set(-15, 4, -2); bar.add(sideWallL);
+    const sideWallR = new THREE.Mesh(new THREE.BoxGeometry(0.5, 11, 24), M(0x42301f, 0.95)); sideWallR.position.set(15, 4, -2); bar.add(sideWallR);
     // wainscot stripe
-    const wains = new THREE.Mesh(new THREE.BoxGeometry(22, 1.4, 0.1), M(0x35241600, 0.9)); wains.material.color.setHex(0x35241a); wains.position.set(0, 1.0, -5.72); bar.add(wains);
+    const wains = new THREE.Mesh(new THREE.BoxGeometry(34, 1.4, 0.1), M(0x35241600, 0.9)); wains.material.color.setHex(0x35241a); wains.position.set(0, 1.0, -5.72); bar.add(wains);
 
     // ---- bar counter + back shelf ----
     const counter = new THREE.Mesh(new THREE.BoxGeometry(7, 1.1, 1.5), M(0x5a3a22, 0.85)); counter.position.set(-4.5, 0.55, -3.5); counter.castShadow = true; bar.add(counter);
@@ -49,7 +51,7 @@ export class Cinematics {
     const mugRail = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.08, 0.08), M(0x2a1c10)); mugRail.position.set(-4.5, 2.7, -4.2); bar.add(mugRail);
     for (let i = 0; i < 5; i++) { const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.24, 8), M(0x8a5a34, 0.5)); mug.position.set(-6.3 + i * 0.9, 2.5, -4.2); bar.add(mug); }
 
-    // ---- BARKEEP TOMAS (behind the counter; he speaks in 'possession' + 'scold') ----
+    // ---- BARKEEP TOMAS (behind the counter; he speaks in 'scold') ----
     const tomas = this._tomas = new THREE.Group();
     const tBody = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 12), M(0x6a4d34)); tBody.position.y = 1.0; tBody.scale.set(1, 1.25, 1); tomas.add(tBody);
     const tApron = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.7, 0.18), M(0xd8c39a, 0.95)); tApron.position.set(0, 0.95, 0.42); tomas.add(tApron);
@@ -123,12 +125,7 @@ export class Cinematics {
       this._barProps.push({ mesh: t, home: t.position.clone(), down: false });
     }
 
-    // ---- the POSSESSION spirit (descends into the wizard during 'possess') ----
-    const spirit = this._spirit = new THREE.Group();
-    const sOrb = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 14), glow(0x9affc0, 0.92)); spirit.add(sOrb);
-    const sRing = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.07, 8, 22), glow(0x6fffa0, 0.6)); sRing.rotation.x = Math.PI / 2; spirit.add(sRing);
-    const sLight = new THREE.PointLight(0x8affc0, 0, 8); spirit.add(sLight);
-    spirit.userData = { orb: sOrb, ring: sRing, light: sLight }; spirit.visible = false; bar.add(spirit);
+    // (no possessing spirit — the wizard is simply, gloriously drunk)
 
     // ===== the FOREST set (moonlit) =====
     const forest = this.forest = new THREE.Group(); forest.visible = false; this.scene.add(forest);
@@ -204,8 +201,7 @@ export class Cinematics {
     for (const p of this._barProps) { p.down = false; p.mesh.rotation.set(0, 0, 0); p.mesh.position.copy(p.home); }
     for (const p of this._patrons) { p.mesh.position.copy(p.home); p.mesh.rotation.set(0, 0, 0); p.lurch = false; }
     if (this._doorPanel) this._doorPanel.rotation.y = 0;
-    if (this._spirit) { this._spirit.visible = false; this._spirit.userData.light.intensity = 0; }
-    this._possess = null; this._throw = null; this._wispBurst = false;
+    this._drunk = null; this._throw = null; this._wispBurst = false;
   }
 
   _setScene(which) {
@@ -214,11 +210,11 @@ export class Cinematics {
     const g = this.game;
     this.bar.visible = which === 'bar'; this.forest.visible = which === 'forest';
     if (which === 'bar') {
-      g.scene.background.setHex(0x241a18); g.scene.fog.color.setHex(0x241a18); g.scene.fog.density = 0.016;
+      g.scene.background.setHex(0x241a18); g.scene.fog.color.setHex(0x241a18); g.scene.fog.density = 0.008;
       g.hemi.color.setHex(0xffd9a0); g.hemi.groundColor.setHex(0x3a2418); g.hemi.intensity = 0.5;
       g.dir.color.setHex(0xffd29a); g.dir.intensity = 0.6; g.ambient.color.setHex(0x6a4a3a); g.ambient.intensity = 0.36;
     } else {
-      g.scene.background.setHex(0x0a1020); g.scene.fog.color.setHex(0x0c1426); g.scene.fog.density = 0.02;
+      g.scene.background.setHex(0x0a1020); g.scene.fog.color.setHex(0x0c1426); g.scene.fog.density = 0.011;
       g.hemi.color.setHex(0x8fa6d8); g.hemi.groundColor.setHex(0x16241a); g.hemi.intensity = 0.5;
       g.dir.color.setHex(0xbfd0ff); g.dir.intensity = 0.6; g.ambient.color.setHex(0x2a3650); g.ambient.intensity = 0.4;
     }
@@ -244,7 +240,7 @@ export class Cinematics {
     this.qte = null; this.el.qte.classList.add('hidden'); this._demo = null;
     if (b.special === 'rampage') this._startRampage();
     else if (b.special === 'drawDemo') this._demo = { t: 0 };
-    else if (b.special === 'possess') { this._possess = { t: 0, done: false }; this._spirit.visible = true; this._spirit.userData.light.intensity = 1.4; }
+    else if (b.special === 'getDrunk') { this._drunk = { t: 0, done: false }; }
     else if (b.special === 'throw') { this._throw = { t: 0, from: V(b.pose || [4.5, 0.6, -2]) }; }
     // (wispAppear: the wisp grows in once, then keeps bobbing — handled in _updateWisp)
   }
@@ -260,7 +256,7 @@ export class Cinematics {
     if (this.qte) return;                 // can't skip a QTE with the continue button
     if (b.special === 'wispAppear' && this._wispT < 1.2) return; // let the entrance finish
     if (b.special === 'drawDemo' && this._demo && this._demo.t < 2.6) return; // let the lesson finish
-    if (b.special === 'possess' && this._possess && this._possess.t < 1.3) return; // let the swirl land
+    if (b.special === 'getDrunk' && this._drunk && this._drunk.t < 1.1) return; // let the gulp land
     if (b.special === 'throw' && this._throw && this._throw.t < 1.3) return;      // let him fly
     this.game.audio.play('click');
     this._next();
@@ -356,32 +352,25 @@ export class Cinematics {
     // specials
     if (b && b.special === 'wispAppear') this._updateWisp(dt);
     else if (b && b.special === 'drawDemo') this._updateDemo(dt);
-    else if (b && b.special === 'possess') this._updatePossess(dt);
+    else if (b && b.special === 'getDrunk') this._updateDrunk(dt);
     else if (this.wisp.visible && this.forest.visible) this._updateWisp(dt); // keep the wisp bobbing once it's appeared
 
-    if (b && !b.text && !this.qte && b.special !== 'drawDemo' && b.special !== 'possess' && b.special !== 'throw' && this.beatT >= (b.dur || 2.2)) this._next();
+    if (b && !b.text && !this.qte && b.special !== 'drawDemo' && b.special !== 'getDrunk' && b.special !== 'throw' && this.beatT >= (b.dur || 2.2)) this._next();
 
     g.renderer.render(g.scene, g.camera);
   }
 
-  // the spirit spirals down out of the dark and sinks into the slumped wizard
-  _updatePossess(dt) {
-    const p = this._possess, w = this.game.wizard, sp = this._spirit, ud = sp.userData; if (!p) return;
+  // the wizard tips his mug back and CHUGS — a big amber gulp, a hiccup, a woozy lurch
+  _updateDrunk(dt) {
+    const p = this._drunk, w = this.game.wizard; if (!p) return;
     p.t += dt;
-    const drop = Math.min(1, p.t / 1.0), ease = drop * drop;
-    const ang = p.t * 7;
-    const tx = w.pos.x + Math.cos(ang) * (1.2 * (1 - ease)), tz = w.pos.z + 0.3 + Math.sin(ang) * (1.2 * (1 - ease));
-    const ty = 4.2 - ease * 2.7;          // descend from above into the chest
-    sp.position.set(tx, ty, tz);
-    sp.scale.setScalar(1.1 - ease * 0.5);
-    ud.ring.rotation.z += dt * 6; ud.orb.material.opacity = 0.9;
-    ud.light.intensity = 1.4 + Math.sin(p.t * 20) * 0.5;
-    if (drop >= 1 && !p.done) {            // landed: flash, jolt, vanish into him
-      p.done = true; sp.visible = false; ud.light.intensity = 0;
-      w.leanV.x += (Math.random() - 0.5) * 10; w.leanV.z += 6; w.bob -= 1.2;
-      this.game.shake(1.6);
-      this.game.particles.burst({ pos: w.pos.clone().setY(1.4), color: 0x9affc0, count: 26, speed: 6, size: 0.22, life: 0.9, blend: 'add' });
-      this.game.audio.play('levelup');
+    if (p.t < 0.8) { w.leanV.z -= dt * 7; }     // tip the head back, chugging
+    if (p.t >= 0.8 && !p.done) {
+      p.done = true;
+      w.leanV.x += (Math.random() - 0.5) * 9; w.leanV.z += 11; w.bob -= 1.0; // the gulp lands; he reels
+      this.game.shake(1.2);
+      this.game.particles.burst({ pos: w.pos.clone().setY(1.7), color: 0xffd07a, count: 20, speed: 5, size: 0.2, life: 0.9, grav: 3, blend: 'normal' });
+      this.game.audio.play('hiccup');
     }
   }
 
@@ -449,14 +438,13 @@ export class Cinematics {
 // ---------- the 5 cutscenes ----------
 // cam pos/look in world units; portrait = an emoji "face". Lines kept short + punchy.
 const SCRIPTS = {
-  // 1) POSSESSION — the spirit slips into the snoring wizard at the bar
-  possession: [
-    { scene: 'bar', pose: [0, 0, 0], yaw: 0.2, cam: { pos: [3.5, 1.6, 5], look: [0, 1.5, 0], push: true }, speaker: 'A Mischievous Spirit', portrait: '👻', text: 'Centuries adrift… and not one body to steal. Until tonight.' },
-    { scene: 'bar', cam: { pos: [1.2, 1.7, 3], look: [0, 1.7, 0], push: true }, speaker: 'The Spirit', portrait: '👻', text: 'There. Snoring in his beard — Wobblesworth the Sloshed. Perfect.' },
-    { scene: 'bar', pose: [0, 0, 0], cam: { pos: [-1.6, 2.0, 3.4], look: [0, 1.5, 0] }, special: 'possess', speaker: 'The Spirit', portrait: '🌀', text: 'Budge over, old man. I am moving IN.' },
-    { scene: 'bar', cam: { pos: [0, 1.4, 4.5], look: [0, 1.6, 0], push: true }, speaker: 'The Spirit', portrait: '🧙', text: 'Mead, misfired magic, and nobody home. Let us make a MESS.' },
+  // 1) DRUNK — Wobblesworth drinks himself silly at the bar (no spirit — he's just plastered)
+  drunk: [
+    { scene: 'bar', pose: [0, 0, 0], yaw: 0.2, cam: { pos: [3.2, 1.6, 5], look: [0, 1.5, 0], push: true }, speaker: 'Wobblesworth', portrait: '🧙', text: 'Another, Tomas! Keep \'em coming — it has been a long, DRY week.' },
+    { scene: 'bar', pose: [0, 0, 0], cam: { pos: [-1.4, 1.9, 3.2], look: [0, 1.5, 0] }, special: 'getDrunk', speaker: 'Wobblesworth', portrait: '🥴', text: '*GULP* …hoo. The room has gone all… swimmy. I feel GREAT.' },
+    { scene: 'bar', cam: { pos: [0, 1.4, 4.5], look: [0, 1.6, 0], push: true }, speaker: 'Wobblesworth', portrait: '😜', text: 'You know what this dusty old tavern needs? A bit of CHAOS. Heh heh…' },
   ],
-  // 2) RAMPAGE — just the (possessed) wizard wrecking the place; a smash QTE, no narration.
+  // 2) RAMPAGE — just the drunk wizard wrecking the place; a smash QTE, no narration.
   // Wide shots keep the whole dressed bar (counter, fireplace, barrels, tables) in frame.
   rampage: [
     { scene: 'bar', pose: [0, 0, 0], yaw: 0.4, cam: { pos: [0, 3.0, 8], look: [0.4, 1.2, -0.5], push: true }, dur: 1.7 },
@@ -466,23 +454,23 @@ const SCRIPTS = {
   // 3) THROWN OUT — the patrons hurl the wizard through the door
   thrown: [
     { scene: 'bar', pose: [4.5, 0, -2], yaw: 2.4, cam: { pos: [1.4, 2.0, 1.5], look: [4.4, 1.4, -4], snap: true }, speaker: 'Barkeep Tomas', portrait: '😡', text: 'OUT! Get OUT, you flailing menace!' },
-    { scene: 'bar', pose: [4.5, 0.6, -2], cam: { pos: [1.4, 2.7, 2.2], look: [6.0, 1.5, -4.5] }, special: 'throw', speaker: 'The Patrons', portrait: '👊', text: 'And STAY out!' },
+    { scene: 'bar', pose: [4.5, 0.6, -2], cam: { pos: [1.4, 2.7, 2.2], look: [6.0, 1.5, -4.5] }, special: 'throw', speaker: 'The Patrons', portrait: '😡', text: 'And STAY out!' },
   ],
   // 4) WISP — wake in the forest; the wisp ZOOMS IN and is the SOLE teacher of every
   // core mechanic (cast, crit, mana/chug, motes/level, gems vs gold). Short lines.
   wisp: [
     { scene: 'forest', pose: [0, 0, 0], yaw: 0, cam: { pos: [0, 1.0, 5.5], look: [0, 1.0, 0], push: true }, speaker: 'Wobblesworth', portrait: '🥴', text: 'Ugh… cold moss, moonlight. This is NOT home.' },
-    { scene: 'forest', cam: { pos: [1.75, 1.9, 2.6], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Hello, possessed one! I am your wisp — your guide. Stay close, and I will teach you everything.' },
-    { scene: 'forest', cam: { pos: [0, 1.2, 4.4], look: [0, 1.4, 0] }, special: 'drawDemo', speaker: 'Wisp', portrait: '✍️', text: 'To cast, you TRACE a glyph. A triangle is Fireball — watch me draw it in the air.' },
-    { scene: 'forest', cam: { pos: [1.6, 1.85, 2.8], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '🖱️', text: 'Now you: hold right-click (or draw on the right on phone). Cleaner lines hit harder — a PERFECT glyph CRITS.' },
-    { scene: 'forest', cam: { pos: [1.55, 1.85, 2.9], look: [1.6, 1.78, 0.5] }, special: 'wispAppear', speaker: 'Wisp', portrait: '🍺', text: 'Spells cost mana — and your mana is BEER. It will not refill itself: tap 🍺 to chug it full (it spins the room!).' },
-    { scene: 'forest', cam: { pos: [1.65, 1.85, 3.0], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '💎', text: 'Slain foes drop glowing motes — soak them to LEVEL UP and pick a power. Winning earns 💎 gems for spells.' },
+    { scene: 'forest', cam: { pos: [1.75, 1.9, 2.6], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Hello there, wizard! I am your wisp — your guide. Stay close, and I will teach you everything.' },
+    { scene: 'forest', cam: { pos: [0, 1.2, 4.4], look: [0, 1.4, 0] }, special: 'drawDemo', speaker: 'Wisp', portrait: '✨', text: 'To cast, you TRACE a glyph. A triangle is Fireball — watch me draw it in the air.' },
+    { scene: 'forest', cam: { pos: [1.6, 1.85, 2.8], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Now you: hold right-click (or draw on the right on phone). Cleaner lines hit harder — a PERFECT glyph CRITS.' },
+    { scene: 'forest', cam: { pos: [1.55, 1.85, 2.9], look: [1.6, 1.78, 0.5] }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Spells cost mana — and your mana is BEER. It will not refill itself: tap the beer button to chug it full (it spins the room!).' },
+    { scene: 'forest', cam: { pos: [1.65, 1.85, 3.0], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Slain foes drop glowing motes — soak them up to LEVEL UP and pick a power. Winning a run earns gems for new spells.' },
     { scene: 'forest', cam: { pos: [-1.5, 1.4, 4], look: [0, 1.3, 0], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Gold you earn back at the bar. That is the gist — they are coming. Up, wizard, and DRAW!' },
   ],
   // 5) SCOLD — back at the bar, get an earful and the debt
   scold: [
     { scene: 'bar', pose: [0, 0, 0], yaw: 0.1, cam: { pos: [2.5, 1.6, 4.5], look: [0, 1.5, 0], push: true }, speaker: 'Barkeep Tomas', portrait: '😠', text: 'YOU. You wrecked my tavern, then passed out in the woods.' },
     { scene: 'bar', cam: { pos: [0.5, 1.8, 3], look: [0, 1.6, 0] }, speaker: 'Barkeep Tomas', portrait: '🧾', text: 'You owe me 450 gold. Build a Quest Board and WORK it off.' },
-    { scene: 'bar', cam: { pos: [-2, 1.5, 4.5], look: [0, 1.6, 0], push: true }, speaker: 'The Spirit', portrait: '🧙', text: 'Fine, old goat. We get rich, we pay your debt. To mayhem!' },
+    { scene: 'bar', cam: { pos: [-2, 1.5, 4.5], look: [0, 1.6, 0], push: true }, speaker: 'Wobblesworth', portrait: '🧙', text: 'Fine, old goat. I will get rich and clear your debt. To mayhem!' },
   ],
 };

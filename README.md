@@ -1,7 +1,7 @@
 # 🧙 Wonky Wizard
 
-> A spirit possesses **Wobblesworth the Sloshed**, the realm's drunkest wizard.
-> It **trashes the tavern** for fun, gets hurled out into the night, and wakes in a
+> **Wobblesworth the Sloshed**, the realm's drunkest wizard, gets blind drunk,
+> **trashes the tavern** for fun, gets hurled out into the night, and wakes in a
 > **moonlit forest** beside a glowing **wisp guide**. Draw arcane hand-signs to
 > sling spells, survive the swarm — then work off the **debt** you racked up.
 
@@ -11,7 +11,7 @@ keyframed **camera** (push-ins + handheld sway), **letterbox** bars and
 **portrait dialogue** (not plain text), playing out on **dedicated, dressed 3D sets**
 built just for the cutscenes (a tavern bar with a **barkeep, a flickering fireplace,
 barrels and a door** + a **moonlit forest campsite**, separate from the tavern you
-actually play in): the spirit **swirls down into** Wobblesworth, you **spam-click a
+actually play in): Wobblesworth **drinks himself silly**, you **spam-click a
 smash QTE** to trash the bar, get **hurled in an arc out through the door**, wake by a
 dead campfire in the woods where the **wisp guide** makes an **animated entrance**
 (grows in with a particle burst, then bobs with orbiting motes) and **traces an arcane
@@ -76,11 +76,11 @@ You need WebGL and an internet connection (for the Three.js CDN).
 
 ## 🎮 How to play
 
-You are the **spirit**; the wizard is your wobbly puppet. The night runs in two acts:
+You steer **Wobblesworth**, a hopelessly drunk wizard — a wobbly ragdoll puppet. The night runs in two acts:
 
 1. **The Tavern** — steer the hopelessly drunk wizard to the glowing **door**. Real
    ragdoll physics, very hard to control. Bump a patron (they block you) or knock
-   furniture flying (it topples) and the spirit keeps score.
+   furniture flying (it topples) and the night gets messier.
 2. **The Forest** — you black out and wake in a moonlit wood, fighting a swarm of
    **goblins, bats, vampires, zombies** and the **Goblin King** boss.
 

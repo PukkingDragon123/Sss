@@ -14,7 +14,7 @@ export const TUTORIAL = {
 };
 
 export const BLACKOUT_LINES = {
-  speaker: 'The Spirit',
+  speaker: 'Wobblesworth',
   lines: [
     'You knock back one for the road… the room tips… your knees buckle…',
     '…………',

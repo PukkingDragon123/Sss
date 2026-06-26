@@ -667,12 +667,10 @@ export class Game {
     this.ui.setGold(meta.gold());
     this.state = 'play';
     if (!this._hubShown) {
-      // first time in the hub (after the opening cutscenes) — a quick how-to
-      this._hubShown = true; this._introShown = true; this.tavernReady = false; this.cineT = 0;
-      this.showStory(TUTORIAL.speaker, TUTORIAL.lines, () => { this.tavernReady = true; });
-    } else {
-      this.tavernReady = true;
+      // first time in the hub — the wisp already taught the basics in the cutscene; no modal
+      this._hubShown = true; this._introShown = true;
     }
+    this.tavernReady = true;
     if (this._justInherited) {
       this._justInherited = false;
       this.showStory('The Spirit', [
@@ -879,16 +877,13 @@ export class Game {
     this.ui.setGold(meta.gold());
     this.state = 'play';
     if (this._introRun) {
-      // ===== the guided first fight (the wisp cutscene already taught the basics) =====
+      // the wisp's cutscene already taught casting & mana — drop straight into the guided fight
       this.director.start(stage, { waves: 3, boss: false, hpScale: 0.9, sizeMult: 0.85 });
-      if (!this._guideShown) { this._guideShown = true; this._guideOpen = true; this.ui.showGuide(); this.state = 'paused'; }
-      this._introTutorial();
+      this._guideShown = true;
       return;
     }
     this._beginRoom(false); // the entrance fight (no choice before it)
-    this.showStory('The Spirit', stage.intro, () => {
-      if (!this._guideShown) { this._guideShown = true; this._guideOpen = true; this.ui.showGuide(); this.state = 'paused'; }
-    });
+    this.showStory('The Spirit', stage.intro);
   }
   // wisp tutorial: a few timed, friendly prompts during the first fight
   _introTutorial() {
@@ -1187,6 +1182,9 @@ export class Game {
   // ---------- input ----------
   _handleInput() {
     const events = this.input.drain();
+    // cutscenes own their own input (Continue/skip buttons + the QTE mash listener);
+    // ignore game input here so mashing can't fire interact/guide/drink and hide the set
+    if (this.state === 'cutscene') return;
     for (const e of events) {
       if (e.type === 'mute') { this.toggleMute(); continue; }
       if (e.type === 'guide') { this.toggleGuide(); continue; }

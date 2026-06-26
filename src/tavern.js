@@ -187,8 +187,9 @@ export class Tavern {
     g.add(stair);
     mk('stairs', 'climb to your Room', SX, -10.4, 0xbfa3ff);
 
-    // "tend the bar" spot in front of the counter
-    mk('serve', 'tend the Bar (earn tips)', -7.3, -4, 0x9bff7a);
+    // "tend the bar" spot in front of the counter — no floating marker (the bar is
+    // obvious and the interact prompt guides you; the green dot read as clutter)
+    this.stations.push({ type: 'serve', label: 'tend the Bar (earn tips)', pos: new THREE.Vector3(-7.3, 0, -4), mark: null });
 
     // the venture door
     this.stations.push({ type: 'door', label: 'venture out on a run', pos: this.door.clone(), mark: null });

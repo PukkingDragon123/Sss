@@ -456,24 +456,28 @@ const SCRIPTS = {
     { scene: 'bar', pose: [0, 0, 0], cam: { pos: [-1.6, 2.0, 3.4], look: [0, 1.5, 0] }, special: 'possess', speaker: 'The Spirit', portrait: '🌀', text: 'Budge over, old man. I am moving IN.' },
     { scene: 'bar', cam: { pos: [0, 1.4, 4.5], look: [0, 1.6, 0], push: true }, speaker: 'The Spirit', portrait: '🧙', text: 'Mead, misfired magic, and nobody home. Let us make a MESS.' },
   ],
-  // 2) RAMPAGE — a smash QTE
+  // 2) RAMPAGE — just the (possessed) wizard wrecking the place; a smash QTE, no narration.
+  // Wide shots keep the whole dressed bar (counter, fireplace, barrels, tables) in frame.
   rampage: [
-    { scene: 'bar', pose: [0, 0, 0], yaw: 0.4, cam: { pos: [0, 2.4, 6], look: [0.6, 1.2, 0] }, speaker: 'The Spirit', portrait: '🧙', text: 'So much breakable furniture. Let us say hello.' },
-    { scene: 'bar', pose: [0, 0, 0], cam: { pos: [2.5, 2.2, 5], look: [0.5, 1.0, 0.3], snap: true }, special: 'rampage' },
-    { scene: 'bar', cam: { pos: [-1.5, 1.6, 5], look: [0.4, 1.0, 0.4], push: true }, speaker: 'The Spirit', portrait: '😈', text: 'HAH! Glorious. Old Tomas is going to weep.' },
+    { scene: 'bar', pose: [0, 0, 0], yaw: 0.4, cam: { pos: [0, 3.0, 8], look: [0.4, 1.2, -0.5], push: true }, dur: 1.7 },
+    { scene: 'bar', pose: [0, 0, 0], cam: { pos: [0.4, 3.0, 7.6], look: [0.5, 1.0, -0.4] }, special: 'rampage' },
+    { scene: 'bar', cam: { pos: [-1.6, 2.6, 7], look: [0.4, 1.0, -0.2], push: true }, dur: 1.9 },
   ],
   // 3) THROWN OUT — the patrons hurl the wizard through the door
   thrown: [
     { scene: 'bar', pose: [4.5, 0, -2], yaw: 2.4, cam: { pos: [1.4, 2.0, 1.5], look: [4.4, 1.4, -4], snap: true }, speaker: 'Barkeep Tomas', portrait: '😡', text: 'OUT! Get OUT, you flailing menace!' },
     { scene: 'bar', pose: [4.5, 0.6, -2], cam: { pos: [1.4, 2.7, 2.2], look: [6.0, 1.5, -4.5] }, special: 'throw', speaker: 'The Patrons', portrait: '👊', text: 'And STAY out!' },
   ],
-  // 4) WISP — wake in the forest; the wisp appears and teaches the first glyph
+  // 4) WISP — wake in the forest; the wisp ZOOMS IN and is the SOLE teacher of every
+  // core mechanic (cast, crit, mana/chug, motes/level, gems vs gold). Short lines.
   wisp: [
-    { scene: 'forest', pose: [0, 0, 0], yaw: 0, cam: { pos: [0, 1.0, 5.5], look: [0, 1.0, 0], push: true }, speaker: 'The Spirit', portrait: '🥴', text: 'Cold moss. Moonlight. This is NOT the way home.' },
-    { scene: 'forest', cam: { pos: [2, 1.6, 3.5], look: [1.2, 1.6, 0.5] }, special: 'wispAppear', speaker: 'A Wisp', portrait: '✨', text: 'A light blooms out of the dark. "Hello, possessed one."' },
-    { scene: 'forest', cam: { pos: [1.4, 1.7, 3.2], look: [1.0, 1.7, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'I am your guide. Those red eyes bite — but you have MAGIC.' },
-    { scene: 'forest', cam: { pos: [0, 1.2, 4.4], look: [0, 1.4, 0] }, special: 'drawDemo', speaker: 'Wisp', portrait: '✍️', text: 'Fireball: trace a TRIANGLE. Hold right-click (or draw on the right) — follow the line!' },
-    { scene: 'forest', cam: { pos: [-1.5, 1.4, 4], look: [0, 1.3, 0], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Clean lines CRIT. They are coming — up, and DRAW!' },
+    { scene: 'forest', pose: [0, 0, 0], yaw: 0, cam: { pos: [0, 1.0, 5.5], look: [0, 1.0, 0], push: true }, speaker: 'Wobblesworth', portrait: '🥴', text: 'Ugh… cold moss, moonlight. This is NOT home.' },
+    { scene: 'forest', cam: { pos: [1.75, 1.9, 2.6], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Hello, possessed one! I am your wisp — your guide. Stay close, and I will teach you everything.' },
+    { scene: 'forest', cam: { pos: [0, 1.2, 4.4], look: [0, 1.4, 0] }, special: 'drawDemo', speaker: 'Wisp', portrait: '✍️', text: 'To cast, you TRACE a glyph. A triangle is Fireball — watch me draw it in the air.' },
+    { scene: 'forest', cam: { pos: [1.6, 1.85, 2.8], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '🖱️', text: 'Now you: hold right-click (or draw on the right on phone). Cleaner lines hit harder — a PERFECT glyph CRITS.' },
+    { scene: 'forest', cam: { pos: [1.55, 1.85, 2.9], look: [1.6, 1.78, 0.5] }, special: 'wispAppear', speaker: 'Wisp', portrait: '🍺', text: 'Spells cost mana — and your mana is BEER. It will not refill itself: tap 🍺 to chug it full (it spins the room!).' },
+    { scene: 'forest', cam: { pos: [1.65, 1.85, 3.0], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '💎', text: 'Slain foes drop glowing motes — soak them to LEVEL UP and pick a power. Winning earns 💎 gems for spells.' },
+    { scene: 'forest', cam: { pos: [-1.5, 1.4, 4], look: [0, 1.3, 0], push: true }, special: 'wispAppear', speaker: 'Wisp', portrait: '✨', text: 'Gold you earn back at the bar. That is the gist — they are coming. Up, wizard, and DRAW!' },
   ],
   // 5) SCOLD — back at the bar, get an earful and the debt
   scold: [

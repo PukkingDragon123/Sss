@@ -16,7 +16,11 @@ smash QTE** to trash the bar, get **hurled in an arc out through the door**, wak
 dead campfire in the woods where the **wisp guide** makes an **animated entrance**
 (grows in with a particle burst, then bobs with orbiting motes) and **traces an arcane
 glyph to teach you to draw** before your guided first fight and the morning-after
-**scold**. Plus a **pay-the-debt main
+**scold**. Plus a **playstyle pick** before each venture (Pyromancer / Frostbinder /
+Stormcaller / Brawler) that shapes your build, a glowing **wisp** that pipes up with
+cozy tips & warnings, a persistent **main-quest tracker** that always names your next
+step, **unique enemies with abilities** (ranged casters, chargers, splitters,
+summoners, shielders, bombers), a **pay-the-debt main
 quest**, **deck-building**
 (curate which boons appear on level-up), **quest-gated facilities** (Equipment
 Hall, Cauldron, Anvil, Library unlock as you claim bounties), **3 save slots**,
@@ -176,6 +180,10 @@ unleash it toward where you were aiming.
 - Clear each **room**, pick a **door** (and its previewed prize), then fell the
   **region boss** to claim its **✦ artifact**, conquer the region and unlock the
   next on the world map.
+- Before each venture, **pick a playstyle** — Pyromancer, Frostbinder, Stormcaller or
+  Brawler — forcing a signature spell, weighting your level-up boons toward that build,
+  and granting a passive. Your **wisp** chimes in with tips & warnings, and a corner
+  **quest tracker** always shows your current goal and next step.
 - **Money comes only from working** (or finishing quests). The Tipsy Toad has **4
   tables**; patrons sit down and wait with a 🍺 thought bubble. Walk up to **take
   their order**, go to the **bar to pour it**, then **carry the full mug back** to

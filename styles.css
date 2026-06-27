@@ -854,3 +854,63 @@ body::after{content:"";position:fixed;inset:0;z-index:4;pointer-events:none;
 .qp-task.done{color:var(--xp);}
 .qp-task .tick{flex:0 0 auto;width:18px;text-align:center;font-weight:900;}
 .qp-progress{font-size:12px;color:var(--ink-dim);margin-top:8px;}
+
+/* ===== magic FX palette ===== */
+:root{ --fire:#ff7a32; --sparkle:#fff39a; --bubble:#bfe6ff; }
+
+/* ===== Build mode: dock the panel to the bottom so the bird's-eye den shows above it ===== */
+#shop.build-mode{align-items:flex-end;justify-content:center;text-align:center;padding:0 0 max(10px,env(safe-area-inset-bottom)) 0;
+  background:linear-gradient(to top, rgba(10,6,18,0.94) 0%, rgba(10,6,18,0.55) 42%, rgba(10,6,18,0) 74%);}
+#shop.build-mode .shop-box{width:min(96vw,940px);max-height:54vh;margin:0;animation:dockUp .3s cubic-bezier(.34,1.45,.6,1) both;}
+@keyframes dockUp{from{transform:translateY(40px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+
+/* ===== Rotatable 3D build preview ===== */
+#build-preview{position:fixed;top:clamp(8px,3vh,46px);left:50%;transform:translateX(-50%);z-index:30;
+  display:flex;flex-direction:column;align-items:center;gap:7px;padding:9px 9px 11px;
+  background:var(--panel);border:1.5px solid var(--panel-edge);border-radius:16px;box-shadow:0 12px 34px rgba(0,0,0,.55);
+  animation:popIn .34s cubic-bezier(.34,1.56,.64,1) both;}
+#build-preview.hidden{display:none;}
+#bp-canvas{width:170px;height:150px;border-radius:12px;
+  background:radial-gradient(ellipse at 50% 38%, rgba(96,72,140,.55), rgba(12,7,22,.7));}
+.bp-label{font-weight:800;color:var(--gold);font-size:14px;max-width:170px;text-align:center;}
+.bp-rotate{font-family:inherit;font-weight:800;font-size:13px;color:#1a1020;background:linear-gradient(#ffd873,#f0a83c);
+  border:none;border-radius:11px;padding:7px 16px;cursor:pointer;box-shadow:0 3px 0 #9c641b;transition:transform .08s;}
+.bp-rotate:hover{filter:brightness(1.06);}
+.bp-rotate:active{transform:translateY(2px) scale(.95);box-shadow:0 1px 0 #9c641b;}
+@media (max-width:760px),(pointer:coarse){ #bp-canvas{width:128px;height:112px;} #build-preview{top:6px;} }
+
+/* ===== bouncy, squishy juice ===== */
+@keyframes popIn{0%{transform:scale(.6);opacity:0;}60%{transform:scale(1.12);}100%{transform:scale(1);opacity:1;}}
+@keyframes cardPop{0%{transform:translateY(14px) scale(.8) rotate(-3deg);opacity:0;}
+  60%{transform:translateY(0) scale(1.08) rotate(1deg);}100%{transform:translateY(0) scale(1) rotate(0);opacity:1;}}
+.card{animation:cardPop .42s cubic-bezier(.34,1.56,.64,1) both;}
+/* satisfying press squish on every tappable */
+.shop-btn:active,.build-item:active,.btn:active,.vil-tab:active,.bi-icon:active,#btn-drink:active,#btn-build:active,#btn-interact:active{transform:translateY(1px) scale(.95);}
+.build-cell:active{transform:scale(.9);}
+.card:hover{will-change:transform;}
+/* wisp bubble pops in bouncier */
+#wisp-bubble.show{animation:wispPop .34s cubic-bezier(.34,1.56,.64,1);}
+@keyframes wispPop{0%{transform:translateY(8px) scale(.7);}60%{transform:translateY(0) scale(1.06);}100%{transform:translateY(0) scale(1);}}
+/* toast gets a springy entrance + a soft sparkle sheen */
+.toast{animation:toastPop2 .4s cubic-bezier(.34,1.56,.64,1), toastpop 1.7s ease forwards;}
+@keyframes toastPop2{0%{transform:scale(.7);}60%{transform:scale(1.08);}100%{transform:scale(1);}}
+
+/* ===== DOM burst particles: sparkle / bubble / fire / gem ===== */
+.fx-burst{position:fixed;pointer-events:none;z-index:60;width:9px;height:9px;border-radius:50%;
+  left:0;top:0;will-change:transform,opacity;animation:fxFly var(--fxdur,.62s) ease-out forwards;}
+.fx-burst.sparkle{background:radial-gradient(circle,#fff 0%,var(--sparkle) 60%,transparent 75%);box-shadow:0 0 8px var(--sparkle);}
+.fx-burst.bubble{background:radial-gradient(circle at 34% 30%,#fff,rgba(120,200,255,.45) 70%,transparent 78%);border:1px solid rgba(190,230,255,.7);}
+.fx-burst.fire{background:radial-gradient(circle,#fff3a0 0%,var(--fire) 60%,transparent 78%);box-shadow:0 0 10px var(--fire);}
+.fx-burst.gem{background:radial-gradient(circle,#fff 0%,#9fe0ff 60%,transparent 76%);box-shadow:0 0 8px var(--mana);}
+@keyframes fxFly{0%{transform:translate(var(--x),var(--y)) scale(1);opacity:1;}
+  100%{transform:translate(calc(var(--x) + var(--dx)),calc(var(--y) + var(--dy))) scale(.25);opacity:0;}}
+
+/* ===== combo counter — punchy, center-top ===== */
+#combo-hud{position:fixed;top:15%;left:50%;transform:translateX(-50%);z-index:14;pointer-events:none;text-align:center;
+  opacity:0;transition:opacity .18s;}
+#combo-hud.show{opacity:1;}
+#combo-hud .combo-n{font-size:clamp(34px,7vw,50px);font-weight:900;color:var(--gold);line-height:1;
+  text-shadow:0 0 18px rgba(255,160,40,.7),0 3px 0 #7a3a00;}
+#combo-hud .combo-lbl{font-size:13px;letter-spacing:3px;text-transform:uppercase;color:#ffd9a0;font-weight:800;margin-top:2px;}
+#combo-hud.punch .combo-n{animation:comboPunch .26s ease-out;}
+@keyframes comboPunch{0%{transform:scale(1.5);}55%{transform:scale(.9);}100%{transform:scale(1);}}

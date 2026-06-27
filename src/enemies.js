@@ -93,23 +93,37 @@ export class Enemies {
     const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.5 });
     const anim = { wings: null, cape: null };
 
-    // squat blobby body
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.55, 14, 12), bodyMat);
+    const fierce = !!(def.boss || def.emissive || type === 'vampire' || type === 'warden' || type === 'spider' || type === 'spiderqueen');
+
+    // squat blobby body (smoother now) + a paler belly patch for a bit of shape
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.55, 18, 16), bodyMat);
     body.scale.set(1, 1.15, 1);
     body.position.y = 0.6;
     body.castShadow = true;
     g.add(body);
+    const bellyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.16, roughness: 0.9, depthWrite: false });
+    const belly = new THREE.Mesh(new THREE.SphereGeometry(0.4, 14, 12), bellyMat); belly.scale.set(0.9, 1.0, 0.6); belly.position.set(0, 0.52, 0.32); g.add(belly);
 
-    // eyes (recoloured for vampires)
+    // eyes (recoloured for vampires) + glints so they read as alive
     const eyeW = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
-    const pupMat = type === 'vampire' ? new THREE.MeshStandardMaterial({ color: 0xff2a3a, emissive: 0x661017, roughness: 0.5 }) : darkMat;
-    const eGeo = new THREE.SphereGeometry(0.17, 10, 10);
+    const pupMat = (type === 'vampire' || fierce && def.emissive) ? new THREE.MeshStandardMaterial({ color: 0xff2a3a, emissive: 0x661017, emissiveIntensity: 0.7, roughness: 0.5 }) : darkMat;
+    const eGeo = new THREE.SphereGeometry(0.17, 12, 12);
     const eL = new THREE.Mesh(eGeo, eyeW); eL.position.set(-0.2, 0.85, 0.42);
     const eR = new THREE.Mesh(eGeo, eyeW); eR.position.set(0.2, 0.85, 0.42);
-    const pGeo = new THREE.SphereGeometry(0.08, 8, 8);
+    const pGeo = new THREE.SphereGeometry(0.08, 10, 10);
     const pL = new THREE.Mesh(pGeo, pupMat); pL.position.set(-0.2, 0.85, 0.55);
     const pR = new THREE.Mesh(pGeo, pupMat); pR.position.set(0.2, 0.85, 0.55);
-    g.add(eL, eR, pL, pR);
+    const glGeo = new THREE.SphereGeometry(0.035, 6, 6);
+    const glL = new THREE.Mesh(glGeo, eyeW); glL.position.set(-0.23, 0.9, 0.61);
+    const glR = new THREE.Mesh(glGeo, eyeW); glR.position.set(0.17, 0.9, 0.61);
+    g.add(eL, eR, pL, pR, glL, glR);
+
+    // brows (angrier on dangerous foes) + a little mouth for character
+    const browGeo = new THREE.BoxGeometry(0.2, 0.055, 0.07);
+    const bL = new THREE.Mesh(browGeo, darkMat); bL.position.set(-0.2, 1.02, 0.46); bL.rotation.z = fierce ? -0.5 : -0.16;
+    const bR = new THREE.Mesh(browGeo, darkMat); bR.position.set(0.2, 1.02, 0.46); bR.rotation.z = fierce ? 0.5 : 0.16;
+    const mouth = new THREE.Mesh(new THREE.BoxGeometry(fierce ? 0.3 : 0.2, 0.05, 0.05), darkMat); mouth.position.set(0, 0.62, 0.5); mouth.rotation.z = fierce ? 0 : 0.0;
+    g.add(bL, bR, mouth);
 
     // little feet (flyers/floaters have none)
     if (type !== 'bat' && type !== 'brutebat' && type !== 'wraith' && type !== 'drone') {
@@ -126,6 +140,7 @@ export class Enemies {
       const earL = new THREE.Mesh(earGeo, bodyMat); earL.position.set(-er, ey, 0); earL.rotation.z = 1.1; earL.castShadow = true;
       const earR = new THREE.Mesh(earGeo, bodyMat); earR.position.set(er, ey, 0); earR.rotation.z = -1.1; earR.castShadow = true;
       g.add(earL, earR);
+      const nose = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.18, 6), bodyMat); nose.position.set(0, 0.74, 0.56); nose.rotation.x = Math.PI / 2; nose.castShadow = true; g.add(nose);
       if (type === 'rat') { // long tail + snout
         const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.02, 0.9, 6), bodyMat); tail.position.set(0, 0.4, -0.6); tail.rotation.x = 1.1; g.add(tail);
         body.scale.set(1.1, 0.85, 1.3);
@@ -153,6 +168,9 @@ export class Enemies {
       const hL = new THREE.Mesh(hgGeo, hornMat); hL.position.set(-0.28, 1.0, 0); hL.rotation.z = 0.5; hL.castShadow = true;
       const hR = new THREE.Mesh(hgGeo, hornMat); hR.position.set(0.28, 1.0, 0); hR.rotation.z = -0.5; hR.castShadow = true;
       g.add(hL, hR);
+      // a barbed devil tail with a glowing tip
+      const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.02, 0.7, 6), hornMat); tail.position.set(0, 0.45, -0.5); tail.rotation.x = -0.9; tail.castShadow = true; g.add(tail);
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.22, 5), new THREE.MeshStandardMaterial({ color: def.color, emissive: def.emissive || 0x000000, emissiveIntensity: 0.7, roughness: 0.5 })); tip.position.set(0, 0.8, -0.76); tip.rotation.x = 0.5; g.add(tip);
     }
     // antenna + rotor for the machines
     if (type === 'drone' || type === 'bot' || type === 'overmind') {
@@ -180,6 +198,9 @@ export class Enemies {
         }
       }
       body.scale.set(1.2, 0.8, 1.1);
+      // dripping mandible fangs
+      const fangMat = new THREE.MeshStandardMaterial({ color: 0xe8e4d6, roughness: 0.4 });
+      for (const sx of [-1, 1]) { const f = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.2, 5), fangMat); f.position.set(sx * 0.12, 0.5, 0.5); f.rotation.x = 2.3; f.castShadow = true; g.add(f); }
     }
     if (type === 'zombie') {
       body.position.y = 0.62; body.scale.set(1.05, 1.0, 1.05);
@@ -212,6 +233,9 @@ export class Enemies {
       collar.position.set(0, 1.05, -0.1); collar.rotation.x = -0.4;
       g.add(cape, collar);
       anim.cape = cape;
+      // little fangs
+      const fangMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
+      for (const sx of [-1, 1]) { const f = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 5), fangMat); f.position.set(sx * 0.07, 0.56, 0.52); f.rotation.x = Math.PI; g.add(f); }
     }
 
     g.scale.setScalar(def.size);
@@ -244,6 +268,8 @@ export class Enemies {
     e.atkCd = def.atkInterval ? def.atkInterval * (0.5 + Math.random() * 0.6) : 0; // stagger first ability use
     e.shield = def.shield || 0;
     e.charging = 0;
+    e.squashT = 0;
+    e.mesh.rotation.x = 0;
 
     const center = near || new THREE.Vector3();
     const ang = Math.random() * Math.PI * 2;
@@ -267,9 +293,10 @@ export class Enemies {
   damage(e, n, game, knockDir = null, knockAmt = 0) {
     if (!e.alive) return;
     if (game && e.slow > 0 && game.stats && game.stats.shatterDmg) n *= (1 + game.stats.shatterDmg); // Shatter: bonus vs slowed
-    if (e.shield > 0) { const a = Math.min(e.shield, n); e.shield -= a; n -= a; e.flash = 0.12; if (n <= 0) { if (game) game.popDamage(e.mesh.position, a); return; } }
+    if (e.shield > 0) { const a = Math.min(e.shield, n); e.shield -= a; n -= a; e.flash = 0.12; e.squashT = 0.16; if (n <= 0) { if (game) game.popDamage(e.mesh.position, a); return; } }
     e.hp -= n;
     e.flash = 0.12;
+    e.squashT = 0.16;   // recoil squash on a hit
     if (knockDir && knockAmt) e.knock.addScaledVector(knockDir.clone().setY(0).normalize(), knockAmt);
     if (game) game.popDamage(e.mesh.position, n);
     if (e.hp <= 0) this._kill(e, game);
@@ -285,8 +312,9 @@ export class Enemies {
     const def = TYPES[e.type];
     if (game) {
       game.audio.play('enemyDie');
-      game.particles.burst({ pos: e.mesh.position.clone().setY(0.7 * def.size), color: def.color, count: def.boss ? 44 : 12, speed: def.boss ? 11 : 6, size: 0.35 * def.size, life: 0.9, up: 3, blend: 'normal' });
-      game.particles.burst({ pos: e.mesh.position.clone().setY(0.7 * def.size), color: 0xffffff, count: 6, speed: 7, size: 0.25, life: 0.5 });
+      game.particles.burst({ pos: e.mesh.position.clone().setY(0.7 * def.size), color: def.color, count: def.boss ? 54 : 16, speed: def.boss ? 11 : 7, size: 0.35 * def.size, life: 0.9, up: 3, blend: 'normal' });
+      game.particles.burst({ pos: e.mesh.position.clone().setY(0.7 * def.size), color: 0xffffff, count: 8, speed: 8, size: 0.26, life: 0.45 });
+      game.particles.ring({ pos: e.mesh.position.clone().setY(0.2), color: 0xffffff, r0: 0.2, r1: 1.4 * def.size + 0.8, life: 0.32 }); // a crisp death pop
       game.spawnXP(e.mesh.position.clone(), e.xp);
       game.enemyDrop(e.mesh.position.clone(), def);
       if (def.boss) { this.bossAlive = false; game.particles.ring({ pos: e.mesh.position.clone(), color: 0xffd98a, r0: 1, r1: 16, life: 0.9 }); game.onBossDead(); }
@@ -360,13 +388,18 @@ export class Enemies {
       e.mesh.position.x = Math.max(-ARENA, Math.min(ARENA, e.mesh.position.x));
       e.mesh.position.z = Math.max(-ARENA, Math.min(ARENA, e.mesh.position.z));
 
-      // wobble (the wonk)
+      // wobble (the wonk) — squishier now: idle jiggle + harder pulse while charging + recoil on hits
       e.phase += dt * (4 + speed);
       e.mesh.rotation.y = Math.atan2(dx, dz);
       e.mesh.rotation.z = Math.sin(e.phase) * 0.18;
-      const squash = 1 + Math.sin(e.phase * 2) * 0.07;
-      e.mesh.scale.y = TYPES[e.type].size * squash;
-      e.mesh.scale.x = TYPES[e.type].size * (2 - squash);
+      e.mesh.rotation.x = e.charging > 0 ? -0.28 : (e.mesh.rotation.x ? e.mesh.rotation.x * 0.8 : 0); // lean into a lunge
+      const amp = 0.09 + (e.charging > 0 ? 0.12 : 0);
+      let squash = 1 + Math.sin(e.phase * 2) * amp;
+      if (e.squashT > 0) { e.squashT -= dt; const k = e.squashT / 0.16; squash *= (1 - 0.3 * k * k); } // flatten on a hit, spring back
+      const baseSz = TYPES[e.type].size;
+      e.mesh.scale.y = baseSz * squash;
+      e.mesh.scale.x = baseSz * (2 - squash);
+      e.mesh.scale.z = baseSz * (1 + (squash - 1) * 0.4);
       const hover = e.baseY > 0 ? e.baseY + Math.sin(e.phase * 1.4) * 0.35 : Math.abs(Math.sin(e.phase)) * 0.12 * TYPES[e.type].size;
       e.mesh.position.y = hover;
       if (e.anim.wings) { const f = Math.sin(e.phase * 6); e.anim.wings[0].rotation.y = f * 0.7; e.anim.wings[1].rotation.y = Math.PI - f * 0.7; }

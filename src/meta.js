@@ -80,13 +80,13 @@ export const buildableById = (id) => BUILDABLES.find(b => b.id === id);
 export const placedItems = () => (state.room.placed || (state.room.placed = []));
 export const cellOccupied = (gx, gy) => placedItems().some(p => p.gx === gx && p.gy === gy);
 export const stationBuilt = (id) => placedItems().some(p => p.id === id);
-export function placeItem(id, gx, gy) {
+export function placeItem(id, gx, gy, rot = 0) {
   const b = buildableById(id); if (!b) return false;
   if (b.feature && !featureUnlocked(b.feature)) return false; // locked until a quest unlocks it
   if (gx < 0 || gy < 0 || gx >= ROOM_GW || gy >= ROOM_GH) return false;
   if (cellOccupied(gx, gy) || !canAfford(b.cost)) return false;
   if (b.station && stationBuilt(id)) return false; // only one of each station
-  state.gold -= b.cost; placedItems().push({ id, gx, gy }); save(); return true;
+  state.gold -= b.cost; placedItems().push({ id, gx, gy, rot: rot || 0 }); save(); return true;
 }
 export function removeAt(gx, gy) {
   const arr = placedItems(); const i = arr.findIndex(p => p.gx === gx && p.gy === gy);

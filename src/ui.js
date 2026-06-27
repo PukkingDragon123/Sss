@@ -1,5 +1,6 @@
 // ui.js — all the DOM: HUD, story modal, level-up cards, toasts, results,
 // and the tavern shop panels (skill tree / cauldron / room / manager).
+import * as THREE from 'three';
 import { SPELL_ORDER, SPELLS } from './spells.js';
 import { TEMPLATES } from './recognizer.js';
 import * as meta from './meta.js';
@@ -100,6 +101,8 @@ export class UI {
       btnGuide: $('btn-guide'), btnPause: $('btn-pause'), btnMute: $('btn-mute'),
       btnQuests: $('btn-quests'), btnInv: $('btn-inv'),
       questPanel: $('quest-panel'), qpBody: $('qp-body'), qpClose: $('qp-close'),
+      buildPreview: $('build-preview'), bpCanvas: $('bp-canvas'), bpLabel: $('bp-label'), bpRotate: $('bp-rotate'),
+      comboHud: $('combo-hud'), comboN: $('combo-n'),
       joystick: $('joystick'), joyKnob: $('joy-knob'), blackout: $('blackout'),
       glyphGuide: $('glyph-guide'), guideCards: $('guide-cards'), btnGuideClose: $('btn-guide-close'),
     };
@@ -155,6 +158,7 @@ export class UI {
     if (this.el.btnDrink) this.el.btnDrink.addEventListener('click', () => game.drink());
     if (this.el.btnBuild) this.el.btnBuild.addEventListener('click', () => game.openBuild());
     this.el.shopClose.addEventListener('click', () => { game.audio.play('click'); game.closeShop(); });
+    if (this.el.bpRotate) this.el.bpRotate.addEventListener('click', () => { game.audio.play('click'); this._buildRot = ((this._buildRot || 0) + Math.PI / 2) % (Math.PI * 2); this.burstFX(this.el.bpRotate, 'sparkle', 5); });
     // shop buttons are delegated (the body is re-rendered on every action)
     this.el.shopBody.addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]');
@@ -302,6 +306,7 @@ export class UI {
     if (this.el.btnBuild) this.el.btnBuild.classList.toggle('hidden', !room);  // build only in your room
     if (this.el.abilityTray) this.el.abilityTray.classList.toggle('hidden', !arena || !this.el.abilityTray.innerHTML);
     if (this.el.drunkWrap) this.el.drunkWrap.classList.toggle('hidden', !arena);
+    if (!arena) this.hideCombo();   // never let the combo counter linger outside a fight
     if (this.el.questTracker) { this.el.questTracker.classList.toggle('hidden', !(tavern || room)); this._qtSig = null; } // main-quest tracker in the hub
     if (!world) this.hideWorldHud();
     if (!arena && !world) { this.el.interactPrompt.classList.add('hidden'); this.el.btnInteract.classList.add('hidden'); }
@@ -656,6 +661,42 @@ export class UI {
     setTimeout(() => t.remove(), 1700);
   }
 
+  // a quick spray of little DOM motes (sparkle / bubble / fire / gem) at an element or {x,y}
+  burstFX(anchor, type = 'sparkle', count = 8) {
+    let cx, cy;
+    if (anchor && anchor.getBoundingClientRect) { const r = anchor.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2; }
+    else if (anchor && typeof anchor.x === 'number') { cx = anchor.x; cy = anchor.y; }
+    else return;
+    this._fxCount = this._fxCount || 0;
+    for (let i = 0; i < count; i++) {
+      if (this._fxCount > 80) break;
+      this._fxCount++;
+      const a = (i / count) * Math.PI * 2 + Math.random() * 0.7;
+      const dist = 24 + Math.random() * 38;
+      const s = document.createElement('div');
+      s.className = 'fx-burst ' + type;
+      s.style.setProperty('--x', cx.toFixed(0) + 'px');
+      s.style.setProperty('--y', cy.toFixed(0) + 'px');
+      s.style.setProperty('--dx', (Math.cos(a) * dist).toFixed(0) + 'px');
+      s.style.setProperty('--dy', (Math.sin(a) * dist - (type === 'bubble' ? 34 : 8)).toFixed(0) + 'px');
+      s.style.setProperty('--fxdur', (0.5 + Math.random() * 0.35).toFixed(2) + 's');
+      const px = (8 + Math.random() * 8).toFixed(0) + 'px'; s.style.width = px; s.style.height = px;
+      document.body.appendChild(s);
+      setTimeout(() => { s.remove(); this._fxCount--; }, 920);
+    }
+  }
+
+  // punchy kill-combo counter
+  showCombo(n) {
+    const h = this.el.comboHud; if (!h) return;
+    this.el.comboN.textContent = 'x' + n;
+    h.classList.add('show');
+    h.classList.remove('punch'); void h.offsetWidth; h.classList.add('punch');
+    clearTimeout(this._comboT);
+    this._comboT = setTimeout(() => h.classList.remove('show'), 1500);
+  }
+  hideCombo() { if (this.el.comboHud) { this.el.comboHud.classList.remove('show'); clearTimeout(this._comboT); } }
+
   // the wisp speaks — a cozy, non-blocking bubble for warnings & tips (replaces blunt toasts).
   // tone:'warn' tints the edge red; big:true makes the wisp "zoom in" with a bigger pop for key tips.
   wispSay(text, opts = {}) {
@@ -775,6 +816,7 @@ export class UI {
         <div class="card-tag">${u.tag}</div>`;
       card.addEventListener('click', () => {
         this.game.audio.play('click');
+        this.burstFX(card, 'sparkle', 14);
         this.el.levelup.classList.add('hidden');
         onPick(u);
       });
@@ -787,7 +829,7 @@ export class UI {
   showResults(win, info) {
     this.el.endTitle.textContent = win ? `${info.stage} — Conquered!` : 'The Wizard Passed Out';
     this.el.endStats.innerHTML = `
-      <div class="end-summary">${info.stage} · 🚪 ${info.rooms} rooms · ☠ ${info.kills} · Lv ${info.level} · ☀️ Day ${info.day}</div>
+      <div class="end-summary">${info.stage} · 🚪 ${info.rooms} rooms · ☠ ${info.kills} · Lv ${info.level} · ☀️ Day ${info.day}${info.combo >= 5 ? ` · 🔥 best combo x${info.combo}` : ''}</div>
       ${info.artifact ? `<div class="end-artifact">✦✦ Claimed artifact: <b>${info.artifact}</b></div>` : ''}
       ${info.research ? `<div class="end-artifact" style="color:var(--mana)">🔬 Research complete: <b>${info.research}</b></div>` : ''}
       <div class="loot-box">
@@ -803,14 +845,14 @@ export class UI {
   comboToast(name) {
     const t = document.createElement('div');
     t.className = 'toast crit'; t.textContent = `⚡ COMBO: ${name}!`;
-    this.el.toastArea.appendChild(t); setTimeout(() => t.remove(), 1700);
+    this.el.toastArea.appendChild(t); this.burstFX(t, 'fire', 12); setTimeout(() => t.remove(), 1700);
   }
   lootToast(gear) {
     const rc = meta.RARITIES[gear.rarity];
     const t = document.createElement('div');
     t.className = 'toast'; t.style.color = rc.color; t.style.borderColor = rc.color;
     t.textContent = `🎁 ${rc.name} ${gear.name}!`;
-    this.el.toastArea.appendChild(t); setTimeout(() => t.remove(), 1900);
+    this.el.toastArea.appendChild(t); this.burstFX(t, 'gem', 10); setTimeout(() => t.remove(), 1900);
   }
 
   _renderPips(d) {
@@ -1127,23 +1169,74 @@ export class UI {
     this._shopGame = game;
     this.setGold(meta.gold());
     this._renderShop();
+    this.el.shop.classList.toggle('build-mode', kind === 'build');
     this.el.shop.classList.remove('hidden');
+    if (kind === 'build') { if (this._buildRot === undefined) this._buildRot = 0; this.el.buildPreview.classList.remove('hidden'); this._setPreviewItem(this._buildSel); this._startPreview(); }
   }
-  closeShop() { this.el.shop.classList.add('hidden'); }
+  closeShop() { this.el.shop.classList.add('hidden'); this.el.shop.classList.remove('build-mode'); if (this.el.buildPreview) this.el.buildPreview.classList.add('hidden'); this._stopPreview(); }
+
+  // ---- rotatable 3D build preview (its own tiny renderer over the bottom-docked build panel) ----
+  _ensurePreview() {
+    if (this._pvRenderer || !this.el.bpCanvas) return;
+    const c = this.el.bpCanvas;
+    this._pvRenderer = new THREE.WebGLRenderer({ canvas: c, alpha: true, antialias: true });
+    this._pvRenderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    this._pvRenderer.setSize(c.width, c.height, false);
+    this._pvScene = new THREE.Scene();
+    this._pvCamera = new THREE.PerspectiveCamera(40, c.width / c.height, 0.1, 50);
+    this._pvCamera.position.set(0, 0.5, 3.5); this._pvCamera.lookAt(0, 0, 0);
+    this._pvScene.add(new THREE.AmbientLight(0xffffff, 0.75));
+    const key = new THREE.DirectionalLight(0xfff0d8, 1.1); key.position.set(2.5, 4, 3); this._pvScene.add(key);
+    const rim = new THREE.DirectionalLight(0x9b7bff, 0.55); rim.position.set(-3, 1.5, -2); this._pvScene.add(rim);
+  }
+  _disposePvMesh() {
+    if (!this._pvMesh) return;
+    this._pvScene.remove(this._pvMesh);
+    this._pvMesh.traverse(o => { if (o.isMesh) { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); } });
+    this._pvMesh = null;
+  }
+  _setPreviewItem(id) {
+    this._ensurePreview(); if (!this._pvScene) return;
+    this._disposePvMesh();
+    if (!id || !this.game || !this.game.tavern) { if (this.el.bpLabel) this.el.bpLabel.textContent = 'Pick a piece to preview'; return; }
+    const built = this.game.tavern._buildPlaced(id); if (!built) return;
+    const pivot = new THREE.Group(); pivot.add(built);
+    const box = new THREE.Box3().setFromObject(built);
+    const ctr = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+    built.position.set(-ctr.x, -ctr.y, -ctr.z);          // recentre the model inside its pivot
+    const maxd = Math.max(sz.x, sz.y, sz.z) || 1; pivot.scale.setScalar(1.7 / maxd);
+    this._pvScene.add(pivot); this._pvMesh = pivot;
+    const b = meta.buildableById(id); if (this.el.bpLabel) this.el.bpLabel.textContent = b ? `${b.icon} ${b.name}` : '';
+  }
+  _startPreview() {
+    this._ensurePreview(); if (this._pvActive || !this._pvRenderer) return;
+    this._pvActive = true;
+    const loop = () => { if (!this._pvActive) return; this._pvFrame(); this._pvRaf = requestAnimationFrame(loop); };
+    loop();
+  }
+  _stopPreview() { this._pvActive = false; if (this._pvRaf) cancelAnimationFrame(this._pvRaf); }
+  _pvFrame() {
+    if (!this._pvRenderer) return;
+    this._pvSpinV = (this._pvSpinV === undefined ? 0.6 : this._pvSpinV); this._pvSpinV += (0.6 - this._pvSpinV) * 0.04;
+    this._pvAngle = (this._pvAngle || 0) + this._pvSpinV * 0.016;
+    if (this._pvMesh) { this._pvMesh.rotation.y = this._pvAngle; this._pvMesh.position.y = Math.sin(this._pvAngle * 1.3) * 0.05; }
+    this._pvRenderer.render(this._pvScene, this._pvCamera);
+  }
 
   _shopAction(act, id, slot) {
     const g = this._shopGame;
     if (act === 'startrun') { g.startRun(id); return; }
     if (act === 'buildtab') { this._buildTab = id; this._buildSel = null; if (g) g.audio.play('click'); this._renderShop(); return; }
     if (act === 'libtab') { this._libTab = id; if (g) g.audio.play('click'); this._renderShop(); return; }
-    if (act === 'selbuild') { this._buildSel = (this._buildSel === id ? null : id); if (g) g.audio.play('click'); this._renderShop(); return; }
+    if (act === 'selbuild') { this._buildSel = (this._buildSel === id ? null : id); this._setPreviewItem(this._buildSel); if (this._buildSel) this._pvSpinV = 6; if (g) g.audio.play('click'); this._renderShop(); return; }
     if (act === 'place') {
       const [gx, gy] = id.split('_').map(Number);
       let ok, placedStation = null;
       if (meta.cellOccupied(gx, gy)) ok = meta.removeAt(gx, gy);
-      else if (this._buildSel) { const sb = meta.buildableById(this._buildSel); ok = meta.placeItem(this._buildSel, gx, gy); if (ok) { placedStation = sb && sb.station ? sb : null; if (placedStation) this._buildSel = null; } }
+      else if (this._buildSel) { const sb = meta.buildableById(this._buildSel); ok = meta.placeItem(this._buildSel, gx, gy, this._buildRot || 0); if (ok) { placedStation = sb && sb.station ? sb : null; if (placedStation) { this._buildSel = null; this._setPreviewItem(null); } } }
       else ok = false;
       if (g) { g.audio.play(ok ? 'click' : 'hiccup'); if (ok && g.tavern.refreshRoom) g.tavern.refreshRoom(meta); }
+      if (ok) this.burstFX({ x: window.innerWidth / 2, y: window.innerHeight * 0.34 }, 'sparkle', 10);
       if (placedStation) this.wispSay(`✓ Built the ${placedStation.name}. Walk up and press E to use it!`);
       this.setGold(meta.gold());
       this._renderShop();
@@ -1483,7 +1576,7 @@ export class UI {
         <span class="bi-icon">${locked ? '🔒' : b.icon}</span><span class="bi-name">${b.name}</span><span class="bi-cost">${cost}</span></button>`;
     }
     h += '</div>';
-    if (this._buildSel) { const sb = meta.buildableById(this._buildSel); if (sb) h += `<p class="build-hint">Placing <b>${sb.icon} ${sb.name}</b> — tap an empty tile. <span data-act="selbuild" data-id="${this._buildSel}" style="text-decoration:underline;cursor:pointer">cancel</span></p>`; }
+    if (this._buildSel) { const sb = meta.buildableById(this._buildSel); if (sb) h += `<p class="build-hint">Placing <b>${sb.icon} ${sb.name}</b> — spin it in the preview with <b>⟳ Rotate</b>, then tap an empty tile. <span data-act="selbuild" data-id="${this._buildSel}" style="text-decoration:underline;cursor:pointer">cancel</span></p>`; }
     return h;
   }
 

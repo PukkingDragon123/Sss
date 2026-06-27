@@ -226,6 +226,7 @@ export class Wizard {
       this.vel.add(k);
       this.leanV.x += k.x * 0.4; this.leanV.z += k.z * 0.4;
     }
+    this.squash(0.22, 1, 0.24);   // recoil squash on a hit landed
     if (this.hp <= 0) { this.hp = 0; this.alive = false; }
     return true;
   }
@@ -235,7 +236,11 @@ export class Wizard {
     this.castDir.copy(dir).setY(0).normalize();
     this.leanV.x -= this.castDir.x * 2.2;
     this.leanV.z -= this.castDir.z * 2.2;
+    this.squash(0.15, -1, 0.18);   // springy stretch as he flings the spell
   }
+
+  // schedule a squash/stretch pop: dir +1 = squat & wide (impact), -1 = tall & thin (spring up)
+  squash(amt, dir = 1, dur = 0.2) { this.squashAmt = amt; this.squashDir = dir; this.squashDur = dur; this.squashT = dur; }
 
   // stable "muzzle" point for spell origins (independent of the floppy hands)
   handPosition(out = new THREE.Vector3()) {
@@ -331,6 +336,7 @@ export class Wizard {
       this.leanV.x += (Math.random() - 0.5) * 9 * s.wobble * dWob;
       this.leanV.z += (Math.random() - 0.5) * 9 * s.wobble * dWob;
       this.bob -= 1.4;
+      this.squash(0.14, -1, 0.3);   // a wobbly *hic* pop
       // a hiccup also flings the arms
       this.armL.p2p.y -= 0.25; this.armR.p2p.y -= 0.25;
       if (game.audio) game.audio.play('hiccup');
@@ -358,6 +364,11 @@ export class Wizard {
     // ---- apply body transforms (floorY lets him climb the tavern's upper deck) ----
     this.floorY = game.floorHeightAt ? game.floorHeightAt(this.pos.x, this.pos.z) : 0;
     this.root.position.set(this.pos.x, this.floorY + bobY, this.pos.z);
+    // ---- squishy juice: brief squash/stretch pops on cast, hit, hiccup ----
+    if (this.squashT > 0) this.squashT = Math.max(0, this.squashT - dt);
+    const sk = this.squashT > 0 ? (this.squashT / this.squashDur) : 0;
+    const sqAmt = (this.squashAmt || 0) * sk * sk * (this.squashDir || 1);   // ease-out recovery
+    this.root.scale.set(1 + sqAmt * 0.7, 1 - sqAmt, 1 + sqAmt * 0.7);        // +dir = squat&wide, -dir = tall&thin
     this.leaner.rotation.set(this.lean.z, 0, -this.lean.x);
     this.facer.rotation.y = this.yaw;
     this.head.rotation.set((this.headLean.z - this.lean.z) * 0.8, 0, -(this.headLean.x - this.lean.x) * 0.8);

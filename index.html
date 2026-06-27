@@ -97,6 +97,8 @@
     </div>
 
     <div id="banner"></div>
+    <!-- kill-combo counter (punchy, center-top) -->
+    <div id="combo-hud"><div class="combo-n" id="combo-n">x0</div><div class="combo-lbl">combo</div></div>
     <div id="toast-area"></div>
     <!-- the wisp speaks: warnings &amp; tips (replaces blunt popups) -->
     <div id="wisp-bubble" class="hidden"><div class="wisp-portrait">✨</div><div class="wisp-text" id="wisp-text"></div></div>
@@ -292,6 +294,13 @@
       <div id="shop-body"></div>
       <button class="btn" id="shop-close">Close ▸</button>
     </div>
+  </div>
+
+  <!-- ===== Build preview: a live, rotatable 3D model of the piece you're placing ===== -->
+  <div id="build-preview" class="hidden">
+    <canvas id="bp-canvas" width="170" height="150"></canvas>
+    <div class="bp-label" id="bp-label">Pick a piece to preview</div>
+    <button class="bp-rotate" id="bp-rotate">⟳ Rotate</button>
   </div>
 
   <div id="loading" class="overlay">

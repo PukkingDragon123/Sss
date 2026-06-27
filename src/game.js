@@ -380,7 +380,28 @@ export class Game {
     const s = this.stats;
     if (s.lifeOnKill) this.wizard.heal(s.lifeOnKill);
     if (s.manaOnKill) this.wizard.mana = Math.min(s.manaMax, this.wizard.mana + s.manaOnKill);
+    // ---- kill-combo: stack kills inside a short window for escalating reward + juice ----
+    this.combo = (this.combo || 0) + 1;
+    this.comboT = 3.2;                                   // time before the chain lapses
+    if (this.combo > (this.comboBest || 0)) this.comboBest = this.combo;
+    if (this.combo >= 3) this.ui.showCombo(this.combo);
+    if (this.combo >= 5 && this.combo % 5 === 0) this._comboMilestone(e);
   }
+
+  // a satisfying pop each 5-kill milestone — escalating shake/particles + a sip of mana reward
+  _comboMilestone(e) {
+    const tier = Math.min(4, Math.floor(this.combo / 5));
+    this.audio.play('xp');
+    this.shake(0.4 + tier * 0.12);
+    const p = (e && e.mesh) ? e.mesh.position.clone().setY(1) : this.wizard.pos.clone().setY(1.4);
+    this.particles.ring({ pos: p, color: 0xffb454, r0: 0.4, r1: 2 + tier, life: 0.5 });
+    this.particles.burst({ pos: p, color: 0xffd98a, count: 10 + tier * 4, speed: 6, size: 0.3, life: 0.7, blend: 'add' });
+    this.wizard.mana = Math.min(this.stats.manaMax, this.wizard.mana + 6); // chaining is rewarded
+    if (this.combo >= 15) this._hitstop(0.08);           // a beat of weight on big chains
+    this.ui.burstFX({ x: window.innerWidth / 2, y: window.innerHeight * 0.15 }, 'fire', 8 + tier * 3);
+  }
+  _hitstop(dur) { this._hitstopT = Math.max(this._hitstopT || 0, dur); }
+  breakCombo() { if (this.combo > 0) { this.combo = 0; this.comboT = 0; this.ui.hideCombo(); } }
 
   gainXP(n) {
     n = Math.round(n * (this.stats.xpMult || 1));
@@ -600,9 +621,13 @@ export class Game {
   _showEnd(win) {
     if (win && this.stage) meta.markStageCleared(this.stage.id); // opens the next haunt on the world map
     if (win && !meta.tavernOwned()) { meta.setTavernOwned(true); this._justInherited = true; } // avenge -> inherit
+    this.ui.hideCombo();
     const depth = this._roomsCleared || 0; // rooms cleared (boss = forks+2)
     // ventures pay in 💎 GEMS (gold is earned only by WORKING), plus a guaranteed boss gear drop
-    const gemReward = Math.max(1, Math.round((2 + depth * 1.2 + this.kills * 0.05 + (win ? 5 : 0)) * meta.gemBonusMult()));
+    // escalating bonuses make a deeper, hotter-streak run pay off — the "one more run" pull
+    const waveBonus = Math.pow(1.07, Math.max(0, depth - 1));
+    const comboBonus = 1 + Math.min(0.5, (this.comboBest || 0) * 0.01);
+    const gemReward = Math.max(1, Math.round((2 + depth * 1.2 + this.kills * 0.05 + (win ? 5 : 0)) * meta.gemBonusMult() * waveBonus * comboBonus));
     meta.addGems(gemReward);
     if (win) meta.addGear(meta.dropGear(this.level + 3, true));
     const earnedGems = Math.max(0, meta.gems() - (this._runGemStart || 0));
@@ -614,7 +639,7 @@ export class Game {
     this.ui.showResults(win, {
       nodes: depth, rooms: depth, kills: this.kills, level: this.level, stage: this.stage ? this.stage.name : '',
       artifact: win && this.runArtifacts.length ? this.runArtifacts[this.runArtifacts.length - 1].name : null,
-      earnedGems, gems: meta.gems(), day: meta.currentDay(),
+      earnedGems, gems: meta.gems(), day: meta.currentDay(), combo: this.comboBest || 0,
       research: finishedResearch ? meta.researchById(finishedResearch).name : null, questDone,
     });
   }
@@ -864,6 +889,7 @@ export class Game {
     for (const id of this.loadout) { const g = SPELLS[id].gesture; this.recognizer.add(g, TEMPLATES[g]); }
     this.level = 1; this.xp = 0; this.xpNeed = this._xpForLevel(1);
     this.kills = 0; this.chores = 0; this.pendingLevels = 0; this.elapsed = 0;
+    this.combo = 0; this.comboBest = 0; this.comboT = 0; this._hitstopT = 0; if (this.ui) this.ui.hideCombo();
     this.drunkenness = 0.22; this._drunkSurge = 0; this._drinkCd = 0; this._drinking = false;
     this._artifactsTaken = new Set(meta.ownedArtifacts()); // don't re-drop ones you already own
     this._deckOff = new Set(meta.deckOffIds());             // your curated level-up deck
@@ -1195,9 +1221,11 @@ export class Game {
     this.drunkenness = Math.min(1, this.drunkenness + 0.3 * (s.drinkChaos || 1));
     this._drunkSurge = 1;
     w.bob -= 0.7; w.leanV.x += (Math.random() - 0.5) * 6; w.leanV.z += (Math.random() - 0.5) * 6;
+    w.squash(0.2, -1, 0.28); this.shake(0.35);   // a satisfying *gulp* pop
     this.audio.play('levelup');
     const hp = w.handPosition(); hp.y = 2.1;
-    this.particles.burst({ pos: hp, color: 0xf6e3a0, count: 16, speed: 2.8, size: 0.2, life: 0.8, grav: 2, blend: 'normal' });
+    this.particles.burst({ pos: hp, color: 0xf6e3a0, count: 22, speed: 3.2, size: 0.22, life: 0.85, grav: 2, blend: 'add' });
+    this.particles.ring({ pos: w.pos.clone().setY(0.2), color: 0xf6e3a0, r0: 0.3, r1: 2.2, life: 0.4 });
     this.ui.toast('🍺 *AHHH!* — full mana, room spinning');
   }
 
@@ -1398,6 +1426,15 @@ export class Game {
       this.camera.lookAt(bp.x, 2, bp.z);
       return;
     }
+    // build mode: swing up to a bird's-eye view over the whole den while you place furniture
+    if (this.phase === 'room' && this.state === 'menu' && this.ui && this.ui._shopKind === 'build' && this.ui.el.shop && !this.ui.el.shop.classList.contains('hidden')) {
+      this.camTarget.lerp(this._buildCenter || (this._buildCenter = new THREE.Vector3(0.5, 0, -0.4)), Math.min(1, dt * 3));
+      const desired = new THREE.Vector3(this.camTarget.x, 21, this.camTarget.z + 6.5);
+      this.camera.position.lerp(desired, Math.min(1, dt * 3));
+      this.camera.rotation.z = 0;
+      this.camera.lookAt(this.camTarget.x, 0, this.camTarget.z);
+      return;
+    }
     this.camTarget.lerp(this.wizard.pos, Math.min(1, dt * 6));
     // on the title screen, bias the framing left so the fight sits on the RIGHT (menu is on the left)
     const bx = this.state === 'title' ? -9 : 0;
@@ -1441,7 +1478,8 @@ export class Game {
       if (this.bossCine > 0) targetScale = 0.35;
       else if (this.input.drawing) targetScale = 0.32;
     }
-    this.timeScale += (targetScale - this.timeScale) * Math.min(1, dt * 12);
+    if (this._hitstopT > 0) { this._hitstopT -= dt; this.timeScale = 0.05; } // a crisp beat of freeze on big impacts
+    else this.timeScale += (targetScale - this.timeScale) * Math.min(1, dt * 12);
     const sdt = dt * this.timeScale;
 
     if (this.state === 'play') {
@@ -1469,6 +1507,7 @@ export class Game {
 
   _updateArena(sdt) {
     this.elapsed += sdt;
+    const hp0 = this.wizard.hp;   // taking a hit this frame will break the kill-combo
     // you slowly sober up between gulps; the post-gulp lurch fades fast
     this.drunkenness = Math.max(0, this.drunkenness - sdt * 0.05);
     if (this._drunkSurge > 0) this._drunkSurge = Math.max(0, this._drunkSurge - sdt * 1.6);
@@ -1480,6 +1519,10 @@ export class Game {
     this.jobs.update(sdt, this);
     this.particles.update(sdt);
     this._updatePickups(sdt);
+
+    // ---- kill-combo upkeep: lapses over time, snaps on any hit taken ----
+    if (this.comboT > 0) { this.comboT -= sdt; if (this.comboT <= 0) this.breakCombo(); }
+    if (this.wizard.hp < hp0 - 0.01) this.breakCombo();
 
     // thorns: enemies overlapping the wizard take a little damage
     if (this.stats.thorns > 0) {

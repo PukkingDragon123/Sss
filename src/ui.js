@@ -718,8 +718,15 @@ export class UI {
     this._merchOffers = offers;
     this._renderMerch();
     this.el.merchant.classList.remove('hidden');
-    this.el.merchLeave.onclick = () => { game.audio.play('click'); this.el.merchant.classList.add('hidden'); const cb = this._merchDone; this._merchDone = null; if (cb) cb(); };
+    this.el.merchLeave.onclick = () => { game.audio.play('click'); this.closeMerchant(); };
     this.el.merchCards.onclick = (e) => { const b = e.target.closest('[data-buy]'); if (b) this._merchBuy(game, b.dataset.buy); };
+  }
+  merchantOpen() { return !!(this.el.merchant && !this.el.merchant.classList.contains('hidden')); }
+  closeMerchant() {
+    if (!this.merchantOpen()) return false;
+    this.el.merchant.classList.add('hidden');
+    const cb = this._merchDone; this._merchDone = null; if (cb) cb();   // hands control back to _showPath
+    return true;
   }
   _renderMerch() {
     this.el.merchGems.textContent = `💎 ${meta.gems()}`;

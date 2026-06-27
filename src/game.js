@@ -1248,7 +1248,7 @@ export class Game {
       if (e.type === 'guide') { this.toggleGuide(); continue; }
       if (e.type === 'drink') { this.drink(); continue; }
       if (e.type === 'select') { if (this.state === 'world') { const id = this.world.pick(e.x, e.y, this.camera); if (id) this.selectWorldRegion(id); } continue; }
-      if (e.type === 'interact') { if (this.state === 'menu') this.closeShop(); else this.interact(); continue; }
+      if (e.type === 'interact') { if (this.state === 'menu') { if (!this.ui.closeMerchant()) this.closeShop(); } else this.interact(); continue; }
 
       if (this.storyShowing) {
         if (e.type === 'confirm' || e.type === 'primary') this.ui._storyAdvance();

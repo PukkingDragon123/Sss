@@ -772,7 +772,6 @@ export class Game {
   }
   closeWorldMap() { this.ui.hideWorldHud(); this.world.show(false); this.input.pointMode = false; this.enterTavern(); }
   openBuild() { if (this.state === 'play' && this.phase === 'room') { this.audio.play('click'); this._openShop('build'); } }
-  openKitchen() { if (this.state === 'play' && this.phase === 'tavern') { this.audio.play('click'); this._openShop('kitchen'); this._learn('cookhint', '🍳 Unlock recipes with foraged herbs and mushrooms, then Open for Business to cook and serve guests for tips!'); } }
   restAtBed() { if (meta.rest()) this.ui.toast('🛏 Rested — you\'ll wake with +HP for the next run'); else this.ui.wispSay('🛏 You\'re already well-rested.', { tone: 'warn' }); }
 
   // ---- stairs: a quick loading transition between the bar and your room ----
@@ -808,26 +807,6 @@ export class Game {
     this.ui.setGold(meta.gold());
   }
 
-  // Open the Bar (from the kitchen panel): a short doors-open cutscene, then the cook-and-serve shift
-  startShift() {
-    this._shopKind = null; this.ui.closeShop();
-    this.state = 'menu';
-    this._shiftCine = 1.6;                  // camera swings overhead while a guest wanders in
-    this.audio.play('click');
-    this.ui.wispSay('🚪 A hungry guest strolls in...', { big: true, ms: 1500 });
-    setTimeout(() => {
-      this._shiftCine = 0;
-      this.ui.showBar((tips, best) => {
-        meta.addGold(tips);
-        const fin = meta.advanceDay();
-        meta.save();
-        this.ui.setGold(meta.gold());
-        this.ui.toast(`🍳 Shift over — ${tips}🪙 in tips${best >= 5 ? ` · 🔥 best streak ${best}` : ''}!`);
-        if (fin) this.ui.toast(`🔬 Research complete: ${meta.researchById(fin).name}`);
-        this.state = 'play';
-      });
-    }, 1550);
-  }
   // a customer served in the in-world bar loop — pay the tip; every 3 served is a day's work
   onTavernServe() {
     const tip = 5 + Math.floor(Math.random() * 4); // 5–8 gold (work the bar a while to pay the debt)
@@ -1411,15 +1390,6 @@ export class Game {
         const ang = this.cineT * 5 + Math.random() * 6.28, r = 2.4 + Math.random() * 1.6;
         this.particles.burst({ pos: new THREE.Vector3(Math.cos(ang) * r, 0.4 + Math.random() * 3, Math.sin(ang) * r), color: 0x9b7bff, count: 1, speed: 0.4, size: 0.16, life: 1.0, grav: -1.2, blend: 'add' });
       }
-      return;
-    }
-    // "open the bar" cutscene: swing overhead to the counter as a guest wanders in
-    if (this._shiftCine > 0) {
-      this._shiftCine -= dt;
-      const c = this._barCenter || (this._barCenter = new THREE.Vector3(-7.3, 0, -4));
-      this.camera.position.lerp(new THREE.Vector3(c.x + 2, 17, c.z + 8), Math.min(1, dt * 3));
-      this.camera.rotation.z = 0;
-      this.camera.lookAt(c.x, 0.6, c.z);
       return;
     }
     // tavern intro: a slow cinematic orbit of the room before you take control

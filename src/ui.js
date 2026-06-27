@@ -64,7 +64,7 @@ export class UI {
       manaFill: $('mana-fill'), manaLabel: $('mana-label'), manaFoam: $('mana-foam'),
       xpFill: $('xp-fill'), xpLabel: $('xp-label'),
       drunkWrap: $('drunk-wrap'), drunkFill: $('drunk-fill'),
-      nausea: $('nausea'), btnDrink: $('btn-drink'), btnBuild: $('btn-build'), btnBar: $('btn-bar'),
+      nausea: $('nausea'), btnDrink: $('btn-drink'), btnBuild: $('btn-build'),
       drinkBar: $('drink-bar'), drinkBarFill: $('drink-bar-fill'),
       loadscene: $('loadscene'), loadsceneText: $('loadscene-text'),
       timer: $('timer'), kills: $('kills'), sobriety: $('sobriety'),
@@ -157,7 +157,6 @@ export class UI {
     this.el.btnInteract.addEventListener('click', () => game.interact());
     if (this.el.btnDrink) this.el.btnDrink.addEventListener('click', () => game.drink());
     if (this.el.btnBuild) this.el.btnBuild.addEventListener('click', () => game.openBuild());
-    if (this.el.btnBar) this.el.btnBar.addEventListener('click', () => game.openKitchen());
     this.el.shopClose.addEventListener('click', () => { game.audio.play('click'); game.closeShop(); });
     if (this.el.bpRotate) this.el.bpRotate.addEventListener('click', () => { game.audio.play('click'); this._buildRot = ((this._buildRot || 0) + Math.PI / 2) % (Math.PI * 2); this.burstFX(this.el.bpRotate, 'sparkle', 5); });
     // shop buttons are delegated (the body is re-rendered on every action)
@@ -305,7 +304,6 @@ export class UI {
     if (this.el.btnDrink) this.el.btnDrink.classList.toggle('hidden', !arena); // drink only in the fight
     if (this.el.drinkBar && !arena) this.el.drinkBar.classList.add('hidden');
     if (this.el.btnBuild) this.el.btnBuild.classList.toggle('hidden', !room);  // build only in your room
-    if (this.el.btnBar) this.el.btnBar.classList.toggle('hidden', !tavern);    // open the bar only in the tavern
     if (this.el.abilityTray) this.el.abilityTray.classList.toggle('hidden', !arena || !this.el.abilityTray.innerHTML);
     if (this.el.drunkWrap) this.el.drunkWrap.classList.toggle('hidden', !arena);
     if (!arena) this.hideCombo();   // never let the combo counter linger outside a fight
@@ -896,166 +894,7 @@ export class UI {
 
   // ---- Tavern serving: take an order, pour to the line, then CARRY it across the
   // bar without tipping the mug over, and serve. Tip = pour accuracy + steady carry. ----
-  // ===== Top-down restaurant: take orders, time the COOK gauge, serve before patience runs out =====
-  showBar(onDone) {
-    const fx = meta.staffEffects();
-    const M = this._bar = {
-      done: onDone, tips: 0, served: 0, total: 6, resolved: 0, spawned: 0,
-      combo: 0, best: 0, queue: [], spawnT: 0.5, fx,
-      cookPos: 0, cookDir: 1, anim: 0, last: performance.now(), flash: 0, flashT: 0,
-    };
-    this.el.mgTitle.textContent = '🍳 The Tipsy Toad Kitchen';
-    this.el.mgSub.innerHTML = 'Guests arrive hungry. <b>Tap COOK</b> when the marker hits the <b>green</b> to cook it just right and serve — keep the streak alive and beat their patience!';
-    this.el.mgScore.textContent = '0';
-    this.el.mgServed.textContent = '0';
-    this.el.mgTotal.textContent = M.total;
-    this.el.mgOrder.classList.add('hidden');
-    this.el.minigame.classList.remove('hidden');
-    this.el.mgPour.textContent = '🍳 COOK!';
-    this._barShow();
-    const cook = (e) => { if (e && e.preventDefault) e.preventDefault(); this._cookAction(); };
-    const keyc = (e) => { const k = (e.key || '').toLowerCase(); if (k === ' ' || k === 'c' || k === 'enter') { e.preventDefault(); this._cookAction(); } };
-    this._cookTap = cook; this._cookKey = keyc;
-    this.el.mgPour.addEventListener('pointerdown', cook);
-    this.el.mgCanvas.addEventListener('pointerdown', cook);
-    window.addEventListener('keydown', keyc);
-    this.el.mgQuit.onclick = () => this._barFinish();
-    if (!this._barLoopBound) { this._barLoopBound = this._barLoop.bind(this); }
-    cancelAnimationFrame(this._barRaf);
-    this._barRaf = requestAnimationFrame(this._barLoopBound);
-  }
-
-  _barShow() {   // the kitchen game uses only the big COOK button + Clock out
-    this.el.mgPour.classList.remove('hidden');
-    this.el.mgServe.classList.add('hidden');
-    this.el.mgAccept.classList.add('hidden');
-    this.el.mgLeft.classList.add('hidden');
-    this.el.mgRight.classList.add('hidden');
-  }
-  _cookMenuPick() { const list = meta.unlockedMenu(); return list[Math.floor(Math.random() * list.length)] || meta.menuById('houseale'); }
-  _cookSpawn() {
-    const M = this._bar; if (!M || M.queue.length >= 3 || M.spawned >= M.total) return;
-    const item = this._cookMenuPick();
-    const maxP = (8 + Math.max(0, 14 - item.sell) * 0.5) * M.fx.patience;  // cheaper dishes are more forgiving
-    M.queue.push({ item, p: maxP, maxP }); M.spawned++;
-    this.game.audio.play('click');
-  }
-  _cookGaugeSpeed() { const o = this._bar.queue[0]; const sell = o ? o.item.sell : 8; return 0.85 + sell * 0.035; } // pricier = faster = harder
-  _cookAction() {
-    const M = this._bar; if (!M || !M.queue.length) return;
-    const o = M.queue.shift();
-    const hw = 0.13 * M.fx.cookEase;
-    const d = Math.abs(M.cookPos - 0.5);
-    let qmult, label, quality;
-    if (d <= hw) { quality = 'perfect'; qmult = 1.6; label = 'Perfect!'; }
-    else if (d <= hw * 2.4) { quality = 'good'; qmult = 1.0; label = 'Tasty'; }
-    else { quality = 'burnt'; qmult = 0.4; label = 'Burnt…'; }
-    const speedBonus = 1 + (o.p / o.maxP) * 0.4;
-    if (quality === 'burnt') M.combo = 0; else { M.combo++; M.best = Math.max(M.best, M.combo); }
-    const comboMult = 1 + Math.min(0.6, M.combo * 0.06);
-    const tip = Math.max(1, Math.round(o.item.sell * qmult * speedBonus * comboMult * M.fx.tipMult));
-    M.tips += tip; M.served++; M.resolved++;
-    M.flash = quality === 'perfect' ? 1 : quality === 'good' ? 0.6 : 0.2; M.flashT = 0.5;
-    M.cookPos = 0; M.cookDir = 1;
-    this.el.mgScore.textContent = M.tips; this.el.mgServed.textContent = M.served;
-    if (quality === 'perfect') { this.game.audio.play('levelup'); this.burstFX(this.el.mgCanvas, 'fire', 12); if (M.combo >= 3) this.showCombo(M.combo); }
-    else if (quality === 'good') { this.game.audio.play('xp'); this.burstFX(this.el.mgCanvas, 'sparkle', 6); }
-    else { this.game.audio.play('hiccup'); this.hideCombo(); }
-    this.toast(`${o.item.icon} ${label} +${tip}🪙${M.combo >= 2 && quality !== 'burnt' ? ` (x${M.combo})` : ''}`);
-    if (M.resolved >= M.total) setTimeout(() => this._barFinish(), 700);
-  }
-  _barFinish() {
-    const M = this._bar; if (!M) { this.el.minigame.classList.add('hidden'); return; }
-    cancelAnimationFrame(this._barRaf);
-    if (this._cookTap) { this.el.mgPour.removeEventListener('pointerdown', this._cookTap); this.el.mgCanvas.removeEventListener('pointerdown', this._cookTap); }
-    if (this._cookKey) window.removeEventListener('keydown', this._cookKey);
-    this.el.mgPour.textContent = '🍳 COOK!';
-    this.el.minigame.classList.add('hidden');
-    this.el.mgOrder.classList.add('hidden');
-    this.hideCombo();
-    meta.recordShift(M.served, M.best);
-    const cb = M.done; this._bar = null;
-    if (cb) cb(M.tips, M.best);
-  }
-
-  _barLoop() {
-    const M = this._bar; if (!M) return;
-    const now = performance.now();
-    let dt = (now - M.last) / 1000; M.last = now; if (dt > 0.05) dt = 0.05;
-    M.anim += dt;
-    if (M.flashT > 0) M.flashT -= dt;
-    // guests arrive across the shift
-    if (M.spawned < M.total) { M.spawnT -= dt; if (M.spawnT <= 0) { this._cookSpawn(); M.spawnT = 1.7 + Math.random() * 1.6; } }
-    // patience ticks; an out-of-patience guest storms off
-    for (let i = M.queue.length - 1; i >= 0; i--) {
-      const o = M.queue[i]; o.p -= dt;
-      if (o.p <= 0) {
-        M.queue.splice(i, 1); M.resolved++; M.combo = 0; this.hideCombo();
-        this.game.audio.play('hurt'); this.toast(`${o.item.icon} a guest left grumpy…`);
-        if (M.resolved >= M.total) { setTimeout(() => this._barFinish(), 700); break; }
-      }
-    }
-    // cook gauge oscillation (only while an order is up)
-    if (M.queue.length) { const sp = this._cookGaugeSpeed(); M.cookPos += M.cookDir * sp * dt; if (M.cookPos >= 1) { M.cookPos = 1; M.cookDir = -1; } else if (M.cookPos <= 0) { M.cookPos = 0; M.cookDir = 1; } }
-    this._barRender();
-    this._barRaf = requestAnimationFrame(this._barLoopBound);
-  }
-
-  _roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
-
-  _barRender() {
-    const M = this._bar, cv = this.el.mgCanvas; if (!M || !cv) return;
-    const ctx = cv.getContext('2d'); const W = cv.width, H = cv.height;
-    ctx.clearRect(0, 0, W, H);
-    // top-down kitchen: counter strip up top, stove in the middle, gauge at the bottom
-    ctx.fillStyle = '#2a2030'; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#352842'; ctx.fillRect(0, 150, W, 140);
-    ctx.fillStyle = '#1d1730'; ctx.fillRect(0, H - 78, W, 78);
-    ctx.textAlign = 'center';
-
-    // ---- order tickets (the waiting queue) ----
-    for (let i = 0; i < 3; i++) {
-      const o = M.queue[i];
-      const tw = 116, gap = (W - tw * 3) / 4, tx = gap + i * (tw + gap), ty = 14, th = 116;
-      ctx.fillStyle = (o && i === 0) ? 'rgba(255,207,92,.16)' : 'rgba(255,255,255,.05)';
-      ctx.strokeStyle = (o && i === 0) ? '#ffcf5c' : 'rgba(255,255,255,.16)';
-      ctx.lineWidth = i === 0 ? 3 : 2;
-      this._roundRect(ctx, tx, ty, tw, th, 10); ctx.fill(); ctx.stroke();
-      if (!o) { ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.font = '30px serif'; ctx.fillText('…', tx + tw / 2, ty + 56); continue; }
-      ctx.font = '40px serif'; ctx.fillStyle = '#fff'; ctx.fillText(o.item.icon, tx + tw / 2, ty + 48);
-      ctx.font = 'bold 12px "Trebuchet MS",sans-serif'; ctx.fillStyle = '#ffe6a8';
-      ctx.fillText(o.item.name.length > 13 ? o.item.name.slice(0, 12) + '…' : o.item.name, tx + tw / 2, ty + 72);
-      const frac = Math.max(0, o.p / o.maxP);
-      ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(tx + 12, ty + 88, tw - 24, 10);
-      ctx.fillStyle = frac > 0.5 ? '#6ee7a0' : frac > 0.25 ? '#ffcf5c' : '#ff5d6c';
-      ctx.fillRect(tx + 12, ty + 88, (tw - 24) * frac, 10);
-    }
-
-    // ---- the stove + the dish currently up ----
-    const cur = M.queue[0]; const sx = W / 2, sy = 214;
-    ctx.font = '26px serif'; ctx.fillStyle = '#9a8aa8'; ctx.fillText('🔥', sx - 118, sy + 14); ctx.fillText('🍳', sx + 118, sy + 14);
-    ctx.fillStyle = '#15100e'; ctx.beginPath(); ctx.ellipse(sx, sy + 30, 60, 22, 0, 0, 6.28); ctx.fill();
-    ctx.fillStyle = '#0d0a08'; ctx.beginPath(); ctx.ellipse(sx, sy + 26, 50, 17, 0, 0, 6.28); ctx.fill();
-    if (cur) {
-      ctx.font = '54px serif'; ctx.fillText(cur.item.icon, sx, sy + 16);
-      if (M.flashT > 0) { ctx.globalAlpha = Math.max(0, M.flashT * 2); ctx.font = 'bold 26px "Trebuchet MS",sans-serif'; ctx.fillStyle = M.flash >= 1 ? '#ffd24a' : M.flash >= 0.6 ? '#9fe0ff' : '#ff7a6a'; ctx.fillText('★', sx + 44, sy - 18); ctx.globalAlpha = 1; }
-    }
-    ctx.font = 'bold 15px "Trebuchet MS",sans-serif'; ctx.fillStyle = '#ffe6a8';
-    ctx.fillText(cur ? 'Tap COOK in the green!' : 'Waiting for hungry guests…', W / 2, 138);
-
-    // ---- cook gauge ----
-    const gx = 46, gw = W - 92, gyy = H - 46, gh = 22;
-    ctx.fillStyle = 'rgba(0,0,0,.45)'; this._roundRect(ctx, gx, gyy, gw, gh, 8); ctx.fill();
-    const hw = 0.13 * M.fx.cookEase;
-    ctx.fillStyle = 'rgba(255,207,92,.22)'; ctx.fillRect(gx + (0.5 - hw * 2.4) * gw, gyy, hw * 4.8 * gw, gh);  // "tasty" band
-    ctx.fillStyle = 'rgba(110,231,160,.55)'; ctx.fillRect(gx + (0.5 - hw) * gw, gyy, hw * 2 * gw, gh);          // "perfect" band
-    const mxp = gx + Math.max(0, Math.min(1, M.cookPos)) * gw;
-    ctx.fillStyle = cur ? '#fff' : 'rgba(255,255,255,.3)'; ctx.fillRect(mxp - 3, gyy - 6, 6, gh + 12);
-
-    // ---- footer readout ----
-    ctx.fillStyle = '#cfe0ff'; ctx.font = 'bold 13px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(`🔥 Combo x${M.combo}   ·   Served ${M.served}/${M.total}   ·   Tips ${M.tips}🪙`, W / 2, H - 56);
-  }
+  // (the cooking/kitchen minigame was removed — bar-work is the in-world walk-up serving loop)
 
   bannerWave(w, total, isBoss) {
     const el = this.el.banner;
@@ -1143,7 +982,6 @@ export class UI {
   _shopAction(act, id, slot) {
     const g = this._shopGame;
     if (act === 'startrun') { g.startRun(id); return; }
-    if (act === 'openbar') { if (g) g.startShift(); return; }
     if (act === 'buildtab') { this._buildTab = id; this._buildSel = null; if (g) g.audio.play('click'); this._renderShop(); return; }
     if (act === 'libtab') { this._libTab = id; if (g) g.audio.play('click'); this._renderShop(); return; }
     if (act === 'selbuild') { this._buildSel = (this._buildSel === id ? null : id); this._pvAngle = this._buildRot || 0; this._setPreviewItem(this._buildSel); if (g) g.audio.play('click'); this._renderShop(); return; }
@@ -1180,9 +1018,6 @@ export class UI {
     else if (act === 'deck') { const inDeck = UPGRADES.length - meta.deckOffIds().length; if (!meta.isDeckOff(id) && inDeck <= 6) { g.ui.wispSay('Keep at least 6 boons in your deck!', { tone: 'warn' }); ok = false; } else { meta.toggleDeck(id); ok = true; } }
     else if (act === 'paydebt') { const p = meta.payDebt(meta.gold()); ok = p > 0; if (ok) { g.ui.toast(`💰 Paid ${p}🪙 off the debt`); if (meta.debt() <= 0) g.onDebtCleared(); } }
     else if (act === 'claim') { const res = meta.claimQuest(); ok = !!(res && res.reward > 0); if (ok) { g.ui.toast(`Quest reward: +${res.reward}🪙`); if (res.unlocked) g.ui.wispSay(`🔓 Unlocked the ${meta.FEATURE_LABELS[res.unlocked]}. Build it up in your room!`, { big: true, ms: 4200 }); } }
-    else if (act === 'unlockmenu') { const m = meta.menuById(id); ok = meta.unlockMenu(id); if (ok) { g.ui.toast(`📖 ${m.name} added to the menu!`); this.burstFX({ x: window.innerWidth / 2, y: window.innerHeight * 0.4 }, 'sparkle', 10); } }
-    else if (act === 'hire') { const s = meta.staffById(id); ok = meta.hireStaff(id); if (ok) g.ui.toast(`${s.icon} Hired ${s.name} (Lv${meta.staffLevel(id)})!`); }
-    else if (act === 'claimcook') { const r = meta.claimCookQuest(id); ok = r > 0; if (ok) { g.ui.toast(`🎯 Cooking quest done! +${r}🪙`); this.burstFX({ x: window.innerWidth / 2, y: window.innerHeight * 0.4 }, 'gem', 10); } }
     if (g) g.audio.play(ok ? 'click' : 'hiccup');
     this.setGold(meta.gold());
     this._renderShop();
@@ -1190,14 +1025,13 @@ export class UI {
 
   _renderShop() {
     const kind = this._shopKind;
-    const titles = { skilltree: '✦ Spell Table', library: '📖 Arcane Library', cauldron: '🜲 Cauldron', build: '🏛 Build Your Den', manager: '📜 Quest Board', wardrobe: '🎽 Equipment Hall', ledger: '📒 Tavern Ledger', blacksmith: '🔨 Anvil', kitchen: '🍳 The Tipsy Toad Kitchen' };
+    const titles = { skilltree: '✦ Spell Table', library: '📖 Arcane Library', cauldron: '🜲 Cauldron', build: '🏛 Build Your Den', manager: '📜 Quest Board', wardrobe: '🎽 Equipment Hall', ledger: '📒 Tavern Ledger', blacksmith: '🔨 Anvil' };
     this.el.shopTitle.textContent = titles[kind] || 'Tavern';
     let html = '';
     if (kind === 'skilltree') html = this._renderSkillTree();
     else if (kind === 'library') html = this._renderLibrary();
     else if (kind === 'cauldron') html = this._renderCauldron();
     else if (kind === 'build') html = this._renderBuild();
-    else if (kind === 'kitchen') html = this._renderKitchen();
     else if (kind === 'manager') html = this._renderManager();
     else if (kind === 'wardrobe') html = this._renderWardrobe();
     else if (kind === 'ledger') html = this._renderLedger();
@@ -1466,44 +1300,6 @@ export class UI {
         <div class="shop-acts"><button class="shop-btn" data-act="brew" data-id="${p.id}" ${can ? '' : 'disabled'}>🌿${p.herbs} + ${e.icon}${p.gems}</button></div></div>`;
     }
     h += '</div>';
-    return h;
-  }
-
-  // The Kitchen: open for business, unlock recipes with foraged ingredients, hire staff, claim cooking quests
-  _renderKitchen() {
-    let h = `<p class="shop-sub">Run the <b>Tipsy Toad kitchen</b>. Unlock recipes with foraged ingredients, hire a hand or two, then <b>open for business</b> and cook to the beat.</p>`;
-    h += `<div class="shop-acts" style="margin-bottom:12px"><button class="shop-btn big on" data-act="openbar">🍳 Open for Business ▸</button></div>`;
-    // cooking quests
-    h += `<div class="eq-section-head">🎯 Cooking Quests</div><div class="shop-grid">`;
-    for (const q of meta.COOK_QUESTS) {
-      const prog = Math.min(q.goal, meta.cookQuestProgress(q)), done = meta.cookQuestDone(q), claimed = meta.cookQuestClaimed(q.id);
-      const btn = claimed ? '<button class="shop-btn on" disabled>✓ Claimed</button>'
-        : `<button class="shop-btn ${done ? 'on' : ''}" data-act="claimcook" data-id="${q.id}" ${done ? '' : 'disabled'}>${done ? `Claim ${q.reward}🪙` : `${prog}/${q.goal}`}</button>`;
-      h += `<div class="shop-card"><div class="shop-glyph">${q.icon}</div><div class="shop-name">+${q.reward}🪙</div><div class="shop-desc">${q.text}</div><div class="shop-acts">${btn}</div></div>`;
-    }
-    h += `</div>`;
-    // menu recipes
-    h += `<div class="eq-section-head" style="margin-top:14px">📖 Menu <span class="eq-count">${meta.unlockedMenu().length}/${meta.MENU.length} recipes</span></div>
-      <p class="shop-sub" style="margin:.2em 0 .6em">Unlocked dishes are served to guests during a shift — pricier ones tip more.</p><div class="shop-grid">`;
-    for (const m of meta.MENU) {
-      const on = meta.menuUnlocked(m.id);
-      const costStr = Object.keys(m.cost).length ? Object.entries(m.cost).map(([k, n]) => { const ing = meta.ingredientById(k); return `${ing ? ing.icon : '?'}${n}`; }).join(' ') : 'Free';
-      const act = on
-        ? `<button class="shop-btn on" disabled>✓ Serving (${m.sell}🪙)</button>`
-        : `<button class="shop-btn" data-act="unlockmenu" data-id="${m.id}" ${meta.canUnlockMenu(m.id) ? '' : 'disabled'}>Unlock ${costStr}</button>`;
-      h += `<div class="shop-card ${on ? '' : 'locked'}"><div class="shop-glyph">${m.icon}</div><div class="shop-name">${m.name} <span class="lvtag">${m.kind === 'food' ? '🍽' : '🍺'}</span></div><div class="shop-desc">${m.desc}</div><div class="shop-acts">${act}</div></div>`;
-    }
-    h += `</div>`;
-    // staff
-    h += `<div class="eq-section-head" style="margin-top:14px">🧑‍🍳 Hire Staff</div><div class="shop-grid">`;
-    for (const s of meta.STAFF) {
-      const lvl = meta.staffLevel(s.id), cost = meta.staffCost(s.id);
-      h += `<div class="shop-card"><div class="shop-glyph">${s.icon}</div><div class="shop-name">${s.name} <span class="lvtag">Lv${lvl}</span></div><div class="shop-desc">${s.desc}</div><div class="shop-acts"><button class="shop-btn" data-act="hire" data-id="${s.id}" ${meta.gold() >= cost ? '' : 'disabled'}>Hire ${cost}🪙</button></div></div>`;
-    }
-    h += `</div>`;
-    // pantry summary
-    const haveIng = meta.INGREDIENTS.filter(g => meta.ingredientCount(g.id) > 0);
-    h += `<div class="eq-section-head" style="margin-top:14px">🧺 Pantry</div><div class="inv-els">${haveIng.length ? haveIng.map(g => `<span class="inv-el">${g.icon} ${g.name} ×${meta.ingredientCount(g.id)}</span>`).join('') : '<span class="eq-empty" style="font-size:12px">Forage herbs &amp; mushrooms on a run to stock up.</span>'}</div>`;
     return h;
   }
 

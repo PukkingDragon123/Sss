@@ -63,10 +63,9 @@ export const BUILDABLES = [
   { id: 'spelltable', name: 'Spell Table',  icon: '✦',  cost: 0,   comfort: 0, station: 'skilltree' },
   { id: 'ledger',     name: 'Ledger Desk',  icon: '📒', cost: 60,  comfort: 0, station: 'ledger' },
   // feature-gated stations — unlocked by completing quests
-  { id: 'wardrobe',   name: 'Equipment Hall', icon: '🎽', cost: 70,  comfort: 0, station: 'wardrobe',   feature: 'gear' },
+  { id: 'wardrobe',   name: 'Character Hall', icon: '🧙', cost: 70,  comfort: 0, station: 'character',  feature: 'gear' },
   { id: 'cauldron',   name: 'Cauldron',     icon: '🜲', cost: 80,  comfort: 0, station: 'cauldron',   feature: 'combos' },
   { id: 'anvil',      name: 'Anvil',        icon: '🔨', cost: 90,  comfort: 0, station: 'blacksmith', feature: 'forge' },
-  { id: 'library',    name: 'Arcane Library', icon: '📖', cost: 0,  comfort: 0, station: 'library',    feature: 'research' },
   // comforts — raise your rest bonus
   { id: 'rug',     name: 'Woven Rug',       icon: '🟫', cost: 55,  comfort: 1 },
   { id: 'chair',   name: 'Armchair',        icon: '🪑', cost: 60,  comfort: 1 },
@@ -244,8 +243,8 @@ export const getArchetype = () => state.archetype || null;
 export function setArchetype(id) { state.archetype = id || null; save(); }
 
 // ---- quest-unlocked features (each claimed bounty opens the next) ----
-export const FEATURE_ORDER = ['gear', 'combos', 'forge', 'research'];
-export const FEATURE_LABELS = { gear: 'Equipment Hall', combos: 'Cauldron (combos)', forge: 'Anvil (forge)', research: 'Arcane Library' };
+export const FEATURE_ORDER = ['gear', 'combos', 'forge'];
+export const FEATURE_LABELS = { gear: 'Character Hall', combos: 'Cauldron (combos)', forge: 'Anvil (forge)' };
 export const featureUnlocked = (id) => !!(state.features && state.features[id]);
 export function unlockFeature(id) { if (!state.features) state.features = {}; if (!state.features[id]) { state.features[id] = 1; save(); return true; } return false; }
 export function unlockNextFeature() { const next = FEATURE_ORDER.find(f => !featureUnlocked(f)); if (next) { unlockFeature(next); return next; } return null; }
@@ -603,7 +602,6 @@ export const TUTORIAL_QUESTS = [
   { id: 'gemstone',  text: 'Collect an elemental gemstone' },
   { id: 'brew',      text: 'Brew a potion at the Cauldron' },
   { id: 'forge',     text: 'Forge gear at the Anvil' },
-  { id: 'research',  text: 'Begin a research project' },
   { id: 'combo',     text: 'Learn a spell combo' },
   { id: 'playstyle', text: 'Pick a playstyle before a venture' },
   { id: 'artifact',  text: 'Carry an artifact into a run' },
@@ -615,7 +613,6 @@ export function tutDone(id) {
     case 'spell':     return SPELL_LIST.some(x => owns(x) && !(SPELL_META[x] && SPELL_META[x].starter));
     case 'build':     return placedItems().some(p => { const b = buildableById(p.id); return b && b.station; });
     case 'brew':      return Object.values(state.brews || {}).some(n => n > 0);
-    case 'research':  return !!(state.research && (state.research.activeId || Object.keys(state.research.done || {}).length));
     case 'combo':     return Object.keys(state.combos || {}).length > 0;
     case 'playstyle': return !!state.archetype;
     case 'artifact':  return (state.equippedArtifacts || []).length > 0;

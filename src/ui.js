@@ -5,7 +5,7 @@ import { SPELL_ORDER, SPELLS } from './spells.js';
 import { TEMPLATES } from './recognizer.js';
 import * as meta from './meta.js';
 import { STAGES, STAGE_ORDER } from './story.js';
-import { ARTIFACTS, artifactById, UPGRADES, upgradeRarity } from './upgrades.js';
+import { ARTIFACTS, artifactById, upgradeRarity } from './upgrades.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -208,7 +208,10 @@ export class UI {
     if (p.classList.contains('show')) { p.classList.remove('show'); return; }
     this.renderQuestPanel(game); p.classList.add('show');
   }
-  openInventory(game) { this._libTab = 'inventory'; if (game._openShop) game._openShop('library'); else this.openShop('library', game); }
+  openInventory(game) {
+    if (!meta.stationBuilt('wardrobe')) { this.wispSay('🧙 Build the Character Hall in your room first — claim your first bounty to unlock it, then manage gear, spells & your satchel there.', { tone: 'warn', ms: 4200 }); return; }
+    this._charTab = 'satchel'; if (game._openShop) game._openShop('character'); else this.openShop('character', game);
+  }
   renderQuestPanel(game) {
     const body = this.el.qpBody; if (!body) return;
     const debt = meta.debt(), total = meta.DEBT_TOTAL || 1, paid = Math.max(0, total - debt);
@@ -990,7 +993,7 @@ export class UI {
     const g = this._shopGame;
     if (act === 'startrun') { g.startRun(id); return; }
     if (act === 'buildtab') { this._buildTab = id; this._buildSel = null; if (g) g.audio.play('click'); this._renderShop(); return; }
-    if (act === 'libtab') { this._libTab = id; if (g) g.audio.play('click'); this._renderShop(); return; }
+    if (act === 'chartab') { this._charTab = id; if (g) g.audio.play('click'); this._renderShop(); return; }
     if (act === 'selbuild') { this._buildSel = (this._buildSel === id ? null : id); this._pvAngle = this._buildRot || 0; this._setPreviewItem(this._buildSel); if (g) g.audio.play('click'); this._renderShop(); return; }
     if (act === 'place') {
       const [gx, gy] = id.split('_').map(Number);
@@ -1020,9 +1023,7 @@ export class UI {
     else if (act === 'salvage') { const v = meta.salvageGear(id); ok = v > 0; if (ok) g.ui.toast(`Salvaged for ${v}🪙`); }
     else if (act === 'upgradegear') ok = meta.upgradeGear(id);
     else if (act === 'forge') { const inst = meta.forgeGear(id); ok = !!inst; if (ok) { g.ui.lootToast(inst); g.audio.play('levelup'); } }
-    else if (act === 'research') { ok = meta.startResearch(id); if (ok) g.ui.wispSay('🔬 Research begun. It finishes as the days pass.'); }
     else if (act === 'artieq') { ok = meta.toggleArtifactEquip(id); if (!ok) g.ui.wispSay(`✦ You can only carry ${meta.MAX_ARTIFACTS} artifacts into a run.`, { tone: 'warn' }); }
-    else if (act === 'deck') { const inDeck = UPGRADES.length - meta.deckOffIds().length; if (!meta.isDeckOff(id) && inDeck <= 6) { g.ui.wispSay('Keep at least 6 boons in your deck!', { tone: 'warn' }); ok = false; } else { meta.toggleDeck(id); ok = true; } }
     else if (act === 'paydebt') { const p = meta.payDebt(meta.gold()); ok = p > 0; if (ok) { g.ui.toast(`💰 Paid ${p}🪙 off the debt`); if (meta.debt() <= 0) g.onDebtCleared(); } }
     else if (act === 'claim') { const res = meta.claimQuest(); ok = !!(res && res.reward > 0); if (ok) { g.ui.toast(`Quest reward: +${res.reward}🪙`); if (res.unlocked) g.ui.wispSay(`🔓 Unlocked the ${meta.FEATURE_LABELS[res.unlocked]}. Build it up in your room!`, { big: true, ms: 4200 }); this._earnUpgrade(g, 'finishing a bounty'); } }
     if (g) g.audio.play(ok ? 'click' : 'hiccup');
@@ -1032,15 +1033,14 @@ export class UI {
 
   _renderShop() {
     const kind = this._shopKind;
-    const titles = { skilltree: '✦ Spell Table', library: '📖 Arcane Library', cauldron: '🜲 Cauldron', build: '🏛 Build Your Den', manager: '📜 Quest Board', wardrobe: '🎽 Equipment Hall', ledger: '📒 Tavern Ledger', blacksmith: '🔨 Anvil' };
+    const titles = { skilltree: '✦ Spell Table', character: '🧙 Character', cauldron: '🜲 Cauldron', build: '🏛 Build Your Den', manager: '📜 Quest Board', ledger: '📒 Tavern Ledger', blacksmith: '🔨 Anvil' };
     this.el.shopTitle.textContent = titles[kind] || 'Tavern';
     let html = '';
     if (kind === 'skilltree') html = this._renderSkillTree();
-    else if (kind === 'library') html = this._renderLibrary();
+    else if (kind === 'character') html = this._renderCharacter();
     else if (kind === 'cauldron') html = this._renderCauldron();
     else if (kind === 'build') html = this._renderBuild();
     else if (kind === 'manager') html = this._renderManager();
-    else if (kind === 'wardrobe') html = this._renderWardrobe();
     else if (kind === 'ledger') html = this._renderLedger();
     else if (kind === 'blacksmith') html = this._renderBlacksmith();
     this.el.shopBody.innerHTML = html;
@@ -1072,6 +1072,35 @@ export class UI {
       <div class="gear-rar" style="color:${rc.color}">★ ${rc.name} ${this._slotMeta(g.slot).name}</div>
       <div class="shop-desc gear-stats">${this._gearStats(g)}</div>
       <div class="shop-acts">${acts}</div></div>`;
+  }
+  // ===== Character Hall: one place to manage Gear, your Spell loadout, and your Satchel =====
+  _renderCharacter() {
+    const tab = this._charTab || (this._charTab = 'gear');
+    let h = `<div class="vil-tabs">
+      <button class="vil-tab ${tab === 'gear' ? 'on' : ''}" data-act="chartab" data-id="gear">🎽 Gear</button>
+      <button class="vil-tab ${tab === 'spells' ? 'on' : ''}" data-act="chartab" data-id="spells">✦ Spells</button>
+      <button class="vil-tab ${tab === 'satchel' ? 'on' : ''}" data-act="chartab" data-id="satchel">🎒 Satchel</button></div>`;
+    if (tab === 'gear') h += this._renderWardrobe();
+    else if (tab === 'spells') h += this._renderCharSpells();
+    else h += this._renderInventory();
+    return h;
+  }
+  _renderCharSpells() {
+    const eq = meta.getLoadout();
+    let h = `<p class="shop-sub">Your loadout — carry up to <b>3</b> spells into a venture. Buy &amp; level spells at the <b>Spell Table</b>.</p><div class="shop-grid">`;
+    const owned = meta.SPELL_LIST.filter(id => meta.owns(id));
+    if (!owned.length) h += '<div class="eq-empty">No spells yet — unlock some at the Spell Table.</div>';
+    for (const id of owned) {
+      const m = meta.SPELL_META[id]; const { e } = this._elChip(m.element);
+      const equipped = eq.includes(id);
+      h += `<div class="shop-card spell-card" style="--el:${e.color}">
+        <div class="spell-el" style="color:${e.color}">${e.icon} ${e.name}</div>
+        <div class="shop-glyph" style="color:${e.color}">${m.glyph}</div>
+        <div class="shop-name">${m.name} <span class="lvtag">Lv${meta.spellLevel(id)}</span></div>
+        <div class="shop-acts"><button class="shop-btn ${equipped ? 'on' : ''}" data-act="equip" data-id="${id}">${equipped ? '✓ Equipped' : 'Equip'}</button></div></div>`;
+    }
+    h += '</div>';
+    return h;
   }
   // Clash-style Equipment Hall: a hero loadout strip + combined bonuses + per-slot inventory
   _renderWardrobe() {
@@ -1163,71 +1192,6 @@ export class UI {
     return h;
   }
 
-  // ---- Arcane Library: tabbed Grimoire (showcase) / Research / Inventory ----
-  _renderLibrary() {
-    const tab = this._libTab || (this._libTab = 'grimoire');
-    let h = `<div class="vil-tabs">
-      <button class="vil-tab ${tab === 'grimoire' ? 'on' : ''}" data-act="libtab" data-id="grimoire">📖 Grimoire</button>
-      <button class="vil-tab ${tab === 'deck' ? 'on' : ''}" data-act="libtab" data-id="deck">🃏 Deck</button>
-      <button class="vil-tab ${tab === 'research' ? 'on' : ''}" data-act="libtab" data-id="research">🔬 Research</button>
-      <button class="vil-tab ${tab === 'inventory' ? 'on' : ''}" data-act="libtab" data-id="inventory">🎒 Inventory</button></div>`;
-    if (tab === 'deck') h += this._renderDeck();
-    else if (tab === 'research') h += this._renderResearch();
-    else if (tab === 'inventory') h += this._renderInventory();
-    else h += this._renderGrimoire();
-    return h;
-  }
-  _renderDeck() {
-    const total = UPGRADES.length, inDeck = total - meta.deckOffIds().length;
-    let h = `<p class="shop-sub">Your level-up <b>deck</b> — toggle which boons can appear when you level up, and craft the run you want. (Keep at least 6 in.)</p>`;
-    h += `<div class="eq-section-head">🃏 In your deck <span class="eq-count">${inDeck}/${total}</span></div><div class="shop-grid grim-grid">`;
-    for (const u of UPGRADES) {
-      const on = !meta.isDeckOff(u.id);
-      h += `<div class="shop-card deck-card ${on ? '' : 'locked'}">
-        <div class="shop-glyph">${u.icon}</div>
-        <div class="shop-name">${u.name}</div>
-        <div class="shop-desc">${u.desc}</div>
-        <div class="shop-acts"><button class="shop-btn ${on ? 'on' : ''}" data-act="deck" data-id="${u.id}">${on ? '✓ In deck' : '+ Add'}</button></div></div>`;
-    }
-    h += '</div>';
-    return h;
-  }
-  _renderGrimoire() {
-    let h = '<p class="shop-sub">Every glyph in the realm — its element, its lore, and a glimpse of its magic. Owned spells show their level.</p><div class="shop-grid grim-grid">';
-    for (const id of meta.SPELL_LIST) {
-      const m = meta.SPELL_META[id];
-      const { e } = this._elChip(m.element);
-      const owned = meta.owns(id), lvl = meta.spellLevel(id);
-      h += `<div class="shop-card grim-card ${owned ? '' : 'locked'}" style="--el:${e.color}">
-        <div class="grim-vfx"><span class="vfx-orb" style="--c:${e.color}"></span><span class="grim-glyph" style="color:${e.color}">${m.glyph}</span></div>
-        <div class="spell-el" style="color:${e.color}">${e.icon} ${e.name}</div>
-        <div class="shop-name">${m.name} ${owned ? `<span class="lvtag">Lv${lvl}</span>` : '<span class="lvtag locked-tag">locked</span>'}</div>
-        <div class="shop-desc">${m.lore}</div></div>`;
-    }
-    h += '</div>';
-    return h;
-  }
-  _renderResearch() {
-    const active = meta.researchActive();
-    let h = '<p class="shop-sub">Spend <b>💎 gems</b> to research permanent boons. A project finishes after a few <b>days</b> — every shift you work and venture you take passes one. One project at a time.</p>';
-    if (active) h += `<div class="research-active">🔬 Researching <b>${active.name}</b> — <b>${meta.researchDaysLeft()}</b> day(s) to go.</div>`;
-    h += '<div class="shop-grid">';
-    for (const r of meta.RESEARCH) {
-      const done = meta.researchDone(r.id), isActive = active && active.id === r.id;
-      let btn;
-      if (done) btn = '<button class="shop-btn on" disabled>✓ Researched</button>';
-      else if (isActive) btn = `<button class="shop-btn" disabled>… ${meta.researchDaysLeft()}d left</button>`;
-      else if (active) btn = '<button class="shop-btn" disabled>Library busy</button>';
-      else btn = `<button class="shop-btn gem" data-act="research" data-id="${r.id}" ${meta.canAffordGems(r.gems) ? '' : 'disabled'}>Research 💎${r.gems}</button>`;
-      h += `<div class="shop-card ${done ? '' : 'locked'}">
-        <div class="shop-glyph">${r.icon}</div>
-        <div class="shop-name">${r.name}</div>
-        <div class="shop-desc">${r.desc} · takes <b>${r.days}d</b></div>
-        <div class="shop-acts">${btn}</div></div>`;
-    }
-    h += '</div>';
-    return h;
-  }
   _renderInventory() {
     const eqMods = meta.equipMods();
     const statStr = Object.keys(eqMods).length ? Object.entries(eqMods).map(([k, v]) => meta.statLabel(k, v)).join(' · ') : 'No gear equipped';

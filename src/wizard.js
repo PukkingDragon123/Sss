@@ -219,6 +219,7 @@ export class Wizard {
     if (this.invuln > 0 || !this.alive) return false;
     if (this.shield > 0) { const a = Math.min(this.shield, n); this.shield -= a; n -= a; }
     this.hp -= n;
+    this._hitThisFrame = true;   // a real hit landed this frame (breaks the kill-combo)
     this.invuln = 0.7;
     this.flash = 0.25;
     if (fromPos) {

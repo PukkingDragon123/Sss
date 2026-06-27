@@ -392,7 +392,8 @@ export class Enemies {
       e.phase += dt * (4 + speed);
       e.mesh.rotation.y = Math.atan2(dx, dz);
       e.mesh.rotation.z = Math.sin(e.phase) * 0.18;
-      e.mesh.rotation.x = e.charging > 0 ? -0.28 : (e.mesh.rotation.x ? e.mesh.rotation.x * 0.8 : 0); // lean into a lunge
+      const rx = e.charging > 0 ? -0.28 : e.mesh.rotation.x * 0.8;
+      e.mesh.rotation.x = Math.abs(rx) < 1e-3 ? 0 : rx; // lean into a lunge, then settle flat
       const amp = 0.09 + (e.charging > 0 ? 0.12 : 0);
       let squash = 1 + Math.sin(e.phase * 2) * amp;
       if (e.squashT > 0) { e.squashT -= dt; const k = e.squashT / 0.16; squash *= (1 - 0.3 * k * k); } // flatten on a hit, spring back

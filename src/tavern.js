@@ -345,7 +345,14 @@ export class Tavern {
   get _roomGrid() { return { ox: -4.6, oz: -3.4, cell: 1.9 }; }
   refreshRoom(meta) {
     const grp = this.roomItems;
-    for (let i = grp.children.length - 1; i >= 0; i--) { const c = grp.children[i]; c.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); grp.remove(c); }
+    for (let i = grp.children.length - 1; i >= 0; i--) {
+      const c = grp.children[i];
+      c.traverse(o => {
+        if (o.isMesh) { if (o.geometry) o.geometry.dispose(); const m = o.material; if (Array.isArray(m)) m.forEach(x => x && x.dispose()); else if (m) m.dispose(); }
+        if (o.isLight && o.dispose) o.dispose();
+      });
+      grp.remove(c);
+    }
     this.roomStations = this._roomFixedStations.slice();
     const G = this._roomGrid;
     for (const p of meta.placedItems()) {
@@ -421,6 +428,17 @@ export class Tavern {
         const ink = add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.1, 8), iron)); ink.position.set(0.18, 0.97, 0.18);
         const quill = add(new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.02, 0.3, 5), M(0xf2efe0, 0.6))); quill.position.set(0.2, 1.1, 0.18); quill.rotation.z = 0.5;
         for (let i = 0; i < 4; i++) { const c = add(new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.05, 12), gold)); c.position.set(0.42, 0.94 + i * 0.06, -0.18); }
+        break;
+      }
+      case 'library': {
+        const frame = add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.78, 0.42), M(0x3a2c4a))); frame.position.y = 0.9;
+        const cornice = add(new THREE.Mesh(new THREE.BoxGeometry(1.32, 0.14, 0.5), woodDk)); cornice.position.y = 1.84;
+        for (const sy of [0.42, 1.0, 1.58]) { const sh = add(new THREE.Mesh(new THREE.BoxGeometry(1.12, 0.06, 0.4), woodDk)); sh.position.set(0, sy, 0); }
+        const cols = [0x6f5fc4, 0x4a7ab0, 0x6fb08a, 0xc9a24a, 0xb04a4a, 0x9b7bff];
+        for (let i = 0; i < 12; i++) { const bw = 0.12 + Math.random() * 0.05, bh = 0.4 + Math.random() * 0.08; const b = add(new THREE.Mesh(new THREE.BoxGeometry(bw, bh, 0.32), M(cols[i % 6]))); b.position.set(-0.46 + (i % 6) * 0.18, [0.7, 1.28][Math.floor(i / 6)] + bh / 2 - 0.2, 0.02); b.rotation.z = (Math.random() - 0.5) * 0.14; }
+        const tome = add(new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.1, 0.3), M(0x2a1f44, 0.6))); tome.position.set(0, 0.5, 0.22); tome.rotation.x = -0.5;
+        const rune = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.03, 8, 16), GLOW(0x9b7bff)); rune.rotation.x = -0.5; rune.position.set(0, 0.64, 0.27); g.add(rune);
+        const glow = new THREE.PointLight(0x9b7bff, 0.5, 4); glow.position.set(0, 0.8, 0.4); glow.castShadow = false; g.add(glow);
         break;
       }
       case 'questboard': { const board = add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.0, 0.1), M(0x4a3322))); board.position.y = 1.2; for (let i = 0; i < 4; i++) { const note = add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.36, 0.02), M([0xece0c0, 0xf2efe6, 0xe8d8b0][i % 3], 0.9))); note.position.set(-0.35 + (i % 2) * 0.6, 1.05 + Math.floor(i / 2) * 0.45, 0.07); } const post = add(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.4, 8), wood)); post.position.y = 0.7; break; }

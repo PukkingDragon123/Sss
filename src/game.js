@@ -1478,8 +1478,8 @@ export class Game {
       if (this.bossCine > 0) targetScale = 0.35;
       else if (this.input.drawing) targetScale = 0.32;
     }
-    if (this._hitstopT > 0) { this._hitstopT -= dt; this.timeScale = 0.05; } // a crisp beat of freeze on big impacts
-    else this.timeScale += (targetScale - this.timeScale) * Math.min(1, dt * 12);
+    if (this._hitstopT > 0 && this.state === 'play') { this._hitstopT -= dt; this.timeScale = 0.05; } // a crisp beat of freeze on big impacts
+    else { this._hitstopT = 0; this.timeScale += (targetScale - this.timeScale) * Math.min(1, dt * 12); }
     const sdt = dt * this.timeScale;
 
     if (this.state === 'play') {
@@ -1507,7 +1507,7 @@ export class Game {
 
   _updateArena(sdt) {
     this.elapsed += sdt;
-    const hp0 = this.wizard.hp;   // taking a hit this frame will break the kill-combo
+    this.wizard._hitThisFrame = false;   // any hit taken this frame will break the kill-combo
     // you slowly sober up between gulps; the post-gulp lurch fades fast
     this.drunkenness = Math.max(0, this.drunkenness - sdt * 0.05);
     if (this._drunkSurge > 0) this._drunkSurge = Math.max(0, this._drunkSurge - sdt * 1.6);
@@ -1522,7 +1522,7 @@ export class Game {
 
     // ---- kill-combo upkeep: lapses over time, snaps on any hit taken ----
     if (this.comboT > 0) { this.comboT -= sdt; if (this.comboT <= 0) this.breakCombo(); }
-    if (this.wizard.hp < hp0 - 0.01) this.breakCombo();
+    if (this.wizard._hitThisFrame) this.breakCombo();
 
     // thorns: enemies overlapping the wizard take a little damage
     if (this.stats.thorns > 0) {

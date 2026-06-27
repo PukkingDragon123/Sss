@@ -1171,7 +1171,7 @@ export class UI {
     this._renderShop();
     this.el.shop.classList.toggle('build-mode', kind === 'build');
     this.el.shop.classList.remove('hidden');
-    if (kind === 'build') { if (this._buildRot === undefined) this._buildRot = 0; this.el.buildPreview.classList.remove('hidden'); this._setPreviewItem(this._buildSel); this._startPreview(); }
+    if (kind === 'build') { if (this._buildRot === undefined) this._buildRot = 0; if (this.el.buildPreview) this.el.buildPreview.classList.remove('hidden'); this._setPreviewItem(this._buildSel); this._startPreview(); }
   }
   closeShop() { this.el.shop.classList.add('hidden'); this.el.shop.classList.remove('build-mode'); if (this.el.buildPreview) this.el.buildPreview.classList.add('hidden'); this._stopPreview(); }
 
@@ -1192,7 +1192,10 @@ export class UI {
   _disposePvMesh() {
     if (!this._pvMesh) return;
     this._pvScene.remove(this._pvMesh);
-    this._pvMesh.traverse(o => { if (o.isMesh) { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); } });
+    this._pvMesh.traverse(o => {
+      if (o.isMesh) { if (o.geometry) o.geometry.dispose(); const m = o.material; if (Array.isArray(m)) m.forEach(x => x && x.dispose()); else if (m) m.dispose(); }
+      if (o.isLight && o.dispose) o.dispose();
+    });
     this._pvMesh = null;
   }
   _setPreviewItem(id) {
@@ -1217,9 +1220,16 @@ export class UI {
   _stopPreview() { this._pvActive = false; if (this._pvRaf) cancelAnimationFrame(this._pvRaf); }
   _pvFrame() {
     if (!this._pvRenderer) return;
-    this._pvSpinV = (this._pvSpinV === undefined ? 0.6 : this._pvSpinV); this._pvSpinV += (0.6 - this._pvSpinV) * 0.04;
-    this._pvAngle = (this._pvAngle || 0) + this._pvSpinV * 0.016;
-    if (this._pvMesh) { this._pvMesh.rotation.y = this._pvAngle; this._pvMesh.position.y = Math.sin(this._pvAngle * 1.3) * 0.05; }
+    this._pvT = (this._pvT || 0) + 0.016;
+    if (this._pvMesh) {
+      // ease the model toward the chosen placement facing so ⟳ Rotate visibly turns it 90°
+      const target = this._buildRot || 0;
+      let d = target - (this._pvAngle || 0);
+      while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
+      this._pvAngle = (this._pvAngle || 0) + d * 0.2;
+      this._pvMesh.rotation.y = this._pvAngle + Math.sin(this._pvT * 1.2) * 0.12; // gentle alive sway
+      this._pvMesh.position.y = Math.sin(this._pvT * 1.7) * 0.05;
+    }
     this._pvRenderer.render(this._pvScene, this._pvCamera);
   }
 
@@ -1228,7 +1238,7 @@ export class UI {
     if (act === 'startrun') { g.startRun(id); return; }
     if (act === 'buildtab') { this._buildTab = id; this._buildSel = null; if (g) g.audio.play('click'); this._renderShop(); return; }
     if (act === 'libtab') { this._libTab = id; if (g) g.audio.play('click'); this._renderShop(); return; }
-    if (act === 'selbuild') { this._buildSel = (this._buildSel === id ? null : id); this._setPreviewItem(this._buildSel); if (this._buildSel) this._pvSpinV = 6; if (g) g.audio.play('click'); this._renderShop(); return; }
+    if (act === 'selbuild') { this._buildSel = (this._buildSel === id ? null : id); this._pvAngle = this._buildRot || 0; this._setPreviewItem(this._buildSel); if (g) g.audio.play('click'); this._renderShop(); return; }
     if (act === 'place') {
       const [gx, gy] = id.split('_').map(Number);
       let ok, placedStation = null;

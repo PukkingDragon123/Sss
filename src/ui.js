@@ -87,6 +87,7 @@ export class UI {
       loading: $('loading'),
       bars: document.querySelector('.bars'), spellbook: $('spellbook'), castHint: $('cast-hint'),
       gold: $('gold'), gems: $('gems'), clock: $('clock'), wave: $('wave'), banner: $('banner'), interactPrompt: $('interact-prompt'), btnInteract: $('btn-interact'),
+      stageBanner: $('stage-banner'), stageTint: $('stage-tint'), missionHud: $('mission-hud'),
       shop: $('shop'), shopTitle: $('shop-title'), shopGold: $('shop-gold'), shopGems: $('shop-gems'), shopBody: $('shop-body'), shopClose: $('shop-close'),
       tavernHud: $('tavern-hud'), ruckusCount: $('ruckus-count'),
       abilityTray: $('ability-tray'),
@@ -340,6 +341,7 @@ export class UI {
       <div class="wmd-rows">
         <div class="wmd-row"><span>Danger</span><b>${'💀'.repeat(m.danger)}</b></div>
         <div class="wmd-row"><span>Access</span><b>${access}</b></div>
+        <div class="wmd-row"><span>Stages</span><b>${cleared ? '🏆 10 / 10' : `${meta.regionBest(id)} / 10 reached`}</b></div>
         <div class="wmd-row"><span>Loot</span><b>${m.loot}</b></div>
       </div>
       <button class="btn big wmd-venture" data-act="venture" ${unlocked ? '' : 'disabled'}>${unlocked ? '▸ Venture here' : '🔒 Locked'}</button>
@@ -889,7 +891,7 @@ export class UI {
   showResults(win, info) {
     this.el.endTitle.textContent = win ? `${info.stage} — Conquered!` : 'The Wizard Passed Out';
     this.el.endStats.innerHTML = `
-      <div class="end-summary">${info.stage} · 🚪 ${info.rooms} rooms · ☠ ${info.kills} · Lv ${info.level} · ☀️ Day ${info.day}${info.combo >= 5 ? ` · 🔥 best combo x${info.combo}` : ''}</div>
+      <div class="end-summary">${info.stage} · 🗺 Stage ${info.stages || info.rooms}/${info.stagesTotal || 10} · ☠ ${info.kills} · Lv ${info.level} · ☀️ Day ${info.day}${info.missions ? ` · 🎯 ${info.missions} missions` : ''}${info.combo >= 5 ? ` · 🔥 best combo x${info.combo}` : ''}</div>
       ${info.artifact ? `<div class="end-artifact">✦✦ Claimed artifact: <b>${info.artifact}</b></div>` : ''}
       ${info.research ? `<div class="end-artifact" style="color:var(--mana)">🔬 Research complete: <b>${info.research}</b></div>` : ''}
       <div class="loot-box">
@@ -965,6 +967,35 @@ export class UI {
     el.classList.add('boss');
     el.innerHTML = `<b>${name}</b><br><span class="banner-sub">approaches…</span>`;
     el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  }
+
+  // ---- per-stage gimmick banner (every stage announces what it is) ----
+  showStageBanner(n, total, gim) {
+    const el = this.el.stageBanner; if (!el) return;
+    el.innerHTML = `<div class="sb-count">Stage ${n} <span>/ ${total}</span></div>
+      <div class="sb-name"><span class="sb-ico">${gim.icon}</span>${gim.name}</div>
+      <div class="sb-desc">${gim.desc}</div>`;
+    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  }
+  // a translucent colour wash over the scene so each stage LOOKS different
+  setStageTint(color) {
+    const el = this.el.stageTint; if (!el) return;
+    if (!color) { el.style.background = 'transparent'; el.classList.add('hidden'); return; }
+    el.style.background = `radial-gradient(ellipse at 50% 36%, transparent 30%, ${color} 100%)`;
+    el.classList.remove('hidden');
+  }
+  // ---- stage-mission HUD (small pinned objective; flashes its result) ----
+  showMission(label) {
+    const el = this.el.missionHud; if (!el) return;
+    el.className = ''; el.innerHTML = label; el.classList.remove('hidden');
+  }
+  hideMission() { const el = this.el.missionHud; if (el) el.classList.add('hidden'); }
+  missionResult(won, reward) {
+    const el = this.el.missionHud; if (!el) return;
+    el.className = won ? 'won' : 'failed';
+    el.innerHTML = won ? `✅ Mission complete · +${reward}💎` : '❌ Mission failed';
+    void el.offsetWidth;
+    setTimeout(() => { if (el.classList.contains('won') || el.classList.contains('failed')) el.classList.add('hidden'); }, 2200);
   }
 
   // ---- Shop panels (skill tree / cauldron / room / manager) ----

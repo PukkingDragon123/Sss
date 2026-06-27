@@ -333,13 +333,15 @@ export class Enemies {
         game.particles.burst({ pos: e.mesh.position.clone().setY(0.6), color: 0xff7a3a, count: 22, speed: 8, size: 0.32, life: 0.7 });
         game.shake(1.0);
         const pd = Math.hypot(game.wizard.pos.x - e.mesh.position.x, game.wizard.pos.z - e.mesh.position.z);
-        if (pd < R) game.wizard.takeDamage(def.explodeDmg, e.mesh.position);
+        if (pd < R) game.wizard.takeDamage(def.explodeDmg * (game._stageMods ? game._stageMods.dmgMult : 1), e.mesh.position);
       }
     }
   }
 
   update(dt, game) {
     const player = game.wizard.pos;
+    // per-stage gimmick mods (e.g. Frenzy = faster, Glass Fangs = bigger bite)
+    const mods = game._stageMods, spdM = mods ? mods.speedMult : 1, dmgM = mods ? mods.dmgMult : 1;
     for (let i = this.list.length - 1; i >= 0; i--) {
       const e = this.list[i];
       if (!e.alive) { e.mesh.visible = false; this.pools[e.type].push(e); this.list.splice(i, 1); continue; }
@@ -357,7 +359,7 @@ export class Enemies {
       }
 
       if (e.slowT > 0) { e.slowT -= dt; if (e.slowT <= 0) e.slow = 0; }
-      const speed = e.speed * (1 - e.slow);
+      const speed = e.speed * (1 - e.slow) * spdM;
 
       const dx = player.x - e.mesh.position.x;
       const dz = player.z - e.mesh.position.z;
@@ -420,7 +422,7 @@ export class Enemies {
       const pr = 0.7 + e.r;
       if (d < pr && e.contactCd <= 0) {
         if (adef.explodeDmg) { this._kill(e, game); continue; } // bombers detonate on contact
-        if (game.wizard.takeDamage(e.dmg, e.mesh.position)) {
+        if (game.wizard.takeDamage(e.dmg * dmgM, e.mesh.position)) {
           game.audio.play('hurt');
           game.shake(0.5 + e.dmg * 0.02);
           if (e.type === 'vampire') { // lifesteal

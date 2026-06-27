@@ -63,6 +63,33 @@ export const STAGES = {
 // the order stages unlock in (each cleared boss opens the next)
 export const STAGE_ORDER = ['forest', 'cave', 'graveyard', 'swamp', 'frost', 'inferno', 'clockwork', 'void'];
 
+// ---- the 10 stages WITHIN a region ----
+// Every region is a ten-stage ladder. Each stage has its own gimmick (shown to the
+// player as a banner on entry), its own screen tint so it LOOKS different, a tweak to
+// how the foes behave (hp / count / speed / damage), and a little optional mission for
+// bonus 💎. Stage 1 is the entrance fight, 10 is the boss lair; 2–9 are the path forks.
+//   hpMult/spawnMult feed the wave director; speedMult/dmgMult feed enemies.js via
+//   game._stageMods; tint is a CSS colour layered over the scene.
+//   mission: survive | slayer (combo) | speed (time) | nohit | boss
+export const STAGE_GIMMICKS = [
+  { name: 'Arrival',     icon: '🌑', desc: 'Find your footing — a gentle skirmish to warm up.',  tint: 'rgba(40,70,110,0.10)',  hpMult: 0.85, spawnMult: 0.9, speedMult: 1.0,  dmgMult: 1.0,  mission: 'survive', goal: 0,  reward: 6 },
+  { name: 'The Swarm',   icon: '🐝', desc: 'Many weak foes pour in at once — keep moving!',       tint: 'rgba(120,180,60,0.12)', hpMult: 0.7,  spawnMult: 1.5, speedMult: 1.05, dmgMult: 0.9,  mission: 'slayer',  goal: 8,  reward: 10 },
+  { name: 'Thick Hide',  icon: '🛡️', desc: 'Fewer foes, but they soak up a real beating.',        tint: 'rgba(150,120,80,0.12)', hpMult: 1.6,  spawnMult: 0.7, speedMult: 0.9,  dmgMult: 1.0,  mission: 'speed',   goal: 45, reward: 12 },
+  { name: 'Frenzy',      icon: '⚡', desc: 'Everything moves fast. Don\'t get cornered.',          tint: 'rgba(220,180,40,0.12)', hpMult: 0.9,  spawnMult: 1.0, speedMult: 1.45, dmgMult: 1.0,  mission: 'nohit',   goal: 0,  reward: 14 },
+  { name: 'Glass Fangs', icon: '🦷', desc: 'They shatter in one hit — but oh, do they bite.',      tint: 'rgba(200,60,80,0.13)',  hpMult: 0.55, spawnMult: 1.1, speedMult: 1.1,  dmgMult: 1.5,  mission: 'nohit',   goal: 0,  reward: 16 },
+  { name: 'The Horde',   icon: '💀', desc: 'A relentless tide. Crowd control is king here.',       tint: 'rgba(110,70,150,0.13)', hpMult: 0.85, spawnMult: 1.7, speedMult: 1.05, dmgMult: 1.0,  mission: 'slayer',  goal: 14, reward: 16 },
+  { name: 'Juggernauts', icon: '🪨', desc: 'Slow, huge, and very hard to put down.',               tint: 'rgba(130,95,60,0.14)',  hpMult: 2.0,  spawnMult: 0.6, speedMult: 0.8,  dmgMult: 1.2,  mission: 'speed',   goal: 55, reward: 18 },
+  { name: 'Blitz',       icon: '🌪️', desc: 'Fast AND many, all at once. Pure chaos.',             tint: 'rgba(60,160,200,0.14)', hpMult: 0.85, spawnMult: 1.4, speedMult: 1.35, dmgMult: 1.05, mission: 'nohit',   goal: 0,  reward: 20 },
+  { name: 'The Gauntlet', icon: '🔥', desc: 'A brutal elite pack guards the road to the lair.',     tint: 'rgba(220,90,40,0.15)',  hpMult: 1.5,  spawnMult: 1.0, speedMult: 1.1,  dmgMult: 1.3,  mission: 'slayer',  goal: 12, reward: 22 },
+  { name: 'Boss Lair',   icon: '👑', desc: 'The region\'s champion awaits. End it.',               tint: 'rgba(180,40,60,0.17)',  hpMult: 1.0,  spawnMult: 1.0, speedMult: 1.0,  dmgMult: 1.0,  mission: 'boss',    goal: 0,  reward: 0 },
+];
+export const STAGES_PER_REGION = 10;
+// pick the gimmick for a given 1-based stage number (clamped to the ladder)
+export function gimmickFor(stageNum) {
+  const i = Math.max(1, Math.min(STAGE_GIMMICKS.length, stageNum)) - 1;
+  return STAGE_GIMMICKS[i];
+}
+
 const SPAWN_CAP = 100;
 
 export class Director {

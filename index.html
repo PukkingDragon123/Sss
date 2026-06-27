@@ -19,6 +19,8 @@
   <canvas id="scene"></canvas>
   <!-- 2D overlay for the gesture trail / glyph drawing -->
   <canvas id="fx2d"></canvas>
+  <!-- per-stage colour wash so every stage looks different -->
+  <div id="stage-tint" class="hidden"></div>
 
   <!-- ===== HUD ===== -->
   <div id="hud" class="hidden">
@@ -97,6 +99,10 @@
     </div>
 
     <div id="banner"></div>
+    <!-- per-stage gimmick banner (shown on entry) -->
+    <div id="stage-banner"></div>
+    <!-- pinned stage-mission objective -->
+    <div id="mission-hud" class="hidden"></div>
     <!-- kill-combo counter (punchy, center-top) -->
     <div id="combo-hud"><div class="combo-n" id="combo-n">x0</div><div class="combo-lbl">combo</div></div>
     <div id="toast-area"></div>

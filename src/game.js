@@ -9,7 +9,7 @@ import { Recognizer, TEMPLATES } from './recognizer.js';
 import { Input } from './input.js';
 import { AudioEngine } from './audio.js';
 import { UI } from './ui.js';
-import { Director, STAGES, BLACKOUT_LINES } from './story.js';
+import { Director, STAGES, BLACKOUT_LINES, STAGE_GIMMICKS, STAGES_PER_REGION, gimmickFor } from './story.js';
 import { Jobs } from './jobs.js';
 import { Tavern } from './tavern.js';
 import { World } from './world.js';
@@ -639,8 +639,10 @@ export class Game {
     meta.save();
     this.ui.closeModals();
     this.ui.setScreen('end');
+    const stagesReached = win ? STAGES_PER_REGION : Math.min(STAGES_PER_REGION, (this._forksDone || 0) + 1);
     this.ui.showResults(win, {
       nodes: depth, rooms: depth, kills: this.kills, level: this.level, stage: this.stage ? this.stage.name : '',
+      stages: stagesReached, stagesTotal: STAGES_PER_REGION, missions: this._missionsWon || 0,
       artifact: win && this.runArtifacts.length ? this.runArtifacts[this.runArtifacts.length - 1].name : null,
       earnedGems, gems: meta.gems(), day: meta.currentDay(), combo: this.comboBest || 0,
       research: finishedResearch ? meta.researchById(finishedResearch).name : null, questDone,
@@ -683,6 +685,8 @@ export class Game {
     this.nearStation = null;
     this.storyQueue.length = 0; this.storyShowing = false;
     this.ui.closeModals();
+    this.ui.setStageTint(null); this.ui.hideMission(); // drop any arena stage colour/mission HUD
+    this._stageMods = null;
     this.ui.fadeBlack(false);
     this.ui.setScreen('play');
     this.stats = DEFAULT_STATS();
@@ -888,9 +892,16 @@ export class Game {
     // ---- the run path: an entrance fight, then a left/right fork before each step
     // (combat / treasure / campfire / choice-event / skill-trial, Slay-the-Spire
     // style), then the boss + a guaranteed OP artifact previewed at the boss fork ----
-    this._forksTotal = 3;           // normal forks before the boss fork
-    this._forksDone = 0;            // forks resolved so far
+    // a region is a ten-stage ladder: stage 1 = entrance, 10 = boss lair, 2–9 = forks.
+    this._forksTotal = STAGES_PER_REGION - 2; // 8 forks: entrance(1) + 8 + boss(1) = 10 stages
+    this._forksDone = 0;            // forks resolved so far (stageNum = _forksDone + 1)
     this._lastMerchantFork = -1;    // guards the wandering-merchant visit (every 3 forks)
+    this._stageMods = null;         // per-stage gimmick mods read by enemies.js (speed/dmg)
+    this._mission = null;           // the current stage's optional mission (bonus 💎)
+    this._stageNoHit = true;        // tracks the no-hit mission across the stage
+    this._stageComboPeak = 0;       // tracks the best combo for slayer missions
+    this._stageStartT = 0;          // elapsed-time stamp for speed missions
+    this._missionsWon = 0;          // stage missions cleared this run (for the results screen)
     this._roomsCleared = 0;         // depth, for loot & quests
     this._pendingReward = null;     // the prize the combat node you entered promised
     this._nextIsBoss = false;
@@ -970,14 +981,48 @@ export class Game {
   // (combat / elite / treasure / campfire / choice-event / skill-trial), Slay-the-
   // Spire style; the door previews what waits. The last fork leads to the boss. ----
   _beginRoom(isBoss, elite) {
-    const scale = (1 + this._forksDone * 0.12) * (elite ? 1.5 : 1);
-    this.director.start(this.stage, { waves: isBoss ? 1 : 2, boss: isBoss, hpScale: scale, sizeMult: 1 + this._forksDone * 0.06 + (elite ? 0.2 : 0) });
-    this.ui.wispSay(isBoss ? '👑 The boss lair. Survive!' : elite ? '💀 An elite pack. Be careful!' : '⚔ A skirmish ahead.');
+    // which of the region's ten stages is this? (1 = entrance … 10 = boss lair)
+    const stageNum = isBoss ? STAGES_PER_REGION : Math.min(STAGES_PER_REGION, this._forksDone + 1);
+    const gim = gimmickFor(stageNum);
+    this._stageMods = { speedMult: gim.speedMult, dmgMult: gim.dmgMult }; // read live by enemies.js
+    const baseScale = (1 + this._forksDone * 0.12) * (elite ? 1.5 : 1);
+    const scale = baseScale * gim.hpMult;
+    const sizeMult = (1 + this._forksDone * 0.06 + (elite ? 0.2 : 0)) * gim.spawnMult;
+    this.director.start(this.stage, { waves: isBoss ? 1 : 2, boss: isBoss, hpScale: scale, sizeMult });
+    // every stage announces its gimmick and recolours the scene so it LOOKS different
+    this.ui.showStageBanner(stageNum, STAGES_PER_REGION, gim);
+    this.ui.setStageTint(gim.tint);
+    meta.setRegionBest(this.stage.id, stageNum); // best X/10, shown on the world map
+    // optional stage mission for bonus 💎 (no mission on the boss — beating it IS the goal)
+    this._mission = isBoss ? null : { type: gim.mission, goal: gim.goal, reward: gim.reward };
+    this._stageNoHit = true; this._stageComboPeak = 0; this._stageStartT = this.elapsed;
+    if (this._mission) this.ui.showMission(this._missionLabel(this._mission));
+    else this.ui.hideMission();
+    this.ui.wispSay(`${gim.icon} Stage ${stageNum}/${STAGES_PER_REGION} — ${gim.name}: ${gim.desc}`);
+  }
+  _missionLabel(m) {
+    if (m.type === 'nohit') return `🎯 Take no hits this stage · +${m.reward}💎`;
+    if (m.type === 'speed') return `🎯 Clear within ${m.goal}s · +${m.reward}💎`;
+    if (m.type === 'slayer') return `🎯 Hit a ${m.goal}-kill combo · +${m.reward}💎`;
+    return `🎯 Survive the stage · +${m.reward}💎`;
+  }
+  // a stage cleared: judge its mission and pay out the bonus
+  _evalMission() {
+    const m = this._mission; if (!m) { this.ui.hideMission(); return; }
+    this._mission = null;
+    let won;
+    if (m.type === 'nohit') won = this._stageNoHit;
+    else if (m.type === 'speed') won = (this.elapsed - this._stageStartT) <= m.goal;
+    else if (m.type === 'slayer') won = this._stageComboPeak >= m.goal;
+    else won = true; // survive
+    if (won) { this._missionsWon = (this._missionsWon || 0) + 1; meta.addGems(m.reward); this.ui.setGems(meta.gems()); this.ui.missionResult(true, m.reward); this.audio.play('xp'); }
+    else this.ui.missionResult(false, 0);
   }
 
   // a combat room cleared -> pay out its promised reward, then offer the next fork
   onEncounterCleared() {
     if (this._introRun) { this._finishIntroRun(); return; } // the guided first fight is over
+    this._evalMission(); // judge this stage's optional mission, pay the bonus
     if (this._pendingReward) { this._grantReward(this._pendingReward); this._pendingReward = null; }
     this._nextFork();
   }
@@ -1526,7 +1571,8 @@ export class Game {
 
     // ---- kill-combo upkeep: lapses over time, snaps on any hit taken ----
     if (this.comboT > 0) { this.comboT -= sdt; if (this.comboT <= 0) this.breakCombo(); }
-    if (this.wizard._hitThisFrame) this.breakCombo();
+    if (this.wizard._hitThisFrame) { this.breakCombo(); this._stageNoHit = false; } // a hit blows the no-hit mission
+    if (this._mission && this.combo > (this._stageComboPeak || 0)) this._stageComboPeak = this.combo; // track best combo (slayer)
 
     // thorns: enemies overlapping the wizard take a little damage
     if (this.stats.thorns > 0) {

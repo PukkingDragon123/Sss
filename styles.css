@@ -288,6 +288,43 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
   100%{opacity:0;transform:translateX(-50%) scale(1);}
 }
 
+/* ===== Per-stage colour wash (every stage looks different) ===== */
+#stage-tint{position:fixed;inset:0;z-index:2;pointer-events:none;
+  mix-blend-mode:soft-light;transition:background .8s ease;}
+#stage-tint.hidden{display:none;}
+
+/* ===== Per-stage gimmick banner ===== */
+#stage-banner{position:absolute;left:50%;top:30%;transform:translateX(-50%);pointer-events:none;
+  text-align:center;opacity:0;white-space:nowrap;z-index:30;}
+#stage-banner .sb-count{font-weight:900;letter-spacing:3px;font-size:clamp(12px,2.2vw,16px);
+  color:var(--ink-dim);text-shadow:0 2px 4px #000;}
+#stage-banner .sb-count span{opacity:.6;}
+#stage-banner .sb-name{font-weight:900;font-size:clamp(26px,5.4vw,48px);color:var(--gold);
+  text-shadow:0 0 22px rgba(155,123,255,.7),0 3px 6px #000;letter-spacing:1px;line-height:1.05;}
+#stage-banner .sb-ico{margin-right:10px;filter:drop-shadow(0 2px 6px #000);}
+#stage-banner .sb-desc{margin-top:6px;font-weight:700;font-size:clamp(12px,2.4vw,17px);
+  color:#fff;text-shadow:0 2px 5px #000;opacity:.92;white-space:normal;max-width:80vw;}
+#stage-banner.show{animation:stagebanner 3.1s ease forwards;}
+@keyframes stagebanner{
+  0%{opacity:0;transform:translateX(-50%) translateY(14px) scale(.86);}
+  10%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.04);}
+  18%{transform:translateX(-50%) translateY(0) scale(1);}
+  80%{opacity:1;}
+  100%{opacity:0;transform:translateX(-50%) translateY(-10px) scale(1);}
+}
+
+/* ===== Stage-mission objective (pinned, top-center under the bars) ===== */
+#mission-hud{position:absolute;left:50%;top:88px;transform:translateX(-50%);z-index:25;
+  background:rgba(20,16,34,.82);border:2px solid var(--panel-edge);border-radius:999px;
+  padding:6px 16px;font-weight:800;font-size:14px;color:#ffe7a8;white-space:nowrap;
+  box-shadow:0 6px 18px rgba(0,0,0,.45);pointer-events:none;
+  animation:missionin .4s cubic-bezier(.34,1.56,.64,1);}
+#mission-hud.hidden{display:none;}
+#mission-hud.won{color:#bff7c0;border-color:#3fbf5a;animation:missionpop .5s ease;}
+#mission-hud.failed{color:#ffb0b0;border-color:#bf3f3f;animation:missionpop .5s ease;}
+@keyframes missionin{from{opacity:0;transform:translateX(-50%) translateY(-10px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+@keyframes missionpop{0%{transform:translateX(-50%) scale(.8);}50%{transform:translateX(-50%) scale(1.12);}100%{transform:translateX(-50%) scale(1);}}
+
 /* ===== Wardrobe ===== */
 .ward-slot{margin-bottom:12px;}
 .ward-slot-name{font-weight:800;color:var(--magic);letter-spacing:1.5px;font-size:13px;margin-bottom:6px;}

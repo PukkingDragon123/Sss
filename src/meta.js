@@ -297,6 +297,7 @@ function defaultSave() {
     questIdx: 0, questDone: false,
     rested: false,
     cleared: [], // stage ids whose boss you've beaten (gates the world map)
+    regionBest: {}, // furthest stage (1–10) reached per region id
   };
 }
 
@@ -352,6 +353,7 @@ export function load() {
       state.deckOff = state.deckOff || {};
       state.unlockedUpgrades = Object.assign({ maxhp: 1, damage: 1, haste: 1, mana: 1, cdr: 1 }, state.unlockedUpgrades || {});
       state.features = state.features || {};
+      state.regionBest = state.regionBest || {};
       state.debt = (typeof state.debt === 'number') ? state.debt : 600;
       // offline earnings since last seen (capped)
       const dt = Math.max(0, (Date.now() - (state.tavern.lastSeen || Date.now())) / 1000);
@@ -490,6 +492,9 @@ export function rest() { if (state.rested) return false; state.rested = true; sa
 // ---- world-map stage unlock (each boss opens the next haunt) ----
 export const stageCleared = (id) => (state.cleared || []).includes(id);
 export function markStageCleared(id) { if (!state.cleared) state.cleared = []; if (!state.cleared.includes(id)) { state.cleared.push(id); save(); } }
+// furthest of the region's 10 inner stages you've reached (best X/10 on the world map)
+export const regionBest = (id) => (state.regionBest && state.regionBest[id]) || 0;
+export function setRegionBest(id, n) { if (!state.regionBest) state.regionBest = {}; if (n > (state.regionBest[id] || 0)) { state.regionBest[id] = n; save(); } }
 export const isRested = () => state.rested;
 export function consumeRest() { const r = state.rested; if (r) { state.rested = false; save(); } return r; }
 

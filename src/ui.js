@@ -228,6 +228,14 @@ export class UI {
     h += `<div class="qp-card"><h4>📌 Bounty</h4>
       <p class="qp-sub">${q ? q.text + ' (reward ' + q.reward + ' gold)' : 'No bounty right now.'}</p>
       <div class="shop-acts"><button class="shop-btn ${done ? 'on' : ''}" data-act="claim" ${done ? '' : 'disabled'}>${done ? 'Claim reward' : 'In progress'}</button></div></div>`;
+    const reqs = meta.customerQuests();
+    h += `<div class="qp-card"><h4>🧑 Customer Requests</h4>
+      <p class="qp-sub">Patrons roam the bar with a ❗ — walk up and talk to take their job.</p>`;
+    if (reqs.length) { h += '<div class="qp-tasklist">';
+      for (const cq of reqs) { const ready = meta.customerQuestReady(cq); h += `<div class="qp-task ${ready ? 'done' : ''}"><span class="tick">${ready ? '✓' : (cq.icon || '○')}</span><span><b>${cq.npc.name}:</b> ${cq.ask}${ready ? ' <i>(ready!)</i>' : ''}</span></div>`; }
+      h += '</div>';
+    } else h += '<div class="qp-progress">No requests right now.</div>';
+    h += '</div>';
     h += `<div class="qp-card"><h4>🧭 Learn the Ropes</h4>
       <p class="qp-sub">Try every part of the realm. The wisp will guide you.</p><div class="qp-tasklist">`;
     for (const t of meta.tutorialChecklist()) h += `<div class="qp-task ${t.done ? 'done' : ''}"><span class="tick">${t.done ? '✓' : '○'}</span><span>${t.text}</span></div>`;
@@ -472,6 +480,34 @@ export class UI {
       b.innerHTML = `<span class="eo-label">${o.label}</span><span class="eo-tip">${afford ? (o.tip || '') : 'not enough 💎'}</span>`;
       this.el.eventOpts.appendChild(b);
     });
+    this.el.eventModal.classList.remove('hidden');
+  }
+  // ---- unique customer: a roaming quest-giver's request (reuses the event modal) ----
+  showCustomer(game, quest) {
+    const q = quest, npc = q.npc;
+    this.el.eventIcon.textContent = npc.icon || '🧑';
+    this.el.eventTitle.textContent = npc.name;
+    const ready = meta.customerQuestReady(q);
+    const prog = meta.customerQuestProgress(q);
+    const r = q.reward || {};
+    const rewardStr = [r.gems ? `${r.gems}💎` : '', r.gold ? `${r.gold}🪙` : ''].filter(Boolean).join(' · ') || '—';
+    this.el.eventPrompt.innerHTML =
+      `<div style="font-style:italic;opacity:.85;margin-bottom:8px">“${npc.line}”</div>` +
+      `<div style="font-weight:800;color:#ffe7a8">${q.icon || '📜'} ${q.ask}</div>` +
+      `<div style="margin-top:6px;color:var(--ink-dim)">${prog}</div>` +
+      `<div style="margin-top:6px">🎁 Reward: <b>${rewardStr}</b></div>`;
+    this.el.eventSkill.classList.add('hidden');
+    this.el.eventOpts.classList.remove('hidden');
+    this.el.eventOpts.innerHTML = '';
+    const claim = document.createElement('button');
+    claim.className = 'btn event-opt'; claim.disabled = !ready;
+    claim.innerHTML = `<span class="eo-label">${ready ? (q.kind === 'deliver' ? '✋ Hand it over' : '✅ Claim reward') : '⏳ Not ready yet'}</span><span class="eo-tip">${ready ? 'collect your reward' : 'come back when it\'s done'}</span>`;
+    claim.onclick = () => { if (!claim.disabled) game.claimCustomer(q.id); };
+    const leave = document.createElement('button');
+    leave.className = 'btn event-opt';
+    leave.innerHTML = '<span class="eo-label">Maybe later</span><span class="eo-tip">keep the request on the board</span>';
+    leave.onclick = () => game.closeCustomer();
+    this.el.eventOpts.appendChild(claim); this.el.eventOpts.appendChild(leave);
     this.el.eventModal.classList.remove('hidden');
   }
   // ---- skill event: stop the sweeping marker on the green mark ----

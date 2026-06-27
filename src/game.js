@@ -695,6 +695,8 @@ export class Game {
     this._drunkSurge = 0;
     this.tavern.reset();
     this.tavern.resetTables();       // seat fresh patrons & clear any half-poured order
+    meta.refreshCustomers(2);        // top up walk-in quest-givers
+    this.tavern.setupCustomers(meta.customerQuests()); // unique customers who roam & give quests
     this.tavern.refreshRoom(meta);
     this.tavern.show(true);
     this.tavern.showRoom(false);
@@ -716,6 +718,7 @@ export class Game {
       setTimeout(() => { if (this.phase === 'tavern') this.ui.wispSay('Tap 📜 for your quest log and 🎒 for your satchel any time. Your goals live there.', { big: true, ms: 5200 }); }, 900);
     }
     this.tavernReady = true;
+    if (meta.customerQuests().length) this._learn('customer', '🧑 See the patrons with a ❗ above them? Walk up and press E — they\'ll give you a request or a fetch quest for gems.');
     if (this._justInherited) {
       this._justInherited = false;
       this.showStory('Wisp', [
@@ -737,6 +740,7 @@ export class Game {
       if (t === 'stairs') { this.goUpstairs(); return; }
       if (t === 'serve') { this.tavern.barAction(this); return; }
       if (t === 'table') { this.tavern.tableAction(s.table, this); return; }
+      if (t === 'customer') { this.talkCustomer(s.quest); return; }
     } else if (this.phase === 'room') {
       if (t === 'down') { this.goDownstairs(); return; }
       if (t === 'rest') { this.restAtBed(); return; }
@@ -745,6 +749,34 @@ export class Game {
   }
 
   _openShop(kind) { this._shopKind = kind; this.state = 'menu'; this.ui.openShop(kind, this); }
+
+  // ---- unique tavern customers: walk up, hear their request, hand it in ----
+  talkCustomer(quest) {
+    if (!quest) return;
+    this._curCustomer = quest;
+    this.state = 'menu';
+    this.audio.play('click');
+    this.ui.showCustomer(this, quest);
+  }
+  claimCustomer(id) {
+    const res = meta.claimCustomerQuest(id);
+    if (!res) { this.ui.wispSay('You can\'t fulfil that just yet.', { tone: 'warn' }); return; }
+    this.audio.play('win');
+    const r = res.reward;
+    const bits = [r.gems ? `+${r.gems}💎` : '', r.gold ? `+${r.gold}🪙` : ''].filter(Boolean).join(' ');
+    this.ui.toast(`✅ ${res.npc.name} thanks you — ${bits}`);
+    this.ui.setGold(meta.gold()); this.ui.setGems(meta.gems());
+    this.closeCustomer();
+    // a fresh face wanders in to replace them
+    meta.refreshCustomers(2);
+    this.tavern.setupCustomers(meta.customerQuests());
+    this.nearStation = null;
+  }
+  closeCustomer() {
+    this._curCustomer = null;
+    this.ui.hideEvent();
+    if (this.state === 'menu') this.state = 'play';
+  }
 
   // ---- the 3D top-down WORLD MAP: scout a region, then venture straight in ----
   openWorldMap() {
@@ -1293,7 +1325,7 @@ export class Game {
       if (e.type === 'guide') { this.toggleGuide(); continue; }
       if (e.type === 'drink') { this.drink(); continue; }
       if (e.type === 'select') { if (this.state === 'world') { const id = this.world.pick(e.x, e.y, this.camera); if (id) this.selectWorldRegion(id); } continue; }
-      if (e.type === 'interact') { if (this.state === 'menu') { if (!this.ui.closeMerchant()) this.closeShop(); } else this.interact(); continue; }
+      if (e.type === 'interact') { if (this.state === 'menu') { if (this._curCustomer) this.closeCustomer(); else if (!this.ui.closeMerchant()) this.closeShop(); } else this.interact(); continue; }
 
       if (this.storyShowing) {
         if (e.type === 'confirm' || e.type === 'primary') this.ui._storyAdvance();

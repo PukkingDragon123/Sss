@@ -28,6 +28,7 @@ export class Tavern {
     this.roomStart = new THREE.Vector3(-1.5, 0, 4.5); // room spawn
     this.door = new THREE.Vector3(DOOR_X, 0, NORTH);
     this.tables = [];                              // the 4 serving tables
+    this.questNpcs = [];                            // unique walk-in customers (quest givers)
     this.order = { table: null, stage: 'idle' };   // 'idle' | 'taken' | 'carrying'
     this._build();
     this._buildAmbience();
@@ -237,6 +238,46 @@ export class Tavern {
     const mb = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.13, 0.3, 12), new THREE.MeshStandardMaterial({ color: 0x9a6a3a, roughness: 0.6 }));
     const foam = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshStandardMaterial({ color: 0xfff7e8, roughness: 0.7 })); foam.position.y = 0.17; foam.scale.y = 0.55;
     this.carryMug.add(mb, foam); this.carryMug.visible = false; this.group.add(this.carryMug);
+  }
+
+  // ===================== unique walk-in customers (quest givers) =====================
+  // a bobbing "!" marker (canvas sprite) hovering over a quest-giver's head
+  _makeQuestMarker(icon) {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const x = c.getContext('2d');
+    x.save(); x.shadowColor = 'rgba(0,0,0,0.45)'; x.shadowBlur = 10; x.shadowOffsetY = 4;
+    x.fillStyle = '#ffcf5c'; x.beginPath(); x.arc(64, 56, 40, 0, 6.28); x.fill(); x.restore();
+    x.lineWidth = 5; x.strokeStyle = '#1a1020'; x.beginPath(); x.arc(64, 56, 40, 0, 6.28); x.stroke();
+    x.font = '56px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(icon || '❗', 64, 60);
+    const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    s.scale.set(1.0, 1.0, 1.0);
+    return s;
+  }
+  // (re)build the quest-giver patrons from the active customer-quest list
+  setupCustomers(quests) {
+    // tear down the old ones (meshes + their stations), disposing GPU resources
+    for (const qn of this.questNpcs) {
+      this.group.remove(qn.mesh);
+      qn.mesh.traverse(o => {
+        if (o.geometry) o.geometry.dispose();
+        const m = o.material; if (m) { if (m.map) m.map.dispose(); m.dispose(); }
+      });
+    }
+    this.questNpcs.length = 0;
+    this.stations = this.stations.filter(s => s.type !== 'customer');
+    const spots = [[-7.5, -1], [7.2, -2.5], [-2, -7]];
+    (quests || []).slice(0, spots.length).forEach((q, i) => {
+      const person = this._buildPatron(q.npc.color, i % 2 === 0);
+      const [sx, sz] = spots[i];
+      person.position.set(sx, 0, sz); person.rotation.y = Math.random() * Math.PI * 2;
+      const marker = this._makeQuestMarker(q.npc.icon || '❗'); marker.position.set(0, 2.5, 0); person.add(marker);
+      this.group.add(person);
+      const station = { type: 'customer', label: `talk to ${q.npc.name}`, pos: new THREE.Vector3(sx, 0, sz), mark: null, quest: q };
+      const qn = { mesh: person, marker, pos: new THREE.Vector3(sx, 0, sz), target: new THREE.Vector3(sx, 0, sz), r: 0.6, phase: Math.random() * 6, repathCd: Math.random() * 3, speed: 1.0 + Math.random() * 0.5, yaw: 0, quest: q, station };
+      this.questNpcs.push(qn);
+      this.stations.push(station);
+    });
   }
 
   resetTables() {
@@ -595,6 +636,20 @@ export class Tavern {
       }
       if (n.annoyedCd > 0) n.annoyedCd -= dt;
       if (n.wob > 0) { n.wob -= dt * 2; n.mesh.rotation.z = Math.sin(this.phase * 22) * 0.15 * Math.max(0, n.wob); } else { n.mesh.rotation.z = Math.sin(n.phase) * 0.03; }
+    }
+
+    // unique quest-giver customers: roam gently, bob their "!" marker, keep their
+    // (moving) interact-station in sync so you can walk up and talk to them
+    for (const qn of this.questNpcs) {
+      qn.phase += dt; qn.repathCd -= dt;
+      const reached = qn.pos.distanceTo(qn.target) < 0.4;
+      if (qn.repathCd <= 0 || reached) { qn.repathCd = 2.5 + Math.random() * 3.5; qn.target.set(-8 + Math.random() * 16, 0, -8 + Math.random() * 12); }
+      const tx = qn.target.x - qn.pos.x, tz = qn.target.z - qn.pos.z, td = Math.hypot(tx, tz) || 1e-4, step = Math.min(td, qn.speed * dt);
+      qn.pos.x += (tx / td) * step; qn.pos.z += (tz / td) * step; if (td > 0.1) qn.yaw = Math.atan2(tx, tz);
+      qn.mesh.position.set(qn.pos.x, Math.abs(Math.sin(qn.phase * 5)) * 0.06, qn.pos.z);
+      qn.mesh.rotation.y = qn.yaw; qn.mesh.rotation.z = Math.sin(qn.phase) * 0.04;
+      qn.marker.position.y = 2.5 + Math.sin(this.phase * 3 + qn.pos.x) * 0.14;
+      qn.station.pos.set(qn.pos.x, 0, qn.pos.z);
     }
 
     for (const p of this.props) {

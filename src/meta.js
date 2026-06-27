@@ -1,6 +1,7 @@
 // meta.js — persistent meta-progression (3 save slots in localStorage): gold,
 // spells/combos/loadout, room, equipment, quests, and the idle tavern tycoon.
 import { UPGRADES } from './upgrades.js';
+import { STAGE_ORDER, STAGES } from './story.js';
 
 // the four elements every spell belongs to (shown in the Grimoire & Spell Table)
 export const ELEMENTS = {
@@ -298,6 +299,7 @@ function defaultSave() {
     rested: false,
     cleared: [], // stage ids whose boss you've beaten (gates the world map)
     regionBest: {}, // furthest stage (1–10) reached per region id
+    customer: { active: [], seq: 1, done: 0 }, // walk-in customer quests (the RPG fetch/bounty loop)
   };
 }
 
@@ -354,6 +356,8 @@ export function load() {
       state.unlockedUpgrades = Object.assign({ maxhp: 1, damage: 1, haste: 1, mana: 1, cdr: 1 }, state.unlockedUpgrades || {});
       state.features = state.features || {};
       state.regionBest = state.regionBest || {};
+      state.customer = Object.assign({ active: [], seq: 1, done: 0 }, state.customer || {});
+      state.customer.active = Array.isArray(state.customer.active) ? state.customer.active : [];
       state.debt = (typeof state.debt === 'number') ? state.debt : 600;
       // offline earnings since last seen (capped)
       const dt = Math.max(0, (Date.now() - (state.tavern.lastSeen || Date.now())) / 1000);
@@ -495,6 +499,87 @@ export function markStageCleared(id) { if (!state.cleared) state.cleared = []; i
 // furthest of the region's 10 inner stages you've reached (best X/10 on the world map)
 export const regionBest = (id) => (state.regionBest && state.regionBest[id]) || 0;
 export function setRegionBest(id, n) { if (!state.regionBest) state.regionBest = {}; if (n > (state.regionBest[id] || 0)) { state.regionBest[id] = n; save(); } }
+
+// ===================== unique tavern customers (RPG quest-givers) =====================
+// Distinct walk-in patrons who roam the bar and either request an item or hand you a
+// quest (reach a deep stage / fell a boss). Always tracked against persistent state, so
+// progress carries across runs. This is the RPG loop that replaced the cooking minigame.
+export const CUSTOMER_CAST = [
+  { name: 'Old Maple',     icon: '🧓', color: 0xc98a4a, line: 'A working wizard! Lend an old soul a hand?' },
+  { name: 'Pip the Bard',  icon: '🎻', color: 0x6f9bd0, line: 'A song wants a deed behind it. Be my hero?' },
+  { name: 'Sister Vex',    icon: '🐈', color: 0x7a6fb0, line: 'The order pays well for small favours.' },
+  { name: 'Grumble',       icon: '👺', color: 0x6fb08a, line: 'Hmf. You. I need a thing done.' },
+  { name: 'Lady Ember',    icon: '👰', color: 0xcf6f6f, line: 'A refined request, for a refined fee.' },
+  { name: 'Two-Coin Tom',  icon: '🤠', color: 0xc9a24a, line: 'Got a job, got coin. We talkin\'?' },
+  { name: 'Hooded Knox',   icon: '🥷', color: 0x5a6a7a, line: '…psst. Quiet work, good pay.' },
+  { name: 'Granny Sloe',   icon: '👵', color: 0xb06fa0, line: 'Be a dear and fetch an old witch a thing?' },
+];
+const _maxRegionBest = () => Object.values(state.regionBest || {}).reduce((a, b) => Math.max(a, b), 0);
+function _genCustomerQuest() {
+  if (!state.customer) state.customer = { active: [], seq: 1, done: 0 };
+  const npc = CUSTOMER_CAST[Math.floor(Math.random() * CUSTOMER_CAST.length)];
+  const id = 'cq' + (state.customer.seq++);
+  const roll = Math.random();
+  // regions whose boss you've yet to fell (for the "champion" quest)
+  const uncleared = STAGE_ORDER.filter(r => !(state.cleared || []).includes(r));
+  let q;
+  if (roll < 0.5) {
+    const ing = randomIngredient(2);
+    const need = 2 + Math.floor(Math.random() * 3);
+    q = { kind: 'deliver', item: ing.id, count: need, icon: ing.icon,
+      ask: `Bring me ${need}× ${ing.name} ${ing.icon}.`, reward: { gems: 4 + need * 2, gold: 0 } };
+  } else if (roll < 0.78 || uncleared.length === 0) {
+    const target = Math.min(10, _maxRegionBest() + 1 + Math.floor(Math.random() * 3));
+    q = { kind: 'reach', stage: target, icon: '🗺️',
+      ask: `Push to Stage ${target} of any region.`, reward: { gems: target + 4, gold: 0 } };
+  } else {
+    const region = uncleared[0];
+    q = { kind: 'clear', region, icon: '👑',
+      ask: `Fell the champion of ${STAGES[region].name}.`, reward: { gems: 16, gold: 20 } };
+  }
+  return Object.assign({ id, npc: { name: npc.name, icon: npc.icon, color: npc.color, line: npc.line } }, q);
+}
+export const customerQuests = () => (state.customer && state.customer.active) || [];
+export const customersDone = () => (state.customer && state.customer.done) || 0;
+// top up the active board to `max` walk-in requests (called on entering the bar)
+export function refreshCustomers(max = 2) {
+  if (!state.customer) state.customer = { active: [], seq: 1, done: 0 };
+  let added = false;
+  while (state.customer.active.length < max) { state.customer.active.push(_genCustomerQuest()); added = true; }
+  if (added) save();
+  return state.customer.active;
+}
+// has the player met this quest's goal (and, for deliveries, do they hold the goods)?
+export function customerQuestReady(q) {
+  if (!q) return false;
+  if (q.kind === 'deliver') return ingredientCount(q.item) >= q.count;
+  if (q.kind === 'reach') return _maxRegionBest() >= q.stage;
+  if (q.kind === 'clear') return (state.cleared || []).includes(q.region);
+  return false;
+}
+// a short progress string for the talk dialog
+export function customerQuestProgress(q) {
+  if (!q) return '';
+  if (q.kind === 'deliver') { const ing = ingredientById(q.item); return `You hold ${ingredientCount(q.item)} / ${q.count} ${ing ? ing.icon : ''}`; }
+  if (q.kind === 'reach') return `Best stage reached: ${_maxRegionBest()} / ${q.stage}`;
+  if (q.kind === 'clear') return (state.cleared || []).includes(q.region) ? 'Champion felled!' : 'Not yet conquered.';
+  return '';
+}
+// turn in a ready quest: consume any goods, pay the reward, drop it from the board
+export function claimCustomerQuest(id) {
+  if (!state.customer) return null;
+  const i = state.customer.active.findIndex(q => q.id === id);
+  if (i < 0) return null;
+  const q = state.customer.active[i];
+  if (!customerQuestReady(q)) return null;
+  if (q.kind === 'deliver') { if (!spendIngredient(q.item, q.count)) return null; }
+  if (q.reward.gems) state.gems += q.reward.gems;
+  if (q.reward.gold) state.gold += q.reward.gold;
+  state.customer.active.splice(i, 1);
+  state.customer.done = (state.customer.done || 0) + 1;
+  save();
+  return { reward: q.reward, npc: q.npc, kind: q.kind };
+}
 export const isRested = () => state.rested;
 export function consumeRest() { const r = state.rested; if (r) { state.rested = false; save(); } return r; }
 

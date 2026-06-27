@@ -459,15 +459,17 @@ export class Game {
   // loot table when an enemy dies
   enemyDrop(pos, def) {
     const lvl = Math.max(1, this.level);
-    if (def.boss) { // bosses always drop a good piece, a heart, and a couple of gemstones
+    if (def.boss) { // bosses always drop a good piece, a heart, a couple of gemstones + a rare cooking ingredient
       this.spawnGear(pos.clone(), meta.dropGear(lvl + 2, true));
       this.spawnHeart(pos.clone().add(new THREE.Vector3(1, 0, 0)));
       const els = meta.ELEMENT_LIST; for (let k = 0; k < 2; k++) meta.addGemstone(els[Math.floor(Math.random() * els.length)]);
-      this.ui.toast('💎 Elemental gemstones recovered!');
+      const rare = meta.randomRareIngredient(); meta.addIngredient(rare.id, 1);
+      this.ui.toast(`💎 Gemstones + ${rare.icon} ${rare.name} recovered!`);
       return;
     }
     const big = def.size >= 1.4;
     if (Math.random() < (big ? 0.10 : 0.035)) meta.addGemstone(meta.ELEMENT_LIST[Math.floor(Math.random() * meta.ELEMENT_LIST.length)]); // a gemstone into the satchel
+    if (Math.random() < (big ? 0.09 : 0.02)) { const ing = meta.randomRareIngredient(); meta.addIngredient(ing.id, 1); this.ui.toast(`${ing.icon} ${ing.name} — a cooking find!`); } // rare cooking material
     const r = Math.random();
     if (r < (big ? 0.30 : 0.06)) this.spawnHeart(pos);
     else if (r < (big ? 0.50 : 0.13)) this.spawnMana(pos);
@@ -770,6 +772,7 @@ export class Game {
   }
   closeWorldMap() { this.ui.hideWorldHud(); this.world.show(false); this.input.pointMode = false; this.enterTavern(); }
   openBuild() { if (this.state === 'play' && this.phase === 'room') { this.audio.play('click'); this._openShop('build'); } }
+  openKitchen() { if (this.state === 'play' && this.phase === 'tavern') { this.audio.play('click'); this._openShop('kitchen'); this._learn('cookhint', '🍳 Unlock recipes with foraged herbs and mushrooms, then Open for Business to cook and serve guests for tips!'); } }
   restAtBed() { if (meta.rest()) this.ui.toast('🛏 Rested — you\'ll wake with +HP for the next run'); else this.ui.wispSay('🛏 You\'re already well-rested.', { tone: 'warn' }); }
 
   // ---- stairs: a quick loading transition between the bar and your room ----
@@ -816,6 +819,26 @@ export class Game {
       if (fin) this.ui.toast(`🔬 Research complete: ${meta.researchById(fin).name}`);
       this.state = 'play';
     });
+  }
+  // Open the Bar (from the kitchen panel): a short doors-open cutscene, then the cook-and-serve shift
+  startShift() {
+    this._shopKind = null; this.ui.closeShop();
+    this.state = 'menu';
+    this._shiftCine = 1.6;                  // camera swings overhead while a guest wanders in
+    this.audio.play('click');
+    this.ui.wispSay('🚪 A hungry guest strolls in...', { big: true, ms: 1500 });
+    setTimeout(() => {
+      this._shiftCine = 0;
+      this.ui.showBar((tips, best) => {
+        meta.addGold(tips);
+        const fin = meta.advanceDay();
+        meta.save();
+        this.ui.setGold(meta.gold());
+        this.ui.toast(`🍳 Shift over — ${tips}🪙 in tips${best >= 5 ? ` · 🔥 best streak ${best}` : ''}!`);
+        if (fin) this.ui.toast(`🔬 Research complete: ${meta.researchById(fin).name}`);
+        this.state = 'play';
+      });
+    }, 1550);
   }
   // a customer served in the in-world bar loop — pay the tip; every 3 served is a day's work
   onTavernServe() {
@@ -1402,6 +1425,15 @@ export class Game {
       }
       return;
     }
+    // "open the bar" cutscene: swing overhead to the counter as a guest wanders in
+    if (this._shiftCine > 0) {
+      this._shiftCine -= dt;
+      const c = this._barCenter || (this._barCenter = new THREE.Vector3(-7.3, 0, -4));
+      this.camera.position.lerp(new THREE.Vector3(c.x + 2, 17, c.z + 8), Math.min(1, dt * 3));
+      this.camera.rotation.z = 0;
+      this.camera.lookAt(c.x, 0.6, c.z);
+      return;
+    }
     // tavern intro: a slow cinematic orbit of the room before you take control
     if (this.phase === 'tavern' && !this.tavernReady) {
       this.cineT += dt;
@@ -1551,26 +1583,30 @@ export class Game {
     const grp = this._barrelGroup;
     for (let i = grp.children.length - 1; i >= 0; i--) { const c = grp.children[i]; c.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); grp.remove(c); }
     this.barrels = [];
-    const spots = [['shroom', -16, -11], ['herb', 16, -11], ['shroom', -13, 15], ['herb', 13, 15], ['shroom', 0, -21]];
+    const spots = [['herb', -16, -11], ['shroom', 16, -11], ['herb', -13, 15], ['shroom', 13, 15], ['herb', 0, -21]];
     for (const [kind, x, z] of spots) {
-      const m = this._buildForage(kind); m.position.set(x, 0, z); grp.add(m);
-      this.barrels.push({ mesh: m, kind, full: true, t: 0, x, z });
+      const pool = meta.ingredientsByKind(kind === 'herb' ? 'herb' : 'shroom').filter(g => g.tier <= 2);
+      const ing = pool[Math.floor(Math.random() * pool.length)];
+      const m = this._buildForage(kind, ing); m.position.set(x, 0, z); grp.add(m);
+      this.barrels.push({ mesh: m, kind, ing, full: true, t: 0, x, z });
     }
   }
-  _buildForage(kind) {
+  _buildForage(kind, ing) {
     const g = new THREE.Group();
+    const col = (ing && ing.color) || (kind === 'herb' ? 0x5fb84a : 0xc8402a);
     if (kind === 'herb') {
       const stemMat = new THREE.MeshStandardMaterial({ color: 0x3a6a2a, roughness: 0.85 });
-      const leafMat = new THREE.MeshStandardMaterial({ color: 0x5fb84a, roughness: 0.8 });
+      const leafMat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.7 });
       const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.5, 6), stemMat); stem.position.y = 0.25; g.add(stem);
-      for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.5, 5), leafMat); leaf.position.set(Math.cos(a) * 0.2, 0.5, Math.sin(a) * 0.2); leaf.rotation.z = Math.cos(a) * 0.7; leaf.rotation.x = Math.sin(a) * 0.7; leaf.castShadow = true; g.add(leaf); }
-      const mk = new THREE.Mesh(new THREE.OctahedronGeometry(0.2, 0), new THREE.MeshBasicMaterial({ color: 0x6fe89a, transparent: true, opacity: 0.9 })); mk.position.y = 1.5; g.add(mk); g.userData.mark = mk;
+      for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.52, 5), leafMat); leaf.position.set(Math.cos(a) * 0.2, 0.5, Math.sin(a) * 0.2); leaf.rotation.z = Math.cos(a) * 0.7; leaf.rotation.x = Math.sin(a) * 0.7; leaf.castShadow = true; g.add(leaf); }
+      const bud = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 10), new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.35, roughness: 0.5 })); bud.position.y = 0.78; g.add(bud);
     } else { // mushroom
       const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.55, 10), new THREE.MeshStandardMaterial({ color: 0xf0e6d0, roughness: 0.85 })); stem.position.y = 0.3; stem.castShadow = true; g.add(stem);
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.45, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xc8402a, roughness: 0.6, emissive: 0x3a0a04, emissiveIntensity: 0.3 })); cap.position.y = 0.6; cap.scale.y = 0.8; cap.castShadow = true; g.add(cap);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.45, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: col, roughness: 0.6, emissive: col, emissiveIntensity: 0.25 })); cap.position.y = 0.6; cap.scale.y = 0.8; cap.castShadow = true; g.add(cap);
       for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; const dot = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), new THREE.MeshStandardMaterial({ color: 0xfff0e0, roughness: 0.7 })); dot.position.set(Math.cos(a) * 0.27, 0.72, Math.sin(a) * 0.27); g.add(dot); }
-      const mk = new THREE.Mesh(new THREE.OctahedronGeometry(0.2, 0), new THREE.MeshBasicMaterial({ color: 0xff7a5a, transparent: true, opacity: 0.9 })); mk.position.y = 1.5; g.add(mk); g.userData.mark = mk;
     }
+    const mkCol = kind === 'herb' ? 0x6fe89a : 0xff7a5a;
+    const mk = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.04, 8, 16), new THREE.MeshBasicMaterial({ color: mkCol, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false })); mk.position.y = 1.4; mk.rotation.x = Math.PI / 2; g.add(mk); g.userData.mark = mk;
     return g;
   }
   _updateBarrels(sdt) {
@@ -1589,23 +1625,26 @@ export class Game {
     }
   }
   _forage(b) {
-    b.full = false; b.t = b.kind === 'herb' ? 24 : 20; b.mesh.visible = false;
+    b.full = false; b.t = b.kind === 'herb' ? 22 : 20; b.mesh.visible = false;
+    const ing = b.ing || meta.randomIngredient(1);
+    meta.addIngredient(ing.id, 1);
+    if (this.ui.burstFX) this.ui.burstFX({ x: window.innerWidth / 2, y: window.innerHeight * 0.55 }, b.kind === 'herb' ? 'sparkle' : 'bubble', 6);
     if (b.kind === 'herb') {
-      meta.addHerbs(1);
+      meta.addHerbs(1);   // also stocks generic brewing herbs for the Cauldron
       this.audio.play('xp');
-      this.particles.burst({ pos: new THREE.Vector3(b.x, 0.8, b.z), color: 0x5fb84a, count: 8, speed: 3, size: 0.2, life: 0.7, grav: 2, blend: 'normal' });
-      this.ui.wispSay('🌿 You gathered a herb. Brew it into a potion at the Cauldron.');
+      this.particles.burst({ pos: new THREE.Vector3(b.x, 0.8, b.z), color: ing.color, count: 9, speed: 3, size: 0.2, life: 0.7, grav: 2, blend: 'normal' });
+      this.ui.wispSay(`${ing.icon} You gathered ${ing.name}. Cook with it at the Bar, or brew at the Cauldron.`);
       return;
     }
-    // mushroom: a random effect. Most are good, one just gets you drunk.
+    // mushroom: collected for the pantry AND eaten for a random effect
     this.audio.play('heal');
-    this.particles.burst({ pos: new THREE.Vector3(b.x, 0.9, b.z), color: 0xff8a5a, count: 12, speed: 4, size: 0.22, life: 0.8, grav: 2, blend: 'normal' });
+    this.particles.burst({ pos: new THREE.Vector3(b.x, 0.9, b.z), color: ing.color, count: 13, speed: 4, size: 0.22, life: 0.8, grav: 2, blend: 'normal' });
     const w = this.wizard, s = this.stats, roll = Math.floor(Math.random() * 5);
-    if (roll === 0) { w.heal(35); this.ui.wispSay('🍄 A healing cap. You feel patched up.'); }
-    else if (roll === 1) { w.mana = Math.min(s.manaMax, w.mana + 60); this.ui.wispSay('🍄 A glowing cap. Your mana surges back.'); }
-    else if (roll === 2) { this.drunkenness = Math.max(0, this.drunkenness - 0.3); this.ui.wispSay('🍄 A bitter cap. Your head clears a little.'); }
-    else if (roll === 3) { this.gainXP(25); this.ui.wispSay('🍄 A wise cap. You feel a little wiser.'); }
-    else { this.drunkenness = Math.min(1, this.drunkenness + 0.35); this._drunkSurge = 1; this.ui.wispSay('🍄 A funny cap. Whoa, the room is spinning!'); }
+    if (roll === 0) { w.heal(35); this.ui.wispSay(`${ing.icon} ${ing.name} — a healing nibble. One for the pantry too.`); }
+    else if (roll === 1) { w.mana = Math.min(s.manaMax, w.mana + 60); this.ui.wispSay(`${ing.icon} ${ing.name} — your mana surges. Pantry stocked.`); }
+    else if (roll === 2) { this.drunkenness = Math.max(0, this.drunkenness - 0.3); this.ui.wispSay(`${ing.icon} ${ing.name} — bitter; your head clears a little.`); }
+    else if (roll === 3) { this.gainXP(25); this.ui.wispSay(`${ing.icon} ${ing.name} — a wise cap. You feel a little sharper.`); }
+    else { this.drunkenness = Math.min(1, this.drunkenness + 0.35); this._drunkSurge = 1; this.ui.wispSay(`${ing.icon} ${ing.name} — whoa, the room is spinning!`); }
   }
 
   // ---- rune shrine: walk up & DRAW a glyph to channel a free artifact (re-arms slowly) ----

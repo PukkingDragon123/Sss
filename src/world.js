@@ -62,8 +62,8 @@ export class World {
     // drifting fireflies / motes for atmosphere
     this._motes = [];
     const moteMat = new THREE.MeshBasicMaterial({ color: 0xffe6a8, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false });
-    for (let i = 0; i < 16; i++) {
-      const m = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 6), moteMat);
+    for (let i = 0; i < 9; i++) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), moteMat);
       const ang = Math.random() * 6.28, rad = 6 + Math.random() * 22;
       m.position.set(Math.cos(ang) * rad, 0.6 + Math.random() * 3, -1.5 + Math.sin(ang) * rad * 0.8);
       m.userData = { base: m.position.y, sp: 0.3 + Math.random() * 0.5, ph: Math.random() * 6.28 };
@@ -74,16 +74,14 @@ export class World {
 
     this._views = []; this._hitMeshes = [];
     const order = this.order;
-    // dotted route between the islands, in order
-    const routeMat = new THREE.MeshBasicMaterial({ color: 0xffe6a8, transparent: true, opacity: 0.5 });
+    // a clean translucent path winding between the islands (replaces the old scattered dots)
+    const routeMat = new THREE.MeshBasicMaterial({ color: 0xffe6a8, transparent: true, opacity: 0.26, side: THREE.DoubleSide, depthWrite: false });
     for (let i = 0; i < order.length - 1; i++) {
       const a = LAYOUT[order[i]], b = LAYOUT[order[i + 1]];
-      const ax = new THREE.Vector3(a.x, 0.05, a.z), bx = new THREE.Vector3(b.x, 0.05, b.z);
-      const steps = Math.max(2, Math.round(ax.distanceTo(bx) / 1.4));
-      for (let s = 1; s < steps; s++) {
-        const dot = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 6), routeMat);
-        dot.position.lerpVectors(ax, bx, s / steps); g.add(dot);
-      }
+      const dx = b.x - a.x, dz = b.z - a.z, len = Math.hypot(dx, dz);
+      const path = new THREE.Mesh(new THREE.BoxGeometry(len, 0.04, 0.5), routeMat);
+      path.position.set((a.x + b.x) / 2, 0.06, (a.z + b.z) / 2);
+      path.rotation.y = -Math.atan2(dz, dx); g.add(path);
     }
 
     for (let i = 0; i < order.length; i++) {
@@ -99,7 +97,7 @@ export class World {
       const eyes = new THREE.Group();
       const spots = [[-1.8, 1.5], [1.8, 1.3], [0, -1.9], [-1.6, -1.4]];
       const pairs = 2 + (i % 2);
-      for (let k = 0; k < pairs; k++) { const [ex, ez] = spots[k % spots.length]; for (const dx of [-0.17, 0.17]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), this._eyeMat); eye.position.set(ex + dx, 0.56, ez); eyes.add(eye); } }
+      for (let k = 0; k < pairs; k++) { const [ex, ez] = spots[k % spots.length]; for (const dx of [-0.17, 0.17]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), this._eyeMat); eye.position.set(ex + dx, 0.56, ez); eyes.add(eye); } }
       eyes.visible = false; view.add(eyes);
       const icon = iconSprite(L.icon); icon.position.y = 2.7; view.add(icon);
       const lock = iconSprite('🔒', 80); lock.position.y = 2.7; lock.visible = false; view.add(lock);
@@ -139,9 +137,9 @@ export class World {
     const mobMat = new THREE.MeshStandardMaterial({ color: 0x1a1420, roughness: 0.9 });
     for (let i = 0; i < 12; i++) {
       const m = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 7), mobMat); body.scale.set(1, 0.78, 1.12); body.position.y = 0.42; body.castShadow = true; m.add(body);
-      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.3, 5), mobMat); ear.position.set(0, 0.78, -0.05); m.add(ear);
-      for (const dx of [-0.13, 0.13]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 6), this._eyeMat); e.position.set(dx, 0.5, 0.34); m.add(e); }
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.4, 14, 12), mobMat); body.scale.set(1, 0.78, 1.12); body.position.y = 0.42; body.castShadow = true; m.add(body);
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.3, 6), mobMat); ear.position.set(0, 0.78, -0.05); m.add(ear);
+      for (const dx of [-0.13, 0.13]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 10), this._eyeMat); e.position.set(dx, 0.5, 0.34); m.add(e); }
       const ang = Math.random() * 6.28, rad = 6 + Math.random() * 17;
       m.position.set(Math.cos(ang) * rad * 1.1, -0.1, -1.5 + Math.sin(ang) * rad * 0.8);
       m.userData = { vx: (Math.random() - 0.5) * 1.1, vz: (Math.random() - 0.5) * 1.1, ph: Math.random() * 6.28 };

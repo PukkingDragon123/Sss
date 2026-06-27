@@ -260,6 +260,11 @@ function defaultSave() {
     herbs: 0,  // 🌿 brewing materials gathered while venturing
     gemstones: { fire: 0, water: 0, air: 0, earth: 0 }, // elemental gemstones won in battle
     brews: {}, // brewed-potion counts (each is a small permanent boon)
+    ingredients: {},        // 🌿🍄 weird herbs & mushrooms gathered for cooking (per-id counts)
+    menu: { houseale: 1 },  // unlocked recipes the kitchen can serve (house ale is free)
+    staff: {},              // hired kitchen helpers (per-id level)
+    cook: { served: 0, shifts: 0, best: 0 }, // lifetime cooking stats (for quests)
+    cookClaims: {},         // claimed cooking-quest ids
     seen: {},  // which mechanics the player has tried (tutorial quest log)
     day: 1,    // the tavern clock — work by day, venture by night
     research: { activeId: null, daysLeft: 0, done: {} },
@@ -320,6 +325,11 @@ export function load() {
       state.herbs = (typeof state.herbs === 'number') ? state.herbs : 0;
       state.gemstones = Object.assign({ fire: 0, water: 0, air: 0, earth: 0 }, state.gemstones || {});
       state.brews = state.brews || {};
+      state.ingredients = Object.assign({}, state.ingredients || {});
+      state.menu = Object.assign({ houseale: 1 }, state.menu || {});
+      state.staff = Object.assign({}, state.staff || {});
+      state.cook = Object.assign({ served: 0, shifts: 0, best: 0 }, state.cook || {});
+      state.cookClaims = Object.assign({}, state.cookClaims || {});
       state.seen = state.seen || {};
       state.day = state.day || 1;
       state.research = Object.assign({ activeId: null, daysLeft: 0, done: {} }, state.research || {});
@@ -384,6 +394,90 @@ export function applyBrews(stats) {
     if (p.perRegen) stats.hpRegen += p.perRegen * n;
   }
 }
+// ================= COOKING: weird ingredients, a buyable menu, staff & quests =================
+// Ingredients are foraged in runs (herbs & mushrooms, each its own kind) and rarely dropped by foes.
+// tier 3 = rare (only from rare forage / enemy drops). color drives the 3D model.
+export const INGREDIENTS = [
+  { id: 'witchbasil',   name: 'Witch Basil',    icon: '🌿', kind: 'herb',   tier: 1, color: 0x5fb84a, desc: 'A common, peppery leaf.' },
+  { id: 'eggflower',    name: 'Egg Flower',     icon: '🌼', kind: 'herb',   tier: 1, color: 0xf5e36a, desc: 'Smells faintly of breakfast.' },
+  { id: 'moonpetal',    name: 'Moon Petal',     icon: '🌸', kind: 'herb',   tier: 1, color: 0xff9ad0, desc: 'Glows softly at dusk.' },
+  { id: 'honeythistle', name: 'Honey Thistle',  icon: '🍯', kind: 'herb',   tier: 1, color: 0xe0a83c, desc: 'Sticky and sweet.' },
+  { id: 'emberroot',    name: 'Ember Root',     icon: '🔥', kind: 'herb',   tier: 2, color: 0xff6a3a, desc: 'Warm to the touch.' },
+  { id: 'dragonhead',   name: 'Dragon Head Herb', icon: '🐲', kind: 'herb', tier: 3, color: 0x9a3a2a, desc: 'Rare. Roars when picked. Allegedly.' },
+  { id: 'starseed',     name: 'Star Seed',      icon: '⭐', kind: 'herb',   tier: 3, color: 0xffe08a, desc: 'Rare. Fell from the night sky.' },
+  { id: 'glowshroom',   name: 'Glow Shroom',    icon: '🍄', kind: 'shroom', tier: 1, color: 0xc8402a, desc: 'A cheerful little cap.' },
+  { id: 'pufflesack',   name: 'Puffle Sack',    icon: '🎈', kind: 'shroom', tier: 1, color: 0xff8ac0, desc: 'Squishy. Pops if squeezed.' },
+  { id: 'frostcap',     name: 'Frost Cap',      icon: '❄️', kind: 'shroom', tier: 2, color: 0x9fe0ff, desc: 'Cold even indoors.' },
+  { id: 'inkcap',       name: 'Ink Cap',        icon: '🖤', kind: 'shroom', tier: 2, color: 0x6a4ad0, desc: 'Leaks dark, tasty ink.' },
+  { id: 'bogwart',      name: 'Bog Wart',       icon: '🐸', kind: 'shroom', tier: 2, color: 0x6a8e3a, desc: 'Found near swamp water.' },
+];
+export const ingredientById = (id) => INGREDIENTS.find(x => x.id === id);
+export const ingredientsByKind = (kind) => INGREDIENTS.filter(x => x.kind === kind);
+export const ingredientCount = (id) => (state.ingredients && state.ingredients[id]) || 0;
+export const totalIngredients = () => Object.values(state.ingredients || {}).reduce((a, b) => a + b, 0);
+export function addIngredient(id, n = 1) { if (!state.ingredients) state.ingredients = {}; state.ingredients[id] = (state.ingredients[id] || 0) + n; markSeen('forage'); save(); }
+export function spendIngredient(id, n = 1) { const g = state.ingredients || {}; if ((g[id] || 0) < n) return false; g[id] -= n; state.ingredients = g; save(); return true; }
+export const randomIngredient = (maxTier = 2) => { const pool = INGREDIENTS.filter(x => x.tier <= maxTier); return pool[Math.floor(Math.random() * pool.length)]; };
+export const randomRareIngredient = () => { const pool = INGREDIENTS.filter(x => x.tier >= 2); return pool[Math.floor(Math.random() * pool.length)]; };
+
+// The MENU: recipes the kitchen serves. Unlock one ONCE by spending ingredients, then it can be ordered forever.
+// sell = base tip in gold; harder (higher) recipes cook on a faster gauge for a bigger reward.
+export const MENU = [
+  { id: 'houseale',     name: 'House Ale',      icon: '🍺', kind: 'drink', sell: 7,  cost: {}, desc: 'The honest standard. Always on tap.' },
+  { id: 'eggflowertea', name: 'Egg Flower Tea', icon: '🍵', kind: 'drink', sell: 11, cost: { eggflower: 3 }, desc: 'Sunny and calming.' },
+  { id: 'mushroomstew', name: 'Mushroom Stew',  icon: '🍲', kind: 'food',  sell: 13, cost: { glowshroom: 2, witchbasil: 2 }, desc: 'Hearty and earthy.' },
+  { id: 'honeymead',    name: 'Honey Mead',     icon: '🍯', kind: 'drink', sell: 14, cost: { honeythistle: 3, moonpetal: 1 }, desc: 'Golden and dangerous.' },
+  { id: 'pufflepudding',name: 'Puffle Pudding', icon: '🍮', kind: 'food',  sell: 12, cost: { pufflesack: 3 }, desc: 'Wobbles invitingly.' },
+  { id: 'frostbrew',    name: 'Frost Brew',     icon: '🧊', kind: 'drink', sell: 16, cost: { frostcap: 3 }, desc: 'Served impossibly cold.' },
+  { id: 'inkpie',       name: 'Ink Cap Pie',    icon: '🥧', kind: 'food',  sell: 18, cost: { inkcap: 2, eggflower: 2 }, desc: 'Black crust, rich filling.' },
+  { id: 'bogstew',      name: 'Bog Wart Stew',  icon: '🥘', kind: 'food',  sell: 17, cost: { bogwart: 3, witchbasil: 1 }, desc: 'Swampy but moreish.' },
+  { id: 'starcake',     name: 'Star Seed Cake', icon: '🍰', kind: 'food',  sell: 24, cost: { starseed: 1, honeythistle: 2 }, desc: 'A celebratory rarity.' },
+  { id: 'dragonale',    name: 'Dragonhead Ale', icon: '🍺', kind: 'drink', sell: 28, cost: { dragonhead: 1, emberroot: 2 }, desc: 'Breathes a little fire.' },
+];
+export const menuById = (id) => MENU.find(m => m.id === id);
+export const menuUnlocked = (id) => !!(state.menu && state.menu[id]);
+export const unlockedMenu = () => MENU.filter(m => menuUnlocked(m.id));
+export function canUnlockMenu(id) { const m = menuById(id); if (!m || menuUnlocked(id)) return false; return Object.entries(m.cost).every(([k, n]) => ingredientCount(k) >= n); }
+export function unlockMenu(id) { const m = menuById(id); if (!m || !canUnlockMenu(id)) return false; for (const [k, n] of Object.entries(m.cost)) spendIngredient(k, n); if (!state.menu) state.menu = {}; state.menu[id] = 1; save(); return true; }
+
+// STAFF: hire helpers with GOLD. Each level escalates in cost and effect.
+export const STAFF = [
+  { id: 'linecook', name: 'Line Cook',  icon: '👨‍🍳', base: 90,  desc: 'Widens the "perfect" cook window.' },
+  { id: 'waiter',   name: 'Waiter',     icon: '🧑‍🍳', base: 80,  desc: 'Customers wait longer before leaving.' },
+  { id: 'host',     name: 'Host',       icon: '🎩',   base: 110, desc: 'Charms bigger tips out of every guest.' },
+];
+export const staffById = (id) => STAFF.find(s => s.id === id);
+export const staffLevel = (id) => (state.staff && state.staff[id]) || 0;
+export const staffCost = (id) => { const s = staffById(id); return s ? Math.round(s.base * (1 + staffLevel(id) * 0.8)) : 0; };
+export function hireStaff(id) { const s = staffById(id); if (!s) return false; const c = staffCost(id); if (state.gold < c) return false; state.gold -= c; if (!state.staff) state.staff = {}; state.staff[id] = staffLevel(id) + 1; save(); return true; }
+export function staffEffects() {
+  return {
+    cookEase: 1 + staffLevel('linecook') * 0.18,   // multiplies the perfect-zone width
+    patience: 1 + staffLevel('waiter') * 0.16,      // multiplies customer patience
+    tipMult: 1 + staffLevel('host') * 0.12,         // multiplies every tip
+  };
+}
+
+// cooking stats + standalone cooking quests (state-derived, claimed in the kitchen panel)
+export const cookStats = () => state.cook || { served: 0, shifts: 0, best: 0 };
+export function recordShift(served, best) { if (!state.cook) state.cook = { served: 0, shifts: 0, best: 0 }; state.cook.served += served; state.cook.shifts += 1; state.cook.best = Math.max(state.cook.best || 0, best || 0); save(); }
+export const COOK_QUESTS = [
+  { id: 'cq_menu3',  text: 'Unlock 3 menu recipes',        goal: 3,  reward: 120, kind: 'menu',   icon: '📖' },
+  { id: 'cq_serve20',text: 'Serve 20 guests, all-time',    goal: 20, reward: 160, kind: 'served', icon: '🍽' },
+  { id: 'cq_combo6', text: 'Land a 6-serve perfect streak', goal: 6,  reward: 200, kind: 'best',   icon: '🔥' },
+  { id: 'cq_menu6',  text: 'Unlock 6 menu recipes',        goal: 6,  reward: 260, kind: 'menu',   icon: '⭐' },
+];
+export function cookQuestProgress(q) {
+  const c = cookStats();
+  if (q.kind === 'menu') return unlockedMenu().length;
+  if (q.kind === 'served') return c.served || 0;
+  if (q.kind === 'best') return c.best || 0;
+  return 0;
+}
+export const cookQuestDone = (q) => cookQuestProgress(q) >= q.goal;
+export const cookQuestClaimed = (id) => !!(state.cookClaims && state.cookClaims[id]);
+export function claimCookQuest(id) { const q = COOK_QUESTS.find(x => x.id === id); if (!q || cookQuestClaimed(id) || !cookQuestDone(q)) return 0; if (!state.cookClaims) state.cookClaims = {}; state.cookClaims[id] = 1; state.gold += q.reward; save(); return q.reward; }
+
 export const owns = (id) => !!state.owned[id];
 export const spellLevel = (id) => state.level[id] || 0;
 export const learned = (id) => !!state.combos[id];
@@ -556,6 +650,7 @@ export const TUTORIAL_QUESTS = [
   { id: 'combo',     text: 'Learn a spell combo' },
   { id: 'playstyle', text: 'Pick a playstyle before a venture' },
   { id: 'artifact',  text: 'Carry an artifact into a run' },
+  { id: 'cook',      text: 'Cook & serve a guest at the Bar' },
 ];
 export const hasSeen = (id) => !!(state.seen && state.seen[id]);
 export function markSeen(id) { if (!state.seen) state.seen = {}; if (state.seen[id]) return false; state.seen[id] = 1; save(); return true; }
@@ -564,6 +659,7 @@ export function tutDone(id) {
     case 'spell':     return SPELL_LIST.some(x => owns(x) && !(SPELL_META[x] && SPELL_META[x].starter));
     case 'build':     return placedItems().some(p => { const b = buildableById(p.id); return b && b.station; });
     case 'brew':      return Object.values(state.brews || {}).some(n => n > 0);
+    case 'cook':      return (state.cook && state.cook.served > 0);
     case 'research':  return !!(state.research && (state.research.activeId || Object.keys(state.research.done || {}).length));
     case 'combo':     return Object.keys(state.combos || {}).length > 0;
     case 'playstyle': return !!state.archetype;

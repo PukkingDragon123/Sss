@@ -149,12 +149,6 @@ export class Tavern {
     const g = this.group;
     const wood = new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: 0.9 });
     const woodD = new THREE.MeshStandardMaterial({ color: 0x4a3018, roughness: 0.9 });
-    const markGeo = new THREE.OctahedronGeometry(0.28, 0);
-    const mk = (type, label, x, z, color) => {
-      const mark = new THREE.Mesh(markGeo, new THREE.MeshBasicMaterial({ color: color || 0xffe6a8, transparent: true, opacity: 0.95 }));
-      mark.position.set(x, 2.4, z); g.add(mark);
-      this.stations.push({ type, label, pos: new THREE.Vector3(x, 0, z), mark });
-    };
 
     // a tidy wooden staircase tucked into the back-east corner, climbing to a
     // door set flush against the wall — reads as a single floor with a "way up".
@@ -185,7 +179,8 @@ export class Tavern {
     const knob = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), new THREE.MeshStandardMaterial({ color: 0xd9a84a, metalness: 0.6, roughness: 0.4 })); knob.position.set(SX + 0.45, baseY + DOORH / 2, doorZ + 0.1); stair.add(knob);
     const upGlow = new THREE.PointLight(0xffb060, 1.1, 8); upGlow.position.set(SX, baseY + 1.0, doorZ + 1.2); upGlow.castShadow = false; stair.add(upGlow);
     g.add(stair);
-    mk('stairs', 'climb to your Room', SX, -10.4, 0xbfa3ff);
+    // no floating marker — the staircase + its warm doorway glow read clearly, and the interact prompt guides you
+    this.stations.push({ type: 'stairs', label: 'climb to your Room', pos: new THREE.Vector3(SX, 0, -10.4), mark: null });
 
     // "tend the bar" spot in front of the counter — no floating marker (the bar is
     // obvious and the interact prompt guides you; the green dot read as clutter)

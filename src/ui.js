@@ -64,7 +64,7 @@ export class UI {
       manaFill: $('mana-fill'), manaLabel: $('mana-label'), manaFoam: $('mana-foam'),
       xpFill: $('xp-fill'), xpLabel: $('xp-label'),
       drunkWrap: $('drunk-wrap'), drunkFill: $('drunk-fill'),
-      nausea: $('nausea'), btnDrink: $('btn-drink'), btnBuild: $('btn-build'),
+      nausea: $('nausea'), btnDrink: $('btn-drink'), btnBuild: $('btn-build'), btnBar: $('btn-bar'),
       drinkBar: $('drink-bar'), drinkBarFill: $('drink-bar-fill'),
       loadscene: $('loadscene'), loadsceneText: $('loadscene-text'),
       timer: $('timer'), kills: $('kills'), sobriety: $('sobriety'),
@@ -157,6 +157,7 @@ export class UI {
     this.el.btnInteract.addEventListener('click', () => game.interact());
     if (this.el.btnDrink) this.el.btnDrink.addEventListener('click', () => game.drink());
     if (this.el.btnBuild) this.el.btnBuild.addEventListener('click', () => game.openBuild());
+    if (this.el.btnBar) this.el.btnBar.addEventListener('click', () => game.openKitchen());
     this.el.shopClose.addEventListener('click', () => { game.audio.play('click'); game.closeShop(); });
     if (this.el.bpRotate) this.el.bpRotate.addEventListener('click', () => { game.audio.play('click'); this._buildRot = ((this._buildRot || 0) + Math.PI / 2) % (Math.PI * 2); this.burstFX(this.el.bpRotate, 'sparkle', 5); });
     // shop buttons are delegated (the body is re-rendered on every action)
@@ -304,6 +305,7 @@ export class UI {
     if (this.el.btnDrink) this.el.btnDrink.classList.toggle('hidden', !arena); // drink only in the fight
     if (this.el.drinkBar && !arena) this.el.drinkBar.classList.add('hidden');
     if (this.el.btnBuild) this.el.btnBuild.classList.toggle('hidden', !room);  // build only in your room
+    if (this.el.btnBar) this.el.btnBar.classList.toggle('hidden', !tavern);    // open the bar only in the tavern
     if (this.el.abilityTray) this.el.abilityTray.classList.toggle('hidden', !arena || !this.el.abilityTray.innerHTML);
     if (this.el.drunkWrap) this.el.drunkWrap.classList.toggle('hidden', !arena);
     if (!arena) this.hideCombo();   // never let the combo counter linger outside a fight
@@ -892,112 +894,86 @@ export class UI {
 
   // ---- Tavern serving: take an order, pour to the line, then CARRY it across the
   // bar without tipping the mug over, and serve. Tip = pour accuracy + steady carry. ----
+  // ===== Top-down restaurant: take orders, time the COOK gauge, serve before patience runs out =====
   showBar(onDone) {
+    const fx = meta.staffEffects();
     const M = this._bar = {
-      done: onDone, served: 0, total: 4, tips: 0,
-      liquid: 0, foam: 0, pouring: false, overflow: 0,
-      target: 0, tol: 0, phase: 'order', // order -> pour -> carry -> served
-      patron: 0, last: performance.now(), anim: 0,
-      dist: 0, angle: 0, av: 0, carrySpill: 0, gustT: 0, leftHeld: false, rightHeld: false, pourMiss: 0,
+      done: onDone, tips: 0, served: 0, total: 6, resolved: 0, spawned: 0,
+      combo: 0, best: 0, queue: [], spawnT: 0.5, fx,
+      cookPos: 0, cookDir: 1, anim: 0, last: performance.now(), flash: 0, flashT: 0,
     };
-    this.el.mgTitle.textContent = '🍺 Tend the Bar';
-    this.el.mgSub.innerHTML = 'Take the order, <b>hold to pour</b> to the line, then <b>carry it over</b> — tap <b>◀ / ▶</b> (or A/D) to keep the mug level. A clean pour AND a steady carry earn the fattest tip.';
+    this.el.mgTitle.textContent = '🍳 The Tipsy Toad Kitchen';
+    this.el.mgSub.innerHTML = 'Guests arrive hungry. <b>Tap COOK</b> when the marker hits the <b>green</b> to cook it just right and serve — keep the streak alive and beat their patience!';
     this.el.mgScore.textContent = '0';
     this.el.mgServed.textContent = '0';
     this.el.mgTotal.textContent = M.total;
+    this.el.mgOrder.classList.add('hidden');
     this.el.minigame.classList.remove('hidden');
-    this._barNewOrder();
-
-    // pour control: hold the button; carry control: hold ◀ / ▶
-    const down = (e) => { if (this._bar && this._bar.phase === 'pour') { this._bar.pouring = true; if (e && e.preventDefault) e.preventDefault(); } };
-    const upp = () => { if (this._bar) { this._bar.pouring = false; this._bar.leftHeld = false; this._bar.rightHeld = false; } };
-    const lDown = (e) => { if (this._bar) this._bar.leftHeld = true; if (e && e.preventDefault) e.preventDefault(); };
-    const rDown = (e) => { if (this._bar) this._bar.rightHeld = true; if (e && e.preventDefault) e.preventDefault(); };
-    const key = (v) => (e) => { if (!this._bar || this._bar.phase !== 'carry') return; const k = (e.key || '').toLowerCase(); if (k === 'a' || k === 'arrowleft') this._bar.leftHeld = v; else if (k === 'd' || k === 'arrowright') this._bar.rightHeld = v; };
-    this._barDown = down; this._barUp = upp; this._barLDown = lDown; this._barRDown = rDown;
-    this._barKeyDown = key(true); this._barKeyUp = key(false);
-    this.el.mgPour.addEventListener('pointerdown', down);
-    this.el.mgPour.addEventListener('pointercancel', upp);
-    this.el.mgLeft.addEventListener('pointerdown', lDown);
-    this.el.mgRight.addEventListener('pointerdown', rDown);
-    window.addEventListener('pointerup', upp);
-    window.addEventListener('keydown', this._barKeyDown);
-    window.addEventListener('keyup', this._barKeyUp);
-    this.el.mgServe.onclick = () => this._barServe();
-    this.el.mgAccept.onclick = () => this._barAccept();
+    this.el.mgPour.textContent = '🍳 COOK!';
+    this._barShow();
+    const cook = (e) => { if (e && e.preventDefault) e.preventDefault(); this._cookAction(); };
+    const keyc = (e) => { const k = (e.key || '').toLowerCase(); if (k === ' ' || k === 'c' || k === 'enter') { e.preventDefault(); this._cookAction(); } };
+    this._cookTap = cook; this._cookKey = keyc;
+    this.el.mgPour.addEventListener('pointerdown', cook);
+    this.el.mgCanvas.addEventListener('pointerdown', cook);
+    window.addEventListener('keydown', keyc);
     this.el.mgQuit.onclick = () => this._barFinish();
     if (!this._barLoopBound) { this._barLoopBound = this._barLoop.bind(this); }
     cancelAnimationFrame(this._barRaf);
     this._barRaf = requestAnimationFrame(this._barLoopBound);
   }
 
-  _barShow(pour, serve, left, right, accept) {
-    this.el.mgPour.classList.toggle('hidden', !pour);
-    this.el.mgServe.classList.toggle('hidden', !serve);
-    this.el.mgLeft.classList.toggle('hidden', !left);
-    this.el.mgRight.classList.toggle('hidden', !right);
-    this.el.mgAccept.classList.toggle('hidden', !accept);
+  _barShow() {   // the kitchen game uses only the big COOK button + Clock out
+    this.el.mgPour.classList.remove('hidden');
+    this.el.mgServe.classList.add('hidden');
+    this.el.mgAccept.classList.add('hidden');
+    this.el.mgLeft.classList.add('hidden');
+    this.el.mgRight.classList.add('hidden');
   }
-  _barNewOrder() {
-    const M = this._bar; if (!M) return;
-    M.phase = 'order'; M.liquid = 0; M.foam = 0; M.pouring = false; M.overflow = 0;
-    M.dist = 0; M.angle = 0; M.av = 0; M.carrySpill = 0; M.gustT = 0; M.leftHeld = false; M.rightHeld = false;
-    M.patron++;
-    M.target = 0.62 + Math.random() * 0.26;
-    M.tol = 0.06;
-    this.el.mgOrder.classList.remove('hidden');
-    this.el.mgOrder.innerHTML = `Patron #${M.patron}: “Fill 'er to about <b>${Math.round(M.target * 100)}%</b>, barkeep — and don't slosh it on the way over!”`;
-    this._barShow(false, false, false, false, true);
-  }
-  _barAccept() {
-    const M = this._bar; if (!M || M.phase !== 'order') return;
+  _cookMenuPick() { const list = meta.unlockedMenu(); return list[Math.floor(Math.random() * list.length)] || meta.menuById('houseale'); }
+  _cookSpawn() {
+    const M = this._bar; if (!M || M.queue.length >= 3 || M.spawned >= M.total) return;
+    const item = this._cookMenuPick();
+    const maxP = (8 + Math.max(0, 14 - item.sell) * 0.5) * M.fx.patience;  // cheaper dishes are more forgiving
+    M.queue.push({ item, p: maxP, maxP }); M.spawned++;
     this.game.audio.play('click');
-    M.phase = 'pour';
-    this.el.mgOrder.innerHTML = `Pour to the <b>red line</b> (~${Math.round(M.target * 100)}%). Foam counts — don't overflow! Then <b>Carry it</b>.`;
-    this._barShow(true, true, false, false, false);
   }
-  // pour -> carry
-  _barServe() {
-    const M = this._bar; if (!M || M.phase !== 'pour') return;
-    M.pouring = false; M.phase = 'carry';
-    M.pourMiss = Math.abs(M.liquid + M.foam - M.target);
-    this.game.audio.play('click');
-    this.el.mgOrder.innerHTML = '🍺 Carry it to the patron! Tap <b>◀ / ▶</b> (or A/D) to keep the mug level — spill too much and the tip shrinks.';
-    this._barShow(false, false, true, true, false);
-  }
-  // carry -> served (score the round)
-  _barDeliver() {
-    const M = this._bar; if (!M || M.phase !== 'carry') return;
-    M.phase = 'served';
-    this._barShow(false, false, false, false, false);
-    const pourGood = M.overflow > 0.04 ? 0 : (M.pourMiss <= M.tol ? 8 : M.pourMiss <= 0.16 ? 5 : 2);
-    const spillFrac = Math.min(1, M.carrySpill * 2.2);
-    const carryGood = Math.round((1 - spillFrac) * 6);
-    const tip = Math.max(1, pourGood + carryGood);
-    if (pourGood >= 8 && carryGood >= 6) { this.critToast(); this.game.audio.play('levelup'); }
-    else this.game.audio.play(spillFrac > 0.55 ? 'hiccup' : 'xp');
-    M.tips += tip; M.served++;
-    this.el.mgScore.textContent = M.tips;
-    this.el.mgServed.textContent = M.served;
-    this.toast(`🍺 +${tip}🪙 tip${spillFrac > 0.3 ? ' (a bit sloshed)' : ''}`);
-    if (M.served >= M.total) { setTimeout(() => this._barFinish(), 750); return; }
-    setTimeout(() => this._barNewOrder(), 850);
+  _cookGaugeSpeed() { const o = this._bar.queue[0]; const sell = o ? o.item.sell : 8; return 0.85 + sell * 0.035; } // pricier = faster = harder
+  _cookAction() {
+    const M = this._bar; if (!M || !M.queue.length) return;
+    const o = M.queue.shift();
+    const hw = 0.13 * M.fx.cookEase;
+    const d = Math.abs(M.cookPos - 0.5);
+    let qmult, label, quality;
+    if (d <= hw) { quality = 'perfect'; qmult = 1.6; label = 'Perfect!'; }
+    else if (d <= hw * 2.4) { quality = 'good'; qmult = 1.0; label = 'Tasty'; }
+    else { quality = 'burnt'; qmult = 0.4; label = 'Burnt…'; }
+    const speedBonus = 1 + (o.p / o.maxP) * 0.4;
+    if (quality === 'burnt') M.combo = 0; else { M.combo++; M.best = Math.max(M.best, M.combo); }
+    const comboMult = 1 + Math.min(0.6, M.combo * 0.06);
+    const tip = Math.max(1, Math.round(o.item.sell * qmult * speedBonus * comboMult * M.fx.tipMult));
+    M.tips += tip; M.served++; M.resolved++;
+    M.flash = quality === 'perfect' ? 1 : quality === 'good' ? 0.6 : 0.2; M.flashT = 0.5;
+    M.cookPos = 0; M.cookDir = 1;
+    this.el.mgScore.textContent = M.tips; this.el.mgServed.textContent = M.served;
+    if (quality === 'perfect') { this.game.audio.play('levelup'); this.burstFX(this.el.mgCanvas, 'fire', 12); if (M.combo >= 3) this.showCombo(M.combo); }
+    else if (quality === 'good') { this.game.audio.play('xp'); this.burstFX(this.el.mgCanvas, 'sparkle', 6); }
+    else { this.game.audio.play('hiccup'); this.hideCombo(); }
+    this.toast(`${o.item.icon} ${label} +${tip}🪙${M.combo >= 2 && quality !== 'burnt' ? ` (x${M.combo})` : ''}`);
+    if (M.resolved >= M.total) setTimeout(() => this._barFinish(), 700);
   }
   _barFinish() {
     const M = this._bar; if (!M) { this.el.minigame.classList.add('hidden'); return; }
     cancelAnimationFrame(this._barRaf);
-    window.removeEventListener('pointerup', this._barUp);
-    window.removeEventListener('keydown', this._barKeyDown);
-    window.removeEventListener('keyup', this._barKeyUp);
-    this.el.mgPour.removeEventListener('pointerdown', this._barDown);
-    this.el.mgPour.removeEventListener('pointercancel', this._barUp);
-    this.el.mgLeft.removeEventListener('pointerdown', this._barLDown);
-    this.el.mgRight.removeEventListener('pointerdown', this._barRDown);
+    if (this._cookTap) { this.el.mgPour.removeEventListener('pointerdown', this._cookTap); this.el.mgCanvas.removeEventListener('pointerdown', this._cookTap); }
+    if (this._cookKey) window.removeEventListener('keydown', this._cookKey);
+    this.el.mgPour.textContent = '🍳 COOK!';
     this.el.minigame.classList.add('hidden');
     this.el.mgOrder.classList.add('hidden');
-    this._barShow(false, false, false, false, false);
+    this.hideCombo();
+    meta.recordShift(M.served, M.best);
     const cb = M.done; this._bar = null;
-    if (cb) cb(M.tips);
+    if (cb) cb(M.tips, M.best);
   }
 
   _barLoop() {
@@ -1005,149 +981,78 @@ export class UI {
     const now = performance.now();
     let dt = (now - M.last) / 1000; M.last = now; if (dt > 0.05) dt = 0.05;
     M.anim += dt;
-
-    if (M.phase === 'pour') {
-      if (M.pouring) {
-        M.liquid += 0.34 * dt;
-        M.foam += (0.10 + M.liquid * 0.20) * dt;
-      } else {
-        const settle = Math.min(M.foam, 0.18 * dt);
-        M.foam -= settle; M.liquid += settle * 0.45;
+    if (M.flashT > 0) M.flashT -= dt;
+    // guests arrive across the shift
+    if (M.spawned < M.total) { M.spawnT -= dt; if (M.spawnT <= 0) { this._cookSpawn(); M.spawnT = 1.7 + Math.random() * 1.6; } }
+    // patience ticks; an out-of-patience guest storms off
+    for (let i = M.queue.length - 1; i >= 0; i--) {
+      const o = M.queue[i]; o.p -= dt;
+      if (o.p <= 0) {
+        M.queue.splice(i, 1); M.resolved++; M.combo = 0; this.hideCombo();
+        this.game.audio.play('hurt'); this.toast(`${o.item.icon} a guest left grumpy…`);
+        if (M.resolved >= M.total) { setTimeout(() => this._barFinish(), 700); break; }
       }
-      const level = M.liquid + M.foam;
-      if (level > 1) { M.overflow += (level - 1); M.foam = Math.max(0, M.foam - (level - 1)); M.liquid = Math.min(M.liquid, 1); }
-    } else if (M.phase === 'carry') {
-      // inverted-pendulum balance: gusts knock the mug, you counter with ◀/▶
-      M.gustT -= dt;
-      if (M.gustT <= 0) { M.gustT = 0.5 + Math.random() * 0.7; M.av += (Math.random() - 0.5) * 2.0; }
-      if (M.leftHeld) M.av -= 5 * dt;
-      if (M.rightHeld) M.av += 5 * dt;
-      M.av += Math.sin(M.angle) * 3 * dt;   // tilt makes it want to keep tipping
-      M.av -= M.av * 2.2 * dt;              // damping
-      M.angle += M.av * dt;
-      if (M.angle > 1.1) { M.angle = 1.1; M.av *= -0.2; }
-      if (M.angle < -1.1) { M.angle = -1.1; M.av *= -0.2; }
-      const lean = Math.abs(M.angle);
-      if (lean > 0.45) { const over = lean - 0.45; M.carrySpill += over * 0.5 * dt; M.liquid = Math.max(0, M.liquid - over * 0.5 * dt); }
-      M.dist += dt / 6.5;
-      if (M.dist >= 1) { this._barDeliver(); }
-    } else if (M.phase === 'served') {
-      const settle = Math.min(M.foam, 0.25 * dt); M.foam -= settle; M.liquid += settle * 0.4;
     }
+    // cook gauge oscillation (only while an order is up)
+    if (M.queue.length) { const sp = this._cookGaugeSpeed(); M.cookPos += M.cookDir * sp * dt; if (M.cookPos >= 1) { M.cookPos = 1; M.cookDir = -1; } else if (M.cookPos <= 0) { M.cookPos = 0; M.cookDir = 1; } }
     this._barRender();
     this._barRaf = requestAnimationFrame(this._barLoopBound);
   }
 
-  _barRenderCarry(ctx, W, H, M) {
-    ctx.fillStyle = '#241a18'; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#15100e'; ctx.fillRect(0, H - 72, W, 72);
-    const px = 44, pw = W - 88, py = H - 70;
-    ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = 4; ctx.setLineDash([10, 8]);
-    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + pw, py); ctx.stroke(); ctx.setLineDash([]);
-    ctx.font = '40px serif'; ctx.textAlign = 'center';
-    ctx.fillText('🛢', px, py - 2);
-    ctx.fillText(M.dist > 0.9 ? '😋' : '🧔', px + pw, py - 4);
-    const wx = px + M.dist * pw;
-    ctx.font = '46px serif'; ctx.fillText('🧙', wx, py + 4);
-    // mug on a little tray, tilted by the balance angle
-    ctx.save(); ctx.translate(wx, py - 52); ctx.rotate(M.angle);
-    ctx.fillStyle = '#6a4a2a'; ctx.fillRect(-26, 4, 52, 5);
-    const mw = 30, mh = 42;
-    ctx.fillStyle = '#caa06a'; ctx.fillRect(-mw / 2, -mh, mw, mh);
-    const f = Math.min(1, M.liquid) * (mh - 6);
-    const grd = ctx.createLinearGradient(0, -f, 0, 0); grd.addColorStop(0, '#ffd166'); grd.addColorStop(1, '#c8841d');
-    ctx.fillStyle = grd; ctx.fillRect(-mw / 2 + 3, -f - 3, mw - 6, f);
-    ctx.fillStyle = '#fff7e8'; ctx.fillRect(-mw / 2 + 3, -f - 9, mw - 6, 6);
-    ctx.strokeStyle = '#efe6d6'; ctx.lineWidth = 2; ctx.strokeRect(-mw / 2, -mh, mw, mh);
-    ctx.restore();
-    const lean = Math.abs(M.angle);
-    if (lean > 0.45) {
-      ctx.fillStyle = 'rgba(255,206,90,.85)';
-      for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(wx + (M.angle > 0 ? 22 : -22) + Math.sin(M.anim * 9 + i) * 6, py - 38 + ((M.anim * 130 + i * 22) % 42), 3, 0, 6.28); ctx.fill(); }
-      ctx.fillStyle = '#ff6a6a'; ctx.font = 'bold 16px "Trebuchet MS",sans-serif'; ctx.fillText('STEADY!', wx, py - 96);
-    }
-    // balance meter
-    const mx = W / 2, bw = 210;
-    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(mx - bw / 2, 30, bw, 16);
-    const safe = (0.45 / 1.1) * (bw / 2);
-    ctx.fillStyle = 'rgba(110,231,160,.35)'; ctx.fillRect(mx - safe, 30, safe * 2, 16);
-    const nx = mx + Math.max(-1, Math.min(1, M.angle / 1.1)) * (bw / 2);
-    ctx.fillStyle = lean > 0.45 ? '#ff5d6c' : '#ffe08a'; ctx.fillRect(nx - 3, 26, 6, 24);
-    ctx.fillStyle = '#cfe0ff'; ctx.font = 'bold 12px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center'; ctx.fillText('keep it level', mx, 22);
-    ctx.fillStyle = '#ffe6a8'; ctx.font = 'bold 15px "Trebuchet MS",sans-serif';
-    ctx.fillText(`Carried ${Math.round(M.dist * 100)}%  ·  in the mug: ${Math.round(Math.min(1, M.liquid + M.foam) * 100)}%`, W / 2, H - 14);
-  }
+  _roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 
   _barRender() {
     const M = this._bar, cv = this.el.mgCanvas; if (!M || !cv) return;
     const ctx = cv.getContext('2d'); const W = cv.width, H = cv.height;
     ctx.clearRect(0, 0, W, H);
-    if (M.phase === 'carry') { this._barRenderCarry(ctx, W, H, M); return; }
+    // top-down kitchen: counter strip up top, stove in the middle, gauge at the bottom
+    ctx.fillStyle = '#2a2030'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#352842'; ctx.fillRect(0, 150, W, 140);
+    ctx.fillStyle = '#1d1730'; ctx.fillRect(0, H - 78, W, 78);
+    ctx.textAlign = 'center';
 
-    // glass geometry
-    const gx = W / 2, gw = 150, gh = 300, gy = H - gh - 30;
-    const left = gx - gw / 2, right = gx + gw / 2, bottom = gy + gh;
-    const innerL = left + 10, innerR = right - 10, innerW = innerR - innerL;
-    const innerTop = gy + 12, innerBot = bottom - 12, innerH = innerBot - innerTop;
-
-    // pouring stream from a tap above
-    if (M.phase === 'pour' && M.pouring) {
-      ctx.fillStyle = 'rgba(255,206,90,0.9)';
-      const sx = gx + Math.sin(M.anim * 12) * 3;
-      ctx.fillRect(sx - 5, 8, 10, gy - 8 - (M.liquid + M.foam) * innerH);
-      // splash droplets
-      ctx.fillStyle = 'rgba(255,240,200,0.8)';
-      for (let i = 0; i < 5; i++) { const a = M.anim * 9 + i; ctx.beginPath(); ctx.arc(sx + Math.sin(a) * 14, gy - (M.liquid + M.foam) * innerH + Math.abs(Math.cos(a)) * 10, 2.5, 0, 6.28); ctx.fill(); }
+    // ---- order tickets (the waiting queue) ----
+    for (let i = 0; i < 3; i++) {
+      const o = M.queue[i];
+      const tw = 116, gap = (W - tw * 3) / 4, tx = gap + i * (tw + gap), ty = 14, th = 116;
+      ctx.fillStyle = (o && i === 0) ? 'rgba(255,207,92,.16)' : 'rgba(255,255,255,.05)';
+      ctx.strokeStyle = (o && i === 0) ? '#ffcf5c' : 'rgba(255,255,255,.16)';
+      ctx.lineWidth = i === 0 ? 3 : 2;
+      this._roundRect(ctx, tx, ty, tw, th, 10); ctx.fill(); ctx.stroke();
+      if (!o) { ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.font = '30px serif'; ctx.fillText('…', tx + tw / 2, ty + 56); continue; }
+      ctx.font = '40px serif'; ctx.fillStyle = '#fff'; ctx.fillText(o.item.icon, tx + tw / 2, ty + 48);
+      ctx.font = 'bold 12px "Trebuchet MS",sans-serif'; ctx.fillStyle = '#ffe6a8';
+      ctx.fillText(o.item.name.length > 13 ? o.item.name.slice(0, 12) + '…' : o.item.name, tx + tw / 2, ty + 72);
+      const frac = Math.max(0, o.p / o.maxP);
+      ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(tx + 12, ty + 88, tw - 24, 10);
+      ctx.fillStyle = frac > 0.5 ? '#6ee7a0' : frac > 0.25 ? '#ffcf5c' : '#ff5d6c';
+      ctx.fillRect(tx + 12, ty + 88, (tw - 24) * frac, 10);
     }
-    // the tap
-    ctx.fillStyle = '#3a3a42'; ctx.fillRect(gx - 26, 0, 52, 16); ctx.fillRect(gx - 6, 14, 12, 8);
 
-    // liquid + foam inside the glass (clip to inner glass)
-    ctx.save();
-    ctx.beginPath(); ctx.moveTo(innerL, innerTop); ctx.lineTo(innerR, innerTop); ctx.lineTo(innerR, innerBot); ctx.lineTo(innerL, innerBot); ctx.closePath(); ctx.clip();
-    const liqTop = innerBot - Math.min(1, M.liquid) * innerH;
-    const grad = ctx.createLinearGradient(0, liqTop, 0, innerBot);
-    grad.addColorStop(0, '#ffd166'); grad.addColorStop(1, '#c8841d');
-    ctx.fillStyle = grad; ctx.fillRect(innerL, liqTop, innerW, innerBot - liqTop);
-    // rising bubbles
-    ctx.fillStyle = 'rgba(255,247,230,0.5)';
-    for (let i = 0; i < 8; i++) { const t = (M.anim * 0.4 + i / 8) % 1; const by = innerBot - t * Math.min(1, M.liquid) * innerH; ctx.beginPath(); ctx.arc(innerL + ((i * 37) % innerW), by, 1.6 + (i % 3) * 0.6, 0, 6.28); ctx.fill(); }
-    // foam head
-    const foamH = Math.min(1, M.foam) * innerH;
-    if (foamH > 0.5) {
-      const foamTop = liqTop - foamH;
-      ctx.fillStyle = '#fff7e8'; ctx.fillRect(innerL, foamTop, innerW, foamH);
-      ctx.fillStyle = '#fffdf6';
-      for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.arc(innerL + 8 + i * (innerW / 6.5), foamTop + Math.sin(M.anim * 2 + i) * 2.5, 7, 0, 6.28); ctx.fill(); }
+    // ---- the stove + the dish currently up ----
+    const cur = M.queue[0]; const sx = W / 2, sy = 214;
+    ctx.font = '26px serif'; ctx.fillStyle = '#9a8aa8'; ctx.fillText('🔥', sx - 118, sy + 14); ctx.fillText('🍳', sx + 118, sy + 14);
+    ctx.fillStyle = '#15100e'; ctx.beginPath(); ctx.ellipse(sx, sy + 30, 60, 22, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#0d0a08'; ctx.beginPath(); ctx.ellipse(sx, sy + 26, 50, 17, 0, 0, 6.28); ctx.fill();
+    if (cur) {
+      ctx.font = '54px serif'; ctx.fillText(cur.item.icon, sx, sy + 16);
+      if (M.flashT > 0) { ctx.globalAlpha = Math.max(0, M.flashT * 2); ctx.font = 'bold 26px "Trebuchet MS",sans-serif'; ctx.fillStyle = M.flash >= 1 ? '#ffd24a' : M.flash >= 0.6 ? '#9fe0ff' : '#ff7a6a'; ctx.fillText('★', sx + 44, sy - 18); ctx.globalAlpha = 1; }
     }
-    ctx.restore();
+    ctx.font = 'bold 15px "Trebuchet MS",sans-serif'; ctx.fillStyle = '#ffe6a8';
+    ctx.fillText(cur ? 'Tap COOK in the green!' : 'Waiting for hungry guests…', W / 2, 138);
 
-    // target line + tolerance band
-    const tY = innerBot - M.target * innerH;
-    ctx.fillStyle = 'rgba(120,240,150,0.18)'; ctx.fillRect(left - 6, tY - M.tol * innerH, gw + 12, M.tol * 2 * innerH);
-    ctx.strokeStyle = '#ff5d6c'; ctx.lineWidth = 2; ctx.setLineDash([7, 5]);
-    ctx.beginPath(); ctx.moveTo(left - 6, tY); ctx.lineTo(right + 6, tY); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = '#ff8a98'; ctx.font = 'bold 13px "Trebuchet MS",sans-serif'; ctx.textAlign = 'left';
-    ctx.fillText('fill to here', right + 10, tY + 4);
+    // ---- cook gauge ----
+    const gx = 46, gw = W - 92, gyy = H - 46, gh = 22;
+    ctx.fillStyle = 'rgba(0,0,0,.45)'; this._roundRect(ctx, gx, gyy, gw, gh, 8); ctx.fill();
+    const hw = 0.13 * M.fx.cookEase;
+    ctx.fillStyle = 'rgba(255,207,92,.22)'; ctx.fillRect(gx + (0.5 - hw * 2.4) * gw, gyy, hw * 4.8 * gw, gh);  // "tasty" band
+    ctx.fillStyle = 'rgba(110,231,160,.55)'; ctx.fillRect(gx + (0.5 - hw) * gw, gyy, hw * 2 * gw, gh);          // "perfect" band
+    const mxp = gx + Math.max(0, Math.min(1, M.cookPos)) * gw;
+    ctx.fillStyle = cur ? '#fff' : 'rgba(255,255,255,.3)'; ctx.fillRect(mxp - 3, gyy - 6, 6, gh + 12);
 
-    // glass outline (drawn on top)
-    ctx.strokeStyle = 'rgba(220,235,255,0.85)'; ctx.lineWidth = 5;
-    ctx.strokeRect(left, gy, gw, gh);
-    ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2; ctx.strokeRect(left + 6, gy + 6, gw - 12, gh - 12);
-    // handle
-    ctx.strokeStyle = 'rgba(220,235,255,0.8)'; ctx.lineWidth = 9;
-    ctx.beginPath(); ctx.arc(right + 18, gy + gh * 0.5, 30, -1.1, 1.1); ctx.stroke();
-
-    // spill over the rim
-    if (M.overflow > 0.001) {
-      ctx.fillStyle = 'rgba(255,206,90,0.8)';
-      for (let i = 0; i < 6; i++) { const a = M.anim * 6 + i; ctx.beginPath(); ctx.arc(left + (i % 2 ? -4 : gw + 4), gy + 10 + ((M.anim * 60 + i * 30) % gh), 3 + (i % 2), 0, 6.28); ctx.fill(); }
-      ctx.fillStyle = '#ff6a6a'; ctx.textAlign = 'center'; ctx.font = 'bold 15px "Trebuchet MS",sans-serif';
-      ctx.fillText('SPILLING!', gx, gy - 8);
-    }
-    // readout
-    ctx.fillStyle = '#ffe6a8'; ctx.textAlign = 'center'; ctx.font = 'bold 15px "Trebuchet MS",sans-serif';
-    ctx.fillText(`Filled: ${Math.round(Math.min(1, M.liquid + M.foam) * 100)}%`, gx, bottom + 22);
+    // ---- footer readout ----
+    ctx.fillStyle = '#cfe0ff'; ctx.font = 'bold 13px "Trebuchet MS",sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(`🔥 Combo x${M.combo}   ·   Served ${M.served}/${M.total}   ·   Tips ${M.tips}🪙`, W / 2, H - 56);
   }
 
   bannerWave(w, total, isBoss) {
@@ -1236,6 +1141,7 @@ export class UI {
   _shopAction(act, id, slot) {
     const g = this._shopGame;
     if (act === 'startrun') { g.startRun(id); return; }
+    if (act === 'openbar') { if (g) g.startShift(); return; }
     if (act === 'buildtab') { this._buildTab = id; this._buildSel = null; if (g) g.audio.play('click'); this._renderShop(); return; }
     if (act === 'libtab') { this._libTab = id; if (g) g.audio.play('click'); this._renderShop(); return; }
     if (act === 'selbuild') { this._buildSel = (this._buildSel === id ? null : id); this._pvAngle = this._buildRot || 0; this._setPreviewItem(this._buildSel); if (g) g.audio.play('click'); this._renderShop(); return; }
@@ -1272,6 +1178,9 @@ export class UI {
     else if (act === 'deck') { const inDeck = UPGRADES.length - meta.deckOffIds().length; if (!meta.isDeckOff(id) && inDeck <= 6) { g.ui.wispSay('Keep at least 6 boons in your deck!', { tone: 'warn' }); ok = false; } else { meta.toggleDeck(id); ok = true; } }
     else if (act === 'paydebt') { const p = meta.payDebt(meta.gold()); ok = p > 0; if (ok) { g.ui.toast(`💰 Paid ${p}🪙 off the debt`); if (meta.debt() <= 0) g.onDebtCleared(); } }
     else if (act === 'claim') { const res = meta.claimQuest(); ok = !!(res && res.reward > 0); if (ok) { g.ui.toast(`Quest reward: +${res.reward}🪙`); if (res.unlocked) g.ui.wispSay(`🔓 Unlocked the ${meta.FEATURE_LABELS[res.unlocked]}. Build it up in your room!`, { big: true, ms: 4200 }); } }
+    else if (act === 'unlockmenu') { const m = meta.menuById(id); ok = meta.unlockMenu(id); if (ok) { g.ui.toast(`📖 ${m.name} added to the menu!`); this.burstFX({ x: window.innerWidth / 2, y: window.innerHeight * 0.4 }, 'sparkle', 10); } }
+    else if (act === 'hire') { const s = meta.staffById(id); ok = meta.hireStaff(id); if (ok) g.ui.toast(`${s.icon} Hired ${s.name} (Lv${meta.staffLevel(id)})!`); }
+    else if (act === 'claimcook') { const r = meta.claimCookQuest(id); ok = r > 0; if (ok) { g.ui.toast(`🎯 Cooking quest done! +${r}🪙`); this.burstFX({ x: window.innerWidth / 2, y: window.innerHeight * 0.4 }, 'gem', 10); } }
     if (g) g.audio.play(ok ? 'click' : 'hiccup');
     this.setGold(meta.gold());
     this._renderShop();
@@ -1279,13 +1188,14 @@ export class UI {
 
   _renderShop() {
     const kind = this._shopKind;
-    const titles = { skilltree: '✦ Spell Table', library: '📖 Arcane Library', cauldron: '🜲 Cauldron', build: '🏛 Build Your Den', manager: '📜 Quest Board', wardrobe: '🎽 Equipment Hall', ledger: '📒 Tavern Ledger', blacksmith: '🔨 Anvil' };
+    const titles = { skilltree: '✦ Spell Table', library: '📖 Arcane Library', cauldron: '🜲 Cauldron', build: '🏛 Build Your Den', manager: '📜 Quest Board', wardrobe: '🎽 Equipment Hall', ledger: '📒 Tavern Ledger', blacksmith: '🔨 Anvil', kitchen: '🍳 The Tipsy Toad Kitchen' };
     this.el.shopTitle.textContent = titles[kind] || 'Tavern';
     let html = '';
     if (kind === 'skilltree') html = this._renderSkillTree();
     else if (kind === 'library') html = this._renderLibrary();
     else if (kind === 'cauldron') html = this._renderCauldron();
     else if (kind === 'build') html = this._renderBuild();
+    else if (kind === 'kitchen') html = this._renderKitchen();
     else if (kind === 'manager') html = this._renderManager();
     else if (kind === 'wardrobe') html = this._renderWardrobe();
     else if (kind === 'ledger') html = this._renderLedger();
@@ -1498,6 +1408,14 @@ export class UI {
     h += `<div class="eq-section-head" style="margin-top:14px">💎 Elemental Gemstones <span class="eq-count">${meta.totalGemstones()} total</span></div>
       <p class="shop-sub" style="margin:.2em 0 .5em">Won in battle. Brew them with 🌿 herbs into potions at the Cauldron.</p>
       <div class="inv-els">${gsh}</div>`;
+    // pantry: foraged cooking ingredients — herbs and mushrooms each in their own row
+    const ingSpan = (g) => `<span class="inv-el" style="color:#${g.color.toString(16).padStart(6, '0')}">${g.icon} ${g.name} ×${meta.ingredientCount(g.id)}</span>`;
+    const herbsList = meta.ingredientsByKind('herb').filter(g => meta.ingredientCount(g.id) > 0);
+    const shroomList = meta.ingredientsByKind('shroom').filter(g => meta.ingredientCount(g.id) > 0);
+    h += `<div class="eq-section-head" style="margin-top:14px">🍳 Pantry <span class="eq-count">${meta.totalIngredients()} items</span></div>
+      <p class="shop-sub" style="margin:.2em 0 .5em">Foraged on runs and dropped by foes — spend them to unlock 🍳 Bar recipes.</p>
+      <div class="inv-els">🌿 ${herbsList.length ? herbsList.map(ingSpan).join('') : '<span class="eq-empty" style="font-size:12px">no herbs yet</span>'}</div>
+      <div class="inv-els" style="margin-top:6px">🍄 ${shroomList.length ? shroomList.map(ingSpan).join('') : '<span class="eq-empty" style="font-size:12px">no mushrooms yet</span>'}</div>`;
     // collected artifacts — carry up to MAX into your runs
     const owned = meta.ownedArtifacts();
     h += `<div class="eq-section-head" style="margin-top:14px">✦ Artifacts <span class="eq-count">${meta.equippedArtifacts().length} carried · ${owned.length}/${ARTIFACTS.length} found</span></div>`;
@@ -1546,6 +1464,44 @@ export class UI {
         <div class="shop-acts"><button class="shop-btn" data-act="brew" data-id="${p.id}" ${can ? '' : 'disabled'}>🌿${p.herbs} + ${e.icon}${p.gems}</button></div></div>`;
     }
     h += '</div>';
+    return h;
+  }
+
+  // The Kitchen: open for business, unlock recipes with foraged ingredients, hire staff, claim cooking quests
+  _renderKitchen() {
+    let h = `<p class="shop-sub">Run the <b>Tipsy Toad kitchen</b>. Unlock recipes with foraged ingredients, hire a hand or two, then <b>open for business</b> and cook to the beat.</p>`;
+    h += `<div class="shop-acts" style="margin-bottom:12px"><button class="shop-btn big on" data-act="openbar">🍳 Open for Business ▸</button></div>`;
+    // cooking quests
+    h += `<div class="eq-section-head">🎯 Cooking Quests</div><div class="shop-grid">`;
+    for (const q of meta.COOK_QUESTS) {
+      const prog = Math.min(q.goal, meta.cookQuestProgress(q)), done = meta.cookQuestDone(q), claimed = meta.cookQuestClaimed(q.id);
+      const btn = claimed ? '<button class="shop-btn on" disabled>✓ Claimed</button>'
+        : `<button class="shop-btn ${done ? 'on' : ''}" data-act="claimcook" data-id="${q.id}" ${done ? '' : 'disabled'}>${done ? `Claim ${q.reward}🪙` : `${prog}/${q.goal}`}</button>`;
+      h += `<div class="shop-card"><div class="shop-glyph">${q.icon}</div><div class="shop-name">+${q.reward}🪙</div><div class="shop-desc">${q.text}</div><div class="shop-acts">${btn}</div></div>`;
+    }
+    h += `</div>`;
+    // menu recipes
+    h += `<div class="eq-section-head" style="margin-top:14px">📖 Menu <span class="eq-count">${meta.unlockedMenu().length}/${meta.MENU.length} recipes</span></div>
+      <p class="shop-sub" style="margin:.2em 0 .6em">Unlocked dishes are served to guests during a shift — pricier ones tip more.</p><div class="shop-grid">`;
+    for (const m of meta.MENU) {
+      const on = meta.menuUnlocked(m.id);
+      const costStr = Object.keys(m.cost).length ? Object.entries(m.cost).map(([k, n]) => { const ing = meta.ingredientById(k); return `${ing ? ing.icon : '?'}${n}`; }).join(' ') : 'Free';
+      const act = on
+        ? `<button class="shop-btn on" disabled>✓ Serving (${m.sell}🪙)</button>`
+        : `<button class="shop-btn" data-act="unlockmenu" data-id="${m.id}" ${meta.canUnlockMenu(m.id) ? '' : 'disabled'}>Unlock ${costStr}</button>`;
+      h += `<div class="shop-card ${on ? '' : 'locked'}"><div class="shop-glyph">${m.icon}</div><div class="shop-name">${m.name} <span class="lvtag">${m.kind === 'food' ? '🍽' : '🍺'}</span></div><div class="shop-desc">${m.desc}</div><div class="shop-acts">${act}</div></div>`;
+    }
+    h += `</div>`;
+    // staff
+    h += `<div class="eq-section-head" style="margin-top:14px">🧑‍🍳 Hire Staff</div><div class="shop-grid">`;
+    for (const s of meta.STAFF) {
+      const lvl = meta.staffLevel(s.id), cost = meta.staffCost(s.id);
+      h += `<div class="shop-card"><div class="shop-glyph">${s.icon}</div><div class="shop-name">${s.name} <span class="lvtag">Lv${lvl}</span></div><div class="shop-desc">${s.desc}</div><div class="shop-acts"><button class="shop-btn" data-act="hire" data-id="${s.id}" ${meta.gold() >= cost ? '' : 'disabled'}>Hire ${cost}🪙</button></div></div>`;
+    }
+    h += `</div>`;
+    // pantry summary
+    const haveIng = meta.INGREDIENTS.filter(g => meta.ingredientCount(g.id) > 0);
+    h += `<div class="eq-section-head" style="margin-top:14px">🧺 Pantry</div><div class="inv-els">${haveIng.length ? haveIng.map(g => `<span class="inv-el">${g.icon} ${g.name} ×${meta.ingredientCount(g.id)}</span>`).join('') : '<span class="eq-empty" style="font-size:12px">Forage herbs &amp; mushrooms on a run to stock up.</span>'}</div>`;
     return h;
   }
 

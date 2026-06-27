@@ -532,6 +532,18 @@ export class Game {
     for (const it of this.pickups) { it.mesh.visible = false; this._pickupPool[it.type].push(it.mesh); }
     this.pickups.length = 0;
   }
+  // returning to the hub: don't strand earned motes on the arena floor — bank XP &
+  // auto-collect any dropped gear, then clear them all so the tavern stays clean.
+  _bankAndClearPickups() {
+    let changed = false;
+    for (const it of this.pickups) {
+      if (it.type === 'xp') { this.gainXP(it.value); changed = true; }
+      else if (it.type === 'gear') { meta.addGear(it.gear); changed = true; }
+      it.mesh.visible = false; this._pickupPool[it.type].push(it.mesh);
+    }
+    if (changed) meta.save();
+    this.pickups.length = 0;
+  }
 
   // ---------- effects helpers used by subsystems ----------
   shake(a) { if (this.shakeEnabled === false) return; this.shakeAmt = Math.min(2.5, this.shakeAmt + a); }
@@ -683,6 +695,7 @@ export class Game {
     this.phase = 'tavern';
     this._exiting = false;
     this.nearStation = null;
+    this._bankAndClearPickups(); // no stray XP motes / loot left floating in the bar after a run
     this.storyQueue.length = 0; this.storyShowing = false;
     this.ui.closeModals();
     this.ui.setStageTint(null); this.ui.hideMission(); // drop any arena stage colour/mission HUD

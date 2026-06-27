@@ -5,7 +5,7 @@ import { SPELL_ORDER, SPELLS } from './spells.js';
 import { TEMPLATES } from './recognizer.js';
 import * as meta from './meta.js';
 import { STAGES, STAGE_ORDER } from './story.js';
-import { ARTIFACTS, artifactById, UPGRADES } from './upgrades.js';
+import { ARTIFACTS, artifactById, UPGRADES, upgradeRarity } from './upgrades.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -808,10 +808,12 @@ export class UI {
   showLevelUp(choices, onPick) {
     this.el.cards.innerHTML = '';
     choices.forEach((u) => {
+      const rc = upgradeRarity(u);
       const card = document.createElement('div');
-      card.className = 'card' + (u.unique ? ' card-unique' : '');
+      card.className = 'card rar-' + rc.key + (u.unique ? ' card-unique' : '');
+      card.style.setProperty('--rc', rc.color);
       card.innerHTML = `
-        ${u.unique ? '<div class="card-ribbon">✦ UNIQUE ✦</div>' : ''}
+        ${u.unique ? '<div class="card-ribbon">✦ UNIQUE ✦</div>' : `<div class="card-rarity" style="color:${rc.color}">${rc.name}</div>`}
         <div class="card-icon">${u.icon}</div>
         <div class="card-name">${u.name}</div>
         <div class="card-desc">${u.desc}</div>

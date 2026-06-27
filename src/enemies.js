@@ -104,26 +104,28 @@ export class Enemies {
     const bellyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.16, roughness: 0.9, depthWrite: false });
     const belly = new THREE.Mesh(new THREE.SphereGeometry(0.4, 14, 12), bellyMat); belly.scale.set(0.9, 1.0, 0.6); belly.position.set(0, 0.52, 0.32); g.add(belly);
 
-    // eyes (recoloured for vampires) + glints so they read as alive
-    const eyeW = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
-    const pupMat = (type === 'vampire' || fierce && def.emissive) ? new THREE.MeshStandardMaterial({ color: 0xff2a3a, emissive: 0x661017, emissiveIntensity: 0.7, roughness: 0.5 }) : darkMat;
-    const eGeo = new THREE.SphereGeometry(0.17, 12, 12);
-    const eL = new THREE.Mesh(eGeo, eyeW); eL.position.set(-0.2, 0.85, 0.42);
-    const eR = new THREE.Mesh(eGeo, eyeW); eR.position.set(0.2, 0.85, 0.42);
-    const pGeo = new THREE.SphereGeometry(0.08, 10, 10);
-    const pL = new THREE.Mesh(pGeo, pupMat); pL.position.set(-0.2, 0.85, 0.55);
-    const pR = new THREE.Mesh(pGeo, pupMat); pR.position.set(0.2, 0.85, 0.55);
-    const glGeo = new THREE.SphereGeometry(0.035, 6, 6);
-    const glL = new THREE.Mesh(glGeo, eyeW); glL.position.set(-0.23, 0.9, 0.61);
-    const glR = new THREE.Mesh(glGeo, eyeW); glR.position.set(0.17, 0.9, 0.61);
+    // BIG googly eyes — oversized whites with wandering, slightly cross-eyed pupils for a dopey look
+    const eyeW = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
+    const pupMat = (type === 'vampire' || (fierce && def.emissive)) ? new THREE.MeshStandardMaterial({ color: 0xff2a3a, emissive: 0x661017, emissiveIntensity: 0.7, roughness: 0.5 }) : darkMat;
+    const eGeo = new THREE.SphereGeometry(0.23, 14, 14);
+    const eL = new THREE.Mesh(eGeo, eyeW); eL.position.set(-0.22, 0.88, 0.38);
+    const eR = new THREE.Mesh(eGeo, eyeW); eR.position.set(0.22, 0.88, 0.38);
+    const pGeo = new THREE.SphereGeometry(0.1, 10, 10);
+    const pL = new THREE.Mesh(pGeo, pupMat); pL.position.set(-0.17, 0.85, 0.57);   // pupils drift inward+down
+    const pR = new THREE.Mesh(pGeo, pupMat); pR.position.set(0.14, 0.9, 0.57);
+    const glGeo = new THREE.SphereGeometry(0.055, 8, 8);
+    const glL = new THREE.Mesh(glGeo, eyeW); glL.position.set(-0.28, 0.95, 0.58);
+    const glR = new THREE.Mesh(glGeo, eyeW); glR.position.set(0.16, 0.97, 0.58);
     g.add(eL, eR, pL, pR, glL, glR);
 
-    // brows (angrier on dangerous foes) + a little mouth for character
-    const browGeo = new THREE.BoxGeometry(0.2, 0.055, 0.07);
-    const bL = new THREE.Mesh(browGeo, darkMat); bL.position.set(-0.2, 1.02, 0.46); bL.rotation.z = fierce ? -0.5 : -0.16;
-    const bR = new THREE.Mesh(browGeo, darkMat); bR.position.set(0.2, 1.02, 0.46); bR.rotation.z = fierce ? 0.5 : 0.16;
-    const mouth = new THREE.Mesh(new THREE.BoxGeometry(fierce ? 0.3 : 0.2, 0.05, 0.05), darkMat); mouth.position.set(0, 0.62, 0.5); mouth.rotation.z = fierce ? 0 : 0.0;
-    g.add(bL, bR, mouth);
+    // goofy raised brows (surprised, not scary) + a derpy open gob with a tongue and one buck tooth
+    const browGeo = new THREE.BoxGeometry(0.16, 0.05, 0.07);
+    const bL = new THREE.Mesh(browGeo, darkMat); bL.position.set(-0.22, 1.14, 0.4); bL.rotation.z = fierce ? -0.24 : 0.2;
+    const bR = new THREE.Mesh(browGeo, darkMat); bR.position.set(0.22, 1.14, 0.4); bR.rotation.z = fierce ? 0.24 : -0.2;
+    const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.6), darkMat); mouth.rotation.x = Math.PI; mouth.scale.set(1, 0.65, 0.5); mouth.position.set(0, 0.61, 0.48);
+    const tongue = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 8), new THREE.MeshStandardMaterial({ color: 0xff7a98, roughness: 0.6 })); tongue.scale.set(1, 0.5, 0.7); tongue.position.set(0.02, 0.55, 0.52);
+    const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.04), new THREE.MeshStandardMaterial({ color: 0xfffaf0, roughness: 0.5 })); tooth.position.set(-0.07, 0.65, 0.53);
+    g.add(bL, bR, mouth, tongue, tooth);
 
     // little feet (flyers/floaters have none)
     if (type !== 'bat' && type !== 'brutebat' && type !== 'wraith' && type !== 'drone') {

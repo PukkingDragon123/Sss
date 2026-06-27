@@ -158,6 +158,21 @@ export const UPGRADES = [
 // abilities = the level-up boon pool (kept under the legacy name for the tests)
 export const ABILITIES = UPGRADES;
 
+// RPG rarity — derived from how common a boon is (its roll weight). Rarer boons hit harder & glow brighter.
+export const UPGRADE_RARITY = [
+  { key: 'common',    name: 'Common',    color: '#cfcad6', min: 9 },
+  { key: 'rare',      name: 'Rare',      color: '#6fb0ff', min: 7 },
+  { key: 'epic',      name: 'Epic',      color: '#b97bff', min: 5 },
+  { key: 'legendary', name: 'Legendary', color: '#ffcf5c', min: 0 },
+];
+export function upgradeRarity(u) {
+  if (!u) return UPGRADE_RARITY[0];
+  if (u.unique) return UPGRADE_RARITY[3];   // artifacts are always legendary
+  const w = u.weight || 5;
+  for (const r of UPGRADE_RARITY) if (w >= r.min) return r;
+  return UPGRADE_RARITY[0];
+}
+
 // Pick n distinct, currently-available abilities (weighted). Honours the player's
 // curated deck (game._deckOff = a Set of ability ids removed from the pool).
 export function rollUpgrades(game, n = 3) {

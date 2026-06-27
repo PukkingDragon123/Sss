@@ -415,7 +415,7 @@ export const ingredientById = (id) => INGREDIENTS.find(x => x.id === id);
 export const ingredientsByKind = (kind) => INGREDIENTS.filter(x => x.kind === kind);
 export const ingredientCount = (id) => (state.ingredients && state.ingredients[id]) || 0;
 export const totalIngredients = () => Object.values(state.ingredients || {}).reduce((a, b) => a + b, 0);
-export function addIngredient(id, n = 1) { if (!state.ingredients) state.ingredients = {}; state.ingredients[id] = (state.ingredients[id] || 0) + n; markSeen('forage'); save(); }
+export function addIngredient(id, n = 1) { if (!state.ingredients) state.ingredients = {}; state.ingredients[id] = (state.ingredients[id] || 0) + n; save(); }
 export function spendIngredient(id, n = 1) { const g = state.ingredients || {}; if ((g[id] || 0) < n) return false; g[id] -= n; state.ingredients = g; save(); return true; }
 export const randomIngredient = (maxTier = 2) => { const pool = INGREDIENTS.filter(x => x.tier <= maxTier); return pool[Math.floor(Math.random() * pool.length)]; };
 export const randomRareIngredient = () => { const pool = INGREDIENTS.filter(x => x.tier >= 2); return pool[Math.floor(Math.random() * pool.length)]; };

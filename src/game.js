@@ -808,18 +808,6 @@ export class Game {
     this.ui.setGold(meta.gold());
   }
 
-  startMinigame() {
-    this.state = 'menu';
-    this.ui.showBar((tips) => {
-      meta.addGold(tips);
-      const fin = meta.advanceDay(); // a day's work passes (and ticks research)
-      meta.save();
-      this.ui.setGold(meta.gold());
-      this.ui.toast(`🍺 Shift over — ${tips}🪙 in tips!`);
-      if (fin) this.ui.toast(`🔬 Research complete: ${meta.researchById(fin).name}`);
-      this.state = 'play';
-    });
-  }
   // Open the Bar (from the kitchen panel): a short doors-open cutscene, then the cook-and-serve shift
   startShift() {
     this._shopKind = null; this.ui.closeShop();

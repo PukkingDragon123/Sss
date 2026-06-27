@@ -1,6 +1,7 @@
 // meta.js — persistent meta-progression (3 save slots in localStorage): gold,
 // spells/combos/loadout, room, equipment, quests, and the idle tavern tycoon.
 import { UPGRADES } from './upgrades.js';
+// one-way import only — story.js must never import meta.js (would create a cycle)
 import { STAGE_ORDER, STAGES } from './story.js';
 
 // the four elements every spell belongs to (shown in the Grimoire & Spell Table)
@@ -528,14 +529,15 @@ function _genCustomerQuest() {
     const need = 2 + Math.floor(Math.random() * 3);
     q = { kind: 'deliver', item: ing.id, count: need, icon: ing.icon,
       ask: `Bring me ${need}× ${ing.name} ${ing.icon}.`, reward: { gems: 4 + need * 2, gold: 0 } };
-  } else if (roll < 0.78 || uncleared.length === 0) {
-    const target = Math.min(10, _maxRegionBest() + 1 + Math.floor(Math.random() * 3));
-    q = { kind: 'reach', stage: target, icon: '🗺️',
-      ask: `Push to Stage ${target} of any region.`, reward: { gems: target + 4, gold: 0 } };
-  } else {
+  } else if (roll >= 0.78 && uncleared.length > 0) {
     const region = uncleared[0];
     q = { kind: 'clear', region, icon: '👑',
       ask: `Fell the champion of ${STAGES[region].name}.`, reward: { gems: 16, gold: 20 } };
+  } else {
+    // reach quest (also the safe fallback when every region is already cleared)
+    const target = Math.min(10, _maxRegionBest() + 1 + Math.floor(Math.random() * 3));
+    q = { kind: 'reach', stage: target, icon: '🗺️',
+      ask: `Push to Stage ${target} of any region.`, reward: { gems: target + 4, gold: 0 } };
   }
   return Object.assign({ id, npc: { name: npc.name, icon: npc.icon, color: npc.color, line: npc.line } }, q);
 }

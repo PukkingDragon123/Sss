@@ -361,7 +361,7 @@ export class Cinematics {
 
     if (b && !b.text && !this.qte && b.special !== 'drawDemo' && b.special !== 'getDrunk' && b.special !== 'throw' && this.beatT >= (b.dur || 2.2)) this._next();
 
-    g.renderer.render(g.scene, g.camera);
+    g.present();
   }
 
   // the wizard tips his mug back and CHUGS — a big amber gulp, a hiccup, a woozy lurch

@@ -92,6 +92,7 @@ export class Game {
 
     this._buildWorld();
     this.scene.environment = this._makeEnvMap(); // soft image-based lighting: metals/gems read as real material
+    this._composer = null; this._initPostFX(); // optional bloom; falls back to direct render if addons don't load
 
     // subsystems
     this.audio = new AudioEngine();
@@ -380,6 +381,41 @@ export class Game {
     return tex;
   }
 
+  // single render entry point — through the bloom composer if it loaded, else direct.
+  // any runtime composer error disables it permanently and falls back, so the game
+  // can never end up on a black screen.
+  present() {
+    if (this._composer) {
+      try { this._composer.render(); return; }
+      catch (err) { console.warn('Composer render failed, falling back to direct:', err); this._composer = null; }
+    }
+    this.renderer.render(this.scene, this.camera);
+  }
+  // load post-processing lazily; a blocked CDN/CSP degrades gracefully to direct render.
+  async _initPostFX() {
+    try {
+      const [{ EffectComposer }, { RenderPass }, { UnrealBloomPass }, { OutputPass }, { SMAAPass }] = await Promise.all([
+        import('three/addons/postprocessing/EffectComposer.js'),
+        import('three/addons/postprocessing/RenderPass.js'),
+        import('three/addons/postprocessing/UnrealBloomPass.js'),
+        import('three/addons/postprocessing/OutputPass.js'),
+        import('three/addons/postprocessing/SMAAPass.js'),
+      ]);
+      const w = window.innerWidth, h = window.innerHeight, pr = this.renderer.getPixelRatio();
+      const c = new EffectComposer(this.renderer);
+      c.addPass(new RenderPass(this.scene, this.camera));
+      // cozy glow: low strength, high threshold so only emissive/bright bits bloom
+      c.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.38, 0.6, 0.82));
+      c.addPass(new OutputPass());            // must be last: applies tone mapping + sRGB
+      c.addPass(new SMAAPass(w * pr, h * pr)); // composer bypasses MSAA — restore clean edges
+      c.setSize(w, h); c.setPixelRatio(pr);
+      this._composer = c;
+    } catch (err) {
+      console.warn('Post-FX unavailable, using direct render:', err);
+      this._composer = null;
+    }
+  }
+
   // re-aim the single shadow-casting light + tighten its frustum to the active scene,
   // so contact shadows actually land (arena is huge; tavern/room/world are small).
   _aimShadow(x, y, z, half) {
@@ -407,6 +443,7 @@ export class Game {
   _resize() {
     const w = window.innerWidth, h = window.innerHeight;
     this.renderer.setSize(w, h);
+    if (this._composer) this._composer.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.fx2d.width = w; this.fx2d.height = h;
@@ -1642,7 +1679,7 @@ export class Game {
 
     this.ui.updateHUD(this);
     this._updateCamera(dt);
-    this.renderer.render(this.scene, this.camera);
+    this.present();
   }
 
   _updateArena(sdt) {

@@ -91,6 +91,7 @@ export class Game {
     this.camTarget = new THREE.Vector3();
 
     this._buildWorld();
+    this.scene.environment = this._makeEnvMap(); // soft image-based lighting: metals/gems read as real material
 
     // subsystems
     this.audio = new AudioEngine();
@@ -203,6 +204,10 @@ export class Game {
     this.fill = new THREE.DirectionalLight(0xbfd0ff, 0.4);
     this.fill.position.set(-24, 22, -16);
     this.scene.add(this.fill);
+    // rim/back light for silhouette separation (the "posed character" pop) — retuned per scene
+    this.rim = new THREE.DirectionalLight(0xffffff, 1.0);
+    this.rim.position.set(-6, 12, -26);
+    this.scene.add(this.rim);
 
     // floor + clearing (recoloured per stage)
     this.floorMat = new THREE.MeshStandardMaterial({ color: 0x2f4a32, roughness: 1 });
@@ -352,13 +357,48 @@ export class Game {
     }
   }
 
+  // addon-free image-based lighting: bake a tiny gradient sky + a couple of bright
+  // "light cards" into a PMREM env texture. Gives every MeshStandardMaterial a soft,
+  // believable sheen/reflection (gold, brass, gems, gear) — the big "shading" upgrade.
+  _makeEnvMap() {
+    const s = new THREE.Scene();
+    const sky = new THREE.Mesh(
+      new THREE.SphereGeometry(12, 18, 10),
+      new THREE.MeshBasicMaterial({ color: 0x8fa8d8, side: THREE.BackSide }));
+    s.add(sky);
+    const card = (color, x, y, z, sz) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz), new THREE.MeshBasicMaterial({ color }));
+      m.position.set(x, y, z); m.lookAt(0, 0, 0); s.add(m);
+    };
+    card(0xfff4e0, 4, 7, 3, 8);    // warm key card
+    card(0xbcd2ff, -6, 4, -4, 6);  // cool fill card
+    card(0xffffff, 0, -6, 2, 10);  // soft bounce from below
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    const tex = pmrem.fromScene(s, 0.4).texture;
+    pmrem.dispose();
+    sky.geometry.dispose(); sky.material.dispose();
+    return tex;
+  }
+
+  // re-aim the single shadow-casting light + tighten its frustum to the active scene,
+  // so contact shadows actually land (arena is huge; tavern/room/world are small).
+  _aimShadow(x, y, z, half) {
+    this.dir.position.set(x, y, z);
+    this.dir.target.position.set(0, 0, 0); this.dir.target.updateMatrixWorld();
+    const sc = this.dir.shadow.camera;
+    sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half;
+    sc.updateProjectionMatrix();
+  }
+
   _applyStageTheme(stage) {
     const t = stage.theme;
+    this._aimShadow(28, 46, 18, 62); // wide arena frustum
     this.scene.background.setHex(t.bg);
     this.scene.fog.color.setHex(t.fog); this.scene.fog.density = t.fogD;
     this.hemi.color.setHex(t.hemi); this.hemi.groundColor.setHex(t.hemiG); this.hemi.intensity = 1.0;
     this.dir.color.setHex(t.dir); this.dir.intensity = t.dirI;
     this.ambient.color.setHex(t.amb); this.ambient.intensity = 0.5;
+    this.rim.color.setHex(t.rim != null ? t.rim : t.dir); this.rim.intensity = (t.rimI != null ? t.rimI : 1.15);
     this.floorMat.color.setHex(t.floor);
     this.rugMat.color.setHex(t.rug);
     this._buildScatter(t.scatter);
@@ -722,6 +762,7 @@ export class Game {
     this.aimPoint.set(this.tavern.door.x, 0, this.tavern.door.z);
     this.camOffset.set(0, 18, 16);
     this._setMood('tavern');
+    this._aimShadow(14, 24, 10, 16); // tight frustum so the bar casts crisp contact shadows
     this.ui.setPhase('tavern', this.input.isTouch);
     this.ui.setGold(meta.gold());
     this.state = 'play';
@@ -802,6 +843,8 @@ export class Game {
     this.scene.background.setHex(0x0a1424); this.scene.fog.color.setHex(0x0e1a2c); this.scene.fog.density = 0.006;
     this.hemi.color.setHex(0xbfd0ff); this.hemi.groundColor.setHex(0x2a3a4a); this.hemi.intensity = 1.0;
     this.dir.color.setHex(0xffffff); this.dir.intensity = 1.3; this.ambient.color.setHex(0x44506a); this.ambient.intensity = 0.6;
+    this.rim.color.setHex(0xbfe0ff); this.rim.intensity = 1.0;
+    this._aimShadow(20, 40, 14, 40); // medium frustum for the world-map islands
     let sel = this.world.order[0];
     for (const id of this.world.order) if (this._stageUnlocked(id)) sel = id;
     this._worldSel = sel; this.world.select(sel);
@@ -852,6 +895,7 @@ export class Game {
     this.aimPoint.set(this.tavern.roomStart.x, 0, this.tavern.roomStart.z - 3);
     this.camOffset.set(0, 13, 13);
     this._setMood('tavern');
+    this._aimShadow(8, 16, 6, 10); // tight frustum for the small room scene
     this.ui.setPhase('room', this.input.isTouch);
     this.ui.setScreen('play');
     this.ui.setGold(meta.gold());
@@ -1262,16 +1306,18 @@ export class Game {
   _setMood(mood) {
     if (mood === 'tavern') {
       this.scene.background.setHex(0x241a18);
-      this.scene.fog.color.setHex(0x241a18); this.scene.fog.density = 0.02;
+      this.scene.fog.color.setHex(0x2a1e1a); this.scene.fog.density = 0.012; // clearer, less muddy bar
       this.hemi.color.setHex(0xffd9a0); this.hemi.groundColor.setHex(0x3a2418); this.hemi.intensity = 0.7;
-      this.dir.color.setHex(0xffd29a); this.dir.intensity = 1.0;
-      this.ambient.color.setHex(0x6a4a3a); this.ambient.intensity = 0.5;
+      this.dir.color.setHex(0xffd29a); this.dir.intensity = 1.05;
+      this.ambient.color.setHex(0x55474a); this.ambient.intensity = 0.45; // neutral fill; warmth comes from the lights
+      this.rim.color.setHex(0xffe2b0); this.rim.intensity = 0.9;
     } else {
       this.scene.background.setHex(0x16223a);
       this.scene.fog.color.setHex(0x1b2b44); this.scene.fog.density = 0.011;
       this.hemi.color.setHex(0x9fb6e8); this.hemi.groundColor.setHex(0x223a2a); this.hemi.intensity = 0.95;
       this.dir.color.setHex(0xcdd8ff); this.dir.intensity = 1.5;
       this.ambient.color.setHex(0x3a4a6a); this.ambient.intensity = 0.45;
+      this.rim.color.setHex(0xcfe0ff); this.rim.intensity = 1.2;
     }
   }
 

@@ -242,7 +242,7 @@ export class Enemies {
 
     g.scale.setScalar(def.size);
     this.group.add(g);
-    return { mesh: g, bodyMat, anim };
+    return { mesh: g, bodyMat, anim, _baseEmissive: new THREE.Color(def.emissive || 0x000000) };
   }
 
   spawn(type, hpScale = 1, near = null, game = null) {
@@ -413,9 +413,10 @@ export class Enemies {
 
       if (e.flash > 0) {
         e.flash -= dt;
-        e.bodyMat.emissive.setRGB(e.flash * 8, e.flash * 8, e.flash * 8);
-      } else if (e.bodyMat.emissive.r !== 0) {
-        e.bodyMat.emissive.setRGB(0, 0, 0);
+        const f = e.flash * 8, b = e._baseEmissive; // white hit-flash ON TOP of the baseline glow
+        e.bodyMat.emissive.setRGB(b.r + f, b.g + f, b.b + f);
+      } else {
+        e.bodyMat.emissive.copy(e._baseEmissive); // restore the designed glow (don't go black)
       }
 
       if (e.contactCd > 0) e.contactCd -= dt;

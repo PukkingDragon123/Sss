@@ -175,8 +175,16 @@ export function upgradeRarity(u) {
 
 // Pick n distinct, currently-available abilities (weighted). Honours the player's
 // curated deck (game._deckOff = a Set of ability ids removed from the pool).
+// A boon is offerable if its spell is owned (available) AND it has been unlocked.
+// Spell-tied boons self-reveal via available(); other boons need an explicit unlock.
+// With no unlock set on `game` (e.g. the unit tests), nothing is restricted.
+export function isUpgradeUnlocked(game, u) {
+  if (u.available) return true;
+  if (game && game._unlockedUpg) return game._unlockedUpg.has(u.id);
+  return true;
+}
 export function rollUpgrades(game, n = 3) {
-  const avail = UPGRADES.filter(u => !u.available || u.available(game));
+  const avail = UPGRADES.filter(u => (!u.available || u.available(game)) && isUpgradeUnlocked(game, u));
   const off = game && game._deckOff;
   let pool = off ? avail.filter(u => !off.has(u.id)) : avail;
   if (pool.length < n) pool = avail; // deck too thin → fall back to the full pool

@@ -597,6 +597,7 @@ export class Game {
     if (this._drinking) this._cancelDrink();
     this.bossActive = false; this.bossKilled = true; this._roomsCleared = this._forksTotal + 2;
     this._learn('boss', 'Boss down! It dropped an artifact and gemstones. Carry artifacts from your satchel into a run.');
+    const nu = meta.unlockRandomUpgrade(); if (nu) { if (this._unlockedUpg) this._unlockedUpg.add(nu.id); this.ui.toast(`✨ New boon unlocked: ${nu.icon} ${nu.name}!`); } // achievement: bosses teach new boons
     if (this._pendingReward) { this._grantReward(this._pendingReward); this._pendingReward = null; }
     this.grantArtifact(this._opArtifact); // the guaranteed, build-defining end-of-level relic
     this.audio.play('win');
@@ -883,6 +884,7 @@ export class Game {
     this.drunkenness = 0.22; this._drunkSurge = 0; this._drinkCd = 0; this._drinking = false;
     this._artifactsTaken = new Set(meta.ownedArtifacts()); // don't re-drop ones you already own
     this._deckOff = new Set(meta.deckOffIds());             // your curated level-up deck
+    this._unlockedUpg = new Set(meta.unlockedUpgradeIds()); // RPG unlock graph: only earned boons roll
     // ---- the run path: an entrance fight, then a left/right fork before each step
     // (combat / treasure / campfire / choice-event / skill-trial, Slay-the-Spire
     // style), then the boss + a guaranteed OP artifact previewed at the boss fork ----

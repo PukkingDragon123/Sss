@@ -697,6 +697,13 @@ export class UI {
   }
   hideCombo() { if (this.el.comboHud) { this.el.comboHud.classList.remove('show'); clearTimeout(this._comboT); } }
 
+  // RPG unlock graph: earn a fresh level-up boon from spells / combos / bounties / wins
+  _earnUpgrade(g, why) {
+    const u = meta.unlockRandomUpgrade(); if (!u) return;
+    if (g && g._unlockedUpg) g._unlockedUpg.add(u.id);
+    this.wispSay(`✨ ${why} unlocked a new boon: ${u.icon} ${u.name}!`, { tone: 'tip', ms: 3200 });
+  }
+
   // the wisp speaks — a cozy, non-blocking bubble for warnings & tips (replaces blunt toasts).
   // tone:'warn' tints the edge red; big:true makes the wisp "zoom in" with a bigger pop for key tips.
   wispSay(text, opts = {}) {
@@ -999,10 +1006,10 @@ export class UI {
       return;
     }
     let ok = false;
-    if (act === 'unlock') ok = meta.unlockSpell(id);
+    if (act === 'unlock') { ok = meta.unlockSpell(id); if (ok) this._earnUpgrade(g, 'mastering new magic'); }
     else if (act === 'upgrade') ok = meta.upgradeSpell(id);
     else if (act === 'equip') ok = meta.toggleEquip(id);
-    else if (act === 'learn') ok = meta.learnCombo(id);
+    else if (act === 'learn') { ok = meta.learnCombo(id); if (ok) this._earnUpgrade(g, 'brewing a new combo'); }
     else if (act === 'brew') { ok = meta.brewPotion(id); if (ok) g.ui.wispSay('🧪 Potion brewed! Its boon is yours for good.'); }
     else if (act === 'buyroom') ok = meta.buyRoom();
     else if (act === 'buydecor') ok = meta.buyDecor(id);
@@ -1017,7 +1024,7 @@ export class UI {
     else if (act === 'artieq') { ok = meta.toggleArtifactEquip(id); if (!ok) g.ui.wispSay(`✦ You can only carry ${meta.MAX_ARTIFACTS} artifacts into a run.`, { tone: 'warn' }); }
     else if (act === 'deck') { const inDeck = UPGRADES.length - meta.deckOffIds().length; if (!meta.isDeckOff(id) && inDeck <= 6) { g.ui.wispSay('Keep at least 6 boons in your deck!', { tone: 'warn' }); ok = false; } else { meta.toggleDeck(id); ok = true; } }
     else if (act === 'paydebt') { const p = meta.payDebt(meta.gold()); ok = p > 0; if (ok) { g.ui.toast(`💰 Paid ${p}🪙 off the debt`); if (meta.debt() <= 0) g.onDebtCleared(); } }
-    else if (act === 'claim') { const res = meta.claimQuest(); ok = !!(res && res.reward > 0); if (ok) { g.ui.toast(`Quest reward: +${res.reward}🪙`); if (res.unlocked) g.ui.wispSay(`🔓 Unlocked the ${meta.FEATURE_LABELS[res.unlocked]}. Build it up in your room!`, { big: true, ms: 4200 }); } }
+    else if (act === 'claim') { const res = meta.claimQuest(); ok = !!(res && res.reward > 0); if (ok) { g.ui.toast(`Quest reward: +${res.reward}🪙`); if (res.unlocked) g.ui.wispSay(`🔓 Unlocked the ${meta.FEATURE_LABELS[res.unlocked]}. Build it up in your room!`, { big: true, ms: 4200 }); this._earnUpgrade(g, 'finishing a bounty'); } }
     if (g) g.audio.play(ok ? 'click' : 'hiccup');
     this.setGold(meta.gold());
     this._renderShop();
@@ -1236,6 +1243,7 @@ export class UI {
     </div>`;
     h += `<div class="eq-totals"><span>⚔ Equipped bonuses</span><b>${statStr}</b></div>`;
     h += `<div class="inv-row"><span>Spells known</span><b>${ownedSpells} / ${meta.SPELL_LIST.length}</b></div>
+      <div class="inv-row"><span>Boons unlocked</span><b>${meta.unlockedUpgradeCount()} / ${meta.earnableUpgradeTotal()}</b></div>
       <div class="inv-row"><span>Gear in stash</span><b>${meta.gearList().length}</b></div>
       <div class="inv-els">${elh}</div>`;
     // elemental gemstones — collected from battle, brewed at the Cauldron

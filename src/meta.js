@@ -1,5 +1,6 @@
 // meta.js — persistent meta-progression (3 save slots in localStorage): gold,
 // spells/combos/loadout, room, equipment, quests, and the idle tavern tycoon.
+import { UPGRADES } from './upgrades.js';
 
 // the four elements every spell belongs to (shown in the Grimoire & Spell Table)
 export const ELEMENTS = {
@@ -226,6 +227,18 @@ export function toggleDeck(id) {
   save(); return true;
 }
 
+// ---- upgrade unlock graph: 5 base boons; earn the rest via spells/combos/quests/wins/merchant ----
+const BASE_UPGRADES = ['maxhp', 'damage', 'haste', 'mana', 'cdr'];
+export const upgradeUnlocked = (id) => !!(state.unlockedUpgrades && state.unlockedUpgrades[id]);
+export const unlockedUpgradeIds = () => Object.keys(state.unlockedUpgrades || {});
+// earnable extras = boons that are neither base nor self-revealing spell upgrades (those appear when their spell is learned)
+export const lockableUpgrades = () => UPGRADES.filter(u => !u.available && !BASE_UPGRADES.includes(u.id));
+export const lockedUpgrades = () => lockableUpgrades().filter(u => !upgradeUnlocked(u.id));
+export const unlockedUpgradeCount = () => unlockedUpgradeIds().length;
+export const earnableUpgradeTotal = () => BASE_UPGRADES.length + lockableUpgrades().length;
+export function unlockUpgrade(id) { if (!state.unlockedUpgrades) state.unlockedUpgrades = {}; if (state.unlockedUpgrades[id]) return false; state.unlockedUpgrades[id] = 1; save(); return true; }
+export function unlockRandomUpgrade() { const pool = lockedUpgrades(); if (!pool.length) return null; const u = pool[Math.floor(Math.random() * pool.length)]; unlockUpgrade(u.id); return u; }
+
 // ---- playstyle / archetype chosen for the next run (persists) ----
 export const getArchetype = () => state.archetype || null;
 export function setArchetype(id) { state.archetype = id || null; save(); }
@@ -271,6 +284,7 @@ function defaultSave() {
     artifacts: [],          // ✦ artifacts collected from bosses (persistent)
     equippedArtifacts: [],  // which ones you carry into a run (max 3)
     deckOff: {},            // ability ids the player has removed from their level-up deck
+    unlockedUpgrades: { maxhp: 1, damage: 1, haste: 1, mana: 1, cdr: 1 }, // 5 base boons; earn the rest
     archetype: null,        // chosen playstyle for the next run (null = none yet)
     features: {},           // quest-unlocked features (build / gear / combos / deck …)
     debt: 600,              // the tavern debt — the main quest is to pay it off (a multi-run arc)
@@ -337,6 +351,7 @@ export function load() {
       state.artifacts = Array.isArray(state.artifacts) ? state.artifacts : [];
       state.equippedArtifacts = Array.isArray(state.equippedArtifacts) ? state.equippedArtifacts.slice(0, 3) : [];
       state.deckOff = state.deckOff || {};
+      state.unlockedUpgrades = Object.assign({ maxhp: 1, damage: 1, haste: 1, mana: 1, cdr: 1 }, state.unlockedUpgrades || {});
       state.features = state.features || {};
       state.debt = (typeof state.debt === 'number') ? state.debt : 600;
       // offline earnings since last seen (capped)

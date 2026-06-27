@@ -890,6 +890,7 @@ export class Game {
     // style), then the boss + a guaranteed OP artifact previewed at the boss fork ----
     this._forksTotal = 3;           // normal forks before the boss fork
     this._forksDone = 0;            // forks resolved so far
+    this._lastMerchantFork = -1;    // guards the wandering-merchant visit (every 3 forks)
     this._roomsCleared = 0;         // depth, for loot & quests
     this._pendingReward = null;     // the prize the combat node you entered promised
     this._nextIsBoss = false;
@@ -992,6 +993,17 @@ export class Game {
   _nextFork() {
     this._roomsCleared = this._forksDone;
     this.enemies.clear(); this._clearPickups(); // a calm clearing to choose your path in
+    // a wandering merchant drops by every 3 rooms cleared, before the next fork
+    if (this._forksDone > 0 && this._forksDone % 3 === 0 && this._lastMerchantFork !== this._forksDone) {
+      this._lastMerchantFork = this._forksDone;
+      this.state = 'menu';
+      this.audio.play('levelup');
+      this.ui.showMerchant(this, () => this._showPath());
+      return;
+    }
+    this._showPath();
+  }
+  _showPath() {
     this.state = 'path';
     this.audio.play('levelup');
     const bossNext = this._forksDone >= this._forksTotal;

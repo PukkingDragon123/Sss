@@ -5,7 +5,7 @@ import { SPELL_ORDER, SPELLS } from './spells.js';
 import { TEMPLATES } from './recognizer.js';
 import * as meta from './meta.js';
 import { STAGES, STAGE_ORDER } from './story.js';
-import { ARTIFACTS, artifactById, upgradeRarity } from './upgrades.js';
+import { ARTIFACTS, artifactById, UPGRADES, upgradeRarity } from './upgrades.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -103,6 +103,7 @@ export class UI {
       questPanel: $('quest-panel'), qpBody: $('qp-body'), qpClose: $('qp-close'),
       buildPreview: $('build-preview'), bpCanvas: $('bp-canvas'), bpLabel: $('bp-label'), bpRotate: $('bp-rotate'),
       comboHud: $('combo-hud'), comboN: $('combo-n'),
+      merchant: $('merchant'), merchCards: $('merch-cards'), merchGems: $('merch-gems'), merchLeave: $('merch-leave'),
       joystick: $('joystick'), joyKnob: $('joy-knob'), blackout: $('blackout'),
       glyphGuide: $('glyph-guide'), guideCards: $('guide-cards'), btnGuideClose: $('btn-guide-close'),
     };
@@ -705,6 +706,46 @@ export class UI {
     const u = meta.unlockRandomUpgrade(); if (!u) return;
     if (g && g._unlockedUpg) g._unlockedUpg.add(u.id);
     this.wispSay(`✨ ${why} unlocked a new boon: ${u.icon} ${u.name}!`, { tone: 'tip', ms: 3200 });
+  }
+
+  // ===== Wandering Merchant: mid-run, buy boons with gems (applied now + unlocked forever) =====
+  _merchPrice(u) { return ({ common: 4, rare: 6, epic: 9, legendary: 14 })[upgradeRarity(u).key] || 6; }
+  showMerchant(game, onDone) {
+    this._merchDone = onDone; this._merchSold = {};
+    const pool = UPGRADES.filter(u => !u.available || u.available(game)).slice();
+    const offers = [];
+    while (offers.length < 10 && pool.length) offers.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    this._merchOffers = offers;
+    this._renderMerch();
+    this.el.merchant.classList.remove('hidden');
+    this.el.merchLeave.onclick = () => { game.audio.play('click'); this.el.merchant.classList.add('hidden'); const cb = this._merchDone; this._merchDone = null; if (cb) cb(); };
+    this.el.merchCards.onclick = (e) => { const b = e.target.closest('[data-buy]'); if (b) this._merchBuy(game, b.dataset.buy); };
+  }
+  _renderMerch() {
+    this.el.merchGems.textContent = `💎 ${meta.gems()}`;
+    let h = '';
+    for (const u of this._merchOffers) {
+      const r = upgradeRarity(u), price = this._merchPrice(u), sold = this._merchSold[u.id];
+      const can = !sold && meta.gems() >= price;
+      h += `<div class="shop-card rar-${r.key}" style="--rc:${r.color}">
+        <div class="card-rarity" style="color:${r.color}">${r.name}</div>
+        <div class="shop-glyph">${u.icon}</div>
+        <div class="shop-name">${u.name}</div>
+        <div class="shop-desc">${u.desc}</div>
+        <div class="shop-acts"><button class="shop-btn gem" data-buy="${u.id}" ${can ? '' : 'disabled'}>${sold ? '✓ Bought' : 'Buy 💎' + price}</button></div></div>`;
+    }
+    this.el.merchCards.innerHTML = h;
+  }
+  _merchBuy(game, id) {
+    const u = this._merchOffers.find(x => x.id === id); if (!u || this._merchSold[id]) return;
+    const price = this._merchPrice(u);
+    if (!meta.spendGems(price)) { this.wispSay('Not enough 💎 gems for that one.', { tone: 'warn' }); return; }
+    this._merchSold[id] = 1;
+    meta.unlockUpgrade(u.id); if (game._unlockedUpg) game._unlockedUpg.add(u.id);
+    game.applyAbility(u);                  // applied to the current run immediately
+    game.audio.play('levelup'); this.burstFX(this.el.merchCards, 'gem', 10);
+    this.toast(`🛒 Bought ${u.icon} ${u.name}!`);
+    this._renderMerch();
   }
 
   // the wisp speaks — a cozy, non-blocking bubble for warnings & tips (replaces blunt toasts).

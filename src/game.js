@@ -363,21 +363,23 @@ export class Game {
   // believable sheen/reflection (gold, brass, gems, gear) — the big "shading" upgrade.
   _makeEnvMap() {
     const s = new THREE.Scene();
+    // a DIM sky drives the overall ambient lift (kept low so matte surfaces don't wash
+    // out); the brighter cards give metals/gems their highlight & reflection.
     const sky = new THREE.Mesh(
       new THREE.SphereGeometry(12, 18, 10),
-      new THREE.MeshBasicMaterial({ color: 0x8fa8d8, side: THREE.BackSide }));
+      new THREE.MeshBasicMaterial({ color: 0x46526a, side: THREE.BackSide }));
     s.add(sky);
     const card = (color, x, y, z, sz) => {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz), new THREE.MeshBasicMaterial({ color }));
       m.position.set(x, y, z); m.lookAt(0, 0, 0); s.add(m);
     };
-    card(0xfff4e0, 4, 7, 3, 8);    // warm key card
-    card(0xbcd2ff, -6, 4, -4, 6);  // cool fill card
-    card(0xffffff, 0, -6, 2, 10);  // soft bounce from below
+    card(0xd6c2a0, 4, 7, 3, 7);    // warm key card (metal highlight)
+    card(0x9fb2d4, -6, 4, -4, 5);  // cool fill card
+    card(0x66665f, 0, -6, 2, 8);   // soft bounce from below
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     const tex = pmrem.fromScene(s, 0.4).texture;
     pmrem.dispose();
-    sky.geometry.dispose(); sky.material.dispose();
+    for (const m of s.children) { m.geometry.dispose(); m.material.dispose(); } // dispose ALL temp meshes (no GPU leak)
     return tex;
   }
 
@@ -609,16 +611,14 @@ export class Game {
     for (const it of this.pickups) { it.mesh.visible = false; this._pickupPool[it.type].push(it.mesh); }
     this.pickups.length = 0;
   }
-  // returning to the hub: don't strand earned motes on the arena floor — bank XP &
-  // auto-collect any dropped gear, then clear them all so the tavern stays clean.
+  // returning to the hub: don't strand motes on the arena floor. Run XP doesn't carry
+  // between runs (reset in enterArena), so just clear those; auto-collect dropped GEAR
+  // though — that persists. (meta.addGear saves itself; no level-up popup in the hub.)
   _bankAndClearPickups() {
-    let changed = false;
     for (const it of this.pickups) {
-      if (it.type === 'xp') { this.gainXP(it.value); changed = true; }
-      else if (it.type === 'gear') { meta.addGear(it.gear); changed = true; }
+      if (it.type === 'gear') meta.addGear(it.gear);
       it.mesh.visible = false; this._pickupPool[it.type].push(it.mesh);
     }
-    if (changed) meta.save();
     this.pickups.length = 0;
   }
 
@@ -1347,6 +1347,7 @@ export class Game {
       this.hemi.color.setHex(0xffd9a0); this.hemi.groundColor.setHex(0x3a2418); this.hemi.intensity = 0.7;
       this.dir.color.setHex(0xffd29a); this.dir.intensity = 1.05;
       this.ambient.color.setHex(0x55474a); this.ambient.intensity = 0.45; // neutral fill; warmth comes from the lights
+      this.fill.color.setHex(0xe8b483); this.fill.intensity = 0.35; // warm fill (was cold blue — chilled the bar)
       this.rim.color.setHex(0xffe2b0); this.rim.intensity = 0.9;
     } else {
       this.scene.background.setHex(0x16223a);
@@ -1354,6 +1355,7 @@ export class Game {
       this.hemi.color.setHex(0x9fb6e8); this.hemi.groundColor.setHex(0x223a2a); this.hemi.intensity = 0.95;
       this.dir.color.setHex(0xcdd8ff); this.dir.intensity = 1.5;
       this.ambient.color.setHex(0x3a4a6a); this.ambient.intensity = 0.45;
+      this.fill.color.setHex(0xbfd0ff); this.fill.intensity = 0.4; // cool fill for arenas
       this.rim.color.setHex(0xcfe0ff); this.rim.intensity = 1.2;
     }
   }

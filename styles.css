@@ -564,16 +564,7 @@ canvas#fx2d{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointe
 .ne-leave{opacity:.92;}
 .shop-btn[disabled]{opacity:.4;cursor:not-allowed;}
 
-/* ===== Bar-tending (physics beer pour) mini-game ===== */
-.mg-order{background:var(--panel);border:1.5px solid var(--panel-edge);border-radius:12px;padding:8px 16px;font-size:16px;max-width:min(520px,86vw);}
-.mg-order b{color:var(--gold);}
-.mg-stage{margin:6px 0;}
-#mg-canvas{background:linear-gradient(#241a18,#160f0e);border:2px solid var(--panel-edge);border-radius:16px;touch-action:none;max-width:92vw;height:auto;box-shadow:inset 0 0 40px rgba(0,0,0,.5);}
-.mg-controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center;}
-#mg-pour{touch-action:none;user-select:none;}
-#mg-pour:active{transform:translateY(4px);box-shadow:0 1px 0 #9c641b,0 3px 8px rgba(0,0,0,.45);}
-.mg-score{font-size:18px;font-weight:800;color:var(--gold);}
-.mg-score b{color:#fff;}
+/* (party-minigame styles live near the end of this file) */
 
 /* ===== Menu: panel on the left, live fight on the right ===== */
 #title{

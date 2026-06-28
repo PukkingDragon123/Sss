@@ -189,7 +189,8 @@ export class UI {
       const r = this.el.mgCanvas.getBoundingClientRect();
       this._mgInput({ type: 'pointer', nx: (e.clientX - r.left) / (r.width || 1), ny: (e.clientY - r.top) / (r.height || 1) });
     });
-    if (this.el.mgQuit) this.el.mgQuit.addEventListener('click', () => { if (this._mgRunning) this._mgEnd(); });
+    // Forfeit = true abandon: end with score 0 (no banked partial progress, no exploit)
+    if (this.el.mgQuit) this.el.mgQuit.addEventListener('click', () => { if (this._mgRunning) { const key = this._mgKey; this.hideMinigame(); if (this.game) this.game.resolveMinigame(key, 0); } });
     if (this.el.artClaim) this.el.artClaim.addEventListener('click', () => { game.audio.play('click'); const cb = this._artRevealDone; this._artRevealDone = null; this.el.artReveal.classList.add('hidden'); if (cb) cb(); });
     // world-map HUD: Venture / Back buttons (region selection itself is 3D clicks)
     if (this.el.worldDetail) this.el.worldDetail.addEventListener('click', (e) => {
@@ -606,9 +607,11 @@ export class UI {
     if (this.el.mgTitle) this.el.mgTitle.textContent = `🎲 ${mg.name}`;
     if (this.el.mgSub) this.el.mgSub.textContent = mg.how;
     this._mgRenderControls(mg);
+    // un-hide FIRST so the canvas reports its real CSS box, THEN size the backing store
+    // (a hidden element's clientWidth/Height are 0 -> would force the blurry 400×440 fallback)
+    if (this.el.minigame) this.el.minigame.classList.remove('hidden');
     const cv = this.el.mgCanvas;
     if (cv) { const dpr = Math.min(2, window.devicePixelRatio || 1); cv.width = (cv.clientWidth || 400) * dpr; cv.height = (cv.clientHeight || 440) * dpr; }
-    if (this.el.minigame) this.el.minigame.classList.remove('hidden');
     if (!this._mgLoopBound) this._mgLoopBound = this._mgLoop.bind(this);
     if (!this._mgKeyHandler) this._mgKeyHandler = (e) => { if (this._mgRunning) this._mgInput({ type: 'key', key: e.key }); };
     window.addEventListener('keydown', this._mgKeyHandler);

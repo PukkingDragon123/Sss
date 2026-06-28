@@ -1289,22 +1289,26 @@ export class Game {
   // a party minigame finished -> pay gems (×card gemMult) + a rarity-rolled card chance
   resolveMinigame(key, score) {
     this.ui.hideMinigame();
-    const mg = MINIGAMES[key];
-    const bonus = (this.cardPerks && this.cardPerks.mgScoreBonus) || 0;
-    const s = Math.max(0, Math.min(1, (score || 0) + bonus));
-    const r = (mg && mg.reward) ? mg.reward(s) : { gems: 3, cardChance: 0 };
-    const gemMult = (this.cardPerks && this.cardPerks.gemMult) || 1;
-    const gems = Math.max(1, Math.round(r.gems * gemMult));
-    meta.addGems(gems);
-    const won = s >= 0.5, perfect = (score || 0) >= 0.95;
-    if (won) { meta.bumpStat('mgWins', 1); meta.bumpStat('won_' + key, 1); }
-    if (perfect) meta.bumpStat('mgPerfect', 1);
-    let msg = `🎲 ${perfect ? 'PERFECT! ' : won ? 'Nice! ' : ''}💎 +${gems}`;
-    if (Math.random() < (r.cardChance || 0)) { const card = meta.grantRandomCard(); if (card) { msg += `  ·  🃏 ${card.name}!`; this.audio.play('win'); } }
-    this.ui.setGems(meta.gems());
-    this.audio.play(won ? 'levelup' : 'hiccup');
-    this.ui.toast(msg);
-    this._nextFork();
+    // pay out inside try/finally so a thrown reward call can never strand the run
+    // with the overlay gone and state stuck on 'minigame' (input is dead in that state)
+    try {
+      const mg = MINIGAMES[key];
+      const bonus = (this.cardPerks && this.cardPerks.mgScoreBonus) || 0;
+      const s = Math.max(0, Math.min(1, (score || 0) + bonus));
+      const r = (mg && mg.reward) ? mg.reward(s) : { gems: 3, cardChance: 0 };
+      const gemMult = (this.cardPerks && this.cardPerks.gemMult) || 1;
+      const gems = Math.max(1, Math.round(r.gems * gemMult));
+      meta.addGems(gems);
+      const won = s >= 0.5, perfect = (score || 0) >= 0.95;
+      if (won) { meta.bumpStat('mgWins', 1); meta.bumpStat('won_' + key, 1); }
+      if (perfect) meta.bumpStat('mgPerfect', 1);
+      let msg = `🎲 ${perfect ? 'PERFECT! ' : won ? 'Nice! ' : ''}💎 +${gems}`;
+      if (Math.random() < (r.cardChance || 0)) { const card = meta.grantRandomCard(); if (card) { msg += `  ·  🃏 ${card.name}!`; this.audio.play('win'); } }
+      this.ui.setGems(meta.gems());
+      this.audio.play(won ? 'levelup' : 'hiccup');
+      this.ui.toast(msg);
+    } catch (e) { /* swallow — the finally below always returns the run to a safe state */ }
+    finally { this._nextFork(); }
   }
 
   _makeReward(kind) {

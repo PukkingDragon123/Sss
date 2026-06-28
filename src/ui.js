@@ -418,17 +418,20 @@ export class UI {
       const m = map.byId[id]; const open = (n.id === cur) && reach.has(id);
       edges += `<line x1="${px(n.col)}" y1="${py(n.row)}" x2="${px(m.col)}" y2="${py(m.row)}" class="rm-edge${open ? ' open' : ''}"/>`;
     }
+    const relic = game._opArtifact; // the guaranteed boss-drop relic, previewed on the boss node
     let nodes = '';
     for (const n of map.nodes) {
       const meta = META[n.type] || META.combat;
       const isCur = n.id === cur, isReach = reach.has(n.id), isVis = visited.has(n.id) && !isCur;
       const cls = ['rm-node', 'rm-' + n.type, isCur ? 'cur' : '', isReach ? 'reach' : '', isVis ? 'vis' : ''].filter(Boolean).join(' ');
-      nodes += `<button class="${cls}" data-node="${n.id}" style="left:${px(n.col)}px;top:${py(n.row)}px" ${isReach ? '' : 'disabled'}><span class="rm-ico">${meta[0]}</span><span class="rm-lbl">${meta[1]}</span></button>`;
+      const lbl = (n.type === 'boss' && relic) ? '✦ Relic' : meta[1];
+      const tip = (n.type === 'boss' && relic) ? `Boss — wins ${relic.icon} ${relic.name}` : meta[1];
+      nodes += `<button class="${cls}" data-node="${n.id}" title="${tip}" style="left:${px(n.col)}px;top:${py(n.row)}px" ${isReach ? '' : 'disabled'}><span class="rm-ico">${meta[0]}</span><span class="rm-lbl">${lbl}</span></button>`;
     }
     const region = (STAGES[game._runRegion] && STAGES[game._runRegion].name) || 'The Path';
     el.innerHTML = `<div class="rm-frame">
       <div class="rm-banner">🗺 ${region}</div>
-      <div class="rm-tip">${cur == null ? 'Tap the first level to begin' : 'Choose your next level'}</div>
+      <div class="rm-tip">${cur == null ? 'Tap the first level to begin' : 'Choose your next level'}${relic ? ` · 👑 boss drops ${relic.icon} ${relic.name}` : ''}</div>
       <div class="rm-scroll"><div class="rm-graph" style="width:${W}px;height:${H}px">
         <svg class="rm-edges" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${edges}</svg>${nodes}
       </div></div>

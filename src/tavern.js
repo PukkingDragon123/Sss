@@ -183,9 +183,7 @@ export class Tavern {
     // no floating marker — the staircase + its warm doorway glow read clearly, and the interact prompt guides you
     this.stations.push({ type: 'stairs', label: 'climb to your Room', pos: new THREE.Vector3(SX, 0, -10.4), mark: null });
 
-    // "tend the bar" spot in front of the counter — no floating marker (the bar is
-    // obvious and the interact prompt guides you; the green dot read as clutter)
-    this.stations.push({ type: 'serve', label: 'tend the Bar (earn tips)', pos: new THREE.Vector3(-7.3, 0, -4), mark: null });
+    // (the bar no longer has a serving job — patrons walk the room and you chat them up)
 
     // the venture door
     this.stations.push({ type: 'door', label: 'venture out on a run', pos: this.door.clone(), mark: null });
@@ -229,9 +227,9 @@ export class Tavern {
       cust.position.set(0, 0, -1.05); cust.rotation.y = 0; cust.scale.setScalar(0.92); cust.visible = false; grp.add(cust);
       const bubble = this._makeBubble(); bubble.position.set(0, 2.9, -1.0); bubble.visible = false; grp.add(bubble);
       this.group.add(grp);
-      const table = { grp, top, cust, bubble, pos: new THREE.Vector3(x, 0, z), state: 'empty', t: 1.5 + i * 1.2 + Math.random() * 2, phase: Math.random() * 6 };
+      // tables are now just set dressing (the serving job is gone) — keep them empty
+      const table = { grp, top, cust, bubble, pos: new THREE.Vector3(x, 0, z), state: 'off', t: Infinity, phase: Math.random() * 6 };
       this.tables.push(table);
-      this.stations.push({ type: 'table', label: 'a table', pos: new THREE.Vector3(x, 0, z + 0.7), mark: null, table });
     });
     // a full mug that rides in the wizard's hands while carrying a drink to a table
     this.carryMug = new THREE.Group();
@@ -254,9 +252,9 @@ export class Tavern {
     s.scale.set(1.0, 1.0, 1.0);
     return s;
   }
-  // (re)build the quest-giver patrons from the active customer-quest list
+  // (re)build the walk-around patrons: quest-givers (❗) + a few regulars (💬) you can chat
+  // up for a small tip. This is the bar's loop now (no serving).
   setupCustomers(quests) {
-    // tear down the old ones (meshes + their stations), disposing GPU resources
     for (const qn of this.questNpcs) {
       this.group.remove(qn.mesh);
       qn.mesh.traverse(o => {
@@ -266,29 +264,35 @@ export class Tavern {
     }
     this.questNpcs.length = 0;
     this.stations = this.stations.filter(s => s.type !== 'customer');
-    const spots = [[-7.5, -1], [7.2, -2.5], [-2, -7]];
-    (quests || []).slice(0, spots.length).forEach((q, i) => {
-      const person = this._buildPatron(q.npc.color, i % 2 === 0);
+    const spots = [[-7.5, -1], [7.2, -2.5], [-2, -7], [6, 3.5], [-5, 4.5]];
+    const colors = [0x7a8bd0, 0xcf6f6f, 0x6fb08a, 0xc9a24a, 0xb06fa0];
+    const REGULARS = [
+      { name: 'Old Bram', icon: '🧔', line: 'Cold night out there, eh? Here — wet your beard on me.' },
+      { name: 'Maid Wynn', icon: '👩', line: 'You look parched, dearie. A little something for the road.' },
+      { name: 'Frodric the Fat', icon: '🧓', line: 'Hah! A real wizard in the Toad. Have a few coppers, lad.' },
+    ];
+    const cast = [];
+    for (const q of (quests || [])) cast.push({ kind: 'quest', quest: q, name: q.npc.name, icon: q.npc.icon, color: q.npc.color, line: q.npc.line });
+    for (let i = 0; cast.length < spots.length && i < REGULARS.length; i++) { const r = REGULARS[i]; cast.push({ kind: 'regular', id: 'reg' + i, name: r.name, icon: r.icon, line: r.line, color: colors[cast.length % colors.length] }); }
+    cast.slice(0, spots.length).forEach((c, i) => {
+      const person = this._buildPatron(c.color, i % 2 === 0);
       const [sx, sz] = spots[i];
       person.position.set(sx, 0, sz); person.rotation.y = Math.random() * Math.PI * 2;
-      const marker = this._makeQuestMarker(q.npc.icon || '❗'); marker.position.set(0, 2.5, 0); person.add(marker);
+      const marker = this._makeQuestMarker(c.kind === 'quest' ? (c.icon || '❗') : '💬'); marker.position.set(0, 2.5, 0); person.add(marker);
       this.group.add(person);
-      const station = { type: 'customer', label: `talk to ${q.npc.name}`, pos: new THREE.Vector3(sx, 0, sz), mark: null, quest: q };
-      const qn = { mesh: person, marker, pos: new THREE.Vector3(sx, 0, sz), target: new THREE.Vector3(sx, 0, sz), r: 0.6, phase: Math.random() * 6, repathCd: Math.random() * 3, speed: 1.0 + Math.random() * 0.5, yaw: 0, quest: q, station };
+      const station = { type: 'customer', label: `chat with ${c.name}`, pos: new THREE.Vector3(sx, 0, sz), mark: null, quest: c.kind === 'quest' ? c.quest : null };
+      const qn = { mesh: person, marker, pos: new THREE.Vector3(sx, 0, sz), target: new THREE.Vector3(sx, 0, sz), r: 0.6, phase: Math.random() * 6, repathCd: Math.random() * 3, speed: 0.9 + Math.random() * 0.5, yaw: 0, station, name: c.name, icon: c.icon, line: c.line, quest: station.quest, regularId: c.kind === 'regular' ? c.id : null };
+      station.npc = qn;
       this.questNpcs.push(qn);
       this.stations.push(station);
     });
   }
 
   resetTables() {
+    // serving removed — tables stay empty set-dressing; patrons roam & are chatted up instead
     this.order = { table: null, stage: 'idle' };
     if (this.carryMug) this.carryMug.visible = false;
-    for (let i = 0; i < this.tables.length; i++) {
-      const tb = this.tables[i];
-      // a couple of patrons already waiting, the rest trickle in
-      if (i < 2) { tb.state = 'waiting'; tb.cust.visible = true; tb.bubble.visible = true; this._drawBubble(tb, '🍺'); }
-      else { tb.state = 'empty'; tb.cust.visible = false; tb.bubble.visible = false; tb.t = 2 + i + Math.random() * 4; }
-    }
+    for (const tb of this.tables) { tb.state = 'off'; tb.t = Infinity; if (tb.cust) tb.cust.visible = false; if (tb.bubble) tb.bubble.visible = false; }
   }
 
   // interact with a table: take an order, or serve the drink you're carrying

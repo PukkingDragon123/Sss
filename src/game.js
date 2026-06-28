@@ -83,7 +83,7 @@ export class Game {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // soft Human-Fall-Flat shadows
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.2;
+    this.renderer.toneMappingExposure = 1.28; // a touch brighter/richer
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x7e7ec0);
@@ -412,12 +412,14 @@ export class Game {
         import('three/addons/postprocessing/OutputPass.js'),
       ]);
       const w = window.innerWidth, h = window.innerHeight, pr = this.renderer.getPixelRatio();
+      this._pr = pr;
       const c = new EffectComposer(this.renderer);
-      this._pixelSize = Math.max(3, Math.round(3.5 * pr)); // ~3.5 CSS px blocks across DPRs
-      const px = new RenderPixelatedPass(this._pixelSize, this.scene, this.camera, { normalEdgeStrength: 0.3, depthEdgeStrength: 0.4 });
+      const start = this._pixelWant || Math.max(2, Math.round(2.2 * pr)); // gentler default
+      const px = new RenderPixelatedPass(start, this.scene, this.camera, { normalEdgeStrength: 0.22, depthEdgeStrength: 0.3 }); // softer outlines
       this._pixelPass = px;
+      if (this._pixelWant) px.pixelSize = this._pixelWant; // honor a per-scene request made before load
       c.addPass(px);
-      c.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.42, 0.5, 0.82)); // glow over the pixels
+      c.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.5, 0.55, 0.78)); // richer glow over the pixels
       c.addPass(new OutputPass());            // must be last: tone mapping + sRGB
       c.setSize(w, h); c.setPixelRatio(pr);
       this._composer = c;
@@ -425,6 +427,13 @@ export class Game {
       console.warn('Post-FX unavailable, using direct render:', err);
       this._composer = null;
     }
+  }
+  // dial the pixel chunkiness per scene: subtle during the fight, chunkier in menus/map.
+  _setPixel(mode) {
+    const pr = this._pr || 1;
+    const n = mode === 'arena' ? Math.max(1, Math.round(1.4 * pr)) : Math.max(3, Math.round(3 * pr));
+    this._pixelWant = n;
+    if (this._pixelPass) this._pixelPass.pixelSize = n;
   }
 
   // re-aim the single shadow-casting light + tighten its frustum to the active scene,
@@ -765,15 +774,19 @@ export class Game {
     this.ui.fadeBlack(false);
     this.ui.setMuteIcon(this.audio.muted);
 
-    if (!this._opened) {
-      // first launch: a chain of real cutscenes — get drunk, wreck the bar (QTE),
-      // get hurled out, wake in the forest with the wisp — then the guided fight.
+    if (!this._opened && !meta.introSeen()) {
+      // FIRST TIME ONLY (per save): a chain of real cutscenes — get drunk, wreck the bar
+      // (QTE), get hurled out, wake in the forest with the wisp — then the guided fight.
+      // Persisted so it never replays on later launches.
       this._opened = true; this._hubShown = false;
+      meta.setIntroSeen();
       this.cine.play('drunk', () =>
         this.cine.play('rampage', () =>
           this.cine.play('thrown', () =>
             this.cine.play('wisp', () => { this._introRun = true; this.enterArena(STAGES.forest); }))));
     } else {
+      // already seen the opening (or returning) — drop straight into the tavern hub
+      this._opened = true;
       this.enterTavern();
     }
   }
@@ -781,6 +794,7 @@ export class Game {
   // ---- the Tavern hub: roam (drunkenly), shop at stations, leave via the door ----
   enterTavern() {
     this.phase = 'tavern';
+    this._setPixel('menu'); // chunkier pixel look in the hub
     this._exiting = false;
     this.nearStation = null;
     this._bankAndClearPickups(); // no stray XP motes / loot left floating in the bar after a run
@@ -790,6 +804,8 @@ export class Game {
     this._stageMods = null;
     this._runMap = null; this._mapNodeId = null; // a fresh map is rolled for the next venture
     if (this.ui.hideRunMap) this.ui.hideRunMap();
+    this._chatNpc = null; this._chatStation = null; if (this.ui.hideChat) this.ui.hideChat();
+    this._tipped = new Set(); // regular-patron coin tips reset each visit
     this.ui.fadeBlack(false);
     this.ui.setScreen('play');
     this.stats = DEFAULT_STATS();
@@ -822,7 +838,7 @@ export class Game {
       setTimeout(() => { if (this.phase === 'tavern') this.ui.wispSay('Tap 📜 for your quest log and 🎒 for your satchel any time. Your goals live there.', { big: true, ms: 5200 }); }, 900);
     }
     this.tavernReady = true;
-    if (meta.customerQuests().length) this._learn('customer', '🧑 See the patrons with a ❗ above them? Walk up and press E — they\'ll give you a request or a fetch quest for gems.');
+    this._learn('customer', '🧑 Patrons walk the bar. Chat the ❗ folk to take a quest, and the 💬 regulars for a coin tip. Walk up and press E.');
     if (this._justInherited) {
       this._justInherited = false;
       this.showStory('Wisp', [
@@ -842,9 +858,7 @@ export class Game {
     if (this.phase === 'tavern') {
       if (t === 'door') { this.openWorldMap(); return; }
       if (t === 'stairs') { this.goUpstairs(); return; }
-      if (t === 'serve') { this.tavern.barAction(this); return; }
-      if (t === 'table') { this.tavern.tableAction(s.table, this); return; }
-      if (t === 'customer') { this.talkCustomer(s.quest); return; }
+      if (t === 'customer') { this.startChat(s); return; }
     } else if (this.phase === 'room') {
       if (t === 'down') { this.goDownstairs(); return; }
       if (t === 'rest') { this.restAtBed(); return; }
@@ -854,37 +868,49 @@ export class Game {
 
   _openShop(kind) { this._shopKind = kind; this.state = 'menu'; this.ui.openShop(kind, this); }
 
-  // ---- unique tavern customers: walk up, hear their request, hand it in ----
-  talkCustomer(quest) {
-    if (!quest) return;
-    this._curCustomer = quest;
-    this.state = 'menu';
+  // ---- cinematic tavern chat: walk up to a roaming patron, the camera frames them,
+  // and you chat to take a quest (❗) or get a coin tip from a regular (💬) ----
+  startChat(station) {
+    const npc = station && station.npc; if (!npc) return;
+    this._chatNpc = npc; this._chatStation = station;
+    this.state = 'chat';
     this.audio.play('click');
-    this.ui.showCustomer(this, quest);
+    this.ui.showChat(this, station);
   }
-  claimCustomer(id) {
-    const res = meta.claimCustomerQuest(id);
-    if (!res) { this.ui.wispSay('You can\'t fulfil that just yet.', { tone: 'warn' }); return; }
-    this.audio.play('win');
-    const r = res.reward;
-    const bits = [r.gems ? `+${r.gems}💎` : '', r.gold ? `+${r.gold}🪙` : ''].filter(Boolean).join(' ');
-    this.ui.toast(`✅ ${res.npc.name} thanks you — ${bits}`);
-    this.ui.setGold(meta.gold()); this.ui.setGems(meta.gems());
-    this.closeCustomer();
-    // a fresh face wanders in to replace them
-    meta.refreshCustomers(2);
-    this.tavern.setupCustomers(meta.customerQuests());
+  // the player pressed the main button in a chat
+  chatClaim() {
+    const st = this._chatStation; if (!st) return;
+    if (st.quest) {
+      const res = meta.claimCustomerQuest(st.quest.id);
+      if (!res) { this.ui.wispSay('You can\'t fulfil that just yet.', { tone: 'warn' }); return; }
+      const r = res.reward; const bits = [r.gold ? `+${r.gold}🪙` : '', r.gems ? `+${r.gems}💎` : ''].filter(Boolean).join(' ');
+      this.audio.play('win'); this.ui.setGold(meta.gold()); this.ui.setGems(meta.gems());
+      this._chatClaimed = true;
+      this.ui.chatResult(this, `"Bless you, wizard! ${bits}."`, `🎁 ${bits}`);
+    } else {
+      // a regular's coin tip — once per visit (the bar's gold trickle now)
+      if (!this._tipped) this._tipped = new Set();
+      const id = (st.npc && st.npc.regularId) || 'reg';
+      if (this._tipped.has(id)) { this.ui.chatResult(this, '"Already shared my coppers, friend. Off you pop!"', ''); return; }
+      this._tipped.add(id);
+      const tip = 6 + Math.floor(Math.random() * 5);
+      meta.addGold(tip); this.ui.setGold(meta.gold()); this.audio.play('levelup');
+      this._learn('work', 'Chat up the regulars (💬) for coin, and take the quest-givers\' (❗) requests. That\'s how the Toad earns now.');
+      this.ui.chatResult(this, `"Cheers, lad! Here's ${tip} coppers."`, `🪙 +${tip}`);
+    }
+  }
+  endChat() {
+    const claimed = this._chatClaimed; this._chatClaimed = false;
+    this._chatNpc = null; this._chatStation = null;
+    this.ui.hideChat();
+    if (this.state === 'chat') this.state = 'play';
     this.nearStation = null;
-  }
-  closeCustomer() {
-    this._curCustomer = null;
-    this.ui.hideEvent();
-    if (this.state === 'menu') this.state = 'play';
+    if (claimed) { meta.refreshCustomers(2); this.tavern.setupCustomers(meta.customerQuests()); } // a fresh face wanders in
   }
 
   // ---- the 3D top-down WORLD MAP: scout a region, then venture straight in ----
   openWorldMap() {
-    this.phase = 'world'; this.state = 'world';
+    this.phase = 'world'; this.state = 'world'; this._setPixel('menu');
     this.world.refresh((id) => this._stageUnlocked(id), (id) => meta.stageCleared(id));
     this.tavern.show(false); this.tavern.showRoom(false); this.arenaGroup.visible = false;
     this.world.show(true);
@@ -936,7 +962,7 @@ export class Game {
 
   // ---- your room: a separate scene; build & place facilities here ----
   enterRoom() {
-    this.phase = 'room'; this.state = 'play';
+    this.phase = 'room'; this.state = 'play'; this._setPixel('menu');
     this.nearStation = null; this.input.pointMode = false;
     this.tavern.refreshRoom(meta);
     this.tavern.show(false); this.tavern.showRoom(true);
@@ -1007,6 +1033,7 @@ export class Game {
   // ---- one full level: a long survival fight, six waves then the boss ----
   enterArena(stage) {
     this.stage = stage; this.phase = 'arena';
+    this._setPixel('arena'); // subtle pixelation during the fight (legible action)
     this.stats = DEFAULT_STATS();
     if (meta.consumeRest()) this.stats.hpMax += meta.REST_BONUS + meta.roomComfort() * 4; // a good night's rest, comfier room = more
     this._applyEquipment();
@@ -1200,6 +1227,7 @@ export class Game {
   }
   // ----- region level map (Mewgenics / Slay-the-Spire style) -----
   openRegionMap(id) {
+    this._setPixel('menu');
     this._worldSel = id; this._runRegion = id;
     this._runMap = this._buildRunMap();
     this._mapNodeId = null;          // null = run not started yet; entrance is the only choice
@@ -1516,12 +1544,13 @@ export class Game {
     // cutscenes own their own input (Continue/skip buttons + the QTE mash listener);
     // ignore game input here so mashing can't fire interact/guide/drink and hide the set
     if (this.state === 'cutscene' || this.state === 'minigame' || this.state === 'runmap') return; // overlay owns its own input
+    if (this.state === 'chat') { for (const e of events) { if (e.type === 'interact' || e.type === 'confirm') { this.endChat(); break; } } return; }
     for (const e of events) {
       if (e.type === 'mute') { this.toggleMute(); continue; }
       if (e.type === 'guide') { this.toggleGuide(); continue; }
       if (e.type === 'drink') { this.drink(); continue; }
       if (e.type === 'select') { if (this.state === 'world') { const id = this.world.pick(e.x, e.y, this.camera); if (id) this.selectWorldRegion(id); } continue; }
-      if (e.type === 'interact') { if (this.state === 'menu') { if (this._curCustomer) this.closeCustomer(); else if (!this.ui.closeMerchant()) this.closeShop(); } else this.interact(); continue; }
+      if (e.type === 'interact') { if (this.state === 'menu') { if (!this.ui.closeMerchant()) this.closeShop(); } else this.interact(); continue; }
 
       if (this.storyShowing) {
         if (e.type === 'confirm' || e.type === 'primary') this.ui._storyAdvance();
@@ -1677,6 +1706,14 @@ export class Game {
         const ang = this.cineT * 5 + Math.random() * 6.28, r = 2.4 + Math.random() * 1.6;
         this.particles.burst({ pos: new THREE.Vector3(Math.cos(ang) * r, 0.4 + Math.random() * 3, Math.sin(ang) * r), color: 0x9b7bff, count: 1, speed: 0.4, size: 0.16, life: 1.0, grav: -1.2, blend: 'add' });
       }
+      return;
+    }
+    // tavern chat: dolly in on the patron you're talking to (cinematic conversation shot)
+    if (this._chatNpc && this._chatNpc.pos) {
+      const p = this._chatNpc.pos;
+      this.camera.position.lerp(new THREE.Vector3(p.x + 3.0, 4.0, p.z + 5.2), Math.min(1, dt * 2.6));
+      this.camera.rotation.z = 0;
+      this.camera.lookAt(p.x, 1.6, p.z);
       return;
     }
     // tavern intro: a slow cinematic orbit of the room before you take control

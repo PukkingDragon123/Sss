@@ -1041,3 +1041,25 @@ body::after{content:"";position:fixed;inset:0;z-index:4;pointer-events:none;
 .rm-node.rm-treasure .rm-ico,.rm-node.rm-campfire .rm-ico{filter:drop-shadow(0 0 4px rgba(255,207,92,.5));}
 @keyframes rmpulse{0%,100%{box-shadow:inset 0 2px 0 rgba(255,255,255,.18),0 0 12px rgba(255,207,92,.4),0 4px 10px rgba(0,0,0,.5);}50%{box-shadow:inset 0 2px 0 rgba(255,255,255,.18),0 0 20px rgba(255,207,92,.75),0 4px 10px rgba(0,0,0,.5);}}
 .rm-retreat{margin-top:4px;}
+
+/* ===== Cinematic tavern chat (letterbox + dialogue) ===== */
+#chat{position:fixed;inset:0;z-index:30;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;}
+#chat.hidden{display:none;}
+.chat-bar{width:100%;height:11vh;background:#000;flex:none;animation:chatbar .35s ease;}
+@keyframes chatbar{from{height:0;}to{height:11vh;}}
+.chat-box{pointer-events:auto;display:flex;gap:14px;align-items:flex-start;
+  margin:auto auto 4vh;width:min(94vw,640px);
+  background:var(--panel);border:3px solid var(--panel-edge);border-radius:var(--r-lg);padding:16px 18px;
+  box-shadow:inset 0 0 0 2px rgba(0,0,0,.4),0 16px 44px rgba(0,0,0,.6);animation:chatin .3s cubic-bezier(.34,1.4,.6,1);}
+@keyframes chatin{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+.chat-portrait{flex:none;width:66px;height:66px;display:flex;align-items:center;justify-content:center;font-size:40px;
+  background:radial-gradient(circle at 50% 35%,#3a2e20,#1b140d);border:3px solid var(--gold-dk);border-radius:10px;}
+.chat-main{flex:1;min-width:0;}
+.chat-name{font-family:var(--font-head);font-size:clamp(11px,2.6vw,15px);color:var(--gold);letter-spacing:1px;text-shadow:0 2px 0 #3a1d08;}
+.chat-line{font-style:italic;color:#fff;opacity:.95;margin:6px 0 8px;line-height:1.5;}
+.chat-ask{font-weight:800;color:#ffe7a8;}
+.chat-prog{color:var(--ink-dim);font-size:13px;margin-top:4px;}
+.chat-reward{color:#bff7c0;font-weight:800;margin-top:4px;}
+.chat-btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+.chat-go{background:linear-gradient(#ffd873,#e7a23a 60%,#c8862a);}
+.chat-no{background:linear-gradient(#b9a98a,#8a7a5c);}

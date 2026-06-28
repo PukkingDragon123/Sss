@@ -300,6 +300,7 @@ function defaultSave() {
     questIdx: 0, questDone: false,
     rested: false,
     cleared: [], // stage ids whose boss you've beaten (gates the world map)
+    introSeen: false, // played the opening cutscene + guided fight (once per save)
     regionBest: {}, // furthest stage (1–10) reached per region id
     customer: { active: [], seq: 1, done: 0 }, // walk-in customer quests (the RPG fetch/bounty loop)
     cards: [],            // collected card ids (fun rewards from minigames & side quests)
@@ -502,6 +503,8 @@ export function buyDecor(id) {
 export function rest() { if (state.rested) return false; state.rested = true; save(); return true; } // the room is always yours now
 
 // ---- world-map stage unlock (each boss opens the next haunt) ----
+export const introSeen = () => !!state.introSeen;
+export function setIntroSeen() { state.introSeen = true; save(); }
 export const stageCleared = (id) => (state.cleared || []).includes(id);
 export function markStageCleared(id) { if (!state.cleared) state.cleared = []; if (!state.cleared.includes(id)) { state.cleared.push(id); save(); } }
 // furthest of the region's 10 inner stages you've reached (best X/10 on the world map)
@@ -586,16 +589,16 @@ function _genCustomerQuest() {
     const ing = randomIngredient(2);
     const need = 2 + Math.floor(Math.random() * 3);
     q = { kind: 'deliver', item: ing.id, count: need, icon: ing.icon,
-      ask: `Bring me ${need}× ${ing.name} ${ing.icon}.`, reward: { gems: 4 + need * 2, gold: 0 } };
+      ask: `Bring me ${need}× ${ing.name} ${ing.icon}.`, reward: { gold: 14 + need * 5, gems: 2 } };
   } else if (roll >= 0.78 && uncleared.length > 0) {
     const region = uncleared[0];
     q = { kind: 'clear', region, icon: '👑',
-      ask: `Fell the champion of ${STAGES[region].name}.`, reward: { gems: 16, gold: 20 } };
+      ask: `Fell the champion of ${STAGES[region].name}.`, reward: { gold: 45, gems: 6 } };
   } else {
     // reach quest (also the safe fallback when every region is already cleared)
     const target = Math.min(10, _maxRegionBest() + 1 + Math.floor(Math.random() * 3));
     q = { kind: 'reach', stage: target, icon: '🗺️',
-      ask: `Push to Stage ${target} of any region.`, reward: { gems: target + 4, gold: 0 } };
+      ask: `Push to Stage ${target} of any region.`, reward: { gold: 18 + target * 3, gems: 2 } };
   }
   return Object.assign({ id, npc: { name: npc.name, icon: npc.icon, color: npc.color, line: npc.line } }, q);
 }

@@ -99,7 +99,7 @@ export class UI {
       eventOpts: $('event-opts'), eventSkill: $('event-skill'), skillCanvas: $('skill-canvas'), skillStop: $('skill-stop'),
       artReveal: $('art-reveal'), artRevealIcon: $('art-icon'), artRevealName: $('art-name'), artRevealDesc: $('art-desc'), artClaim: $('art-claim'),
       worldHud: $('world-hud'), worldDetail: $('world-detail'),
-      runMap: $('run-map'),
+      runMap: $('run-map'), chat: $('chat'),
       btnGuide: $('btn-guide'), btnPause: $('btn-pause'), btnMute: $('btn-mute'),
       btnQuests: $('btn-quests'), btnInv: $('btn-inv'),
       questPanel: $('quest-panel'), qpBody: $('qp-body'), qpClose: $('qp-close'),
@@ -197,6 +197,11 @@ export class UI {
     if (this.el.runMap) this.el.runMap.addEventListener('click', (e) => {
       const n = e.target.closest('[data-node]'); if (n && !n.disabled) { game.chooseMapNode(n.dataset.node); return; }
       const r = e.target.closest('[data-rm]'); if (r) game.retreatFromMap();
+    });
+    // cinematic tavern chat buttons
+    if (this.el.chat) this.el.chat.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-chat]'); if (!b) return;
+      if (b.dataset.chat === 'claim') game.chatClaim(); else game.endChat();
     });
     // world-map HUD: Venture / Back buttons (region selection itself is 3D clicks)
     if (this.el.worldDetail) this.el.worldDetail.addEventListener('click', (e) => {
@@ -440,6 +445,45 @@ export class UI {
     el.classList.remove('hidden');
   }
   hideRunMap() { if (this.el.runMap) this.el.runMap.classList.add('hidden'); }
+
+  // ---- cinematic tavern chat (letterbox + dialogue) ----
+  showChat(game, station) {
+    const el = this.el.chat; if (!el || !station) return;
+    const npc = station.npc || {};
+    const q = station.quest;
+    let body, btns;
+    if (q) {
+      const ready = meta.customerQuestReady(q);
+      const prog = meta.customerQuestProgress(q);
+      const r = q.reward || {};
+      const rewardStr = [r.gold ? `${r.gold}🪙` : '', r.gems ? `${r.gems}💎` : ''].filter(Boolean).join(' · ') || '—';
+      body = `<div class="chat-ask">${q.icon || '📜'} ${q.ask}</div><div class="chat-prog">${prog}</div><div class="chat-reward">🎁 ${rewardStr}</div>`;
+      btns = ready
+        ? `<button class="btn chat-go" data-chat="claim">✋ Hand it over</button><button class="btn chat-no" data-chat="leave">Maybe later</button>`
+        : `<button class="btn chat-no" data-chat="leave">I'll be back</button>`;
+    } else {
+      body = `<div class="chat-ask">A friendly face by the fire.</div>`;
+      btns = `<button class="btn chat-go" data-chat="claim">🍺 Cheers!</button><button class="btn chat-no" data-chat="leave">Leave</button>`;
+    }
+    el.innerHTML = `<div class="chat-bar top"></div>
+      <div class="chat-box">
+        <div class="chat-portrait">${npc.icon || '🧑'}</div>
+        <div class="chat-main">
+          <div class="chat-name">${npc.name || 'Patron'}</div>
+          <div class="chat-line">"${npc.line || 'Well met, wizard.'}"</div>
+          <div class="chat-body">${body}</div>
+          <div class="chat-btns">${btns}</div>
+        </div>
+      </div>
+      <div class="chat-bar bottom"></div>`;
+    el.classList.remove('hidden');
+  }
+  // swap the dialogue to a closing "thank you" beat after a claim/tip
+  chatResult(game, line, rewardText) {
+    const box = this.el.chat && this.el.chat.querySelector('.chat-main'); if (!box) return;
+    box.innerHTML = `<div class="chat-line">${line}</div>${rewardText ? `<div class="chat-reward">${rewardText}</div>` : ''}<div class="chat-btns"><button class="btn chat-go" data-chat="leave">Farewell ▸</button></div>`;
+  }
+  hideChat() { if (this.el.chat) this.el.chat.classList.add('hidden'); }
 
   // ---- acquired abilities + artifacts: a stacking tray, top-left ----
   setAbilities(abilities, artifacts) {

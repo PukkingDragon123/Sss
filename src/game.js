@@ -17,9 +17,65 @@ import { Jobs } from './jobs.js';
 import { Tavern } from './tavern.js';
 import { World } from './world.js';
 import { Cinematics } from './cinematics.js';
+import { Atmosphere } from './atmosphere.js';
 import { rollUpgrades, rollArtifact, artifactById, ARCHETYPES, archetypeById } from './upgrades.js';
 import * as meta from './meta.js';
 import { COMBO_META } from './meta.js';
+
+// Cinematic color grade — runs LAST (after OutputPass), so it operates on sRGB display
+// values in [0,1]: contrast/saturation/split-tone, a radial vignette for darkness/mood,
+// faint film grain, and an ordered dither that kills banding right before the 8-bit write.
+// Vector3 (not Color) tints so three's colour management never re-touches the verbatim values.
+const CinematicGradeShader = {
+  name: 'CinematicGradePass',
+  uniforms: {
+    tDiffuse: { value: null },
+    uContrast: { value: 1.12 },
+    uSaturation: { value: 1.08 },
+    uShadowTint: { value: new THREE.Vector3(0.86, 0.92, 1.06) },
+    uHighlightTint: { value: new THREE.Vector3(1.06, 1.01, 0.92) },
+    uTintStrength: { value: 0.35 },
+    uVignette: { value: 0.42 },
+    uVignetteSoft: { value: 0.55 },
+    uDither: { value: 1.4 },
+    uGrain: { value: 0.02 },
+    uTime: { value: 0.0 },
+  },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `
+    precision highp float;
+    uniform sampler2D tDiffuse;
+    varying vec2 vUv;
+    uniform float uContrast, uSaturation, uTintStrength, uVignette, uVignetteSoft, uDither, uGrain, uTime;
+    uniform vec3 uShadowTint, uHighlightTint;
+    const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
+    float bayer4x4(vec2 fragPx) {
+      vec2 p = floor(mod(fragPx, 4.0));
+      float v = mod((p.x + p.y * 4.0) + 8.0 * mod(floor(p.x * 0.5) + floor(p.y * 0.5), 2.0) + 2.0 * mod(p.x + p.y, 2.0), 16.0);
+      return (v + 0.5) / 16.0 - 0.5;
+    }
+    float hash21(vec2 p) { p = fract(p * vec2(123.34, 345.45)); p += dot(p, p + 34.345); return fract(p.x * p.y); }
+    void main() {
+      vec3 col = texture2D(tDiffuse, vUv).rgb;
+      vec2 fragPx = gl_FragCoord.xy;
+      col = (col - 0.5) * uContrast + 0.5;                                  // contrast around mid-gray
+      float l = dot(col, LUMA);
+      col = mix(vec3(l), col, uSaturation);                                // saturation
+      float shadowMask = 1.0 - smoothstep(0.0, 0.5, l);
+      float highlightMask = smoothstep(0.5, 1.0, l);
+      vec3 tint = mix(vec3(1.0), uShadowTint, shadowMask * uTintStrength)
+                * mix(vec3(1.0), uHighlightTint, highlightMask * uTintStrength);
+      col *= tint;                                                         // cool shadows / warm highlights
+      vec2 dv = vUv - 0.5;
+      float r = length(dv) * 1.41421356;
+      float vig = smoothstep(1.0, 1.0 - uVignetteSoft, r);
+      col *= mix(1.0, vig, uVignette);                                     // vignette darkness
+      float gr = hash21(fragPx + fract(uTime) * 311.7) - 0.5;
+      col += gr * uGrain * (0.6 + 0.4 * (1.0 - l));                        // faint animated grain
+      col += bayer4x4(fragPx) * (uDither / 255.0);                        // ordered dither (anti-banding)
+      gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+    }`,
+};
 
 const DEFAULT_STATS = () => ({
   hpMax: 130, moveSpeed: 7.2, wobble: 1.0,
@@ -83,7 +139,7 @@ export class Game {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // soft Human-Fall-Flat shadows
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.28; // a touch brighter/richer
+    this.renderer.toneMappingExposure = 1.05; // moodier baseline; _setMood/_applyStageTheme retune per scene
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x7e7ec0);
@@ -100,6 +156,7 @@ export class Game {
     // subsystems
     this.audio = new AudioEngine();
     this.particles = new Particles(this.scene);
+    this.atmosphere = new Atmosphere(this.scene); // volumetric god-rays + dust (core three; always builds)
     this.enemies = new Enemies(this.scene);
     this.spells = new SpellSystem(this.scene);
     this.jobs = new Jobs(this.scene);
@@ -198,8 +255,8 @@ export class Game {
     this.dir.shadow.mapSize.set(2048, 2048);
     const sc = this.dir.shadow.camera;
     sc.left = -62; sc.right = 62; sc.top = 62; sc.bottom = -62; sc.near = 1; sc.far = 200;
-    this.dir.shadow.bias = -0.0004;
-    this.dir.shadow.normalBias = 0.03;
+    this.dir.shadow.bias = -0.0003;
+    this.dir.shadow.normalBias = 0.02;
     this.scene.add(this.dir);
     this.scene.add(this.dir.target);
     this.ambient = new THREE.AmbientLight(0x3a4a6a, 0.45);
@@ -405,11 +462,14 @@ export class Game {
   // (anti-aliasing would soften the very pixels we want crisp).
   async _initPostFX() {
     try {
-      const [{ EffectComposer }, { RenderPixelatedPass }, { UnrealBloomPass }, { OutputPass }] = await Promise.all([
+      // ShaderPass is in the SAME Promise.all/try-catch — a missing symbol degrades the WHOLE
+      // chain gracefully (composer=null → direct render), never throws mid-frame.
+      const [{ EffectComposer }, { RenderPixelatedPass }, { UnrealBloomPass }, { OutputPass }, { ShaderPass }] = await Promise.all([
         import('three/addons/postprocessing/EffectComposer.js'),
         import('three/addons/postprocessing/RenderPixelatedPass.js'),
         import('three/addons/postprocessing/UnrealBloomPass.js'),
         import('three/addons/postprocessing/OutputPass.js'),
+        import('three/addons/postprocessing/ShaderPass.js'),
       ]);
       const w = window.innerWidth, h = window.innerHeight, pr = this.renderer.getPixelRatio();
       this._pr = pr;
@@ -417,23 +477,28 @@ export class Game {
       const start = this._pixelWant || Math.max(2, Math.round(2.2 * pr)); // gentler default
       const px = new RenderPixelatedPass(start, this.scene, this.camera, { normalEdgeStrength: 0.22, depthEdgeStrength: 0.3 }); // softer outlines
       this._pixelPass = px;
-      if (this._pixelWant) px.pixelSize = this._pixelWant; // honor a per-scene request made before load
+      if (this._pixelWant) px.setPixelSize(this._pixelWant); // honor a per-scene request made before load (resizes internal RTs)
       c.addPass(px);
-      c.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.5, 0.55, 0.78)); // richer glow over the pixels
-      c.addPass(new OutputPass());            // must be last: tone mapping + sRGB
+      c.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.65, 0.5, 0.82)); // tighter glow for the darker grade
+      c.addPass(new OutputPass());            // tone mapping + sRGB (no longer the screen pass)
+      const grade = new ShaderPass(CinematicGradeShader); // LAST: dither must hit the final 8-bit write
+      this._gradePass = grade;
+      c.addPass(grade);
       c.setSize(w, h); c.setPixelRatio(pr);
       this._composer = c;
     } catch (err) {
       console.warn('Post-FX unavailable, using direct render:', err);
-      this._composer = null;
+      this._composer = null; this._pixelPass = null; this._gradePass = null;
     }
   }
-  // dial the pixel chunkiness per scene: subtle during the fight, chunkier in menus/map.
+  // dial the pixel chunkiness per scene, in CSS pixels so the block size looks the SAME on
+  // dpr1 and dpr2 (the old pr-multiplied math made dpr1 round to 1 = no pixelation at all).
   _setPixel(mode) {
-    const pr = this._pr || 1;
-    const n = mode === 'arena' ? Math.max(1, Math.round(1.4 * pr)) : Math.max(3, Math.round(3 * pr));
+    const pr = this._pr || this.renderer.getPixelRatio() || 1;
+    const cssBlock = mode === 'arena' ? 3 : 6;            // 3 CSS-px in the fight (legible), 6 in menus/map
+    const n = Math.max(2, Math.round(cssBlock * pr));      // device px; never < 2 (1 = no pixelation)
     this._pixelWant = n;
-    if (this._pixelPass) this._pixelPass.pixelSize = n;
+    if (this._pixelPass) this._pixelPass.setPixelSize(n);
   }
 
   // re-aim the single shadow-casting light + tighten its frustum to the active scene,
@@ -448,16 +513,27 @@ export class Game {
 
   _applyStageTheme(stage) {
     const t = stage.theme;
-    this._aimShadow(28, 46, 18, 62); // wide arena frustum
+    this._aimShadow(28, 46, 18, 48); // arena frustum — tighter than before = more shadow texels/unit
     this.scene.background.setHex(t.bg);
-    this.scene.fog.color.setHex(t.fog); this.scene.fog.density = t.fogD;
-    this.hemi.color.setHex(t.hemi); this.hemi.groundColor.setHex(t.hemiG); this.hemi.intensity = 1.0;
+    this.scene.fog.color.setHex(t.fog); this.scene.fog.density = t.fogD * 1.35; // deeper atmospheric haze
+    // deeper darkness: lower the light FLOORS (hemi/ambient/fill) while keeping the keyed
+    // dir + rim + hero bright, so the lit action stays legible against a moodier scene.
+    this.hemi.color.setHex(t.hemi); this.hemi.groundColor.setHex(t.hemiG); this.hemi.intensity = 0.65;
     this.dir.color.setHex(t.dir); this.dir.intensity = t.dirI;
-    this.ambient.color.setHex(t.amb); this.ambient.intensity = 0.5;
-    this.rim.color.setHex(t.rim != null ? t.rim : t.dir); this.rim.intensity = (t.rimI != null ? t.rimI : 1.15);
+    this.ambient.color.setHex(t.amb); this.ambient.intensity = 0.24;
+    this.fill.color.setHex(0xbfd0ff); this.fill.intensity = 0.26;
+    this.rim.color.setHex(t.rim != null ? t.rim : t.dir); this.rim.intensity = (t.rimI != null ? t.rimI : 1.15) + 0.3;
     this.floorMat.color.setHex(t.floor);
     this.rugMat.color.setHex(t.rug);
     this._buildScatter(t.scatter);
+    this.renderer.toneMappingExposure = 0.98; // crisper, less washed
+    if (this.atmosphere) { this.atmosphere.setMood('arena'); this.atmosphere.setVisible(true); }
+    if (this._gradePass) { const u = this._gradePass.uniforms; // cool, tense, high-contrast grade
+      u.uContrast.value = 1.18; u.uSaturation.value = 1.04;
+      u.uShadowTint.value.set(0.82, 0.90, 1.10); u.uHighlightTint.value.set(1.04, 1.01, 0.95);
+      u.uTintStrength.value = 0.40; u.uVignette.value = 0.50; u.uVignetteSoft.value = 0.50;
+      u.uGrain.value = 0.018;
+    }
   }
 
   _resize() {
@@ -1230,6 +1306,7 @@ export class Game {
   // ----- region level map (Mewgenics / Slay-the-Spire style) -----
   openRegionMap(id) {
     this._setPixel('menu');
+    if (this.atmosphere) this.atmosphere.setVisible(false); // keep the node map clean
     this._worldSel = id; this._runRegion = id;
     this._runMap = this._buildRunMap();
     this._mapNodeId = null;          // null = run not started yet; entrance is the only choice
@@ -1469,22 +1546,38 @@ export class Game {
 
   _setMood(mood) {
     if (mood === 'tavern') {
-      this.scene.background.setHex(0x241a18);
-      this.scene.fog.color.setHex(0x2a1e1a); this.scene.fog.density = 0.012; // clearer, less muddy bar
-      this.hemi.color.setHex(0xffd9a0); this.hemi.groundColor.setHex(0x3a2418); this.hemi.intensity = 0.7;
-      this.dir.color.setHex(0xffd29a); this.dir.intensity = 1.05;
-      this.ambient.color.setHex(0x55474a); this.ambient.intensity = 0.45; // neutral fill; warmth comes from the lights
-      this.fill.color.setHex(0xe8b483); this.fill.intensity = 0.35; // warm fill (was cold blue — chilled the bar)
-      this.rim.color.setHex(0xffe2b0); this.rim.intensity = 0.9;
+      this.scene.background.setHex(0x18100e);
+      this.scene.fog.color.setHex(0x1c1310); this.scene.fog.density = 0.016; // moodier candle-lit haze
+      this.hemi.color.setHex(0xe8b070); this.hemi.groundColor.setHex(0x180e08); this.hemi.intensity = 0.5;
+      this.dir.color.setHex(0xffd29a); this.dir.intensity = 1.2;
+      this.ambient.color.setHex(0x2a1d1c); this.ambient.intensity = 0.26; // deep warm shadows
+      this.fill.color.setHex(0xe8b483); this.fill.intensity = 0.2; // warm, soft fill
+      this.rim.color.setHex(0xffe2b0); this.rim.intensity = 1.15;
       if (this.heroLight) this.heroLight.intensity = 0; // arena-only
+      this.renderer.toneMappingExposure = 0.95;
+      if (this.atmosphere) { this.atmosphere.setMood('tavern'); this.atmosphere.setVisible(true); }
+      if (this._gradePass) { const u = this._gradePass.uniforms; // warm, cozy grade
+        u.uContrast.value = 1.10; u.uSaturation.value = 1.14;
+        u.uShadowTint.value.set(0.90, 0.95, 1.04); u.uHighlightTint.value.set(1.10, 1.02, 0.86);
+        u.uTintStrength.value = 0.42; u.uVignette.value = 0.52; u.uVignetteSoft.value = 0.60;
+        u.uGrain.value = 0.024;
+      }
     } else {
-      this.scene.background.setHex(0x16223a);
-      this.scene.fog.color.setHex(0x1b2b44); this.scene.fog.density = 0.011;
-      this.hemi.color.setHex(0x9fb6e8); this.hemi.groundColor.setHex(0x223a2a); this.hemi.intensity = 0.95;
-      this.dir.color.setHex(0xcdd8ff); this.dir.intensity = 1.5;
-      this.ambient.color.setHex(0x3a4a6a); this.ambient.intensity = 0.45;
-      this.fill.color.setHex(0xbfd0ff); this.fill.intensity = 0.4; // cool fill for arenas
-      this.rim.color.setHex(0xcfe0ff); this.rim.intensity = 1.2;
+      this.scene.background.setHex(0x0a1120);
+      this.scene.fog.color.setHex(0x0a1120); this.scene.fog.density = 0.015;
+      this.hemi.color.setHex(0x6f86c0); this.hemi.groundColor.setHex(0x0e1410); this.hemi.intensity = 0.55;
+      this.dir.color.setHex(0xcdd8ff); this.dir.intensity = 1.7;
+      this.ambient.color.setHex(0x202a44); this.ambient.intensity = 0.18;
+      this.fill.color.setHex(0xbfd0ff); this.fill.intensity = 0.22; // cool fill for arenas
+      this.rim.color.setHex(0xbfe6ff); this.rim.intensity = 1.6;
+      this.renderer.toneMappingExposure = 0.98;
+      if (this.atmosphere) { this.atmosphere.setMood('arena'); this.atmosphere.setVisible(true); }
+      if (this._gradePass) { const u = this._gradePass.uniforms;
+        u.uContrast.value = 1.18; u.uSaturation.value = 1.04;
+        u.uShadowTint.value.set(0.82, 0.90, 1.10); u.uHighlightTint.value.set(1.04, 1.01, 0.95);
+        u.uTintStrength.value = 0.40; u.uVignette.value = 0.50; u.uVignetteSoft.value = 0.50;
+        u.uGrain.value = 0.018;
+      }
     }
   }
 
@@ -1818,6 +1911,8 @@ export class Game {
 
     this.ui.updateHUD(this);
     this._updateCamera(dt);
+    this.atmosphere.update(dt); // volumetric shafts/dust drift (real dt, so it breathes during hitstop too)
+    if (this._gradePass) this._gradePass.uniforms.uTime.value = this.clock.getElapsedTime();
     this.present();
   }
 
@@ -1828,7 +1923,7 @@ export class Game {
     this.drunkenness = Math.max(0, this.drunkenness - sdt * 0.05);
     if (this._drunkSurge > 0) this._drunkSurge = Math.max(0, this._drunkSurge - sdt * 1.6);
     if (this._drinkCd > 0) this._drinkCd = Math.max(0, this._drinkCd - sdt);
-    if (this.heroLight) { this.heroLight.position.set(this.wizard.pos.x, 3.0, this.wizard.pos.z); this.heroLight.intensity = 0.85; }
+    if (this.heroLight) { this.heroLight.position.set(this.wizard.pos.x, 3.0, this.wizard.pos.z); this.heroLight.intensity = 1.25; this.heroLight.color.setHex(0xffcf8a); this.heroLight.distance = 13; }
     this.director.update(sdt, this);
     this.wizard.update(sdt, this);
     this.enemies.update(sdt, this);

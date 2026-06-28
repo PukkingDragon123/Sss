@@ -779,11 +779,10 @@ export class Game {
       // (QTE), get hurled out, wake in the forest with the wisp — then the guided fight.
       // Persisted so it never replays on later launches.
       this._opened = true; this._hubShown = false;
-      meta.setIntroSeen();
       this.cine.play('drunk', () =>
         this.cine.play('rampage', () =>
           this.cine.play('thrown', () =>
-            this.cine.play('wisp', () => { this._introRun = true; this.enterArena(STAGES.forest); }))));
+            this.cine.play('wisp', () => { meta.setIntroSeen(); this._introRun = true; this.enterArena(STAGES.forest); })))); // mark seen only once it's actually played through
     } else {
       // already seen the opening (or returning) — drop straight into the tavern hub
       this._opened = true;
@@ -1009,6 +1008,7 @@ export class Game {
   }
   startRun(stageId) { this._shopKind = null; this.beginRun(stageId); }
   closeShop() {
+    if (this._chatNpc) this.endChat(); // self-heal: never leave a chat orphaned behind a menu
     if (this.state !== 'menu' || !this._shopKind) return; // bar shift has its own button
     this._shopKind = null;
     this.ui.closeShop();

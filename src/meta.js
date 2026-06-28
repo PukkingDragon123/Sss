@@ -3,6 +3,7 @@
 import { UPGRADES } from './upgrades.js';
 // one-way import only — story.js must never import meta.js (would create a cycle)
 import { STAGE_ORDER, STAGES } from './story.js';
+import { CARDS, CARD_BY_ID, rollCard } from './cards.js';
 
 // the four elements every spell belongs to (shown in the Grimoire & Spell Table)
 export const ELEMENTS = {
@@ -301,6 +302,9 @@ function defaultSave() {
     cleared: [], // stage ids whose boss you've beaten (gates the world map)
     regionBest: {}, // furthest stage (1–10) reached per region id
     customer: { active: [], seq: 1, done: 0 }, // walk-in customer quests (the RPG fetch/bounty loop)
+    cards: [],            // collected card ids (fun rewards from minigames & side quests)
+    sideClaims: {},       // claimed side-quest ids -> 1
+    stats: { mgWins: 0, mgPerfect: 0, gemsEver: 0, bossKills: 0 }, // counters that side quests read
   };
 }
 
@@ -358,6 +362,9 @@ export function load() {
       state.features = state.features || {};
       state.regionBest = state.regionBest || {};
       state.customer = Object.assign({ active: [], seq: 1, done: 0 }, state.customer || {});
+      state.cards = Array.isArray(state.cards) ? state.cards : [];
+      state.sideClaims = Object.assign({}, state.sideClaims || {});
+      state.stats = Object.assign({ mgWins: 0, mgPerfect: 0, gemsEver: 0, bossKills: 0 }, state.stats || {});
       state.customer.active = Array.isArray(state.customer.active) ? state.customer.active : [];
       state.debt = (typeof state.debt === 'number') ? state.debt : 600;
       // offline earnings since last seen (capped)
@@ -378,7 +385,7 @@ export function addGold(n) { state.gold += n; save(); }
 export function spendGold(n) { if (state.gold < n) return false; state.gold -= n; save(); return true; }
 // 💎 gemstones — won in battle, spent on spells & research (gold is earned by WORKING)
 export const gems = () => state.gems || 0;
-export function addGems(n) { state.gems = (state.gems || 0) + n; save(); }
+export function addGems(n) { state.gems = (state.gems || 0) + n; if (n > 0) { if (!state.stats) state.stats = {}; state.stats.gemsEver = (state.stats.gemsEver || 0) + n; } save(); }
 export function spendGems(n) { if ((state.gems || 0) < n) return false; state.gems -= n; save(); return true; }
 export const canAffordGems = (n) => (state.gems || 0) >= n;
 // 🌿 herbs (gathered venturing) + elemental gemstones (won in battle) — brewing materials, kept in the satchel
@@ -500,6 +507,57 @@ export function markStageCleared(id) { if (!state.cleared) state.cleared = []; i
 // furthest of the region's 10 inner stages you've reached (best X/10 on the world map)
 export const regionBest = (id) => (state.regionBest && state.regionBest[id]) || 0;
 export function setRegionBest(id, n) { if (!state.regionBest) state.regionBest = {}; if (n > (state.regionBest[id] || 0)) { state.regionBest[id] = n; save(); } }
+export const maxRegionBest = () => Object.values(state.regionBest || {}).reduce((a, b) => Math.max(a, b), 0);
+
+// ===================== generic stat counters (read by side quests) =====================
+export function bumpStat(name, n = 1) { if (!state.stats) state.stats = {}; state.stats[name] = (state.stats[name] || 0) + n; save(); }
+export const stat = (name) => (state.stats && state.stats[name]) || 0;
+
+// ===================== collectible cards =====================
+export const cardsOwned = () => state.cards || [];
+export const hasCard = (id) => (state.cards || []).includes(id);
+export const cardCount = () => (state.cards || []).length;
+export function addCard(id) {
+  if (!CARD_BY_ID[id]) return false;                 // unknown id
+  if (!state.cards) state.cards = [];
+  if (state.cards.includes(id)) return false;        // already owned
+  state.cards.push(id); save(); return true;
+}
+// rarity-weighted draw from the unowned set; returns the card object (or null if complete)
+export function grantRandomCard() {
+  const id = rollCard(state.cards || []);
+  if (!id) return null;
+  addCard(id);
+  return CARD_BY_ID[id];
+}
+
+// ===================== side quests (award specific cards) =====================
+export const SIDE_QUESTS = [
+  { id: 'sq_first_win',  text: 'Win your first minigame',        stat: 'mgWins',    goal: 1,  card: 'card_jester' },
+  { id: 'sq_mg_5',       text: 'Win 5 minigames',                stat: 'mgWins',    goal: 5,  card: 'card_clown' },
+  { id: 'sq_perfect',    text: 'Score a perfect minigame',       stat: 'mgPerfect', goal: 1,  card: 'card_ace' },
+  { id: 'sq_mole_pro',   text: 'Win Whack-a-Goblin',             stat: 'won_mole',  goal: 1,  card: 'card_mallet' },
+  { id: 'sq_rhythm_pro', text: 'Win the Beat Tap game',          stat: 'won_rhythm', goal: 1, card: 'card_bard' },
+  { id: 'sq_gems_50',    text: 'Earn 50 gems (lifetime)',        stat: 'gemsEver',  goal: 50, card: 'card_miser' },
+  { id: 'sq_reach_4',    text: 'Reach stage 4 of any region',    stat: 'bestStage', goal: 4,  card: 'card_owl' },
+  { id: 'sq_boss_1',     text: 'Defeat a region boss',           stat: 'bossKills', goal: 1,  card: 'card_slayer' },
+  { id: 'sq_cards_6',    text: 'Collect 6 cards',                stat: 'cardCount', goal: 6,  card: 'card_curator' },
+  { id: 'sq_collector',  text: 'Collect 14 cards',               stat: 'cardCount', goal: 14, card: 'card_king' },
+];
+const _sideStatValue = (q) => q.stat === 'cardCount' ? cardCount() : q.stat === 'bestStage' ? maxRegionBest() : stat(q.stat);
+export function sideQuestReady(id) { const q = SIDE_QUESTS.find(s => s.id === id); return !!q && _sideStatValue(q) >= q.goal; }
+export function sideQuests() {
+  return SIDE_QUESTS.map(q => ({ ...q, have: _sideStatValue(q), claimed: !!(state.sideClaims && state.sideClaims[q.id]), ready: sideQuestReady(q.id), cardName: CARD_BY_ID[q.card] ? CARD_BY_ID[q.card].name : q.card }));
+}
+export function claimSideQuest(id) {
+  const q = SIDE_QUESTS.find(s => s.id === id); if (!q) return null;
+  if (!state.sideClaims) state.sideClaims = {};
+  if (state.sideClaims[q.id] || !sideQuestReady(id)) return null;
+  state.sideClaims[q.id] = 1;
+  const fresh = addCard(q.card);
+  save();
+  return { card: CARD_BY_ID[q.card], fresh };
+}
 
 // ===================== unique tavern customers (RPG quest-givers) =====================
 // Distinct walk-in patrons who roam the bar and either request an item or hand you a

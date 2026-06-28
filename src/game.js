@@ -10,6 +10,8 @@ import { Input } from './input.js';
 import { AudioEngine } from './audio.js';
 import { UI } from './ui.js';
 import { Director, STAGES, BLACKOUT_LINES, STAGE_GIMMICKS, STAGES_PER_REGION, gimmickFor } from './story.js';
+import { MINIGAMES, MINIGAME_KEYS } from './minigames.js';
+import { applyCardPerks } from './cards.js';
 import { Jobs } from './jobs.js';
 import { Tavern } from './tavern.js';
 import { World } from './world.js';
@@ -209,6 +211,9 @@ export class Game {
     this.rim = new THREE.DirectionalLight(0xffffff, 1.0);
     this.rim.position.set(-6, 12, -26);
     this.scene.add(this.rim);
+    // a warm "hero light" that hugs the wizard in the arena — pops the character & nearby foes
+    this.heroLight = new THREE.PointLight(0xffe0b0, 0, 15, 2);
+    this.scene.add(this.heroLight);
 
     // floor + clearing (recoloured per stage)
     this.floorMat = new THREE.MeshStandardMaterial({ color: 0x2f4a32, roughness: 1 });
@@ -685,6 +690,7 @@ export class Game {
   onBossDead() {
     if (this._drinking) this._cancelDrink();
     this.bossActive = false; this.bossKilled = true; this._roomsCleared = this._forksTotal + 2;
+    meta.bumpStat('bossKills', 1); // feeds the "defeat a boss" side quest
     this._learn('boss', 'Boss down! It dropped an artifact and gemstones. Carry artifacts from your satchel into a run.');
     const nu = meta.unlockRandomUpgrade(); if (nu) { if (this._unlockedUpg) this._unlockedUpg.add(nu.id); this.ui.toast(`✨ New boon unlocked: ${nu.icon} ${nu.name}!`); } // achievement: bosses teach new boons
     if (this._pendingReward) { this._grantReward(this._pendingReward); this._pendingReward = null; }
@@ -719,7 +725,8 @@ export class Game {
     // escalating bonuses make a deeper, hotter-streak run pay off — the "one more run" pull
     const waveBonus = Math.pow(1.07, Math.max(0, depth - 1));
     const comboBonus = 1 + Math.min(0.5, (this.comboBest || 0) * 0.01);
-    const gemReward = Math.max(1, Math.round((2 + depth * 1.2 + this.kills * 0.05 + (win ? 5 : 0)) * meta.gemBonusMult() * waveBonus * comboBonus));
+    const cardGemMult = (this.cardPerks && this.cardPerks.gemMult) || 1; // collectible-card bonus
+    const gemReward = Math.max(1, Math.round((2 + depth * 1.2 + this.kills * 0.05 + (win ? 5 : 0)) * meta.gemBonusMult() * waveBonus * comboBonus * cardGemMult));
     meta.addGems(gemReward);
     if (win) meta.addGear(meta.dropGear(this.level + 3, true));
     const earnedGems = Math.max(0, meta.gems() - (this._runGemStart || 0));
@@ -881,6 +888,7 @@ export class Game {
     this.hemi.color.setHex(0xbfd0ff); this.hemi.groundColor.setHex(0x2a3a4a); this.hemi.intensity = 1.0;
     this.dir.color.setHex(0xffffff); this.dir.intensity = 1.3; this.ambient.color.setHex(0x44506a); this.ambient.intensity = 0.6;
     this.rim.color.setHex(0xbfe0ff); this.rim.intensity = 1.0;
+    if (this.heroLight) this.heroLight.intensity = 0;
     this._aimShadow(20, 40, 14, 40); // medium frustum for the world-map islands
     let sel = this.world.order[0];
     for (const id of this.world.order) if (this._stageUnlocked(id)) sel = id;
@@ -996,6 +1004,10 @@ export class Game {
     this._applyEquipment();
     meta.applyResearch(this.stats); // completed research bonuses
     meta.applyBrews(this.stats);    // brewed-potion boons (permanent)
+    // collectible-card passives (tiny): folded once per run
+    const cp = applyCardPerks(this, meta.cardsOwned());
+    if (cp.dmgMult !== 1) this.stats.damageMult = (this.stats.damageMult || 1) * cp.dmgMult;
+    if (cp.manaBonus) this.stats.manaMax += cp.manaBonus;
     this.loadout = meta.getLoadout();
     this.unlocked = new Set(this.loadout);
     // playstyle/archetype: force the signature spell, set the level-up bias, run the passive
@@ -1207,6 +1219,8 @@ export class Game {
       this.state = 'path'; this._curEvent = node.event; this.ui.showChoiceEvent(this, node.event);
     } else if (node.type === 'skill') {
       this.state = 'path'; this.ui.showSkillEvent(this);
+    } else if (node.type === 'minigame') {
+      this.state = 'minigame'; this.ui.showMinigame(this, node.gameKey);
     } else { this._nextFork(); }
   }
 
@@ -1217,7 +1231,7 @@ export class Game {
     return [this._makeNode(types[0]), this._makeNode(types[1])];
   }
   _pickNodeTypes() {
-    const pool = [['combat', 4], ['elite', 2], ['treasure', 2], ['campfire', 2], ['event', 3], ['skill', 2]];
+    const pool = [['combat', 4], ['elite', 2], ['treasure', 2], ['campfire', 2], ['event', 3], ['skill', 2], ['minigame', 3]];
     const pickFrom = (arr) => { let tot = 0; for (const [, w] of arr) tot += w; let r = Math.random() * tot; for (const e of arr) { r -= e[1]; if (r <= 0) return e[0]; } return arr[0][0]; };
     const a = pickFrom(pool);
     const b = pickFrom(pool.filter(e => e[0] !== a));
@@ -1230,6 +1244,11 @@ export class Game {
     if (type === 'treasure') { const r = this._makeReward(Math.random() < 0.5 ? 'gems' : 'gear'); return { type, icon: '💰', name: 'Hidden Cache', desc: `Free · ${r.icon} ${r.name}`, reward: r, lurk: '✨ unguarded loot' }; }
     if (type === 'campfire') return { type, icon: '🔥', name: 'Campfire', desc: 'Rest — full heal & +12 max HP', lurk: '🔥 a safe little fire' };
     if (type === 'event') return { type, icon: '❓', name: 'Mystery', desc: 'A strange encounter — your call', event: this._pickEvent(), lurk: '❓ who knows what' };
+    if (type === 'minigame') {
+      const gameKey = MINIGAME_KEYS[Math.floor(Math.random() * MINIGAME_KEYS.length)];
+      const mg = MINIGAMES[gameKey];
+      return { type, gameKey, icon: '🎲', name: 'Party Game', desc: `Play "${mg.name}" — win gems & maybe a card`, lurk: '🎲 a curious contraption' };
+    }
     return { type: 'skill', icon: '✶', name: 'Trial of Nerve', desc: 'Stop the marker on the mark to win', lurk: '✶ a test of nerve' };
   }
   _randKind() { const k = ['gems', 'heart', 'brew', 'gear', 'ability', 'ability']; return k[Math.floor(Math.random() * k.length)]; }
@@ -1263,6 +1282,27 @@ export class Game {
     if (quality >= 0.82) { const u = rollUpgrades(this, 1)[0]; if (u) this.applyAbility(u); meta.addGems(8); msg = `✶ PERFECT! ✦ ${u ? u.name : 'ability'} + 💎8`; this.audio.play('levelup'); }
     else if (quality >= 0.45) { const inst = meta.dropGear(Math.max(1, this.level), Math.random() < 0.3); meta.addGear(inst); msg = `✶ Steady — ${meta.RARITIES[inst.rarity].name} ${inst.slot}!`; this.audio.play('xp'); }
     else { meta.addGems(3); msg = '✶ Shaky hand — 💎3 for the effort'; this.audio.play('hiccup'); }
+    this.ui.toast(msg);
+    this._nextFork();
+  }
+
+  // a party minigame finished -> pay gems (×card gemMult) + a rarity-rolled card chance
+  resolveMinigame(key, score) {
+    this.ui.hideMinigame();
+    const mg = MINIGAMES[key];
+    const bonus = (this.cardPerks && this.cardPerks.mgScoreBonus) || 0;
+    const s = Math.max(0, Math.min(1, (score || 0) + bonus));
+    const r = (mg && mg.reward) ? mg.reward(s) : { gems: 3, cardChance: 0 };
+    const gemMult = (this.cardPerks && this.cardPerks.gemMult) || 1;
+    const gems = Math.max(1, Math.round(r.gems * gemMult));
+    meta.addGems(gems);
+    const won = s >= 0.5, perfect = (score || 0) >= 0.95;
+    if (won) { meta.bumpStat('mgWins', 1); meta.bumpStat('won_' + key, 1); }
+    if (perfect) meta.bumpStat('mgPerfect', 1);
+    let msg = `🎲 ${perfect ? 'PERFECT! ' : won ? 'Nice! ' : ''}💎 +${gems}`;
+    if (Math.random() < (r.cardChance || 0)) { const card = meta.grantRandomCard(); if (card) { msg += `  ·  🃏 ${card.name}!`; this.audio.play('win'); } }
+    this.ui.setGems(meta.gems());
+    this.audio.play(won ? 'levelup' : 'hiccup');
     this.ui.toast(msg);
     this._nextFork();
   }
@@ -1349,6 +1389,7 @@ export class Game {
       this.ambient.color.setHex(0x55474a); this.ambient.intensity = 0.45; // neutral fill; warmth comes from the lights
       this.fill.color.setHex(0xe8b483); this.fill.intensity = 0.35; // warm fill (was cold blue — chilled the bar)
       this.rim.color.setHex(0xffe2b0); this.rim.intensity = 0.9;
+      if (this.heroLight) this.heroLight.intensity = 0; // arena-only
     } else {
       this.scene.background.setHex(0x16223a);
       this.scene.fog.color.setHex(0x1b2b44); this.scene.fog.density = 0.011;
@@ -1417,7 +1458,7 @@ export class Game {
     const events = this.input.drain();
     // cutscenes own their own input (Continue/skip buttons + the QTE mash listener);
     // ignore game input here so mashing can't fire interact/guide/drink and hide the set
-    if (this.state === 'cutscene') return;
+    if (this.state === 'cutscene' || this.state === 'minigame') return; // overlay owns its own input
     for (const e of events) {
       if (e.type === 'mute') { this.toggleMute(); continue; }
       if (e.type === 'guide') { this.toggleGuide(); continue; }
@@ -1691,6 +1732,7 @@ export class Game {
     this.drunkenness = Math.max(0, this.drunkenness - sdt * 0.05);
     if (this._drunkSurge > 0) this._drunkSurge = Math.max(0, this._drunkSurge - sdt * 1.6);
     if (this._drinkCd > 0) this._drinkCd = Math.max(0, this._drinkCd - sdt);
+    if (this.heroLight) { this.heroLight.position.set(this.wizard.pos.x, 3.0, this.wizard.pos.z); this.heroLight.intensity = 0.85; }
     this.director.update(sdt, this);
     this.wizard.update(sdt, this);
     this.enemies.update(sdt, this);

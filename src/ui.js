@@ -6,6 +6,8 @@ import { TEMPLATES } from './recognizer.js';
 import * as meta from './meta.js';
 import { STAGES, STAGE_ORDER } from './story.js';
 import { ARTIFACTS, artifactById, UPGRADES, upgradeRarity } from './upgrades.js';
+import { MINIGAMES } from './minigames.js';
+import { CARDS, CARD_BY_ID, CARD_RARITY } from './cards.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -79,10 +81,8 @@ export class UI {
       credits: $('credits'), creditsClose: $('credits-close'),
       waveWrap: $('wave-wrap'), wavePips: $('wave-pips'),
       bossBar: $('boss-bar'), bossBarName: $('boss-bar-name'), bossBarFill: $('boss-bar-fill'),
-      minigame: $('minigame'), mgScore: $('mg-score'), mgTitle: $('mg-title'), mgSub: $('mg-sub'),
-      mgOrder: $('mg-order'), mgCanvas: $('mg-canvas'), mgPour: $('mg-pour'), mgServe: $('mg-serve'),
-      mgAccept: $('mg-accept'), mgServed: $('mg-served'), mgTotal: $('mg-total'), mgQuit: $('mg-quit'),
-      mgLeft: $('mg-left'), mgRight: $('mg-right'),
+      minigame: $('minigame'), mgTitle: $('mg-title'), mgSub: $('mg-sub'), mgCanvas: $('mg-canvas'),
+      mgControls: $('mg-controls'), mgHud: $('mg-hud'), mgTimer: $('mg-timer'), mgQuit: $('mg-quit'),
       end: $('end'), endTitle: $('end-title'), endStats: $('end-stats'), btnAgain: $('btn-again'),
       loading: $('loading'),
       bars: document.querySelector('.bars'), spellbook: $('spellbook'), castHint: $('cast-hint'),
@@ -152,6 +152,9 @@ export class UI {
       } else if (act === 'claim') {
         const res = meta.claimQuest();
         if (res && res.reward > 0) { this.toast(`Bounty reward: +${res.reward} gold`); this.setGold(meta.gold()); if (res.unlocked) this.wispSay(`🔓 Unlocked the ${meta.FEATURE_LABELS[res.unlocked]}. Build it up in your room!`, { big: true, ms: 4200 }); }
+      } else if (act === 'claimside') {
+        const r = meta.claimSideQuest(b.dataset.id);
+        if (r && r.card) { this.toast(`🃏 ${r.card.name} card earned!${r.fresh ? '' : ' (dupe)'}`); this.burstFX(b, 'sparkle', 8); game.audio.play('win'); }
       }
       this.renderQuestPanel(game);
     });
@@ -177,6 +180,16 @@ export class UI {
       game.resolveEvent(parseInt(b.dataset.opt, 10));
     });
     if (this.el.skillStop) this.el.skillStop.addEventListener('click', () => this.stopSkill());
+    // party-minigame controls: delegated button bar, canvas taps, and forfeit (wired once)
+    if (this.el.mgControls) this.el.mgControls.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-mg]'); if (b) this._mgInput({ type: 'button', id: b.dataset.mg });
+    });
+    if (this.el.mgCanvas) this.el.mgCanvas.addEventListener('pointerdown', (e) => {
+      if (!this._mgRunning) return;
+      const r = this.el.mgCanvas.getBoundingClientRect();
+      this._mgInput({ type: 'pointer', nx: (e.clientX - r.left) / (r.width || 1), ny: (e.clientY - r.top) / (r.height || 1) });
+    });
+    if (this.el.mgQuit) this.el.mgQuit.addEventListener('click', () => { if (this._mgRunning) this._mgEnd(); });
     if (this.el.artClaim) this.el.artClaim.addEventListener('click', () => { game.audio.play('click'); const cb = this._artRevealDone; this._artRevealDone = null; this.el.artReveal.classList.add('hidden'); if (cb) cb(); });
     // world-map HUD: Venture / Back buttons (region selection itself is 3D clicks)
     if (this.el.worldDetail) this.el.worldDetail.addEventListener('click', (e) => {
@@ -236,6 +249,28 @@ export class UI {
       h += '</div>';
     } else h += '<div class="qp-progress">No requests right now.</div>';
     h += '</div>';
+    // side quests — each awards a collectible card
+    const sqs = meta.sideQuests();
+    const sqDone = sqs.filter(s => s.claimed).length;
+    h += `<div class="qp-card"><h4>🎯 Side Quests</h4>
+      <p class="qp-sub">Little goals that pay out a fun card.</p><div class="qp-tasklist">`;
+    for (const sq of sqs) {
+      const state = sq.claimed ? 'done' : '';
+      const right = sq.claimed ? '<span class="qp-claimed">✓ claimed</span>'
+        : sq.ready ? `<button class="shop-btn" data-act="claimside" data-id="${sq.id}">Claim 🃏</button>`
+          : `<span class="qp-prog">${Math.min(sq.have, sq.goal)}/${sq.goal}</span>`;
+      h += `<div class="qp-task ${state}"><span class="tick">${sq.claimed ? '✓' : '🎯'}</span><span class="qp-task-t">${sq.text} <i class="qp-reward">→ ${sq.cardName}</i></span>${right}</div>`;
+    }
+    h += `</div><div class="qp-progress">${sqDone} / ${sqs.length} side quests done</div></div>`;
+    // card gallery
+    const owned = new Set(meta.cardsOwned());
+    h += `<div class="qp-card"><h4>🃏 Card Collection</h4>
+      <p class="qp-sub">Won from minigames & side quests.</p><div class="card-grid">`;
+    for (const c of CARDS) {
+      const has = owned.has(c.id); const rc = CARD_RARITY[c.rarity];
+      h += `<div class="card-cell ${has ? 'has' : 'locked'}" style="${has ? `border-color:${rc.color}` : ''}" title="${has ? c.name + ' — ' + c.flavor : 'Locked'}"><span class="card-ico">${has ? c.icon : '🔒'}</span><span class="card-nm" style="${has ? `color:${rc.color}` : ''}">${has ? c.name : '???'}</span></div>`;
+    }
+    h += `</div><div class="qp-progress">${owned.size} / ${CARDS.length} cards collected</div></div>`;
     h += `<div class="qp-card"><h4>🧭 Learn the Ropes</h4>
       <p class="qp-sub">Try every part of the realm. The wisp will guide you.</p><div class="qp-tasklist">`;
     for (const t of meta.tutorialChecklist()) h += `<div class="qp-task ${t.done ? 'done' : ''}"><span class="tick">${t.done ? '✓' : '○'}</span><span>${t.text}</span></div>`;
@@ -559,6 +594,66 @@ export class UI {
   hideEvent() {
     cancelAnimationFrame(this._skillRaf); this._skill = null;
     if (this.el.eventModal) this.el.eventModal.classList.add('hidden');
+  }
+
+  // ====================== party minigames (generic canvas driver) ======================
+  showMinigame(game, key) {
+    const mg = MINIGAMES[key];
+    if (!mg) { game.resolveMinigame(key, 0); return; }
+    this._mgKey = key; this._mg = mg;
+    this._mgState = mg.init({ rng: Math.random });
+    this._mgState.timeLeft = mg.dur;
+    if (this.el.mgTitle) this.el.mgTitle.textContent = `🎲 ${mg.name}`;
+    if (this.el.mgSub) this.el.mgSub.textContent = mg.how;
+    this._mgRenderControls(mg);
+    const cv = this.el.mgCanvas;
+    if (cv) { const dpr = Math.min(2, window.devicePixelRatio || 1); cv.width = (cv.clientWidth || 400) * dpr; cv.height = (cv.clientHeight || 440) * dpr; }
+    if (this.el.minigame) this.el.minigame.classList.remove('hidden');
+    if (!this._mgLoopBound) this._mgLoopBound = this._mgLoop.bind(this);
+    if (!this._mgKeyHandler) this._mgKeyHandler = (e) => { if (this._mgRunning) this._mgInput({ type: 'key', key: e.key }); };
+    window.addEventListener('keydown', this._mgKeyHandler);
+    this._mgRunning = true;
+    this._mgLast = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    cancelAnimationFrame(this._mgRaf);
+    this._mgRaf = requestAnimationFrame(this._mgLoopBound);
+  }
+  _mgRenderControls(mg) {
+    const host = this.el.mgControls; if (!host) return;
+    host.innerHTML = '';
+    const ctrls = mg.controls || [];
+    if (!ctrls.length) { host.innerHTML = '<div class="mg-hint">👆 tap the board</div>'; return; }
+    for (const c of ctrls) {
+      const b = document.createElement('button');
+      b.className = 'btn mg-btn' + (c.big ? ' big' : '');
+      b.dataset.mg = c.id; b.textContent = c.label;
+      if (c.color) b.style.background = c.color;
+      host.appendChild(b);
+    }
+  }
+  _mgLoop(now) {
+    const s = this._mgState, mg = this._mg; if (!s || !mg || !this._mgRunning) return;
+    let dt = (now - this._mgLast) / 1000; this._mgLast = now;
+    if (dt > 0.05) dt = 0.05; if (dt < 0) dt = 0;
+    mg.update(s, dt); s.timeLeft -= dt;
+    try { const cv = this.el.mgCanvas; if (cv) mg.draw(cv.getContext('2d'), cv.width, cv.height, s); } catch (e) {}
+    if (this.el.mgTimer) this.el.mgTimer.textContent = '⏱ ' + Math.max(0, s.timeLeft).toFixed(1);
+    if (mg.isOver(s) || s.timeLeft <= 0) { this._mgEnd(); return; }
+    this._mgRaf = requestAnimationFrame(this._mgLoopBound);
+  }
+  _mgInput(ev) { const s = this._mgState, mg = this._mg; if (!s || !mg || !this._mgRunning) return; try { mg.onInput(s, ev); } catch (e) {} }
+  _mgEnd() {
+    if (!this._mg || !this._mgState) { this.hideMinigame(); return; }
+    const score = this._mg.scoreOf(this._mgState);
+    const key = this._mgKey;
+    this.hideMinigame();
+    if (this.game) this.game.resolveMinigame(key, score);
+  }
+  hideMinigame() {
+    this._mgRunning = false;
+    cancelAnimationFrame(this._mgRaf);
+    if (this._mgKeyHandler) window.removeEventListener('keydown', this._mgKeyHandler);
+    this._mgState = null; this._mg = null;
+    if (this.el.minigame) this.el.minigame.classList.add('hidden');
   }
 
   // ---- the end-of-level artifact reveal: a dramatic, glowing relic screen ----

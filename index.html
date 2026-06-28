@@ -262,22 +262,16 @@
   </div>
 
   <!-- ===== Tavern serving: physics beer-pour bar mini-game ===== -->
+  <!-- generic party-minigame host (one canvas, driver swaps the active game) -->
   <div id="minigame" class="overlay hidden">
-    <h2 class="levelup-title" id="mg-title">Tend the Bar</h2>
+    <h2 class="levelup-title" id="mg-title">Party Game</h2>
     <p class="levelup-sub" id="mg-sub"></p>
-    <div id="mg-order" class="mg-order hidden"></div>
+    <div id="mg-hud"><span id="mg-timer">⏱ 0.0</span></div>
     <div class="mg-stage">
       <canvas id="mg-canvas" width="400" height="440"></canvas>
     </div>
-    <div class="mg-controls">
-      <button class="btn big" id="mg-pour">🍺 Hold to Pour</button>
-      <button class="btn" id="mg-serve">Carry it ▸</button>
-      <button class="btn" id="mg-accept">Take Order ▸</button>
-      <button class="btn big" id="mg-left">◀ Lean</button>
-      <button class="btn big" id="mg-right">Lean ▶</button>
-    </div>
-    <div class="mg-score">Tips: <b id="mg-score">0</b>🪙 · Served <b id="mg-served">0</b>/<b id="mg-total">4</b></div>
-    <button class="btn" id="mg-quit">Clock out ▸</button>
+    <div id="mg-controls" class="mg-controls"></div>
+    <button class="btn" id="mg-quit">Forfeit ▸</button>
   </div>
 
   <!-- ===== World map HUD (the map itself is the 3D scene; this panel scouts it) ===== -->

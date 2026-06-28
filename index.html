@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
 <title>Wonky Wizard</title>
+<link rel="stylesheet" href="fonts.css" />
 <link rel="stylesheet" href="styles.css" />
 <!-- Three.js via ES module import map (loaded from CDN in the player's browser) -->
 <script type="importmap">
@@ -136,13 +137,6 @@
     <div class="cards" id="upgrade-cards"></div>
   </div>
 
-  <!-- ===== Playstyle pick (before each venture) ===== -->
-  <div id="archetype-pick" class="overlay hidden">
-    <h2 class="levelup-title">🧙 Choose your Playstyle</h2>
-    <p class="levelup-sub">Each shapes your boons, your starting spell &amp; a passive power.</p>
-    <div class="arch-row" id="arch-row"></div>
-    <button class="btn big" id="arch-go">Venture ▶</button>
-  </div>
 
   <!-- ===== Hades-style path choice: two doors, each previewing its reward ===== -->
   <div id="path-choice" class="overlay hidden">
@@ -279,6 +273,9 @@
     <div class="world-title">🗺 The Realm — tap a region to scout it</div>
     <div id="world-detail"></div>
   </div>
+
+  <!-- ===== Region level map (branching node map; built in JS) ===== -->
+  <div id="run-map" class="overlay hidden"></div>
 
   <!-- ===== Spell drawing guide ===== -->
   <div id="glyph-guide" class="overlay hidden">

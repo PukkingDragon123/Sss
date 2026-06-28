@@ -5,6 +5,7 @@ import { Recognizer, TEMPLATES } from '../src/recognizer.js';
 import { rollUpgrades, UPGRADES } from '../src/upgrades.js';
 import { MINIGAMES, MINIGAME_KEYS } from '../src/minigames.js';
 import { CARDS, CARD_BY_ID, CARD_RARITY, applyCardPerks, rollCard } from '../src/cards.js';
+import { generateRunMap } from '../src/runmap.js';
 
 let pass = 0, fail = 0;
 const ok = (cond, msg) => { if (cond) { pass++; } else { fail++; console.error('  ✗ ' + msg); } };
@@ -120,6 +121,20 @@ ok(perks.gemMult >= 1 && perks.dmgMult >= 1 && perks.manaBonus >= 0, 'perks fold
 let owned = [];
 for (let i = 0; i < 24; i++) { const id = rollCard(owned, lcg(i + 1)); ok(id && CARD_BY_ID[id] && !owned.includes(id), `rollCard draws fresh #${i}`); owned.push(id); }
 ok(rollCard(owned, lcg(9)) === null, 'rollCard returns null when complete');
+
+// ---- region run map (branching node graph) ----
+console.log('Run map:');
+for (let t = 0; t < 60; t++) {
+  const m = generateRunMap(lcg(t + 1), { rows: 10, cols: 3, paths: 5 });
+  ok(m.byId[m.startId].row === 0 && m.byId[m.startId].type === 'combat', 'entrance is combat on row 0');
+  ok(m.byId[m.bossId].row === 9 && m.byId[m.bossId].type === 'boss', 'boss is on the last row');
+  // BFS from entrance must reach boss and every node; edges only step one row, ±1 col
+  const seen = new Set([m.startId]), q = [m.startId];
+  while (q.length) { const n = m.byId[q.shift()]; for (const nx of n.next) { const mn = m.byId[nx]; ok(mn.row === n.row + 1 && Math.abs(mn.col - n.col) <= 1, 'edge steps one row, within a column'); if (!seen.has(nx)) { seen.add(nx); q.push(nx); } } }
+  ok(seen.has(m.bossId), 'boss reachable from entrance');
+  ok(m.nodes.every(n => seen.has(n.id)), 'every node reachable');
+  ok(m.nodes.every(n => n.id === m.bossId || n.next.length >= 1), 'non-boss nodes have an exit');
+}
 
 // ---- summary ----
 console.log(`\n${fail === 0 ? '✓ ALL PASS' : '✗ FAILURES'} — ${pass} checks passed, ${fail} failed.`);

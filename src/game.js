@@ -12,6 +12,7 @@ import { UI } from './ui.js';
 import { Director, STAGES, BLACKOUT_LINES, STAGE_GIMMICKS, STAGES_PER_REGION, gimmickFor } from './story.js';
 import { MINIGAMES, MINIGAME_KEYS } from './minigames.js';
 import { applyCardPerks } from './cards.js';
+import { generateRunMap } from './runmap.js';
 import { Jobs } from './jobs.js';
 import { Tavern } from './tavern.js';
 import { World } from './world.js';
@@ -399,22 +400,25 @@ export class Game {
     this.renderer.render(this.scene, this.camera);
   }
   // load post-processing lazily; a blocked CDN/CSP degrades gracefully to direct render.
+  // PIXEL-ART pipeline: RenderPixelatedPass renders the whole scene chunky (shadows
+  // included, for free) -> a modest bloom -> OutputPass for tone mapping/sRGB. No SMAA
+  // (anti-aliasing would soften the very pixels we want crisp).
   async _initPostFX() {
     try {
-      const [{ EffectComposer }, { RenderPass }, { UnrealBloomPass }, { OutputPass }, { SMAAPass }] = await Promise.all([
+      const [{ EffectComposer }, { RenderPixelatedPass }, { UnrealBloomPass }, { OutputPass }] = await Promise.all([
         import('three/addons/postprocessing/EffectComposer.js'),
-        import('three/addons/postprocessing/RenderPass.js'),
+        import('three/addons/postprocessing/RenderPixelatedPass.js'),
         import('three/addons/postprocessing/UnrealBloomPass.js'),
         import('three/addons/postprocessing/OutputPass.js'),
-        import('three/addons/postprocessing/SMAAPass.js'),
       ]);
       const w = window.innerWidth, h = window.innerHeight, pr = this.renderer.getPixelRatio();
       const c = new EffectComposer(this.renderer);
-      c.addPass(new RenderPass(this.scene, this.camera));
-      // cozy glow: low strength, high threshold so only emissive/bright bits bloom
-      c.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.38, 0.6, 0.82));
-      c.addPass(new OutputPass());            // must be last: applies tone mapping + sRGB
-      c.addPass(new SMAAPass(w * pr, h * pr)); // composer bypasses MSAA — restore clean edges
+      this._pixelSize = Math.max(3, Math.round(3.5 * pr)); // ~3.5 CSS px blocks across DPRs
+      const px = new RenderPixelatedPass(this._pixelSize, this.scene, this.camera, { normalEdgeStrength: 0.3, depthEdgeStrength: 0.4 });
+      this._pixelPass = px;
+      c.addPass(px);
+      c.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.42, 0.5, 0.82)); // glow over the pixels
+      c.addPass(new OutputPass());            // must be last: tone mapping + sRGB
       c.setSize(w, h); c.setPixelRatio(pr);
       this._composer = c;
     } catch (err) {
@@ -784,6 +788,8 @@ export class Game {
     this.ui.closeModals();
     this.ui.setStageTint(null); this.ui.hideMission(); // drop any arena stage colour/mission HUD
     this._stageMods = null;
+    this._runMap = null; this._mapNodeId = null; // a fresh map is rolled for the next venture
+    if (this.ui.hideRunMap) this.ui.hideRunMap();
     this.ui.fadeBlack(false);
     this.ui.setScreen('play');
     this.stats = DEFAULT_STATS();
@@ -906,7 +912,9 @@ export class Game {
     const id = this._worldSel;
     if (!id || !this._stageUnlocked(id)) { this.ui.wispSay('🔒 Conquer the region before it to open this one.', { tone: 'warn' }); return; }
     this.ui.hideWorldHud(); this.input.pointMode = false;
-    this.ui.showArchetypePick(ARCHETYPES, meta.getArchetype(), (pickedId) => { meta.setArchetype(pickedId); this.beginRun(id); });
+    // no more playstyle pick — your build comes from collected cards + the upgrades you
+    // pick along the run. Open the region's level map to choose your path in.
+    this.openRegionMap(id);
   }
   closeWorldMap() { this.ui.hideWorldHud(); this.world.show(false); this.input.pointMode = false; this.enterTavern(); }
   openBuild() { if (this.state === 'play' && this.phase === 'room') { this.audio.play('click'); this._openShop('build'); } }
@@ -1010,13 +1018,7 @@ export class Game {
     if (cp.manaBonus) this.stats.manaMax += cp.manaBonus;
     this.loadout = meta.getLoadout();
     this.unlocked = new Set(this.loadout);
-    // playstyle/archetype: force the signature spell, set the level-up bias, run the passive
-    this._archetype = archetypeById(meta.getArchetype && meta.getArchetype());
-    if (this._archetype) {
-      const st = this._archetype.starter;
-      if (st && SPELLS[st]) { if (!this.loadout.includes(st)) this.loadout = [st, ...this.loadout.filter(x => x !== st)].slice(0, 3); this.unlocked = new Set(this.loadout); }
-      this._archetype.passive(this);
-    }
+    this._archetype = null; // playstyle pick removed — your build = collected cards + run upgrades
     this.activeCombos = meta.activeCombos(this.unlocked);
     this.recognizer = new Recognizer();
     for (const id of this.loadout) { const g = SPELLS[id].gesture; this.recognizer.add(g, TEMPLATES[g]); }
@@ -1186,17 +1188,68 @@ export class Game {
     }
     this._showPath();
   }
+  // between stages: show the region's branching node map and let the player pick the next level
   _showPath() {
-    this.state = 'path';
+    if (!this._runMap) { this._runRegion = this.stage ? this.stage.id : 'forest'; this._runMap = this._buildRunMap(); this._mapNodeId = this._runMap.startId; this._mapVisited = new Set(); }
+    this.state = 'runmap';
     this.audio.play('levelup');
-    const bossNext = this._forksDone >= this._forksTotal;
-    this._nextIsBoss = bossNext;
-    this._pathNodes = this._makeNodePair(bossNext);
-    this.ui.showPathChoice(this, {
-      bossNext, stage: this.stage, nodes: this._pathNodes,
-      cur: Math.min(this._forksDone + 1, this._forksTotal + 1), total: this._forksTotal + 1,
-      artifact: bossNext ? this._opArtifact : null,
-    });
+    this.ui.showRunMap(this);
+  }
+  _buildRunMap() {
+    return generateRunMap(Math.random, { rows: STAGES_PER_REGION, cols: 3, paths: 5 });
+  }
+  // ----- region level map (Mewgenics / Slay-the-Spire style) -----
+  openRegionMap(id) {
+    this._worldSel = id; this._runRegion = id;
+    this._runMap = this._buildRunMap();
+    this._mapNodeId = null;          // null = run not started yet; entrance is the only choice
+    this._mapVisited = new Set();
+    this.state = 'runmap';
+    this.input.pointMode = false;
+    this.ui.showRunMap(this);
+  }
+  chooseMapNode(nodeId) {
+    if (this.state !== 'runmap') return;
+    const map = this._runMap; if (!map) return;
+    // first pick starts the run at the entrance
+    if (this._mapNodeId == null) {
+      if (nodeId !== map.startId) return;
+      this.audio.play('click'); this.ui.hideRunMap();
+      this._mapNodeId = map.startId; if (this._mapVisited) this._mapVisited.add(map.startId);
+      this.beginRun(this._runRegion);
+      return;
+    }
+    const cur = map.byId[this._mapNodeId];
+    if (!cur || !cur.next.includes(nodeId)) return; // only reachable nodes
+    const mnode = map.byId[nodeId];
+    this.audio.play('click'); this.ui.hideRunMap();
+    if (this._mapVisited) this._mapVisited.add(nodeId);
+    this._mapNodeId = nodeId;
+    this._forksDone = mnode.row;     // depth drives difficulty + the stage banner (stageNum = row+1)
+    if (mnode.type === 'boss') { this._travel('Approaching the lair…', () => { this.state = 'play'; this._beginRoom(true); }); return; }
+    const node = this._makeNode(mnode.type); // live reward / event / gameKey for this stage
+    if (node.type === 'combat' || node.type === 'elite') {
+      this._pendingReward = node.reward || null;
+      const elite = node.type === 'elite';
+      this._travel(null, () => { this.state = 'play'; this._beginRoom(false, elite); });
+    } else if (node.type === 'treasure') {
+      this._grantReward(node.reward); this._nextFork();
+    } else if (node.type === 'campfire') {
+      this.stats.hpMax += 12; this.wizard._maxHp = this.stats.hpMax; this.wizard.hp = this.stats.hpMax;
+      this.wizard.mana = this.stats.manaMax; this.audio.play('heal');
+      this.ui.toast('🔥 Rested — fully healed & +12 max HP'); this._nextFork();
+    } else if (node.type === 'event') {
+      this.state = 'path'; this._curEvent = node.event; this.ui.showChoiceEvent(this, node.event);
+    } else if (node.type === 'skill') {
+      this.state = 'path'; this.ui.showSkillEvent(this);
+    } else if (node.type === 'minigame') {
+      this.state = 'minigame'; this.ui.showMinigame(this, node.gameKey);
+    } else { this._nextFork(); }
+  }
+  retreatFromMap() {
+    this.ui.hideRunMap();
+    if (this._mapNodeId == null) { this.openWorldMap(); }   // hadn't started — back to the realm map
+    else { this._runMap = null; this._mapNodeId = null; this.audio.play('click'); this.enterTavern(); } // give up the run
   }
   choosePath(i) {
     if (this.state !== 'path') return;
@@ -1462,7 +1515,7 @@ export class Game {
     const events = this.input.drain();
     // cutscenes own their own input (Continue/skip buttons + the QTE mash listener);
     // ignore game input here so mashing can't fire interact/guide/drink and hide the set
-    if (this.state === 'cutscene' || this.state === 'minigame') return; // overlay owns its own input
+    if (this.state === 'cutscene' || this.state === 'minigame' || this.state === 'runmap') return; // overlay owns its own input
     for (const e of events) {
       if (e.type === 'mute') { this.toggleMute(); continue; }
       if (e.type === 'guide') { this.toggleGuide(); continue; }

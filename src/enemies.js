@@ -104,19 +104,11 @@ export class Enemies {
     const bellyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.16, roughness: 0.9, depthWrite: false });
     const belly = new THREE.Mesh(new THREE.SphereGeometry(0.4, 14, 12), bellyMat); belly.scale.set(0.9, 1.0, 0.6); belly.position.set(0, 0.52, 0.32); g.add(belly);
 
-    // BIG googly eyes — oversized whites with wandering, slightly cross-eyed pupils for a dopey look
-    const eyeW = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
-    const pupMat = (type === 'vampire' || (fierce && def.emissive)) ? new THREE.MeshStandardMaterial({ color: 0xff2a3a, emissive: 0x661017, emissiveIntensity: 0.7, roughness: 0.5 }) : darkMat;
-    const eGeo = new THREE.SphereGeometry(0.23, 14, 14);
-    const eL = new THREE.Mesh(eGeo, eyeW); eL.position.set(-0.22, 0.88, 0.38);
-    const eR = new THREE.Mesh(eGeo, eyeW); eR.position.set(0.22, 0.88, 0.38);
-    const pGeo = new THREE.SphereGeometry(0.1, 10, 10);
-    const pL = new THREE.Mesh(pGeo, pupMat); pL.position.set(-0.17, 0.85, 0.57);   // pupils drift inward+down
-    const pR = new THREE.Mesh(pGeo, pupMat); pR.position.set(0.14, 0.9, 0.57);
-    const glGeo = new THREE.SphereGeometry(0.055, 8, 8);
-    const glL = new THREE.Mesh(glGeo, eyeW); glL.position.set(-0.28, 0.95, 0.58);
-    const glR = new THREE.Mesh(glGeo, eyeW); glR.position.set(0.16, 0.97, 0.58);
-    g.add(eL, eR, pL, pR, glL, glR);
+    // simple eyes: just two small black dots
+    const eGeo = new THREE.SphereGeometry(0.11, 10, 10);
+    const eL = new THREE.Mesh(eGeo, darkMat); eL.position.set(-0.18, 0.92, 0.5);
+    const eR = new THREE.Mesh(eGeo, darkMat); eR.position.set(0.18, 0.92, 0.5);
+    g.add(eL, eR);
 
     // goofy raised brows (surprised, not scary) + a derpy open gob with a tongue and one buck tooth
     const browGeo = new THREE.BoxGeometry(0.16, 0.05, 0.07);

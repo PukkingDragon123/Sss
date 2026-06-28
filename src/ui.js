@@ -99,6 +99,7 @@ export class UI {
       eventOpts: $('event-opts'), eventSkill: $('event-skill'), skillCanvas: $('skill-canvas'), skillStop: $('skill-stop'),
       artReveal: $('art-reveal'), artRevealIcon: $('art-icon'), artRevealName: $('art-name'), artRevealDesc: $('art-desc'), artClaim: $('art-claim'),
       worldHud: $('world-hud'), worldDetail: $('world-detail'),
+      runMap: $('run-map'),
       btnGuide: $('btn-guide'), btnPause: $('btn-pause'), btnMute: $('btn-mute'),
       btnQuests: $('btn-quests'), btnInv: $('btn-inv'),
       questPanel: $('quest-panel'), qpBody: $('qp-body'), qpClose: $('qp-close'),
@@ -192,6 +193,11 @@ export class UI {
     // Forfeit = true abandon: end with score 0 (no banked partial progress, no exploit)
     if (this.el.mgQuit) this.el.mgQuit.addEventListener('click', () => { if (this._mgRunning) { const key = this._mgKey; this.hideMinigame(); if (this.game) this.game.resolveMinigame(key, 0); } });
     if (this.el.artClaim) this.el.artClaim.addEventListener('click', () => { game.audio.play('click'); const cb = this._artRevealDone; this._artRevealDone = null; this.el.artReveal.classList.add('hidden'); if (cb) cb(); });
+    // region level map: tap a reachable node to descend, or retreat
+    if (this.el.runMap) this.el.runMap.addEventListener('click', (e) => {
+      const n = e.target.closest('[data-node]'); if (n && !n.disabled) { game.chooseMapNode(n.dataset.node); return; }
+      const r = e.target.closest('[data-rm]'); if (r) game.retreatFromMap();
+    });
     // world-map HUD: Venture / Back buttons (region selection itself is 3D clicks)
     if (this.el.worldDetail) this.el.worldDetail.addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
@@ -393,6 +399,44 @@ export class UI {
     this.el.worldHud.classList.remove('hidden');
   }
   hideWorldHud() { if (this.el.worldHud) this.el.worldHud.classList.add('hidden'); }
+
+  // ---- region level map: a Mewgenics / Slay-the-Spire branching node map ----
+  showRunMap(game) {
+    const el = this.el.runMap; if (!el) return;
+    const map = game._runMap; if (!map) return;
+    const cur = game._mapNodeId;                 // null = run not started
+    const visited = game._mapVisited || new Set();
+    const reach = new Set();
+    if (cur == null) reach.add(map.startId);
+    else { const c = map.byId[cur]; if (c) c.next.forEach(id => reach.add(id)); }
+    const META = { combat: ['⚔️', 'Skirmish'], elite: ['💀', 'Elite'], treasure: ['💰', 'Cache'], campfire: ['🔥', 'Rest'], event: ['❓', 'Mystery'], skill: ['✶', 'Trial'], minigame: ['🎲', 'Game'], boss: ['👑', 'Boss'] };
+    const COLW = 96, ROWH = 80, PADX = 38, PADY = 44;
+    const W = (map.cols - 1) * COLW + PADX * 2, H = (map.rows - 1) * ROWH + PADY * 2;
+    const px = (c) => PADX + c * COLW, py = (r) => PADY + r * ROWH;
+    let edges = '';
+    for (const n of map.nodes) for (const id of n.next) {
+      const m = map.byId[id]; const open = (n.id === cur) && reach.has(id);
+      edges += `<line x1="${px(n.col)}" y1="${py(n.row)}" x2="${px(m.col)}" y2="${py(m.row)}" class="rm-edge${open ? ' open' : ''}"/>`;
+    }
+    let nodes = '';
+    for (const n of map.nodes) {
+      const meta = META[n.type] || META.combat;
+      const isCur = n.id === cur, isReach = reach.has(n.id), isVis = visited.has(n.id) && !isCur;
+      const cls = ['rm-node', 'rm-' + n.type, isCur ? 'cur' : '', isReach ? 'reach' : '', isVis ? 'vis' : ''].filter(Boolean).join(' ');
+      nodes += `<button class="${cls}" data-node="${n.id}" style="left:${px(n.col)}px;top:${py(n.row)}px" ${isReach ? '' : 'disabled'}><span class="rm-ico">${meta[0]}</span><span class="rm-lbl">${meta[1]}</span></button>`;
+    }
+    const region = (STAGES[game._runRegion] && STAGES[game._runRegion].name) || 'The Path';
+    el.innerHTML = `<div class="rm-frame">
+      <div class="rm-banner">🗺 ${region}</div>
+      <div class="rm-tip">${cur == null ? 'Tap the first level to begin' : 'Choose your next level'}</div>
+      <div class="rm-scroll"><div class="rm-graph" style="width:${W}px;height:${H}px">
+        <svg class="rm-edges" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${edges}</svg>${nodes}
+      </div></div>
+      <button class="btn rm-retreat" data-rm="retreat">◂ ${cur == null ? 'Back to realm' : 'Retreat'}</button>
+    </div>`;
+    el.classList.remove('hidden');
+  }
+  hideRunMap() { if (this.el.runMap) this.el.runMap.classList.add('hidden'); }
 
   // ---- acquired abilities + artifacts: a stacking tray, top-left ----
   setAbilities(abilities, artifacts) {

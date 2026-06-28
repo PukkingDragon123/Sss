@@ -753,7 +753,7 @@ export const TUTORIAL_QUESTS = [
   { id: 'brew',      text: 'Brew a potion at the Cauldron' },
   { id: 'forge',     text: 'Forge gear at the Anvil' },
   { id: 'combo',     text: 'Learn a spell combo' },
-  { id: 'playstyle', text: 'Pick a playstyle before a venture' },
+  { id: 'cards',     text: 'Collect a card from a minigame or quest' },
   { id: 'artifact',  text: 'Carry an artifact into a run' },
 ];
 export const hasSeen = (id) => !!(state.seen && state.seen[id]);
@@ -764,7 +764,7 @@ export function tutDone(id) {
     case 'build':     return placedItems().some(p => { const b = buildableById(p.id); return b && b.station; });
     case 'brew':      return Object.values(state.brews || {}).some(n => n > 0);
     case 'combo':     return Object.keys(state.combos || {}).length > 0;
-    case 'playstyle': return !!state.archetype;
+    case 'cards':     return cardCount() > 0;
     case 'artifact':  return (state.equippedArtifacts || []).length > 0;
     default:          return hasSeen(id); // cast/chug/level/boss/work/forge/gemstone (flagged as you do them)
   }

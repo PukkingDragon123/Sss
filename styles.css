@@ -1068,7 +1068,7 @@ body::after{content:"";position:fixed;inset:0;z-index:4;pointer-events:none;
 /* crit damage numbers punch in bigger with an extra spring */
 .floatnum.crit{
   font-size:30px;color:#ffd36b;text-shadow:0 0 8px rgba(255,180,60,.7),0 3px 4px #000;
-  -webkit-text-stroke:1px #6b3d00;animation:floatpop .9s cubic-bezier(.2,1.5,.4,1) forwards;
+  -webkit-text-stroke:1px #6b3d00;animation:floatpop .8s cubic-bezier(.2,1.5,.4,1) forwards;
 }
 @keyframes floatpop{
   0%{opacity:0;transform:translate(-50%,-50%) scale(.4) rotate(-6deg);}
@@ -1087,6 +1087,8 @@ body::after{content:"";position:fixed;inset:0;z-index:4;pointer-events:none;
 
 /* bouncy, tactile buttons — squish down on press, spring on appear */
 .btn:active,button:active{transform:translateY(2px) scale(.96);}
+/* map nodes are <button>s centered via translate(-50%,-50%) — keep them put on tap */
+.rm-node:active{transform:translate(-50%,-50%) scale(.96);}
 @keyframes panelPop{0%{opacity:0;transform:scale(.82) translateY(14px);}
   60%{opacity:1;transform:scale(1.04) translateY(0);}100%{transform:scale(1);}}
 .panel-pop{animation:panelPop .34s cubic-bezier(.34,1.5,.5,1) both;}

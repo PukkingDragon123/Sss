@@ -26,7 +26,9 @@ function blobTexture() {
 // A flat ground disc (or null on failure). Caller positions/scales it each frame.
 export function makeBlob(radius = 0.6) {
   const tex = blobTexture(); if (!tex) return null;
-  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0.9 });
+  // opacity kept moderate so it reads as a grounding contact shadow that complements
+  // (rather than fights) the real directional cast shadow under the pixel pass
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0.7 });
   const m = new THREE.Mesh(new THREE.PlaneGeometry(radius * 2, radius * 2), mat);
   m.rotation.x = -Math.PI / 2; m.renderOrder = 1; m.name = 'blobShadow'; m.userData.r = radius;
   return m;

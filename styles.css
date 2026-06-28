@@ -1063,3 +1063,30 @@ body::after{content:"";position:fixed;inset:0;z-index:4;pointer-events:none;
 .chat-btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
 .chat-go{background:linear-gradient(#ffd873,#e7a23a 60%,#c8862a);}
 .chat-no{background:linear-gradient(#b9a98a,#8a7a5c);}
+
+/* ===== Juice / retro pass: crunchy damage pops, pixel faces, bouncy UI ===== */
+/* crit damage numbers punch in bigger with an extra spring */
+.floatnum.crit{
+  font-size:30px;color:#ffd36b;text-shadow:0 0 8px rgba(255,180,60,.7),0 3px 4px #000;
+  -webkit-text-stroke:1px #6b3d00;animation:floatpop .9s cubic-bezier(.2,1.5,.4,1) forwards;
+}
+@keyframes floatpop{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.4) rotate(-6deg);}
+  18%{opacity:1;transform:translate(-50%,-78%) scale(1.45) rotate(3deg);}
+  34%{transform:translate(-50%,-88%) scale(1.05) rotate(-1deg);}
+  100%{opacity:0;transform:translate(-50%,-175%) scale(1.1);}
+}
+
+/* pixel-art portrait faces (canvas dataURL <img>) — keep them crunchy, never blurred */
+.pixface{display:block;width:100%;height:100%;object-fit:cover;border-radius:8px;
+  image-rendering:pixelated;image-rendering:crisp-edges;}
+.pixface-emoji{line-height:1;}
+.cine-portrait.has-face{background-size:cover;background-position:center;
+  image-rendering:pixelated;image-rendering:crisp-edges;font-size:0;}
+.chat-portrait .pixface{border-radius:6px;}
+
+/* bouncy, tactile buttons — squish down on press, spring on appear */
+.btn:active,button:active{transform:translateY(2px) scale(.96);}
+@keyframes panelPop{0%{opacity:0;transform:scale(.82) translateY(14px);}
+  60%{opacity:1;transform:scale(1.04) translateY(0);}100%{transform:scale(1);}}
+.panel-pop{animation:panelPop .34s cubic-bezier(.34,1.5,.5,1) both;}

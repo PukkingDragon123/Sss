@@ -323,7 +323,7 @@ export class Enemies {
         const R = def.explodeR || 3;
         game.particles.ring({ pos: e.mesh.position.clone().setY(0.3), color: 0xff7a3a, r0: 0.4, r1: R, life: 0.5 });
         game.particles.burst({ pos: e.mesh.position.clone().setY(0.6), color: 0xff7a3a, count: 22, speed: 8, size: 0.32, life: 0.7 });
-        game.shake(1.0);
+        game.shake(1.0); if (game._hitstop) game._hitstop(0.1);
         const pd = Math.hypot(game.wizard.pos.x - e.mesh.position.x, game.wizard.pos.z - e.mesh.position.z);
         if (pd < R) game.wizard.takeDamage(def.explodeDmg * (game._stageMods ? game._stageMods.dmgMult : 1), e.mesh.position);
       }
@@ -343,7 +343,10 @@ export class Enemies {
       if (e.spawnT > 0) {
         e.spawnT -= dt;
         e.phase += dt * 6;
-        const emerge = Math.max(0.01, 1 - e.spawnT / 0.45);
+        // easeOutBack: pop up past full size, then settle — a springy "boing" emerge
+        const t = Math.max(0, Math.min(1, 1 - e.spawnT / 0.45));
+        const c1 = 1.70158, c3 = c1 + 1, x = t - 1;
+        const emerge = Math.max(0.01, 1 + c3 * x * x * x + c1 * x * x);
         e.mesh.scale.setScalar(sz * emerge);
         e.mesh.rotation.y = Math.atan2(player.x - e.mesh.position.x, player.z - e.mesh.position.z);
         e.mesh.position.y = e.baseY;
@@ -392,7 +395,7 @@ export class Enemies {
       e.mesh.rotation.x = Math.abs(rx) < 1e-3 ? 0 : rx; // lean into a lunge, then settle flat
       const amp = 0.09 + (e.charging > 0 ? 0.12 : 0);
       let squash = 1 + Math.sin(e.phase * 2) * amp;
-      if (e.squashT > 0) { e.squashT -= dt; const k = e.squashT / 0.16; squash *= (1 - 0.3 * k * k); } // flatten on a hit, spring back
+      if (e.squashT > 0) { e.squashT -= dt; const k = e.squashT / 0.16; squash *= (1 - 0.42 * k * k); } // flatten on a hit, spring back
       const baseSz = TYPES[e.type].size;
       e.mesh.scale.y = baseSz * squash;
       e.mesh.scale.x = baseSz * (2 - squash);

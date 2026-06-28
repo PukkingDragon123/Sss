@@ -641,7 +641,7 @@ export class Game {
   }
 
   // ---------- effects helpers used by subsystems ----------
-  shake(a) { if (this.shakeEnabled === false) return; this.shakeAmt = Math.min(2.5, this.shakeAmt + a); }
+  shake(a) { if (this.shakeEnabled === false) return; this.shakeAmt = Math.min(3.2, this.shakeAmt + a); }
   // ranged enemies fire a hostile projectile at the wizard through the spell system
   spawnHostileOrb(from, dir, dmg) { if (this.spells) this.spells.spawnHostile(from, dir, dmg); }
 
@@ -651,7 +651,8 @@ export class Game {
     if (v.z > 1) return;
     const x = (v.x * 0.5 + 0.5) * window.innerWidth;
     const y = (-v.y * 0.5 + 0.5) * window.innerHeight;
-    this.ui.floatNumber(x, y, Math.round(n), '#ffe08a');
+    const crit = n >= 24; // big hits pop bigger & gold
+    this.ui.floatNumber(x, y, Math.round(n), crit ? '#ffd36b' : '#ffe08a', crit);
   }
 
   notifySpell(tags, pos) { this.jobs.onSpell(tags, pos, this); }
@@ -704,6 +705,7 @@ export class Game {
     if (this._drinking) this._cancelDrink();
     this.bossActive = false; this.bossKilled = true; this._roomsCleared = this._forksTotal + 2;
     meta.bumpStat('bossKills', 1); // feeds the "defeat a boss" side quest
+    this._hitstop(0.13); this.shake(1.4); // a big satisfying beat on the kill
     this._learn('boss', 'Boss down! It dropped an artifact and gemstones. Carry artifacts from your satchel into a run.');
     const nu = meta.unlockRandomUpgrade(); if (nu) { if (this._unlockedUpg) this._unlockedUpg.add(nu.id); this.ui.toast(`✨ New boon unlocked: ${nu.icon} ${nu.name}!`); } // achievement: bosses teach new boons
     if (this._pendingReward) { this._grantReward(this._pendingReward); this._pendingReward = null; }

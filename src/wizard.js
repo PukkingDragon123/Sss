@@ -4,6 +4,7 @@
 // the Human: Fall Flat signature. They're simulated in world space and lag
 // behind the shoulders, so every stagger sends them swinging.
 import * as THREE from 'three';
+import { makeBlob } from './blobshadow.js';
 
 const ARENA = 46;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -64,6 +65,11 @@ export class Wizard {
     const root = new THREE.Group();
     this.root = root;
     this.scene.add(root);
+
+    // Buckshot-Roulette-style contact shadow: a flat pixel blob that grounds him.
+    // Scene-parented (not under root) so it stays flat and ignores squash/bob.
+    this.blob = makeBlob(0.62);
+    if (this.blob) this.scene.add(this.blob);
 
     const leaner = new THREE.Group();
     const facer = new THREE.Group();
@@ -209,7 +215,7 @@ export class Wizard {
   startDrink(dur) { this.drinkHold = (dur || 3) + 0.2; if (this.mug) this.mug.visible = true; }
   endDrink() { this.drinkHold = 0; }
 
-  setVisible(v) { this.root.visible = v; this.armGroup.visible = v; }
+  setVisible(v) { this.root.visible = v; this.armGroup.visible = v; if (this.blob) this.blob.visible = v; }
 
   spendMana(n) { if (this.mana >= n) { this.mana -= n; return true; } return false; }
   heal(n) { this.hp = Math.min(this._maxHp, this.hp + n); }
@@ -227,7 +233,7 @@ export class Wizard {
       this.vel.add(k);
       this.leanV.x += k.x * 0.4; this.leanV.z += k.z * 0.4;
     }
-    this.squash(0.22, 1, 0.24);   // recoil squash on a hit landed
+    this.squash(0.28, 1, 0.24);   // recoil squash on a hit landed (punchier)
     if (this.hp <= 0) { this.hp = 0; this.alive = false; }
     return true;
   }
@@ -369,7 +375,12 @@ export class Wizard {
     if (this.squashT > 0) this.squashT = Math.max(0, this.squashT - dt);
     const sk = this.squashT > 0 ? (this.squashT / this.squashDur) : 0;
     const sqAmt = (this.squashAmt || 0) * sk * sk * (this.squashDir || 1);   // ease-out recovery
-    this.root.scale.set(1 + sqAmt * 0.7, 1 - sqAmt, 1 + sqAmt * 0.7);        // +dir = squat&wide, -dir = tall&thin
+    this.root.scale.set(1 + sqAmt * 0.85, 1 - sqAmt, 1 + sqAmt * 0.85);      // +dir = squat&wide, -dir = tall&thin (extra springy)
+    if (this.blob) {                                                          // keep the contact shadow pinned under his feet
+      this.blob.position.set(this.pos.x, this.floorY + 0.02, this.pos.z);
+      const bs = 1 + Math.max(0, sqAmt) * 0.55 - Math.max(0, -sqAmt) * 0.25;  // grows when he squats, tightens when he stretches up
+      this.blob.scale.set(bs, bs, bs);
+    }
     this.leaner.rotation.set(this.lean.z, 0, -this.lean.x);
     this.facer.rotation.y = this.yaw;
     this.head.rotation.set((this.headLean.z - this.lean.z) * 0.8, 0, -(this.headLean.x - this.lean.x) * 0.8);

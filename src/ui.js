@@ -8,6 +8,7 @@ import { STAGES, STAGE_ORDER } from './story.js';
 import { ARTIFACTS, artifactById, UPGRADES, upgradeRarity } from './upgrades.js';
 import { MINIGAMES } from './minigames.js';
 import { CARDS, CARD_BY_ID, CARD_RARITY } from './cards.js';
+import { faceImg } from './faces.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -469,7 +470,7 @@ export class UI {
     }
     el.innerHTML = `<div class="chat-bar top"></div>
       <div class="chat-box">
-        <div class="chat-portrait">${npc.icon || '🧑'}</div>
+        <div class="chat-portrait">${faceImg(npc.name || npc.id || 'patron', npc.icon)}</div>
         <div class="chat-main">
           <div class="chat-name">${npc.name || 'Patron'}</div>
           <div class="chat-line">"${npc.line || 'Well met, wizard.'}"</div>
@@ -1018,12 +1019,12 @@ export class UI {
 
   // floating damage / pickup number at screen coords (capped so big AoE
   // hits don't flood the DOM with hundreds of nodes)
-  floatNumber(x, y, text, color = '#fff') {
+  floatNumber(x, y, text, color = '#fff', crit = false) {
     this._floatCount = this._floatCount || 0;
     if (this._floatCount > 36) return;
     this._floatCount++;
     const d = document.createElement('div');
-    d.className = 'floatnum';
+    d.className = crit ? 'floatnum crit' : 'floatnum';
     d.textContent = text;
     d.style.left = x + 'px';
     d.style.top = y + 'px';

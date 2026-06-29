@@ -5,11 +5,14 @@
 // the #cinema DOM.
 import * as THREE from 'three';
 import { faceDataURL } from './faces.js';
+import { charPortrait } from './charmodels.js';
 
 const $ = (id) => document.getElementById(id);
 const V = (a) => new THREE.Vector3(a[0], a[1], a[2]);
 // portraits that are objects/sprites, not people — keep these as emoji
 const NON_FACE = new Set(['✨', '🧾', '🗺️', '🎁', '💰', '🪙', '💎', '📜', '🍺']);
+// cutscene speakers → their unique 3D pixel model (others fall back to a generic patron)
+const SPEAKER_KIND = { 'Wobblesworth': 'wizard', 'Barkeep Tomas': 'barkeep', 'The Patrons': 'patron' };
 
 // triangle stroke (Fireball glyph) the wisp traces during the draw lesson
 const DEMO_GLYPH = [[0, -1], [-0.92, 0.6], [0.92, 0.6], [0, -1]];
@@ -241,9 +244,10 @@ export class Cinematics {
       this.el.dialogue.classList.remove('hidden');
       this.el.speaker.textContent = b.speaker || '';
       this.el.line.textContent = b.text;
-      // drawn pixel face per speaker (consistent across beats); emoji only for the wisp/objects
+      // 3D pixel-model portrait per speaker (consistent across beats); emoji only for the wisp/objects
       const pem = b.portrait || '🧙';
-      const url = (b.speaker && b.speaker !== 'Wisp' && !NON_FACE.has(pem)) ? faceDataURL(b.speaker) : '';
+      const isPerson = b.speaker && b.speaker !== 'Wisp' && !NON_FACE.has(pem);
+      const url = isPerson ? (charPortrait(SPEAKER_KIND[b.speaker] || 'patron') || faceDataURL(b.speaker)) : '';
       if (url) {
         this.el.portrait.textContent = '';
         this.el.portrait.style.backgroundImage = `url(${url})`;

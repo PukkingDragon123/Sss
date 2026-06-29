@@ -566,15 +566,22 @@ export function claimSideQuest(id) {
 // Distinct walk-in patrons who roam the bar and either request an item or hand you a
 // quest (reach a deep stage / fell a boss). Always tracked against persistent state, so
 // progress carries across runs. This is the RPG loop that replaced the cooking minigame.
+// Each walk-in patron has a unique 3D "pixel" model (kind → src/charmodels.js).
 export const CUSTOMER_CAST = [
-  { name: 'Old Maple',     icon: '🧓', color: 0xc98a4a, line: 'A working wizard! Lend an old soul a hand?' },
-  { name: 'Pip the Bard',  icon: '🎻', color: 0x6f9bd0, line: 'A song wants a deed behind it. Be my hero?' },
-  { name: 'Sister Vex',    icon: '🐈', color: 0x7a6fb0, line: 'The order pays well for small favours.' },
-  { name: 'Grumble',       icon: '👺', color: 0x6fb08a, line: 'Hmf. You. I need a thing done.' },
-  { name: 'Lady Ember',    icon: '👰', color: 0xcf6f6f, line: 'A refined request, for a refined fee.' },
-  { name: 'Two-Coin Tom',  icon: '🤠', color: 0xc9a24a, line: 'Got a job, got coin. We talkin\'?' },
-  { name: 'Hooded Knox',   icon: '🥷', color: 0x5a6a7a, line: '…psst. Quiet work, good pay.' },
-  { name: 'Granny Sloe',   icon: '👵', color: 0xb06fa0, line: 'Be a dear and fetch an old witch a thing?' },
+  { name: 'Old Maple',      icon: '🧓', color: 0xc98a4a, kind: 'elder',    line: 'A working wizard! Lend an old soul a hand?' },
+  { name: 'Pip the Bard',   icon: '🎻', color: 0x6f9bd0, kind: 'bard',     line: 'A song wants a deed behind it. Be my hero?' },
+  { name: 'Sister Vex',     icon: '🐈', color: 0x7a6fb0, kind: 'catfolk',  line: 'The order pays well for small favours.' },
+  { name: 'Grumble',        icon: '👺', color: 0x6fb08a, kind: 'goblin',   line: 'Hmf. You. I need a thing done.' },
+  { name: 'Lady Ember',     icon: '👰', color: 0xcf6f6f, kind: 'noble',    line: 'A refined request, for a refined fee.' },
+  { name: 'Two-Coin Tom',   icon: '🤠', color: 0xc9a24a, kind: 'merchant', line: 'Got a job, got coin. We talkin\'?' },
+  { name: 'Hooded Knox',    icon: '🥷', color: 0x5a6a7a, kind: 'rogue',    line: '…psst. Quiet work, good pay.' },
+  { name: 'Granny Sloe',    icon: '👵', color: 0xb06fa0, kind: 'granny',   line: 'Be a dear and fetch an old witch a thing?' },
+  { name: 'Sir Gallan',     icon: '⚔️', color: 0x9aa3ad, kind: 'knight',   line: 'Honour to you, mage. A worthy task awaits.' },
+  { name: 'Brother Bog',    icon: '🐸', color: 0x6cae54, kind: 'frogfolk', line: 'Ribbit. The marsh has need of you, friend.' },
+  { name: 'Mossy the Cap',  icon: '🍄', color: 0xcf3a3a, kind: 'mushroom', line: 'Spore-greetings! A little errand, perhaps?' },
+  { name: 'Old Cobble',     icon: '🗿', color: 0x8a8f86, kind: 'golem',    line: '…rock… needs… doing. You help.' },
+  { name: 'Durga Ironbeard', icon: '🪓', color: 0xb5651d, kind: 'dwarf',   line: 'Aye! A stout job for a stout reward, eh?' },
+  { name: 'Wisp o\' Wynn',  icon: '👻', color: 0xdfeaff, kind: 'ghost',    line: 'Ooo… a living soul. Do me one small favour?' },
 ];
 const _maxRegionBest = () => Object.values(state.regionBest || {}).reduce((a, b) => Math.max(a, b), 0);
 function _genCustomerQuest() {
@@ -600,7 +607,7 @@ function _genCustomerQuest() {
     q = { kind: 'reach', stage: target, icon: '🗺️',
       ask: `Push to Stage ${target} of any region.`, reward: { gold: 18 + target * 3, gems: 2 } };
   }
-  return Object.assign({ id, npc: { name: npc.name, icon: npc.icon, color: npc.color, line: npc.line } }, q);
+  return Object.assign({ id, npc: { name: npc.name, icon: npc.icon, color: npc.color, kind: npc.kind, line: npc.line } }, q);
 }
 export const customerQuests = () => (state.customer && state.customer.active) || [];
 export const customersDone = () => (state.customer && state.customer.done) || 0;

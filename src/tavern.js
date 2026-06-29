@@ -6,6 +6,7 @@
 //     functional stations (Spell Table, Cauldron, Wardrobe, Anvil, Ledger,
 //     Quest Board) and comforts here with gold, then walk up to use them.
 import * as THREE from 'three';
+import { buildCharModel } from './charmodels.js';
 
 // bar bounds
 const MINX = -11.5, MAXX = 11.5, SOUTH = 7, NORTH = -14.5;
@@ -267,21 +268,22 @@ export class Tavern {
     const spots = [[-7.5, -1], [7.2, -2.5], [-2, -7], [6, 3.5], [-5, 4.5]];
     const colors = [0x7a8bd0, 0xcf6f6f, 0x6fb08a, 0xc9a24a, 0xb06fa0];
     const REGULARS = [
-      { name: 'Old Bram', icon: '🧔', line: 'Cold night out there, eh? Here — wet your beard on me.' },
-      { name: 'Maid Wynn', icon: '👩', line: 'You look parched, dearie. A little something for the road.' },
-      { name: 'Frodric the Fat', icon: '🧓', line: 'Hah! A real wizard in the Toad. Have a few coppers, lad.' },
+      { name: 'Old Bram', icon: '🧔', model: 'dwarf', line: 'Cold night out there, eh? Here — wet your beard on me.' },
+      { name: 'Maid Wynn', icon: '👩', model: 'barmaid', line: 'You look parched, dearie. A little something for the road.' },
+      { name: 'Frodric the Fat', icon: '🧓', model: 'merchant', line: 'Hah! A real wizard in the Toad. Have a few coppers, lad.' },
     ];
     const cast = [];
-    for (const q of (quests || [])) cast.push({ kind: 'quest', quest: q, name: q.npc.name, icon: q.npc.icon, color: q.npc.color, line: q.npc.line });
-    for (let i = 0; cast.length < spots.length && i < REGULARS.length; i++) { const r = REGULARS[i]; cast.push({ kind: 'regular', id: 'reg' + i, name: r.name, icon: r.icon, line: r.line, color: colors[cast.length % colors.length] }); }
+    for (const q of (quests || [])) cast.push({ kind: 'quest', quest: q, name: q.npc.name, icon: q.npc.icon, color: q.npc.color, model: q.npc.kind, line: q.npc.line });
+    for (let i = 0; cast.length < spots.length && i < REGULARS.length; i++) { const r = REGULARS[i]; cast.push({ kind: 'regular', id: 'reg' + i, name: r.name, icon: r.icon, model: r.model, line: r.line, color: colors[cast.length % colors.length] }); }
     cast.slice(0, spots.length).forEach((c, i) => {
-      const person = this._buildPatron(c.color, i % 2 === 0);
+      // each patron gets their own unique 3D pixel model (falls back to the generic patron)
+      let person; try { person = c.model ? buildCharModel(c.model) : this._buildPatron(c.color, i % 2 === 0); } catch (e) { person = this._buildPatron(c.color, i % 2 === 0); }
       const [sx, sz] = spots[i];
       person.position.set(sx, 0, sz); person.rotation.y = Math.random() * Math.PI * 2;
       const marker = this._makeQuestMarker(c.kind === 'quest' ? (c.icon || '❗') : '💬'); marker.position.set(0, 2.5, 0); person.add(marker);
       this.group.add(person);
       const station = { type: 'customer', label: `chat with ${c.name}`, pos: new THREE.Vector3(sx, 0, sz), mark: null, quest: c.kind === 'quest' ? c.quest : null };
-      const qn = { mesh: person, marker, pos: new THREE.Vector3(sx, 0, sz), target: new THREE.Vector3(sx, 0, sz), r: 0.6, phase: Math.random() * 6, repathCd: Math.random() * 3, speed: 0.9 + Math.random() * 0.5, yaw: 0, station, name: c.name, icon: c.icon, line: c.line, quest: station.quest, regularId: c.kind === 'regular' ? c.id : null };
+      const qn = { mesh: person, marker, pos: new THREE.Vector3(sx, 0, sz), target: new THREE.Vector3(sx, 0, sz), r: 0.6, phase: Math.random() * 6, repathCd: Math.random() * 3, speed: 0.9 + Math.random() * 0.5, yaw: 0, station, name: c.name, icon: c.icon, model: c.model, line: c.line, quest: station.quest, regularId: c.kind === 'regular' ? c.id : null };
       station.npc = qn;
       this.questNpcs.push(qn);
       this.stations.push(station);

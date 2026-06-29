@@ -1226,6 +1226,7 @@ export class Game {
   // (combat / elite / treasure / campfire / choice-event / skill-trial), Slay-the-
   // Spire style; the door previews what waits. The last fork leads to the boss. ----
   _beginRoom(isBoss, elite) {
+    if (this.atmosphere) this.atmosphere.setVisible(true); // always re-show on stage entry, whatever path got us here
     // which of the region's ten stages is this? (1 = entrance … 10 = boss lair)
     const stageNum = isBoss ? STAGES_PER_REGION : Math.min(STAGES_PER_REGION, this._forksDone + 1);
     const gim = gimmickFor(stageNum);
@@ -1297,6 +1298,7 @@ export class Game {
   _showPath() {
     if (!this._runMap) { this._runRegion = this.stage ? this.stage.id : 'forest'; this._runMap = this._buildRunMap(); this._mapNodeId = this._runMap.startId; this._mapVisited = new Set(); }
     this.state = 'runmap';
+    if (this.atmosphere) this.atmosphere.setVisible(false); // same as openRegionMap: keep the node map clean
     this.audio.play('levelup');
     this.ui.showRunMap(this);
   }

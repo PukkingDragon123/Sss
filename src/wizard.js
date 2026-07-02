@@ -137,10 +137,12 @@ export class Wizard {
     const cone = shadowed(new THREE.Mesh(new THREE.ConeGeometry(0.44, 1.3, 16), robeMat2));
     cone.position.y = 0.66; cone.rotation.z = 0.16;
     hat.add(cone);
-    const band = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.07, 8, 20), goldMat);
+    // band + star get their own material so equipped HAT gear can recolour them
+    this.hatTrimMat = goldMat.clone();
+    const band = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.07, 8, 20), this.hatTrimMat);
     band.rotation.x = Math.PI / 2; band.position.y = 0.12;
     hat.add(band);
-    const star = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), goldMat);
+    const star = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), this.hatTrimMat);
     star.position.set(0.2, 0.95, 0.32);
     hat.add(star);
 
@@ -196,6 +198,62 @@ export class Wizard {
     this.armGroup.add(this.castGlow);
     this.handLight = new THREE.PointLight(0x9b7bff, 0, 7);
     this.armGroup.add(this.handLight);
+  }
+
+  // ---- equipped gear, worn on the model (staff in hand, hat trim, robe dye, charm) ----
+  static RARITY_COLORS = { common: 0xcfcad6, rare: 0x6fb0ff, epic: 0xb97bff, legendary: 0xffcf5c };
+  _disposeGearPiece(key) {
+    const m = this[key]; if (!m) return;
+    (m.parent || this.scene).remove(m);
+    m.traverse(o => { if (o.isMesh) { o.geometry.dispose(); if (o.material) o.material.dispose(); } });
+    this[key] = null;
+  }
+  // eq: { staff: 'rare'|null, hat: ..., robe: ..., charm: ... } — rarity per worn slot
+  setEquipment(eq = {}) {
+    const RC = Wizard.RARITY_COLORS;
+    // STAFF — a knobbly walking-staff planted at the left mitten, orb glows by rarity
+    this._disposeGearPiece('gearStaff');
+    if (eq.staff) {
+      const col = RC[eq.staff] || RC.common;
+      const g = new THREE.Group();
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 1.7, 7),
+        new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.85 }));
+      rod.position.y = 0.28; rod.castShadow = true; g.add(rod);
+      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.03, 6, 12),
+        new THREE.MeshStandardMaterial({ color: 0xffd98a, metalness: 0.5, roughness: 0.35 }));
+      collar.rotation.x = Math.PI / 2; collar.position.y = 1.02; g.add(collar);
+      const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.15, 0),
+        new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.85, roughness: 0.3 }));
+      orb.position.y = 1.2; g.add(orb); g.userData.orb = orb;
+      const halo = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 10),
+        new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false }));
+      halo.position.y = 1.2; g.add(halo); g.userData.halo = halo;
+      this.armGroup.add(g);
+      this.gearStaff = g;
+    }
+    // HAT — recolour the band & star to the worn hat's rarity (gold when bare)
+    if (this.hatTrimMat) {
+      const c = eq.hat ? (RC[eq.hat] || RC.common) : 0xffd98a;
+      this.hatTrimMat.color.setHex(c);
+      this.hatTrimMat.emissive.setHex(eq.hat && eq.hat !== 'common' ? c : 0x3a2c00);
+      this.hatTrimMat.emissiveIntensity = eq.hat && eq.hat !== 'common' ? 0.35 : 1;
+    }
+    // ROBE — dye the cloth toward the worn robe's rarity
+    if (this.robeMat) {
+      const base = new THREE.Color(0x8f7bd6);
+      if (eq.robe) base.lerp(new THREE.Color(RC[eq.robe] || RC.common), 0.42);
+      this.robeMat.color.copy(base);
+    }
+    // CHARM — a glowing pendant at the chest
+    this._disposeGearPiece('gearCharm');
+    if (eq.charm) {
+      const col = RC[eq.charm] || RC.common;
+      const pend = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0),
+        new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.9, roughness: 0.25 }));
+      pend.position.set(0, 1.72, 0.47);
+      this.facer.add(pend);
+      this.gearCharm = pend;
+    }
   }
 
   reset(stats) {
@@ -325,6 +383,11 @@ export class Wizard {
     if (this.pos.z < -ARENA) { this.pos.z = -ARENA; this.vel.z *= -0.4; }
     if (this.pos.z > ARENA) { this.pos.z = ARENA; this.vel.z *= -0.4; }
 
+    // scuffed-up dust when he's really motoring — grounds the stagger in the world
+    if (sp > 4.2 && game.particles && Math.random() < dt * 9) {
+      game.particles.burst({ pos: this.pos.clone().setY(0.12), color: 0x8a7a62, count: 1, speed: 0.9, size: 0.13, life: 0.45, grav: -1.5, up: 1.2, blend: 'normal' });
+    }
+
     // ---- face the aim ----
     if (game.aimPoint) {
       const target = Math.atan2(game.aimPoint.x - this.pos.x, game.aimPoint.z - this.pos.z);
@@ -416,6 +479,22 @@ export class Wizard {
     // the tankard appears only while drinking, tipped toward his mouth
     this.mug.visible = this.drinkHold > 0;
     if (this.mug.visible) { this.mug.position.copy(this.armL.p2).add(new THREE.Vector3(0, -0.08, 0)); this.mug.rotation.z = 1.0; }
+
+    // worn staff: planted by the left mitten (swapped out for the tankard mid-chug)
+    if (this.gearStaff) {
+      const g = this.gearStaff;
+      g.visible = this.root.visible && this.drinkHold <= 0;
+      if (g.visible) {
+        g.position.set(this.armL.p2.x, (this.floorY || 0) + 0.58, this.armL.p2.z);
+        g.rotation.z = -this.lean.x * 0.7 + Math.sin(this.drunk * 0.7) * 0.05; // sways with the body
+        g.rotation.x = this.lean.z * 0.7;
+        const ud = g.userData;
+        if (ud.orb) ud.orb.rotation.y += dt * 2;
+        if (ud.halo) ud.halo.material.opacity = 0.1 + Math.abs(Math.sin(this.drunk * 1.6)) * 0.14;
+      }
+    }
+    // worn charm: a slowly spinning, breathing pendant
+    if (this.gearCharm) { this.gearCharm.rotation.y += dt * 2.4; this.gearCharm.scale.setScalar(1 + Math.sin(this.drunk * 2.2) * 0.12); }
 
     // cast spark + light at the right mitten
     if (this.castTimer > 0) {

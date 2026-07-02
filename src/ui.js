@@ -9,6 +9,7 @@ import { ARTIFACTS, artifactById, UPGRADES, upgradeRarity } from './upgrades.js'
 import { MINIGAMES } from './minigames.js';
 import { CARDS, CARD_BY_ID, CARD_RARITY } from './cards.js';
 import { charImg } from './charmodels.js';
+import { spriteImg, gearImg } from './pixelicons.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -1104,6 +1105,10 @@ export class UI {
   // ---- Results / loot ----
   showResults(win, info) {
     this.el.endTitle.textContent = win ? `${info.stage} — Conquered!` : 'The Wizard Passed Out';
+    const goals = meta.nextGoals();
+    const goalHtml = goals.length
+      ? `<div class="end-next"><div class="end-next-t">🧭 Up next</div>${goals.map(g => `<div class="end-goal"><span>${g.icon}</span><span>${g.text}</span></div>`).join('')}</div>`
+      : '';
     this.el.endStats.innerHTML = `
       <div class="end-summary">${info.stage} · 🗺 Stage ${info.stages || info.rooms}/${info.stagesTotal || 10} · ☠ ${info.kills} · Lv ${info.level} · ☀️ Day ${info.day}${info.missions ? ` · 🎯 ${info.missions} missions` : ''}${info.combo >= 5 ? ` · 🔥 best combo x${info.combo}` : ''}</div>
       ${info.artifact ? `<div class="end-artifact">✦✦ Claimed artifact: <b>${info.artifact}</b></div>` : ''}
@@ -1113,6 +1118,7 @@ export class UI {
       </div>
       <div class="loot-purse">Gems: <b>${info.gems}💎</b> · spend them on spells & research</div>
       ${info.questDone ? '<div style="color:var(--xp);font-weight:800">✓ Bounty complete! Claim it in your 📜 quest log.</div>' : ''}
+      ${goalHtml}
       <div style="margin-top:6px;color:var(--ink-dim)">${win ? 'Back at the tavern: research, learn spells, then work a shift for coin!' : 'You keep every gem you won. Regroup and try again.'}</div>`;
     this.el.btnAgain.textContent = '▸ Return to the Tavern';
     this.el.end.classList.remove('hidden');
@@ -1126,8 +1132,8 @@ export class UI {
   lootToast(gear) {
     const rc = meta.RARITIES[gear.rarity];
     const t = document.createElement('div');
-    t.className = 'toast'; t.style.color = rc.color; t.style.borderColor = rc.color;
-    t.textContent = `🎁 ${rc.name} ${gear.name}!`;
+    t.className = 'toast loot'; t.style.color = rc.color; t.style.borderColor = rc.color;
+    t.innerHTML = `${gearImg(gear, 'sm')}<span>${rc.name} ${gear.name}!</span>`;
     this.el.toastArea.appendChild(t); this.burstFX(t, 'gem', 10); setTimeout(() => t.remove(), 1900);
   }
 
@@ -1307,12 +1313,13 @@ export class UI {
     else if (act === 'equip') ok = meta.toggleEquip(id);
     else if (act === 'learn') { ok = meta.learnCombo(id); if (ok) this._earnUpgrade(g, 'brewing a new combo'); }
     else if (act === 'brew') { ok = meta.brewPotion(id); if (ok) g.ui.wispSay('🧪 Potion brewed! Its boon is yours for good.'); }
+    else if (act === 'research') { ok = meta.startResearch(id); if (ok) { const r = meta.researchById(id); g.ui.wispSay(`🔬 Research begun: ${r.name}. Work shifts & venture to pass the ${r.days} days.`, { big: true, ms: 4200 }); } }
     else if (act === 'buyroom') ok = meta.buyRoom();
     else if (act === 'buydecor') ok = meta.buyDecor(id);
     else if (act === 'rest') ok = meta.rest();
     else if (act === 'collect') { const r = meta.collectTavern(); ok = r > 0; if (ok) g.ui.toast(`Collected ${r}🪙`); }
     else if (act === 'tavup') ok = meta.buyTavernUpgrade(id);
-    else if (act === 'equipgear') ok = meta.equipGear(id);
+    else if (act === 'equipgear') { ok = meta.equipGear(id); if (ok && g && g.wizard) g.wizard.setEquipment(meta.equippedGearSummary()); }
     else if (act === 'salvage') { const v = meta.salvageGear(id); ok = v > 0; if (ok) g.ui.toast(`Salvaged for ${v}🪙`); }
     else if (act === 'upgradegear') ok = meta.upgradeGear(id);
     else if (act === 'forge') { const inst = meta.forgeGear(id); ok = !!inst; if (ok) { g.ui.lootToast(inst); g.audio.play('levelup'); } }
@@ -1326,7 +1333,7 @@ export class UI {
 
   _renderShop() {
     const kind = this._shopKind;
-    const titles = { skilltree: '✦ Spell Table', character: '🧙 Character', cauldron: '🜲 Cauldron', build: '🏛 Build Your Den', manager: '📜 Quest Board', ledger: '📒 Tavern Ledger', blacksmith: '🔨 Anvil' };
+    const titles = { skilltree: '✦ Spell Table', character: '🧙 Character', cauldron: '🜲 Cauldron', build: '🏛 Build Your Den', manager: '📜 Quest Board', ledger: '📒 Tavern Ledger', blacksmith: '🔨 Anvil', library: '📖 Arcane Library' };
     this.el.shopTitle.textContent = titles[kind] || 'Tavern';
     let html = '';
     if (kind === 'skilltree') html = this._renderSkillTree();
@@ -1336,7 +1343,36 @@ export class UI {
     else if (kind === 'manager') html = this._renderManager();
     else if (kind === 'ledger') html = this._renderLedger();
     else if (kind === 'blacksmith') html = this._renderBlacksmith();
+    else if (kind === 'library') html = this._renderLibrary();
     this.el.shopBody.innerHTML = html;
+  }
+
+  // ===== Arcane Library: spend 💎 on research; a project finishes as DAYS pass =====
+  _renderLibrary() {
+    const active = meta.researchActive();
+    let h = '<p class="shop-sub">Fund a <b>research project</b> with 💎 gems. Days pass as you work shifts &amp; venture — when the work is done, its boon applies to <b>every future run</b>.</p>';
+    if (active) {
+      const r = active, left = meta.researchDaysLeft();
+      h += `<div class="quest-box main-quest"><div class="quest-title">🔬 Researching: ${r.icon} ${r.name}</div>
+        <div class="quest-text">${r.desc}</div>
+        <div class="quest-reward">⏳ Ready in <b>${left} day${left === 1 ? '' : 's'}</b> — work a shift or venture out to pass the time.</div></div>`;
+    }
+    h += '<div class="shop-grid">';
+    for (const r of meta.RESEARCH) {
+      const done = meta.researchDone(r.id), isActive = active && active.id === r.id;
+      let action;
+      if (done) action = '<button class="shop-btn on" disabled>✓ Complete</button>';
+      else if (isActive) action = '<button class="shop-btn" disabled>⏳ In progress</button>';
+      else if (active) action = '<button class="shop-btn" disabled>One at a time</button>';
+      else action = `<button class="shop-btn gem" data-act="research" data-id="${r.id}" ${meta.canAffordGems(r.gems) ? '' : 'disabled'}>💎${r.gems} · ${r.days} days</button>`;
+      h += `<div class="shop-card ${done ? '' : isActive ? '' : active ? 'locked' : ''}">
+        <div class="shop-glyph">${r.icon}</div>
+        <div class="shop-name">${r.name}</div>
+        <div class="shop-desc">${r.desc}</div>
+        <div class="shop-acts">${action}</div></div>`;
+    }
+    h += '</div>';
+    return h;
   }
 
   _renderLedger() {
@@ -1362,6 +1398,7 @@ export class UI {
     const rc = meta.RARITIES[g.rarity];
     return `<div class="shop-card gear rar-${g.rarity} ${on ? 'worn' : ''}" style="--rc:${rc.color}">
       <div class="gear-top"><span class="gear-name" style="color:${rc.color}">${g.name}</span><span class="gear-lv">Lv${g.level}</span></div>
+      <div class="gear-sprite">${gearImg(g)}</div>
       <div class="gear-rar" style="color:${rc.color}">★ ${rc.name} ${this._slotMeta(g.slot).name}</div>
       <div class="shop-desc gear-stats">${this._gearStats(g)}</div>
       <div class="shop-acts">${acts}</div></div>`;
@@ -1405,7 +1442,7 @@ export class UI {
       const g = meta.gearById(meta.equippedGearId(slot));
       const rc = g ? meta.RARITIES[g.rarity] : null;
       strip += `<div class="eq-slot ${g ? 'filled' : ''}" style="${rc ? `--rc:${rc.color}` : ''}">
-        <div class="eq-slot-frame">${g ? `<span class="eq-slot-ico">${sm.icon}</span><span class="eq-lv">Lv${g.level}</span>` : `<span class="eq-slot-ph">${sm.icon}</span>`}</div>
+        <div class="eq-slot-frame">${g ? `${gearImg(g, 'md')}<span class="eq-lv">Lv${g.level}</span>` : `<span class="eq-slot-ph">${sm.icon}</span>`}</div>
         <div class="eq-slot-name">${g ? g.name : sm.name}</div>
         <div class="eq-slot-rar ${g ? '' : 'empty'}" ${rc ? `style="color:${rc.color}"` : ''}>${g ? rc.name : '— empty —'}</div></div>`;
     }
@@ -1437,7 +1474,7 @@ export class UI {
       const odds = meta.GEAR_RARITY_ORDER.filter(r => t.w[r]).map(r => `<span style="color:${meta.RARITIES[r].color}">${t.w[r]}%</span>`).join(' / ');
       const can = meta.canForge(t.id);
       h += `<div class="shop-card forge-card">
-        <div class="shop-glyph">${t.icon}</div>
+        <div class="shop-glyph">${spriteImg('hammer', { rarity: ['common', 'rare', 'epic'][meta.FORGE_TIERS.indexOf(t)] || 'epic' }, 'md', t.icon)}</div>
         <div class="shop-name">${t.name}</div>
         <div class="shop-desc">Cast a random piece.<br><span style="font-size:11px">${odds}</span></div>
         <div class="shop-acts"><button class="shop-btn gem" data-act="forge" data-id="${t.id}" ${can ? '' : 'disabled'}>🪙${t.gold} · 💎${t.gems}</button></div></div>`;
@@ -1559,7 +1596,7 @@ export class UI {
     for (const p of meta.POTIONS) {
       const e = meta.ELEMENTS[p.el], can = meta.canBrew(p.id), have = meta.brewCount(p.id);
       h += `<div class="shop-card" style="--el:${e.color}">
-        <div class="shop-glyph">${p.icon}</div>
+        <div class="shop-glyph">${spriteImg('potion', { color: e.color }, 'md', p.icon)}</div>
         <div class="shop-name">${p.name}${have ? ` ×${have}` : ''}</div>
         <div class="shop-desc">${p.desc}</div>
         <div class="shop-acts"><button class="shop-btn" data-act="brew" data-id="${p.id}" ${can ? '' : 'disabled'}>🌿${p.herbs} + ${e.icon}${p.gems}</button></div></div>`;

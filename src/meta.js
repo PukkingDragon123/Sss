@@ -65,6 +65,7 @@ export const BUILDABLES = [
   // can get your workshop going early)
   { id: 'spelltable', name: 'Spell Table',  icon: '✦',  cost: 0,   comfort: 0, station: 'skilltree' },
   { id: 'ledger',     name: 'Ledger Desk',  icon: '📒', cost: 60,  comfort: 0, station: 'ledger' },
+  { id: 'library',    name: 'Arcane Library', icon: '📖', cost: 70, comfort: 0, station: 'library' },
   // feature-gated stations — unlocked by completing quests
   { id: 'wardrobe',   name: 'Character Hall', icon: '🧙', cost: 70,  comfort: 0, station: 'character',  feature: 'gear' },
   { id: 'cauldron',   name: 'Cauldron',     icon: '🜲', cost: 80,  comfort: 0, station: 'cauldron',   feature: 'combos' },
@@ -716,6 +717,12 @@ export function upgradeGear(id) {
   for (const k in inst.mods) inst.mods[k] = roundStat(k, inst.mods[k] * factor);
   inst.level++; save(); return true;
 }
+// what's worn per slot (rarity or null) — drives the wizard's visible gear models
+export function equippedGearSummary() {
+  const out = {};
+  for (const slot of GEAR_SLOTS) { const inst = gearById(state.equippedGear[slot]); out[slot] = inst ? inst.rarity : null; }
+  return out;
+}
 // total stat mods from all equipped gear
 export function equipMods() {
   const out = {};
@@ -748,6 +755,26 @@ export function claimQuest() {
   const unlocked = unlockNextFeature(); // each claimed bounty opens the next facility
   save();
   return { reward: r, unlocked };
+}
+
+// ---- "up next" breadcrumbs: the player's next few concrete goals, in priority order.
+// Shown on the results screen so every run ends with a reason to take one more. ----
+export function nextGoals() {
+  const goals = [];
+  if (questDone()) goals.push({ icon: '📜', text: 'Claim your bounty reward in the quest log' });
+  const q = !questDone() && currentQuest();
+  // a bounty-unlocked facility that still needs building comes first — it's one tap away
+  for (const f of FEATURE_ORDER) {
+    if (featureUnlocked(f)) { const b = BUILDABLES.find(x => x.feature === f); if (b && !stationBuilt(b.id)) { goals.push({ icon: '🔨', text: `Build the ${b.name} in your room` }); break; } }
+  }
+  const r = researchActive();
+  if (r) { const left = researchDaysLeft(); goals.push({ icon: '🔬', text: `${r.name} finishes in ${left} day${left === 1 ? '' : 's'}` }); }
+  else if (stationBuilt('library') && RESEARCH.some(x => !researchDone(x.id) && canAffordGems(x.gems))) goals.push({ icon: '🔬', text: 'Fund a research project at your Arcane Library' });
+  if (q) goals.push({ icon: '📌', text: `Bounty: ${q.text} (+${q.reward}🪙)` });
+  const next = STAGE_ORDER.find(id => !stageCleared(id));
+  if (next) { const best = regionBest(next); goals.push({ icon: '👑', text: `Conquer ${STAGES[next].name}${best > 0 ? ` — best so far: stage ${best}/10` : ''}` }); }
+  if (debt() > 0) goals.push({ icon: '🪙', text: `${debt()} gold of tavern debt left — serve, chat & finish requests` });
+  return goals.slice(0, 3);
 }
 
 // ---- tutorial quest log: a checklist that tracks trying every mechanic (mostly derived from save state) ----

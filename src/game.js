@@ -215,12 +215,7 @@ export class Game {
     this._pickupPool = { xp: [], heart: [], mana: [], gear: [] };
     this._xpGeo = new THREE.OctahedronGeometry(0.28, 0);
     this._xpMat = new THREE.MeshStandardMaterial({ color: 0x6ee7a0, emissive: 0x1f7a47, roughness: 0.4 });
-    this._heartGeo = new THREE.SphereGeometry(0.3, 10, 10);
     this._heartMat = new THREE.MeshStandardMaterial({ color: 0xff5d6c, emissive: 0x7a1f2a, roughness: 0.4 });
-    this._manaGeo = new THREE.CylinderGeometry(0.16, 0.22, 0.42, 8);
-    this._manaMat = new THREE.MeshStandardMaterial({ color: 0x56b8ff, emissive: 0x1c5a8a, roughness: 0.4 });
-    this._gearGeo = new THREE.BoxGeometry(0.38, 0.38, 0.38);
-    this._gearMat = new THREE.MeshStandardMaterial({ color: 0xffcf5c, emissive: 0x5a4400, roughness: 0.35, metalness: 0.4 });
 
     this._groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     this._ray = new THREE.Raycaster();
@@ -608,15 +603,54 @@ export class Game {
     this.ui.showLevelUp(choices, (u) => { this.applyAbility(u); if (onPicked) onPicked(); });
   }
 
-  // ---------- pickups ----------
+  // ---------- pickups (each drop is a readable little model, not an abstract blob) ----------
   _getPickup(type) {
     const pool = this._pickupPool[type];
     if (pool.length) { const m = pool.pop(); m.visible = true; return m; }
-    const geo = type === 'xp' ? this._xpGeo : type === 'heart' ? this._heartGeo : type === 'mana' ? this._manaGeo : this._gearGeo;
-    const mat = type === 'xp' ? this._xpMat : type === 'heart' ? this._heartMat : type === 'mana' ? this._manaMat : this._gearMat;
-    const mesh = new THREE.Mesh(geo, mat);
+    let mesh;
+    if (type === 'xp') mesh = new THREE.Mesh(this._xpGeo, this._xpMat);
+    else if (type === 'heart') mesh = this._buildHeartPickup();
+    else if (type === 'mana') mesh = this._buildManaPickup();
+    else mesh = this._buildChestPickup();
     this.scene.add(mesh);
     return mesh;
+  }
+  // a plump little heart: two lobes + a point
+  _buildHeartPickup() {
+    const g = new THREE.Group(); const m = this._heartMat;
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.34, 8), m); tip.rotation.x = Math.PI; tip.position.y = 0.1; tip.castShadow = true;
+    const lL = new THREE.Mesh(new THREE.SphereGeometry(0.145, 10, 10), m); lL.position.set(-0.1, 0.3, 0);
+    const lR = new THREE.Mesh(new THREE.SphereGeometry(0.145, 10, 10), m); lR.position.set(0.1, 0.3, 0);
+    g.add(tip, lL, lR);
+    return g;
+  }
+  // a corked mana flask with glowing liquid
+  _buildManaPickup() {
+    const g = new THREE.Group();
+    const glass = new THREE.MeshStandardMaterial({ color: 0xaadcf0, roughness: 0.15, transparent: true, opacity: 0.55 });
+    const liquid = new THREE.MeshStandardMaterial({ color: 0x56b8ff, emissive: 0x1c78c8, emissiveIntensity: 0.8, roughness: 0.3 });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.21, 12, 10), glass); body.position.y = 0.18;
+    const liq = new THREE.Mesh(new THREE.SphereGeometry(0.155, 10, 10), liquid); liq.position.y = 0.15;
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.15, 8), glass); neck.position.y = 0.4;
+    const cork = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.09, 8), new THREE.MeshStandardMaterial({ color: 0x8a5a2e, roughness: 0.9 })); cork.position.y = 0.5;
+    body.castShadow = true;
+    g.add(body, liq, neck, cork);
+    return g;
+  }
+  // gear drops land as a little banded treasure chest
+  _buildChestPickup() {
+    const g = new THREE.Group();
+    const wood = new THREE.MeshStandardMaterial({ color: 0x8a5a2e, roughness: 0.8 });
+    const wood2 = new THREE.MeshStandardMaterial({ color: 0xa4703c, roughness: 0.75 });
+    const gold = new THREE.MeshStandardMaterial({ color: 0xffd24a, metalness: 0.5, roughness: 0.3, emissive: 0x5a4400 });
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.28, 0.36), wood); base.position.y = 0.14; base.castShadow = true;
+    const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.5, 10, 1, false, 0, Math.PI), wood2);
+    lid.rotation.z = Math.PI / 2; lid.position.y = 0.28; lid.castShadow = true;
+    const strapL = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.3, 0.38), gold); strapL.position.set(-0.15, 0.15, 0);
+    const strapR = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.3, 0.38), gold); strapR.position.set(0.15, 0.15, 0);
+    const latch = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.12, 0.05), gold); latch.position.set(0, 0.2, 0.19);
+    g.add(base, lid, strapL, strapR, latch);
+    return g;
   }
 
   spawnMana(pos) {
@@ -678,7 +712,11 @@ export class Game {
       if (!it.grounded) {
         it.vel.y -= 18 * dt;
         it.mesh.position.addScaledVector(it.vel, dt);
-        if (it.mesh.position.y <= 0.4) { it.mesh.position.y = 0.4; it.grounded = true; }
+        if (it.mesh.position.y <= 0.4) {
+          it.mesh.position.y = 0.4; it.grounded = true;
+          // a bouncy landing pop for the meaningful drops (XP motes rain too thickly)
+          if (it.type !== 'xp') { it.landT = 0.22; this.particles.ring({ pos: it.mesh.position.clone().setY(0.12), color: it.type === 'gear' ? 0xffd98a : 0xffffff, r0: 0.15, r1: 0.8, life: 0.3 }); }
+        }
       }
       // magnet
       if (d < rad + (it.type === 'heart' ? 0.5 : 0)) {
@@ -688,8 +726,16 @@ export class Game {
       }
       it.mesh.position.y = 0.4 + Math.sin(it.phase) * 0.08;
       it.mesh.rotation.y += dt * 3;
+      if (it.landT > 0) { it.landT -= dt; const k = Math.max(0, it.landT) / 0.22; it.mesh.scale.set(1 + 0.5 * k, 1 - 0.4 * k, 1 + 0.5 * k); }
+      else it.mesh.scale.set(1, 1, 1);
+      // chests glint on the ground so loot is never missed
+      if (it.type === 'gear' && Math.random() < dt * 2.5) this.particles.burst({ pos: it.mesh.position.clone().setY(0.5), color: 0xffe08a, count: 1, speed: 1.2, size: 0.12, life: 0.6, grav: 2, blend: 'add' });
 
       if (d < 1.0) {
+        // a collect pop so every vacuumed drop reads (kept feather-light for XP rain)
+        const pc = it.type === 'xp' ? 0x6ee7a0 : it.type === 'heart' ? 0xff5d6c : it.type === 'mana' ? 0x56b8ff : 0xffd98a;
+        this.particles.burst({ pos: it.mesh.position.clone().setY(0.6), color: pc, count: it.type === 'xp' ? 2 : 8, speed: 3, size: 0.14, life: 0.4, grav: -2, blend: 'add' });
+        if (it.type !== 'xp') this.particles.ring({ pos: it.mesh.position.clone().setY(0.15), color: pc, r0: 0.2, r1: 1.1, life: 0.3 });
         if (it.type === 'xp') { this.gainXP(it.value); this.audio.play('xp'); }
         else if (it.type === 'heart') { this.wizard.heal(it.value); this.audio.play('heal'); this.ui.toast(`❤ +${it.value} HP`); }
         else if (it.type === 'mana') { this.wizard.mana = Math.min(this.stats.manaMax, this.wizard.mana + it.value); this.audio.play('heal'); this.ui.toast(`🧪 +${it.value} mana`); }
@@ -900,6 +946,7 @@ export class Game {
     this.world.show(false);
     this.input.pointMode = false;
     this.wizard.reset(this.stats);
+    this.wizard.setEquipment(meta.equippedGearSummary()); // show worn gear in the hub too
     this.wizard.setVisible(true);
     this.wizard.pos.copy(this.tavern.start);
     this.aimPoint.set(this.tavern.door.x, 0, this.tavern.door.z);
@@ -913,6 +960,11 @@ export class Game {
       // first time in the hub — point at the quest log + satchel buttons (top-right)
       this._hubShown = true; this._introShown = true;
       setTimeout(() => { if (this.phase === 'tavern') this.ui.wispSay('Tap 📜 for your quest log and 🎒 for your satchel any time. Your goals live there.', { big: true, ms: 5200 }); }, 900);
+    }
+    if (this._giftGear) {
+      // present the intro-fight gear gift once the dust settles (it's already worn)
+      const g0 = this._giftGear; this._giftGear = null;
+      setTimeout(() => { if (this.phase === 'tavern') { this.ui.lootToast(g0); this.audio.play('levelup'); this.ui.wispSay('🎁 That staff you\'re holding? Looted it for you. Gear drops on ventures — manage it in the Character Hall.', { big: true, ms: 5000 }); } }, 6400);
     }
     this.tavernReady = true;
     this._learn('customer', '🧑 Patrons walk the bar. Chat the ❗ folk to take a quest, and the 💬 regulars for a coin tip. Walk up and press E.');
@@ -993,11 +1045,19 @@ export class Game {
     this.world.show(true);
     this.wizard.setVisible(false);
     this.input.pointMode = true;
-    this.scene.background.setHex(0x0a1424); this.scene.fog.color.setHex(0x0e1a2c); this.scene.fog.density = 0.006;
-    this.hemi.color.setHex(0xbfd0ff); this.hemi.groundColor.setHex(0x2a3a4a); this.hemi.intensity = 1.0;
-    this.dir.color.setHex(0xffffff); this.dir.intensity = 1.3; this.ambient.color.setHex(0x44506a); this.ambient.intensity = 0.6;
+    this.scene.background.setHex(0x0a1424); this.scene.fog.color.setHex(0x0e1a2c); this.scene.fog.density = 0.003; // clear night air — the map must READ
+    this.hemi.color.setHex(0xbfd0ff); this.hemi.groundColor.setHex(0x2a3a4a); this.hemi.intensity = 1.15;
+    this.dir.color.setHex(0xffffff); this.dir.intensity = 1.45; this.ambient.color.setHex(0x44506a); this.ambient.intensity = 0.7;
     this.rim.color.setHex(0xbfe0ff); this.rim.intensity = 1.0;
     if (this.heroLight) this.heroLight.intensity = 0;
+    this.renderer.toneMappingExposure = 1.1;
+    if (this.atmosphere) this.atmosphere.setVisible(false); // no god-ray haze over the chart
+    if (this._gradePass) { const u = this._gradePass.uniforms; // bright, storybook grade for the map
+      u.uContrast.value = 1.08; u.uSaturation.value = 1.14;
+      u.uShadowTint.value.set(0.9, 0.95, 1.06); u.uHighlightTint.value.set(1.05, 1.02, 0.94);
+      u.uTintStrength.value = 0.28; u.uVignette.value = 0.3; u.uVignetteSoft.value = 0.62;
+      u.uGrain.value = 0.014;
+    }
     this._aimShadow(20, 40, 14, 40); // medium frustum for the world-map islands
     let sel = this.world.order[0];
     for (const id of this.world.order) if (this._stageUnlocked(id)) sel = id;
@@ -1047,6 +1107,7 @@ export class Game {
     this.wizard.setVisible(true);
     this.stats = DEFAULT_STATS(); this.stats.wobble = 0.9;
     this.wizard.reset(this.stats);
+    this.wizard.setEquipment(meta.equippedGearSummary());
     this.wizard.pos.copy(this.tavern.roomStart);
     this.aimPoint.set(this.tavern.roomStart.x, 0, this.tavern.roomStart.z - 3);
     this.camOffset.set(0, 13, 13);
@@ -1218,6 +1279,11 @@ export class Game {
   _finishIntroRun() {
     this._introRun = false;
     meta.addGems(3); // a little starter pocketful
+    // your FIRST piece of gear — auto-worn, so the very first hub visit shows a
+    // glowing staff in hand and teaches "loot changes how you look"
+    const first = meta.genGear('staff', 'rare', 1);
+    meta.addGear(first); meta.equipGear(first.id); meta.save();
+    this._giftGear = first;
     this.state = 'blackout'; this.ui.fadeBlack(true); this.audio.play('win');
     setTimeout(() => this.cine.play('scold', () => this.enterTavern()), 900);
   }
@@ -1235,6 +1301,7 @@ export class Game {
     const scale = baseScale * gim.hpMult;
     const sizeMult = (1 + this._forksDone * 0.06 + (elite ? 0.2 : 0)) * gim.spawnMult;
     this.director.start(this.stage, { waves: isBoss ? 1 : 2, boss: isBoss, hpScale: scale, sizeMult });
+    this.shake(0.45); this.wizard.squash(0.2, 1, 0.22); // a landing thump on stage entry
     // every stage announces its gimmick and recolours the scene so it LOOKS different
     this.ui.showStageBanner(stageNum, STAGES_PER_REGION, gim);
     this.ui.setStageTint(gim.tint);
@@ -1508,6 +1575,7 @@ export class Game {
   _refreshBoonHud() { if (this.ui.setAbilities) this.ui.setAbilities([...this.runAbilities.values()], this.runArtifacts); }
 
   _applyEquipment() {
+    this.wizard.setEquipment(meta.equippedGearSummary()); // worn gear shows on the model
     const m = meta.equipMods();
     const s = this.stats;
     if (m.hpMax) s.hpMax += m.hpMax;
@@ -2124,6 +2192,7 @@ export class Game {
     this.camOffset.set(0, 26, 22);
     this.enemies.clear(); this.spells.reset(); this._clearPickups();
     this.wizard.reset(this.stats);
+    this.wizard.setEquipment(meta.equippedGearSummary()); // title-screen wizard wears your gear
     this.wizard.setVisible(true);
     this.recognizer = new Recognizer();
     this.recognizer.add('triangle', TEMPLATES.triangle);

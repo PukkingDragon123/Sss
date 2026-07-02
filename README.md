@@ -120,8 +120,19 @@ place it (tap a placed tile to sell it back at half). A tabbed palette splits
 plus comforts that deepen your rest bonus. Walk up to a built station and press
 **E** to use it.
 
+**Gear you can SEE.** Every piece of equipment has a **procedural pixel-art
+sprite** (rarity-tinted, drawn at 16×16 and upscaled crisp) in the Equipment
+Hall, loot toasts and the forge — and what you **wear shows on the wizard**: a
+glowing staff planted in his off-hand, rarity trim on the hat, a dyed robe and
+a pulsing charm pendant. Loot drops land as **little treasure chests**, mana as
+**corked flasks**, health as **plump hearts**.
+
 **The world map.** Click the **🚪 door** for a **3D top-down world map** of the
-realm — **8 regions** (🌲 Forest, 🦇 Cave, ⚰ Graveyard, 🐊 Swamp, ❄️ Frostspire,
+realm — a living pixel sea with **drifting clouds (and their shadows), circling
+gulls, a bobbing sailboat and a low moon**; conquered islands fly a **waving
+victory flag**, every island has a **themed landmark** (a volcano, a spinning
+mainspring gear, a floating monolith…), and a **stepping-stone route pulses
+toward your next conquest** — **8 regions** (🌲 Forest, 🦇 Cave, ⚰ Graveyard, 🐊 Swamp, ❄️ Frostspire,
 🔥 **Infernal Depths**, 🤖 **Neon Clockwork**, 🌌 the Void), each its own little
 island, that **unlock one by one** as you fell each boss. Monsters prowl the
 overworld, fireflies drift, and the sea shimmers. **Tap a region** to scout its
@@ -205,7 +216,9 @@ src/
                   #   dedicated bar/forest sets, smash QTE, wisp + draw lesson
   wizard.js       # the wonky spring + verlet-ragdoll wizard rig
   tavern.js       # the bar hub + your buildable room (props, patrons, stations)
-  world.js        # the 3D top-down world map (island regions, unlock gating)
+  world.js        # the 3D top-down world map: pixel sea, clouds, gulls, a boat,
+                  #   themed island landmarks, victory flags & pulsing routes
+  pixelicons.js   # procedural 16×16 pixel-art sprites for gear, tools & loot
   enemies.js      # the monsters, wobbly AI, pooling
   spells.js       # the spells, projectiles, chain lightning, effects
   recognizer.js   # $1 unistroke gesture recognizer

@@ -392,6 +392,7 @@ export class Enemies {
       for (let j = 0; j < this.list.length; j++) {
         if (j === i) continue;
         const o = this.list[j];
+        if (!o.alive) continue; // dying corpses (mid death-pop) shouldn't shove the living
         const ox = e.mesh.position.x - o.mesh.position.x;
         const oz = e.mesh.position.z - o.mesh.position.z;
         const od = ox * ox + oz * oz;

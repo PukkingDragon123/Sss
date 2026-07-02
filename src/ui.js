@@ -480,13 +480,26 @@ export class UI {
       </div>
       <div class="chat-bar bottom"></div>`;
     el.classList.remove('hidden');
+    this._typeInto(el.querySelector('.chat-line')); // typewriter the opening line
+  }
+  // typewriter-reveal an element's own text (used for dialogue lines)
+  _typeInto(lineEl) {
+    if (this._chatTyper) { clearInterval(this._chatTyper); this._chatTyper = null; }
+    if (!lineEl) return;
+    const text = lineEl.textContent; let i = 0;
+    lineEl.textContent = '';
+    this._chatTyper = setInterval(() => {
+      i += 2; lineEl.textContent = text.slice(0, i);
+      if (i >= text.length) { lineEl.textContent = text; clearInterval(this._chatTyper); this._chatTyper = null; }
+    }, 18);
   }
   // swap the dialogue to a closing "thank you" beat after a claim/tip
   chatResult(game, line, rewardText) {
     const box = this.el.chat && this.el.chat.querySelector('.chat-main'); if (!box) return;
     box.innerHTML = `<div class="chat-line">${line}</div>${rewardText ? `<div class="chat-reward">${rewardText}</div>` : ''}<div class="chat-btns"><button class="btn chat-go" data-chat="leave">Farewell ▸</button></div>`;
+    this._typeInto(box.querySelector('.chat-line'));
   }
-  hideChat() { if (this.el.chat) this.el.chat.classList.add('hidden'); }
+  hideChat() { if (this._chatTyper) { clearInterval(this._chatTyper); this._chatTyper = null; } if (this.el.chat) this.el.chat.classList.add('hidden'); }
 
   // ---- acquired abilities + artifacts: a stacking tray, top-left ----
   setAbilities(abilities, artifacts) {

@@ -263,6 +263,7 @@ export class Enemies {
     e.shield = def.shield || 0;
     e.charging = 0;
     e.squashT = 0;
+    e.dying = 0;
     e.mesh.rotation.x = 0;
 
     const center = near || new THREE.Vector3();
@@ -292,7 +293,10 @@ export class Enemies {
     e.flash = 0.12;
     e.squashT = 0.16;   // recoil squash on a hit
     if (knockDir && knockAmt) e.knock.addScaledVector(knockDir.clone().setY(0).normalize(), knockAmt);
-    if (game) game.popDamage(e.mesh.position, n);
+    if (game) {
+      game.popDamage(e.mesh.position, n);
+      if (game.particles && e.hp > 0) game.particles.burst({ pos: e.mesh.position.clone().setY(0.7 * TYPES[e.type].size), color: 0xfff2c0, count: 3, speed: 4.5, size: 0.15, life: 0.28, up: 1.5 }); // chip sparks
+    }
     if (e.hp <= 0) this._kill(e, game);
   }
 
@@ -303,12 +307,18 @@ export class Enemies {
 
   _kill(e, game) {
     e.alive = false;
+    e.dying = 0.16; e.dyingMax = 0.16; // hand the mesh to the squish-pop in update()
     const def = TYPES[e.type];
     if (game) {
       game.audio.play('enemyDie');
-      game.particles.burst({ pos: e.mesh.position.clone().setY(0.7 * def.size), color: def.color, count: def.boss ? 54 : 16, speed: def.boss ? 11 : 7, size: 0.35 * def.size, life: 0.9, up: 3, blend: 'normal' });
-      game.particles.burst({ pos: e.mesh.position.clone().setY(0.7 * def.size), color: 0xffffff, count: 8, speed: 8, size: 0.26, life: 0.45 });
-      game.particles.ring({ pos: e.mesh.position.clone().setY(0.2), color: 0xffffff, r0: 0.2, r1: 1.4 * def.size + 0.8, life: 0.32 }); // a crisp death pop
+      const dp = e.mesh.position.clone().setY(0.7 * def.size);
+      game.particles.burst({ pos: dp, color: def.color, count: def.boss ? 54 : 18, speed: def.boss ? 11 : 7, size: 0.35 * def.size, life: 0.9, up: 3, blend: 'normal' });
+      game.particles.burst({ pos: dp.clone(), color: def.color, count: def.boss ? 22 : 7, speed: 3.5, size: 0.55 * def.size, life: 1.1, grav: -15, up: 4.5, blend: 'normal' }); // heavy gibs that arc & tumble
+      game.particles.burst({ pos: dp.clone(), color: 0xffffff, count: def.boss ? 16 : 10, speed: 8, size: 0.26, life: 0.5 });               // white spark flash
+      game.particles.burst({ pos: dp.clone(), color: 0xfff0b0, count: def.boss ? 14 : 6, speed: 2.4, size: 0.18, life: 1.3, grav: 5, up: 3, blend: 'add' }); // upward "soul" motes
+      game.particles.ring({ pos: e.mesh.position.clone().setY(0.2), color: 0xffffff, r0: 0.2, r1: 1.4 * def.size + 0.8, life: 0.32 }); // a crisp white pop
+      game.particles.ring({ pos: e.mesh.position.clone().setY(0.18), color: def.color, r0: 0.2, r1: 2.4 * def.size + 1.2, life: 0.5 });   // a wider colored shock
+      if (!def.boss) game.shake(0.3 + def.size * 0.2);
       game.spawnXP(e.mesh.position.clone(), e.xp);
       game.enemyDrop(e.mesh.position.clone(), def);
       if (def.boss) { this.bossAlive = false; game.particles.ring({ pos: e.mesh.position.clone(), color: 0xffd98a, r0: 1, r1: 16, life: 0.9 }); game.onBossDead(); }
@@ -336,7 +346,19 @@ export class Enemies {
     const mods = game._stageMods, spdM = mods ? mods.speedMult : 1, dmgM = mods ? mods.dmgMult : 1;
     for (let i = this.list.length - 1; i >= 0; i--) {
       const e = this.list[i];
-      if (!e.alive) { e.mesh.visible = false; this.pools[e.type].push(e); this.list.splice(i, 1); continue; }
+      if (!e.alive) {
+        if (e.dying > 0) {                                   // squish-pop before it vanishes — juicy kill
+          e.dying -= dt;
+          const dsz = TYPES[e.type].size;
+          const u = 1 - Math.max(0, e.dying) / (e.dyingMax || 0.16); // 0→1
+          const m = u < 0.32 ? 1 + (u / 0.32) * 0.75 : Math.max(0.01, 1.75 * (1 - (u - 0.32) / 0.68));
+          e.mesh.scale.set(dsz * m * 1.18, dsz * m * 0.78, dsz * m * 1.18); // pop wide then implode
+          e.mesh.rotation.y += dt * 14;
+          e.mesh.position.y += dt * 1.8;
+          if (e.dying > 0) continue;
+        }
+        e.mesh.visible = false; this.pools[e.type].push(e); this.list.splice(i, 1); continue;
+      }
 
       const sz = TYPES[e.type].size;
       // emerging from a portal — scale up, don't move or bite yet
@@ -393,9 +415,9 @@ export class Enemies {
       e.mesh.rotation.z = Math.sin(e.phase) * 0.18;
       const rx = e.charging > 0 ? -0.28 : e.mesh.rotation.x * 0.8;
       e.mesh.rotation.x = Math.abs(rx) < 1e-3 ? 0 : rx; // lean into a lunge, then settle flat
-      const amp = 0.09 + (e.charging > 0 ? 0.12 : 0);
+      const amp = 0.13 + (e.charging > 0 ? 0.14 : 0); // jellier idle jiggle
       let squash = 1 + Math.sin(e.phase * 2) * amp;
-      if (e.squashT > 0) { e.squashT -= dt; const k = e.squashT / 0.16; squash *= (1 - 0.42 * k * k); } // flatten on a hit, spring back
+      if (e.squashT > 0) { e.squashT -= dt; const k = e.squashT / 0.16; squash *= (1 - 0.52 * k * k); } // squishier flatten on a hit
       const baseSz = TYPES[e.type].size;
       e.mesh.scale.y = baseSz * squash;
       e.mesh.scale.x = baseSz * (2 - squash);

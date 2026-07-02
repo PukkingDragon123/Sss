@@ -363,8 +363,9 @@ export class Wizard {
 
     // ---- walk bob & leg waddle ----
     this.bob += dt * (4 + sp * 1.6);
-    const bobAmt = Math.min(0.18, 0.04 + sp * 0.02);
+    const bobAmt = Math.min(0.24, 0.05 + sp * 0.025); // bouncier stride
     const bobY = Math.abs(Math.sin(this.bob)) * bobAmt;
+    this._walkSquish = Math.sin(this.bob * 2) * 0.05 * Math.min(1, sp / 2.5); // springy step squish
     this.legL.rotation.x = Math.sin(this.bob) * 0.5 * Math.min(1, sp / 3);
     this.legR.rotation.x = -Math.sin(this.bob) * 0.5 * Math.min(1, sp / 3);
 
@@ -375,7 +376,8 @@ export class Wizard {
     if (this.squashT > 0) this.squashT = Math.max(0, this.squashT - dt);
     const sk = this.squashT > 0 ? (this.squashT / this.squashDur) : 0;
     const sqAmt = (this.squashAmt || 0) * sk * sk * (this.squashDir || 1);   // ease-out recovery
-    this.root.scale.set(1 + sqAmt * 0.85, 1 - sqAmt, 1 + sqAmt * 0.85);      // +dir = squat&wide, -dir = tall&thin (extra springy)
+    const ws = this._walkSquish || 0;                                        // bouncy footstep squish
+    this.root.scale.set(1 + sqAmt * 0.85 - ws * 0.6, 1 - sqAmt + ws, 1 + sqAmt * 0.85 - ws * 0.6); // +dir = squat&wide, -dir = tall&thin (extra springy)
     if (this.blob) {                                                          // keep the contact shadow pinned under his feet
       this.blob.position.set(this.pos.x, this.floorY + 0.02, this.pos.z);
       const bs = 1 + Math.max(0, sqAmt) * 0.55 - Math.max(0, -sqAmt) * 0.25;  // grows when he squats, tightens when he stretches up

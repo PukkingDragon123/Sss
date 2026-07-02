@@ -1092,3 +1092,9 @@ body::after{content:"";position:fixed;inset:0;z-index:4;pointer-events:none;
 @keyframes panelPop{0%{opacity:0;transform:scale(.82) translateY(14px);}
   60%{opacity:1;transform:scale(1.04) translateY(0);}100%{transform:scale(1);}}
 .panel-pop{animation:panelPop .34s cubic-bezier(.34,1.5,.5,1) both;}
+
+/* ===== Dialogue polish: living portraits (idle bob + speaking pulse) ===== */
+.cine-portrait,.chat-portrait{animation:portraitBob 2.6s ease-in-out infinite;}
+.cine-portrait.speaking{animation:portraitSpeak .5s ease-in-out infinite;}
+@keyframes portraitBob{0%,100%{transform:translateY(0) rotate(-1deg);}50%{transform:translateY(-3px) rotate(1deg);}}
+@keyframes portraitSpeak{0%,100%{transform:translateY(0) scale(1);}50%{transform:translateY(-2px) scale(1.06);}}

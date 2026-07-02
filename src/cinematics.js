@@ -243,7 +243,9 @@ export class Cinematics {
     if (b.text) {
       this.el.dialogue.classList.remove('hidden');
       this.el.speaker.textContent = b.speaker || '';
-      this.el.line.textContent = b.text;
+      this._typer = { full: b.text, n: 0 };            // typewriter reveal (advanced in update)
+      this.el.line.textContent = '';
+      if (this.el.portrait) this.el.portrait.classList.add('speaking');
       // 3D pixel-model portrait per speaker (consistent across beats); emoji only for the wisp/objects
       const pem = b.portrait || '🧙';
       const isPerson = b.speaker && b.speaker !== 'Wisp' && !NON_FACE.has(pem);
@@ -257,7 +259,7 @@ export class Cinematics {
         this.el.portrait.classList.remove('has-face');
         this.el.portrait.textContent = pem;
       }
-    } else { this.el.dialogue.classList.add('hidden'); }
+    } else { this._typer = null; if (this.el.portrait) this.el.portrait.classList.remove('speaking'); this.el.dialogue.classList.add('hidden'); }
     // specials
     this.qte = null; this.el.qte.classList.add('hidden'); this._demo = null;
     if (b.special === 'rampage') this._startRampage();
@@ -280,13 +282,19 @@ export class Cinematics {
     if (b.special === 'drawDemo' && this._demo && this._demo.t < 2.6) return; // let the lesson finish
     if (b.special === 'getDrunk' && this._drunk && this._drunk.t < 1.1) return; // let the gulp land
     if (b.special === 'throw' && this._throw && this._throw.t < 1.3) return;      // let him fly
+    if (this._typer) { // first click finishes the typewriter; next click advances
+      this.el.line.textContent = this._typer.full; this._typer = null;
+      if (this.el.portrait) this.el.portrait.classList.remove('speaking');
+      this.game.audio.play('click'); return;
+    }
     this.game.audio.play('click');
     this._next();
   }
 
   _finish() {
     if (!this.active) return;
-    this.active = false; this.qte = null;
+    this.active = false; this.qte = null; this._typer = null;
+    if (this.el.portrait) this.el.portrait.classList.remove('speaking');
     window.removeEventListener('pointerdown', this._qteHandler);
     this.el.cinema.classList.add('hidden');
     this.bar.visible = false; this.forest.visible = false;
@@ -332,6 +340,14 @@ export class Cinematics {
     if (!this.active) return;
     const g = this.game, b = this.script[this.idx];
     this.beatT += dt;
+
+    // typewriter: reveal the current line character-by-character
+    if (this._typer) {
+      this._typer.n += dt * 46;
+      const full = this._typer.full;
+      if (this._typer.n >= full.length) { this.el.line.textContent = full; this._typer = null; if (this.el.portrait) this.el.portrait.classList.remove('speaking'); }
+      else this.el.line.textContent = full.slice(0, Math.floor(this._typer.n));
+    }
 
     // ambient set life: lamp + fireplace flicker, sconces, fireflies, eyes
     if (this.bar.visible) {

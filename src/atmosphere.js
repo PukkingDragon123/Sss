@@ -5,16 +5,17 @@
 // the persistent scene as one group, toggled per phase, ZERO per-frame allocations.
 import * as THREE from 'three';
 
-const SHAFT_COUNT = 5;
+const SHAFT_COUNT = 7;
 const DUST_COUNT = 140;       // single draw call, mobile-safe
 const DUST_RADIUS = 26;
 const DUST_HEIGHT = 16;
+const MIST_COUNT = 4;
 
 // Per-mood palette. Opacities deliberately LOW — bloom amplifies additive overlaps.
 const MOODS = {
-  tavern: { shaft: 0xffcf86, shaftOp: 0.13, dust: 0xffe2b0, dustOp: 0.10 },
-  arena: { shaft: 0xbcd2ff, shaftOp: 0.085, dust: 0xd6e6ff, dustOp: 0.06 },
-  world: { shaft: 0x9fc0ff, shaftOp: 0.06, dust: 0xcfe0ff, dustOp: 0.05 },
+  tavern: { shaft: 0xffcf86, shaftOp: 0.13, dust: 0xffe2b0, dustOp: 0.10, mist: 0x3a2a20, mistOp: 0.16 },
+  arena: { shaft: 0xbcd2ff, shaftOp: 0.09, dust: 0xd6e6ff, dustOp: 0.06, mist: 0x22304a, mistOp: 0.14 },
+  world: { shaft: 0x9fc0ff, shaftOp: 0.06, dust: 0xcfe0ff, dustOp: 0.05, mist: 0x2a3850, mistOp: 0.10 },
 };
 
 export class Atmosphere {
@@ -22,6 +23,7 @@ export class Atmosphere {
     this.scene = scene;
     this.t = 0;
     this.shafts = [];
+    this.mist = [];
     this.group = new THREE.Group();
     this.group.renderOrder = 10;
     scene.add(this.group);
@@ -29,6 +31,7 @@ export class Atmosphere {
     this._dustTex = this._makeDustTexture();   // null → dust skipped
     this._buildShafts();
     this._buildDust();
+    this._buildMist();
     this.setMood('arena');
   }
 
@@ -66,7 +69,7 @@ export class Atmosphere {
     const up = new THREE.Vector3(0, 1, 0);
     const quat = new THREE.Quaternion().setFromUnitVectors(up, sunDir);
     this._geo = new THREE.PlaneGeometry(1, 1);                      // shared, scaled per shaft
-    const spots = [[-10, 9, -6], [6, 11, -2], [-2, 8, 8], [12, 10, 6], [-14, 9, 4]];
+    const spots = [[-10, 9, -6], [6, 11, -2], [-2, 8, 8], [12, 10, 6], [-14, 9, 4], [3, 12, -10], [-6, 9, 11]];
     for (let i = 0; i < SHAFT_COUNT; i++) {
       const mat = new THREE.MeshBasicMaterial({
         map: this._shaftTex, transparent: true, blending: THREE.AdditiveBlending,
@@ -102,10 +105,30 @@ export class Atmosphere {
     this.group.add(this.dust);
   }
 
+  // low, drifting ground haze — big soft planes hugging the floor (volumetric fog feel)
+  _buildMist() {
+    if (!this._dustTex) return;
+    this._mistGeo = new THREE.PlaneGeometry(1, 1);
+    const spots = [[-8, 0.7, -4], [7, 0.9, 3], [0, 1.1, -9], [-3, 0.6, 8]];
+    for (let i = 0; i < MIST_COUNT; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        map: this._dustTex, transparent: true, blending: THREE.NormalBlending,
+        depthWrite: false, depthTest: true, fog: false, opacity: 0.12, color: 0x2a3850,
+      });
+      const m = new THREE.Mesh(this._mistGeo, mat);
+      const [x, y, z] = spots[i % spots.length];
+      m.position.set(x, y, z); m.rotation.x = -Math.PI / 2;
+      m.scale.set(18 + (i * 3) % 10, 18 + (i * 5) % 12, 1);
+      m.renderOrder = 9; this.group.add(m);
+      this.mist.push({ mesh: m, phase: i * 1.9, drift: 0.3 + (i % 3) * 0.15, baseOp: 0.12, home: { x, z } });
+    }
+  }
+
   setMood(mood) {
     const m = MOODS[mood] || MOODS.arena; this._mood = m;
     for (const s of this.shafts) { s.mesh.material.color.setHex(m.shaft); s.baseOp = m.shaftOp; }
     if (this.dustMat) { this.dustMat.color.setHex(m.dust); this.dustMat.opacity = m.dustOp; this._dustBaseOp = m.dustOp; }
+    for (const mi of this.mist) { mi.mesh.material.color.setHex(m.mist); mi.baseOp = m.mistOp; }
   }
 
   setVisible(v) { this.group.visible = v; }
@@ -124,12 +147,20 @@ export class Atmosphere {
       const dp = 0.8 + 0.2 * Math.sin(this.t * 0.9);
       this.dustMat.opacity = (this._dustBaseOp || 0.07) * dp;
     }
+    for (const mi of this.mist) {                                  // ground haze drifts + breathes
+      mi.mesh.position.x = mi.home.x + Math.sin(this.t * mi.drift + mi.phase) * 2.5;
+      mi.mesh.position.z = mi.home.z + Math.cos(this.t * mi.drift * 0.8 + mi.phase) * 2.5;
+      mi.mesh.rotation.z = this.t * mi.drift * 0.15;
+      mi.mesh.material.opacity = (mi.baseOp || 0.12) * (0.7 + 0.3 * Math.sin(this.t * 0.6 + mi.phase));
+    }
   }
 
   dispose() {
     this.scene.remove(this.group);
     for (const s of this.shafts) s.mesh.material.dispose();
+    for (const mi of this.mist) mi.mesh.material.dispose();
     if (this._geo) this._geo.dispose();
+    if (this._mistGeo) this._mistGeo.dispose();
     if (this.dust) { this.dust.geometry.dispose(); this.dustMat.dispose(); }
     if (this._shaftTex) this._shaftTex.dispose();
     if (this._dustTex) this._dustTex.dispose();

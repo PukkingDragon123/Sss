@@ -64,9 +64,9 @@ export function faceDataURL(id, { grid = 16, scale = 6, bg = true } = {}) {
   return url;
 }
 
-// DOM convenience: <img> markup (pixelated), or emoji fallback if generation failed.
+// DOM convenience: <img> markup (pixelated), or a plain text fallback if generation failed.
 export function faceImg(id, emoji, cls = '', opts) {
   const url = faceDataURL(id, opts);
-  if (!url) return `<span class="pixface-emoji">${emoji || '🧑'}</span>`;
+  if (!url) return `<span class="pixface-emoji">?</span>`;
   return `<img class="pixface ${cls}" src="${url}" alt="">`;
 }

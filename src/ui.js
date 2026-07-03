@@ -6,10 +6,10 @@ import { TEMPLATES } from './recognizer.js';
 import * as meta from './meta.js';
 import { STAGES, STAGE_ORDER } from './story.js';
 import { ARTIFACTS, artifactById, UPGRADES, upgradeRarity } from './upgrades.js';
-import { MINIGAMES } from './minigames.js';
+import { MINIGAMES, setIconDrawer } from './minigames.js';
 import { CARDS, CARD_BY_ID, CARD_RARITY } from './cards.js';
 import { charImg } from './charmodels.js';
-import { spriteImg, gearImg } from './pixelicons.js';
+import { spriteImg, gearImg, iconImg, iconCanvas, pixify, pixifyHtml } from './pixelicons.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -72,9 +72,10 @@ export class UI {
       drinkBar: $('drink-bar'), drinkBarFill: $('drink-bar-fill'),
       loadscene: $('loadscene'), loadsceneText: $('loadscene-text'),
       timer: $('timer'), kills: $('kills'), sobriety: $('sobriety'),
+      killsWrap: $('kills-wrap'), sobrietyWrap: $('sobriety-wrap'), clockWrap: $('clock-wrap'),
       jobTracker: $('job-tracker'), jobDesc: $('job-desc'), jobFill: $('job-fill'),
       toastArea: $('toast-area'),
-      story: $('story'), storySpeaker: $('story-speaker'), storyText: $('story-text'), storyNext: $('story-next'),
+      story: $('story'), storySpeaker: $('story-speaker'), storyText: $('story-text'), storyNext: $('story-next'), storyPortrait: $('story-portrait'),
       levelup: $('levelup'), cards: $('upgrade-cards'),
       title: $('title'), btnStart: $('btn-start'), btnHow: $('btn-how'), howto: $('howto'), btnHowClose: $('btn-how-close'),
       btnSettings: $('btn-settings'), btnCredits: $('btn-credits'),
@@ -88,7 +89,7 @@ export class UI {
       end: $('end'), endTitle: $('end-title'), endStats: $('end-stats'), btnAgain: $('btn-again'),
       loading: $('loading'),
       bars: document.querySelector('.bars'), spellbook: $('spellbook'), castHint: $('cast-hint'),
-      gold: $('gold'), gems: $('gems'), clock: $('clock'), wave: $('wave'), banner: $('banner'), interactPrompt: $('interact-prompt'), btnInteract: $('btn-interact'),
+      gold: $('gold'), gems: $('gems'), clock: $('clock'), wave: $('wave'), banner: $('banner'), interactPrompt: $('interact-prompt'), btnInteract: $('btn-interact'), btnInteractLabel: $('btn-interact-label'),
       stageBanner: $('stage-banner'), stageTint: $('stage-tint'), missionHud: $('mission-hud'),
       shop: $('shop'), shopTitle: $('shop-title'), shopGold: $('shop-gold'), shopGems: $('shop-gems'), shopBody: $('shop-body'), shopClose: $('shop-close'),
       tavernHud: $('tavern-hud'), ruckusCount: $('ruckus-count'),
@@ -119,6 +120,17 @@ export class UI {
 
   init(game) {
     this.game = game;
+    // stamp every <i class="pix" data-pix="..."> in the static markup with its sprite
+    document.querySelectorAll('i.pix[data-pix]').forEach(el => { el.innerHTML = iconImg(el.dataset.pix, {}, el.dataset.cls || ''); });
+    // the wisp bubble's face is a render of the actual wisp model
+    const wp = $('wisp-portrait'); if (wp) wp.innerHTML = charImg('wisp', 'wisp', '');
+    // hand the minigames a way to stamp pixel sprites onto their canvas (keeps
+    // minigames.js import-free for the node test suite)
+    setIconDrawer((ctx, key, x, y, size) => {
+      const c = iconCanvas(key, { scale: 6 }); if (!c) return;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(c, x - size / 2, y - size / 2, size, size);
+    });
     this.el.btnStart.addEventListener('click', () => { game.audio.resume(); game.audio.play('click'); this.showSlots(); });
     this.el.btnAgain.addEventListener('click', () => { game.audio.play('click'); game.enterTavern(); });
     this.el.btnHow.addEventListener('click', () => { game.audio.play('click'); this.el.howto.classList.toggle('hidden'); });
@@ -229,7 +241,7 @@ export class UI {
     this.buildGuide(loadout);
   }
 
-  setGold(n) { if (this.el.gold) this.el.gold.textContent = `🪙 ${n}`; if (this.el.shopGold) this.el.shopGold.textContent = `🪙 ${n}`; this.setGems(meta.gems()); }
+  setGold(n) { if (this.el.gold) this.el.gold.textContent = `${n}`; if (this.el.shopGold) this.el.shopGold.textContent = `${n}`; this.setGems(meta.gems()); }
 
   // ---- the quest log side panel (debt + bounty + the learn-the-ropes checklist) ----
   toggleQuestPanel(game) {
@@ -247,54 +259,54 @@ export class UI {
     const body = this.el.qpBody; if (!body) return;
     const debt = meta.debt(), total = meta.DEBT_TOTAL || 1, paid = Math.max(0, total - debt);
     const q = meta.currentQuest(), done = meta.questDone(), prog = meta.tutorialProgress();
-    let h = `<div class="qp-card"><h4>⚜ Main Quest: The Tavern Debt</h4>
+    let h = `<div class="qp-card"><h4>${iconImg('⚜', {}, 'sm')} Main Quest: The Tavern Debt</h4>
       <p class="qp-sub">Pay Barkeep Tomas back and the Tipsy Toad is yours.</p>
       <div class="debt-bar"><div class="debt-fill" style="width:${100 * paid / total}%"></div></div>
       <div class="qp-progress">${paid} / ${total} gold paid</div>`;
     h += debt > 0
       ? `<div class="shop-acts" style="margin-top:8px"><button class="shop-btn" data-act="paydebt" ${meta.gold() > 0 ? '' : 'disabled'}>Pay ${Math.min(meta.gold(), debt)} gold</button></div></div>`
       : `<div class="qp-progress" style="color:var(--xp)">Debt cleared. The Toad is yours!</div></div>`;
-    h += `<div class="qp-card"><h4>📌 Bounty</h4>
-      <p class="qp-sub">${q ? q.text + ' (reward ' + q.reward + ' gold)' : 'No bounty right now.'}</p>
+    h += `<div class="qp-card"><h4>${iconImg('pin', {}, 'sm')} Bounty</h4>
+      <p class="qp-sub">${q ? pixify(q.text, 'sm') + ' (reward ' + q.reward + ' gold)' : 'No bounty right now.'}</p>
       <div class="shop-acts"><button class="shop-btn ${done ? 'on' : ''}" data-act="claim" ${done ? '' : 'disabled'}>${done ? 'Claim reward' : 'In progress'}</button></div></div>`;
     const reqs = meta.customerQuests();
-    h += `<div class="qp-card"><h4>🧑 Customer Requests</h4>
-      <p class="qp-sub">Patrons roam the bar with a ❗ — walk up and talk to take their job.</p>`;
+    h += `<div class="qp-card"><h4>${iconImg('face', {}, 'sm')} Customer Requests</h4>
+      <p class="qp-sub">Patrons roam the bar with a ${iconImg('bang', {}, 'sm')} — walk up and talk to take their job.</p>`;
     if (reqs.length) { h += '<div class="qp-tasklist">';
-      for (const cq of reqs) { const ready = meta.customerQuestReady(cq); h += `<div class="qp-task ${ready ? 'done' : ''}"><span class="tick">${ready ? '✓' : (cq.icon || '○')}</span><span><b>${cq.npc.name}:</b> ${cq.ask}${ready ? ' <i>(ready!)</i>' : ''}</span></div>`; }
+      for (const cq of reqs) { const ready = meta.customerQuestReady(cq); h += `<div class="qp-task ${ready ? 'done' : ''}"><span class="tick">${ready ? '✓' : iconImg(cq.icon || 'face', {}, 'sm')}</span><span><b>${cq.npc.name}:</b> ${pixify(cq.ask, 'sm')}${ready ? ' <i>(ready!)</i>' : ''}</span></div>`; }
       h += '</div>';
     } else h += '<div class="qp-progress">No requests right now.</div>';
     h += '</div>';
     // side quests — each awards a collectible card
     const sqs = meta.sideQuests();
     const sqDone = sqs.filter(s => s.claimed).length;
-    h += `<div class="qp-card"><h4>🎯 Side Quests</h4>
+    h += `<div class="qp-card"><h4>${iconImg('target', {}, 'sm')} Side Quests</h4>
       <p class="qp-sub">Little goals that pay out a fun card.</p><div class="qp-tasklist">`;
     for (const sq of sqs) {
       const state = sq.claimed ? 'done' : '';
       const right = sq.claimed ? '<span class="qp-claimed">✓ claimed</span>'
-        : sq.ready ? `<button class="shop-btn" data-act="claimside" data-id="${sq.id}">Claim 🃏</button>`
+        : sq.ready ? `<button class="shop-btn" data-act="claimside" data-id="${sq.id}">Claim ${iconImg('cardpack', {}, 'sm')}</button>`
           : `<span class="qp-prog">${Math.min(sq.have, sq.goal)}/${sq.goal}</span>`;
-      h += `<div class="qp-task ${state}"><span class="tick">${sq.claimed ? '✓' : '🎯'}</span><span class="qp-task-t">${sq.text} <i class="qp-reward">→ ${sq.cardName}</i></span>${right}</div>`;
+      h += `<div class="qp-task ${state}"><span class="tick">${sq.claimed ? '✓' : iconImg('target', {}, 'sm')}</span><span class="qp-task-t">${pixify(sq.text, 'sm')} <i class="qp-reward">→ ${sq.cardName}</i></span>${right}</div>`;
     }
     h += `</div><div class="qp-progress">${sqDone} / ${sqs.length} side quests done</div></div>`;
     // card gallery
     const owned = new Set(meta.cardsOwned());
-    h += `<div class="qp-card"><h4>🃏 Card Collection</h4>
+    h += `<div class="qp-card"><h4>${iconImg('cardpack', {}, 'sm')} Card Collection</h4>
       <p class="qp-sub">Won from minigames & side quests.</p><div class="card-grid">`;
     for (const c of CARDS) {
       const has = owned.has(c.id); const rc = CARD_RARITY[c.rarity];
-      h += `<div class="card-cell ${has ? 'has' : 'locked'}" style="${has ? `border-color:${rc.color}` : ''}" title="${has ? c.name + ' — ' + c.flavor : 'Locked'}"><span class="card-ico">${has ? c.icon : '🔒'}</span><span class="card-nm" style="${has ? `color:${rc.color}` : ''}">${has ? c.name : '???'}</span></div>`;
+      h += `<div class="card-cell ${has ? 'has' : 'locked'}" style="${has ? `border-color:${rc.color}` : ''}" title="${has ? c.name + ' — ' + c.flavor : 'Locked'}"><span class="card-ico">${has ? iconImg(c.icon, {}, 'sm') : iconImg('lock', {}, 'sm')}</span><span class="card-nm" style="${has ? `color:${rc.color}` : ''}">${has ? c.name : '???'}</span></div>`;
     }
     h += `</div><div class="qp-progress">${owned.size} / ${CARDS.length} cards collected</div></div>`;
-    h += `<div class="qp-card"><h4>🧭 Learn the Ropes</h4>
+    h += `<div class="qp-card"><h4>${iconImg('map', {}, 'sm')} Learn the Ropes</h4>
       <p class="qp-sub">Try every part of the realm. The wisp will guide you.</p><div class="qp-tasklist">`;
-    for (const t of meta.tutorialChecklist()) h += `<div class="qp-task ${t.done ? 'done' : ''}"><span class="tick">${t.done ? '✓' : '○'}</span><span>${t.text}</span></div>`;
+    for (const t of meta.tutorialChecklist()) h += `<div class="qp-task ${t.done ? 'done' : ''}"><span class="tick">${t.done ? '✓' : '○'}</span><span>${pixify(t.text, 'sm')}</span></div>`;
     h += `</div><div class="qp-progress">${prog.done} / ${prog.total} mechanics tried</div></div>`;
     body.innerHTML = h;
   }
-  setGems(n) { if (this.el.gems) this.el.gems.textContent = `💎 ${n}`; if (this.el.shopGems) this.el.shopGems.textContent = `💎 ${n}`; }
-  setClock(day) { if (this.el.clock) this.el.clock.textContent = `☀️ Day ${day}`; }
+  setGems(n) { if (this.el.gems) this.el.gems.textContent = `${n}`; if (this.el.shopGems) this.el.shopGems.textContent = `${n}`; }
+  setClock(day) { if (this.el.clock) this.el.clock.textContent = `Day ${day}`; }
 
   buildGuide(loadout) {
     if (!this.el.guideCards) return;
@@ -354,10 +366,11 @@ export class UI {
     const hub = tavern || room || world;
     this.el.bars.classList.toggle('hidden', hub);        // vitals only in the fight
     this.el.spellbook.classList.toggle('hidden', !arena);
-    this.el.sobriety.classList.toggle('hidden', !arena);
+    // toggle the whole stat PILLS (icon + number), not just the inner number
+    if (this.el.sobrietyWrap) this.el.sobrietyWrap.classList.toggle('hidden', !arena);
     this.el.timer.classList.toggle('hidden', !arena || isTouch);  // calmer fight HUD on phones
-    this.el.kills.classList.toggle('hidden', !arena || isTouch);
-    if (this.el.clock) this.el.clock.classList.toggle('hidden', arena); // clock shows in the hubs
+    if (this.el.killsWrap) this.el.killsWrap.classList.toggle('hidden', !arena || isTouch);
+    if (this.el.clockWrap) this.el.clockWrap.classList.toggle('hidden', arena); // clock shows in the hubs
     this.el.waveWrap.classList.add('hidden');
     if (this.el.bossBar) this.el.bossBar.classList.add('hidden');
     this.el.tavernHud.classList.add('hidden');
@@ -374,10 +387,10 @@ export class UI {
     if (this.el.questTracker) { this.el.questTracker.classList.toggle('hidden', !(tavern || room)); this._qtSig = null; } // main-quest tracker in the hub
     if (!world) this.hideWorldHud();
     if (!arena && !world) { this.el.interactPrompt.classList.add('hidden'); this.el.btnInteract.classList.add('hidden'); }
-    if (tavern) this.el.castHint.innerHTML = isTouch ? 'Wander to a <b>table</b> for an order, pour at the <b>bar</b>, carry it back · 🪜 room · 🚪 venture' : 'Take an order at a <b>table</b>, pour at the <b>bar</b>, carry it back to <b>serve</b> for tips · <b>🚪</b> venture · <b>🪜</b> room · press <b>E</b>';
-    else if (room) this.el.castHint.innerHTML = isTouch ? 'Tap <b>🔨 Build</b> to place stations & furniture · tap a station to use it' : 'Press <b>🔨 Build</b> to craft & place stations · walk to one and press <b>E</b> to use it · stairs to go down';
+    if (tavern) this.el.castHint.innerHTML = pixifyHtml(isTouch ? 'Wander to a <b>table</b> for an order, pour at the <b>bar</b>, carry it back · 🪜 room · 🚪 venture' : 'Take an order at a <b>table</b>, pour at the <b>bar</b>, carry it back to <b>serve</b> for tips · <b>🚪</b> venture · <b>🪜</b> room · press <b>E</b>', 'sm');
+    else if (room) this.el.castHint.innerHTML = pixifyHtml(isTouch ? 'Tap <b>🔨 Build</b> to place stations & furniture · tap a station to use it' : 'Press <b>🔨 Build</b> to craft & place stations · walk to one and press <b>E</b> to use it · stairs to go down', 'sm');
     else if (world) this.el.castHint.innerHTML = isTouch ? 'Tap a <b>region</b> to scout it · then <b>Venture</b>' : 'Click a <b>region</b> to scout it · then <b>Venture</b>';
-    else this.el.castHint.innerHTML = isTouch ? 'Left = move · <b>draw a glyph</b> on the right to cast · 🍺 hold to chug (fills mana)' : 'Hold <b>Right-Mouse</b> and draw a glyph · <b>WASD</b> move · <b>Q</b> to chug (fills mana) · keys <b>1–3</b>';
+    else this.el.castHint.innerHTML = pixifyHtml(isTouch ? 'Left = move · <b>draw a glyph</b> on the right to cast · 🍺 hold to chug (fills mana)' : 'Hold <b>Right-Mouse</b> and draw a glyph · <b>WASD</b> move · <b>Q</b> to chug (fills mana) · keys <b>1–3</b>', 'sm');
   }
 
   showLoadScene(text) { if (this.el.loadscene) { if (this.el.loadsceneText) this.el.loadsceneText.textContent = text || 'Loading…'; this.el.loadscene.classList.remove('hidden'); } }
@@ -392,18 +405,18 @@ export class UI {
     const s = STAGES[id], m = STAGE_MAP[id];
     const order = this._wmOrder(), idx = order.indexOf(id);
     const unlocked = this._wmUnlocked(id), cleared = meta.stageCleared(id);
-    const access = cleared ? '<span class="wm-done-t">✓ Conquered</span>' : unlocked ? '<span class="wm-open-t">Open — ready to venture</span>' : `🔒 Clear <b>${STAGES[order[idx - 1]].name}</b> first`;
+    const access = cleared ? '<span class="wm-done-t">✓ Conquered</span>' : unlocked ? '<span class="wm-open-t">Open — ready to venture</span>' : `${iconImg('lock', {}, 'sm')} Clear <b>${STAGES[order[idx - 1]].name}</b> first`;
     this.el.worldDetail.innerHTML = `
-      <div class="wmd-head"><span class="wmd-ico" style="color:${m.tone};filter:drop-shadow(0 0 8px ${m.tone})">${unlocked ? m.icon : '🔒'}</span>
+      <div class="wmd-head"><span class="wmd-ico" style="filter:drop-shadow(0 0 8px ${m.tone})">${unlocked ? iconImg(m.icon, {}, 'lg') : iconImg('lock', {}, 'lg')}</span>
         <div><div class="wmd-name" style="color:${m.tone}">${s.name}</div>
-        <div class="wmd-sub">Region ${idx + 1} of ${order.length} · 👑 ${s.bossName}</div></div></div>
+        <div class="wmd-sub">Region ${idx + 1} of ${order.length} · ${iconImg('crown', {}, 'sm')} ${s.bossName}</div></div></div>
       <div class="wmd-rows">
-        <div class="wmd-row"><span>Danger</span><b>${'💀'.repeat(m.danger)}</b></div>
+        <div class="wmd-row"><span>Danger</span><b>${iconImg('skull', {}, 'sm').repeat(m.danger)}</b></div>
         <div class="wmd-row"><span>Access</span><b>${access}</b></div>
-        <div class="wmd-row"><span>Stages</span><b>${cleared ? '🏆 10 / 10' : `${meta.regionBest(id)} / 10 reached`}</b></div>
-        <div class="wmd-row"><span>Loot</span><b>${m.loot}</b></div>
+        <div class="wmd-row"><span>Stages</span><b>${cleared ? `${iconImg('trophy', {}, 'sm')} 10 / 10` : `${meta.regionBest(id)} / 10 reached`}</b></div>
+        <div class="wmd-row"><span>Loot</span><b>${pixify(m.loot, 'sm')}</b></div>
       </div>
-      <button class="btn big wmd-venture" data-act="venture" ${unlocked ? '' : 'disabled'}>${unlocked ? '▸ Venture here' : '🔒 Locked'}</button>
+      <button class="btn big wmd-venture" data-act="venture" ${unlocked ? '' : 'disabled'}>${unlocked ? '▸ Venture here' : `${iconImg('lock', {}, 'sm')} Locked`}</button>
       <button class="btn wmd-back" data-act="back">◂ Back to the bar</button>`;
     this.el.worldHud.classList.remove('hidden');
   }
@@ -434,13 +447,13 @@ export class UI {
       const isCur = n.id === cur, isReach = reach.has(n.id), isVis = visited.has(n.id) && !isCur;
       const cls = ['rm-node', 'rm-' + n.type, isCur ? 'cur' : '', isReach ? 'reach' : '', isVis ? 'vis' : ''].filter(Boolean).join(' ');
       const lbl = (n.type === 'boss' && relic) ? '✦ Relic' : meta[1];
-      const tip = (n.type === 'boss' && relic) ? `Boss — wins ${relic.icon} ${relic.name}` : meta[1];
-      nodes += `<button class="${cls}" data-node="${n.id}" title="${tip}" style="left:${px(n.col)}px;top:${py(n.row)}px" ${isReach ? '' : 'disabled'}><span class="rm-ico">${meta[0]}</span><span class="rm-lbl">${lbl}</span></button>`;
+      const tip = (n.type === 'boss' && relic) ? `Boss — wins ${relic.name}` : meta[1];
+      nodes += `<button class="${cls}" data-node="${n.id}" title="${tip}" style="left:${px(n.col)}px;top:${py(n.row)}px" ${isReach ? '' : 'disabled'}><span class="rm-ico">${iconImg(meta[0], {}, 'md')}</span><span class="rm-lbl">${lbl}</span></button>`;
     }
     const region = (STAGES[game._runRegion] && STAGES[game._runRegion].name) || 'The Path';
     el.innerHTML = `<div class="rm-frame">
-      <div class="rm-banner">🗺 ${region}</div>
-      <div class="rm-tip">${cur == null ? 'Tap the first level to begin' : 'Choose your next level'}${relic ? ` · 👑 boss drops ${relic.icon} ${relic.name}` : ''}</div>
+      <div class="rm-banner">${iconImg('map', {}, 'sm')} ${region}</div>
+      <div class="rm-tip">${cur == null ? 'Tap the first level to begin' : 'Choose your next level'}${relic ? ` · ${iconImg('crown', {}, 'sm')} boss drops ${iconImg(relic.icon, {}, 'sm')} ${relic.name}` : ''}</div>
       <div class="rm-scroll"><div class="rm-graph" style="width:${W}px;height:${H}px">
         <svg class="rm-edges" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${edges}</svg>${nodes}
       </div></div>
@@ -460,14 +473,14 @@ export class UI {
       const ready = meta.customerQuestReady(q);
       const prog = meta.customerQuestProgress(q);
       const r = q.reward || {};
-      const rewardStr = [r.gold ? `${r.gold}🪙` : '', r.gems ? `${r.gems}💎` : ''].filter(Boolean).join(' · ') || '—';
-      body = `<div class="chat-ask">${q.icon || '📜'} ${q.ask}</div><div class="chat-prog">${prog}</div><div class="chat-reward">🎁 ${rewardStr}</div>`;
+      const rewardStr = [r.gold ? `${r.gold} ${iconImg('coin', {}, 'sm')}` : '', r.gems ? `${r.gems} ${iconImg('💎', {}, 'sm')}` : ''].filter(Boolean).join(' · ') || '—';
+      body = `<div class="chat-ask">${iconImg(q.icon || 'scroll', {}, 'sm')} ${pixify(q.ask, 'sm')}</div><div class="chat-prog">${pixify(prog, 'sm')}</div><div class="chat-reward">${iconImg('gift', {}, 'sm')} ${rewardStr}</div>`;
       btns = ready
-        ? `<button class="btn chat-go" data-chat="claim">✋ Hand it over</button><button class="btn chat-no" data-chat="leave">Maybe later</button>`
+        ? `<button class="btn chat-go" data-chat="claim">${iconImg('hand', {}, 'sm')} Hand it over</button><button class="btn chat-no" data-chat="leave">Maybe later</button>`
         : `<button class="btn chat-no" data-chat="leave">I'll be back</button>`;
     } else {
       body = `<div class="chat-ask">A friendly face by the fire.</div>`;
-      btns = `<button class="btn chat-go" data-chat="claim">🍺 Cheers!</button><button class="btn chat-no" data-chat="leave">Leave</button>`;
+      btns = `<button class="btn chat-go" data-chat="claim">${iconImg('beer', {}, 'sm')} Cheers!</button><button class="btn chat-no" data-chat="leave">Leave</button>`;
     }
     el.innerHTML = `<div class="chat-bar top"></div>
       <div class="chat-box">
@@ -508,8 +521,8 @@ export class UI {
     abilities = abilities || []; artifacts = artifacts || [];
     if (!abilities.length && !artifacts.length) { tray.innerHTML = ''; tray.classList.add('hidden'); return; }
     let h = '<div class="abil-label">Abilities</div><div class="abil-row">';
-    for (const a of artifacts) h += `<div class="abil art" title="✦ ARTIFACT — ${a.name}"><span class="abil-ico">${a.icon}</span></div>`;
-    for (const a of abilities) h += `<div class="abil" title="${a.name}${a.count > 1 ? ` ×${a.count}` : ''}"><span class="abil-ico">${a.icon}</span>${a.count > 1 ? `<span class="abil-x">${a.count}</span>` : ''}</div>`;
+    for (const a of artifacts) h += `<div class="abil art" title="✦ ARTIFACT — ${a.name}"><span class="abil-ico">${iconImg(a.icon, {}, 'sm')}</span></div>`;
+    for (const a of abilities) h += `<div class="abil" title="${a.name}${a.count > 1 ? ` ×${a.count}` : ''}"><span class="abil-ico">${iconImg(a.icon, {}, 'sm')}</span>${a.count > 1 ? `<span class="abil-x">${a.count}</span>` : ''}</div>`;
     h += '</div>';
     tray.innerHTML = h;
     tray.classList.toggle('hidden', !(this.game && this.game.phase === 'arena'));
@@ -524,7 +537,7 @@ export class UI {
       : `Two ways through the dark forest — <b>left or right</b>. ${total ? `Step ${cur}/${total}. ` : ''}Each door shows what waits…`;
     if (bossNext && artifact) {
       this.el.pathBoss.classList.remove('hidden');
-      this.el.pathBoss.innerHTML = `👑 <b>${stage.bossName}</b> guards a relic — clear the lair to claim <span class="pb-art">✦ ${artifact.name}</span>`;
+      this.el.pathBoss.innerHTML = `${iconImg('crown', {}, 'sm')} <b>${stage.bossName}</b> guards a relic — clear the lair to claim <span class="pb-art">✦ ${artifact.name}</span>`;
     } else this.el.pathBoss.classList.add('hidden');
     this.el.pathDoors.innerHTML = '';
     this._pathDoors = [];
@@ -533,9 +546,9 @@ export class UI {
       const door = document.createElement('div'); door.className = 'path-door'; door.dataset.door = i;
       const side = document.createElement('div'); side.className = 'door-side'; side.textContent = sides[i] || 'Enter';
       const cv = document.createElement('canvas'); cv.width = 300; cv.height = 150; cv.className = 'door-art';
-      const lurk = document.createElement('div'); lurk.className = 'door-lurk'; lurk.textContent = n.lurk || '👁 something lurks within…';
+      const lurk = document.createElement('div'); lurk.className = 'door-lurk'; lurk.innerHTML = pixify(n.lurk || '👁 something lurks within…', 'sm');
       const node = document.createElement('div'); node.className = 'door-reward';
-      node.innerHTML = `<span class="door-ico">${n.icon}</span><div class="door-rw-txt"><div class="door-name">${n.name}</div><div class="door-desc">${n.desc}</div></div>`;
+      node.innerHTML = `<span class="door-ico">${iconImg(n.icon, {}, 'md')}</span><div class="door-rw-txt"><div class="door-name">${n.name}</div><div class="door-desc">${pixify(n.desc, 'sm')}</div></div>`;
       const btn = document.createElement('button'); btn.className = 'btn big door-go'; btn.textContent = (n.type === 'combat' || n.type === 'elite') ? 'Enter ▸' : 'Go ▸';
       door.appendChild(side); door.appendChild(cv); door.appendChild(lurk); door.appendChild(node); door.appendChild(btn);
       this.el.pathDoors.appendChild(door);
@@ -611,7 +624,7 @@ export class UI {
 
   // ---- choice event (Slay-the-Spire dilemma) ----
   showChoiceEvent(game, ev) {
-    this.el.eventIcon.textContent = ev.icon || '❓';
+    this.el.eventIcon.innerHTML = iconImg(ev.icon || 'question', {}, 'xl');
     this.el.eventTitle.textContent = ev.title || 'A Mystery';
     this.el.eventPrompt.textContent = ev.prompt || '';
     this.el.eventSkill.classList.add('hidden');
@@ -621,7 +634,7 @@ export class UI {
       const afford = !o.minGems || meta.gems() >= o.minGems;
       const b = document.createElement('button');
       b.className = 'btn event-opt'; b.dataset.opt = i; if (!afford) b.disabled = true;
-      b.innerHTML = `<span class="eo-label">${o.label}</span><span class="eo-tip">${afford ? (o.tip || '') : 'not enough 💎'}</span>`;
+      b.innerHTML = `<span class="eo-label">${pixify(o.label, 'sm')}</span><span class="eo-tip">${afford ? pixify(o.tip || '', 'sm') : `not enough ${iconImg('💎', {}, 'sm')}`}</span>`;
       this.el.eventOpts.appendChild(b);
     });
     this.el.eventModal.classList.remove('hidden');
@@ -629,7 +642,7 @@ export class UI {
   // (the old event-modal customer request was replaced by the cinematic showChat flow)
   // ---- skill event: stop the sweeping marker on the green mark ----
   showSkillEvent(game) {
-    this.el.eventIcon.textContent = '✶';
+    this.el.eventIcon.innerHTML = '<span class="event-glyph">✶</span>';
     this.el.eventTitle.textContent = 'Trial of Nerve';
     this.el.eventPrompt.textContent = 'Stop the sweeping marker as close to the golden mark as you can. The steadier your hand, the richer the prize.';
     this.el.eventOpts.classList.add('hidden');
@@ -685,8 +698,8 @@ export class UI {
     this._mgKey = key; this._mg = mg;
     this._mgState = mg.init({ rng: Math.random });
     this._mgState.timeLeft = mg.dur;
-    if (this.el.mgTitle) this.el.mgTitle.textContent = `🎲 ${mg.name}`;
-    if (this.el.mgSub) this.el.mgSub.textContent = mg.how;
+    if (this.el.mgTitle) this.el.mgTitle.innerHTML = `${iconImg('dice', {}, 'sm')} ${mg.name}`;
+    if (this.el.mgSub) this.el.mgSub.innerHTML = pixify(mg.how, 'sm');
     this._mgRenderControls(mg);
     // un-hide FIRST so the canvas reports its real CSS box, THEN size the backing store
     // (a hidden element's clientWidth/Height are 0 -> would force the blurry 400×440 fallback)
@@ -705,11 +718,11 @@ export class UI {
     const host = this.el.mgControls; if (!host) return;
     host.innerHTML = '';
     const ctrls = mg.controls || [];
-    if (!ctrls.length) { host.innerHTML = '<div class="mg-hint">👆 tap the board</div>'; return; }
+    if (!ctrls.length) { host.innerHTML = `<div class="mg-hint">${iconImg('hand', {}, 'sm')} tap the board</div>`; return; }
     for (const c of ctrls) {
       const b = document.createElement('button');
       b.className = 'btn mg-btn' + (c.big ? ' big' : '');
-      b.dataset.mg = c.id; b.textContent = c.label;
+      b.dataset.mg = c.id; b.innerHTML = pixify(c.label, 'sm');
       if (c.color) b.style.background = c.color;
       host.appendChild(b);
     }
@@ -720,7 +733,7 @@ export class UI {
     if (dt > 0.05) dt = 0.05; if (dt < 0) dt = 0;
     mg.update(s, dt); s.timeLeft -= dt;
     try { const cv = this.el.mgCanvas; if (cv) mg.draw(cv.getContext('2d'), cv.width, cv.height, s); } catch (e) {}
-    if (this.el.mgTimer) this.el.mgTimer.textContent = '⏱ ' + Math.max(0, s.timeLeft).toFixed(1);
+    if (this.el.mgTimer) this.el.mgTimer.textContent = Math.max(0, s.timeLeft).toFixed(1);
     if (mg.isOver(s) || s.timeLeft <= 0) { this._mgEnd(); return; }
     this._mgRaf = requestAnimationFrame(this._mgLoopBound);
   }
@@ -743,7 +756,7 @@ export class UI {
   // ---- the end-of-level artifact reveal: a dramatic, glowing relic screen ----
   showArtifactReveal(a, onDone) {
     this._artRevealDone = onDone || null;
-    if (this.el.artRevealIcon) this.el.artRevealIcon.textContent = a ? a.icon : '✦';
+    if (this.el.artRevealIcon) this.el.artRevealIcon.innerHTML = a ? iconImg(a.icon, {}, 'xl') : '✦';
     if (this.el.artRevealName) this.el.artRevealName.textContent = a ? a.name : 'A Relic';
     if (this.el.artRevealDesc) this.el.artRevealDesc.textContent = a ? a.desc : '';
     const o = this.el.artReveal; if (!o) { if (onDone) onDone(); return; }
@@ -756,9 +769,9 @@ export class UI {
   updatePrompt(station, isTouch) {
     if (station) {
       this.el.interactPrompt.classList.remove('hidden');
-      this.el.interactPrompt.innerHTML = isTouch ? `Tap ✋ to use <b>${station.label}</b>` : `Press <b>E</b> to use <b>${station.label}</b>`;
+      this.el.interactPrompt.innerHTML = isTouch ? `Tap ${iconImg('hand', {}, 'sm')} to use <b>${station.label}</b>` : `Press <b>E</b> to use <b>${station.label}</b>`;
       this.el.btnInteract.classList.toggle('hidden', !isTouch);
-      this.el.btnInteract.textContent = station.type === 'door' ? '🚪 Leave' : '✋ Use';
+      if (this.el.btnInteractLabel) this.el.btnInteractLabel.textContent = station.type === 'door' ? 'Leave' : 'Use';
     } else {
       this.el.interactPrompt.classList.add('hidden');
       this.el.btnInteract.classList.add('hidden');
@@ -771,7 +784,7 @@ export class UI {
   showRampage(done, total) {
     if (!this.el.tavernHud) return;
     this.el.tavernHud.classList.remove('hidden');
-    const obj = this.el.tavernHud.querySelector('.tavern-obj'); if (obj) obj.textContent = '🍺 SMASH THE TAVERN — wreck it all!';
+    const obj = this.el.tavernHud.querySelector('.tavern-obj'); if (obj) obj.innerHTML = `${iconImg('beer', {}, 'sm')} SMASH THE TAVERN — wreck it all!`;
     if (this.el.ruckusCount) this.el.ruckusCount.textContent = `${done} / ${total}`;
   }
 
@@ -782,7 +795,7 @@ export class UI {
     this.el.tavernHud.classList.add('flash');
   }
 
-  setMuteIcon(muted) { this.el.btnMute.textContent = muted ? '🔇' : '🔊'; }
+  setMuteIcon(muted) { this.el.btnMute.innerHTML = iconImg(muted ? 'mute' : 'sound'); }
 
   // position the on-screen joystick (called each frame)
   updateJoystick(input) {
@@ -816,8 +829,8 @@ export class UI {
   updateHUD(game) {
     this.updateJoystick(game.input);
     this._updateNausea(game); // queasy overlay — runs in the hubs AND the fight
-    if (this.el.gems) this.el.gems.textContent = `💎 ${meta.gems()}`;   // live currency
-    if (this.el.clock) this.el.clock.textContent = `☀️ Day ${meta.currentDay()}`;
+    if (this.el.gems) this.el.gems.textContent = `${meta.gems()}`;   // live currency
+    if (this.el.clock) this.el.clock.textContent = `Day ${meta.currentDay()}`;
     if (game.phase === 'tavern' || game.phase === 'room') { // hubs: prompt + main-quest tracker
       this.updatePrompt(game.state === 'play' ? game.nearStation : null, game.input.isTouch);
       this.updateQuestTracker(game);
@@ -842,21 +855,21 @@ export class UI {
     const d = game.director;
     if (d && d.active) {
       this.el.waveWrap.classList.remove('hidden');
-      this.el.wave.textContent = d.state === 'boss' ? '👑 BOSS' : `Wave ${d.wave}/${d.total}`;
+      this.el.wave.textContent = d.state === 'boss' ? 'BOSS' : `Wave ${d.wave}/${d.total}`;
       this._renderPips(d);
     } else this.el.waveWrap.classList.add('hidden');
-    this.el.kills.textContent = `☠ ${game.kills}`;
+    this.el.kills.textContent = `${game.kills}`;
     // boss health bar
     const be = game._bossEnemy;
     if (this.el.bossBar) {
       if (game.bossActive && be && be.alive) {
         this.el.bossBar.classList.remove('hidden');
-        this.el.bossBarName.textContent = `👑 ${game.stage ? game.stage.bossName : 'Boss'}`;
+        this.el.bossBarName.textContent = `${game.stage ? game.stage.bossName : 'Boss'}`;
         this.el.bossBarFill.style.width = `${Math.max(0, be.hp / be.maxHp) * 100}%`;
       } else this.el.bossBar.classList.add('hidden');
     }
     const wob = s.wobble;
-    const label = wob <= 0.6 ? '🍵 Tipsy' : (wob <= 1.15 ? '🍺 Sloshed' : '🥴 Hammered');
+    const label = wob <= 0.6 ? 'Tipsy' : (wob <= 1.15 ? 'Sloshed' : 'Hammered');
     this.el.sobriety.textContent = label;
 
     for (const id of Object.keys(this.chips)) {
@@ -877,7 +890,7 @@ export class UI {
   toast(text) {
     const t = document.createElement('div');
     t.className = 'toast';
-    t.textContent = text;
+    t.innerHTML = pixify(text, 'sm');
     this.el.toastArea.appendChild(t);
     setTimeout(() => t.remove(), 1700);
   }
@@ -946,17 +959,17 @@ export class UI {
     return true;
   }
   _renderMerch() {
-    this.el.merchGems.textContent = `💎 ${meta.gems()}`;
+    this.el.merchGems.textContent = `${meta.gems()}`;
     let h = '';
     for (const u of this._merchOffers) {
       const r = upgradeRarity(u), price = this._merchPrice(u), sold = this._merchSold[u.id];
       const can = !sold && meta.gems() >= price;
       h += `<div class="shop-card rar-${r.key}" style="--rc:${r.color}">
         <div class="card-rarity" style="color:${r.color}">${r.name}</div>
-        <div class="shop-glyph">${u.icon}</div>
+        <div class="shop-glyph">${iconImg(u.icon, {}, 'md')}</div>
         <div class="shop-name">${u.name}</div>
-        <div class="shop-desc">${u.desc}</div>
-        <div class="shop-acts"><button class="shop-btn gem" data-buy="${u.id}" ${can ? '' : 'disabled'}>${sold ? '✓ Bought' : 'Buy 💎' + price}</button></div></div>`;
+        <div class="shop-desc">${pixify(u.desc, 'sm')}</div>
+        <div class="shop-acts"><button class="shop-btn gem" data-buy="${u.id}" ${can ? '' : 'disabled'}>${sold ? '✓ Bought' : `Buy ${iconImg('💎', {}, 'sm')}` + price}</button></div></div>`;
     }
     this.el.merchCards.innerHTML = h;
   }
@@ -968,7 +981,7 @@ export class UI {
     meta.unlockUpgrade(u.id); if (game._unlockedUpg) game._unlockedUpg.add(u.id);
     game.applyAbility(u);                  // applied to the current run immediately
     game.audio.play('levelup'); this.burstFX(this.el.merchCards, 'gem', 10);
-    this.toast(`🛒 Bought ${u.icon} ${u.name}!`);
+    this.toast(`Bought ${u.icon} ${u.name}!`);
     this._renderMerch();
   }
 
@@ -977,7 +990,7 @@ export class UI {
   wispSay(text, opts = {}) {
     const { ms = 2600, tone = 'tip', big = false } = opts;
     const b = this.el.wispBubble; if (!b) { this.toast(text); return; }
-    this.el.wispText.textContent = text;
+    this.el.wispText.innerHTML = pixify(text, 'sm');
     b.classList.toggle('warn', tone === 'warn');
     b.classList.toggle('big', !!big);
     b.classList.remove('hidden');
@@ -1008,8 +1021,8 @@ export class UI {
     else if (debt > 0 && meta.gold() < debt) step = 'Earn coin: serve at the 🍺 Bar or finish a bounty';
     else if (debt > 0) step = 'Pay it down in the 📜 quest log';
     else step = 'Venture out and grow stronger';
-    this.el.qtStep.textContent = '➤ ' + step;
-    this.el.qtBounty.textContent = q ? `Bounty: ${q.text} (+${q.reward}🪙)${done ? ' ✓' : ''}` : '';
+    this.el.qtStep.innerHTML = '➤ ' + pixify(step, 'sm');
+    this.el.qtBounty.innerHTML = q ? pixify(`Bounty: ${q.text} (+${q.reward}🪙)${done ? ' ✓' : ''}`, 'sm') : '';
   }
 
   // playstyle picker shown before a venture; cb(id) proceeds with the chosen archetype
@@ -1023,7 +1036,7 @@ export class UI {
       const c = document.createElement('div');
       c.className = 'arch-card' + (a.id === sel ? ' sel' : '');
       c.style.setProperty('--el', ELCOL[a.element] || '#ffcf5c');
-      c.innerHTML = `<div class="arch-ico">${a.icon}</div><div class="arch-name">${a.name}</div><div class="arch-desc">${a.desc}</div>`;
+      c.innerHTML = `<div class="arch-ico">${iconImg(a.icon, {}, 'lg')}</div><div class="arch-name">${a.name}</div><div class="arch-desc">${a.desc}</div>`;
       c.addEventListener('click', () => { sel = a.id; for (const k in cards) cards[k].classList.toggle('sel', k === a.id); });
       row.appendChild(c); cards[a.id] = c;
     }
@@ -1033,7 +1046,7 @@ export class UI {
 
   // floating damage / pickup number at screen coords (capped so big AoE
   // hits don't flood the DOM with hundreds of nodes)
-  floatNumber(x, y, text, color = '#fff', crit = false) {
+  floatNumber(x, y, text, color = '#fff', crit = false, scale = 1) {
     this._floatCount = this._floatCount || 0;
     if (this._floatCount > 36) return;
     this._floatCount++;
@@ -1043,6 +1056,7 @@ export class UI {
     d.style.left = x + 'px';
     d.style.top = y + 'px';
     d.style.color = color;
+    if (!crit && scale !== 1) d.style.fontSize = Math.round(22 * scale) + 'px'; // Megabonk-sized hits
     document.body.appendChild(d);
     setTimeout(() => { d.remove(); this._floatCount--; }, 800);
   }
@@ -1063,6 +1077,12 @@ export class UI {
     this._storyIdx = 0;
     this._storyCb = onDone || null;
     this.el.storySpeaker.textContent = speaker;
+    // the story box shows the REAL character's face, same as cutscenes & chats
+    if (this.el.storyPortrait) {
+      const kind = ({ 'Wobblesworth': 'wizard', 'Wisp': 'wisp', 'Patron': 'patron', 'Barkeep Tomas': 'barkeep' })[speaker];
+      this.el.storyPortrait.innerHTML = kind ? charImg(kind, speaker, '') : '';
+      this.el.storyPortrait.classList.toggle('hidden', !kind);
+    }
     this.el.storyText.textContent = this._storyLines[0] || '';
     this.el.story.classList.remove('hidden');
   }
@@ -1087,9 +1107,9 @@ export class UI {
       card.style.setProperty('--rc', rc.color);
       card.innerHTML = `
         ${u.unique ? '<div class="card-ribbon">✦ UNIQUE ✦</div>' : `<div class="card-rarity" style="color:${rc.color}">${rc.name}</div>`}
-        <div class="card-icon">${u.icon}</div>
+        <div class="card-icon">${iconImg(u.icon, {}, 'xl')}</div>
         <div class="card-name">${u.name}</div>
-        <div class="card-desc">${u.desc}</div>
+        <div class="card-desc">${pixify(u.desc, 'sm')}</div>
         <div class="card-tag">${u.tag}</div>`;
       card.addEventListener('click', () => {
         this.game.audio.play('click');
@@ -1107,17 +1127,17 @@ export class UI {
     this.el.endTitle.textContent = win ? `${info.stage} — Conquered!` : 'The Wizard Passed Out';
     const goals = meta.nextGoals();
     const goalHtml = goals.length
-      ? `<div class="end-next"><div class="end-next-t">🧭 Up next</div>${goals.map(g => `<div class="end-goal"><span>${g.icon}</span><span>${g.text}</span></div>`).join('')}</div>`
+      ? `<div class="end-next"><div class="end-next-t">${iconImg('map', {}, 'sm')} Up next</div>${goals.map(g => `<div class="end-goal"><span>${iconImg(g.icon, {}, 'sm')}</span><span>${pixify(g.text, 'sm')}</span></div>`).join('')}</div>`
       : '';
     this.el.endStats.innerHTML = `
-      <div class="end-summary">${info.stage} · 🗺 Stage ${info.stages || info.rooms}/${info.stagesTotal || 10} · ☠ ${info.kills} · Lv ${info.level} · ☀️ Day ${info.day}${info.missions ? ` · 🎯 ${info.missions} missions` : ''}${info.combo >= 5 ? ` · 🔥 best combo x${info.combo}` : ''}</div>
+      <div class="end-summary">${info.stage} · ${iconImg('map', {}, 'sm')} Stage ${info.stages || info.rooms}/${info.stagesTotal || 10} · ${iconImg('skull', {}, 'sm')} ${info.kills} · Lv ${info.level} · ${iconImg('sun', {}, 'sm')} Day ${info.day}${info.missions ? ` · ${iconImg('target', {}, 'sm')} ${info.missions} missions` : ''}${info.combo >= 5 ? ` · ${iconImg('fire', {}, 'sm')} best combo x${info.combo}` : ''}</div>
       ${info.artifact ? `<div class="end-artifact">✦✦ Claimed artifact: <b>${info.artifact}</b></div>` : ''}
-      ${info.research ? `<div class="end-artifact" style="color:var(--mana)">🔬 Research complete: <b>${info.research}</b></div>` : ''}
+      ${info.research ? `<div class="end-artifact" style="color:var(--mana)">${iconImg('alembic', {}, 'sm')} Research complete: <b>${info.research}</b></div>` : ''}
       <div class="loot-box">
-        <div class="loot-row loot-total"><span>Gems won</span><b>+${info.earnedGems}💎</b></div>
+        <div class="loot-row loot-total"><span>Gems won</span><b>+${info.earnedGems} ${iconImg('💎', {}, 'sm')}</b></div>
       </div>
-      <div class="loot-purse">Gems: <b>${info.gems}💎</b> · spend them on spells & research</div>
-      ${info.questDone ? '<div style="color:var(--xp);font-weight:800">✓ Bounty complete! Claim it in your 📜 quest log.</div>' : ''}
+      <div class="loot-purse">Gems: <b>${info.gems} ${iconImg('💎', {}, 'sm')}</b> · spend them on spells & research</div>
+      ${info.questDone ? `<div style="color:var(--xp);font-weight:800">✓ Bounty complete! Claim it in your ${iconImg('scroll', {}, 'sm')} quest log.</div>` : ''}
       ${goalHtml}
       <div style="margin-top:6px;color:var(--ink-dim)">${win ? 'Back at the tavern: research, learn spells, then work a shift for coin!' : 'You keep every gem you won. Regroup and try again.'}</div>`;
     this.el.btnAgain.textContent = '▸ Return to the Tavern';
@@ -1126,7 +1146,7 @@ export class UI {
 
   comboToast(name) {
     const t = document.createElement('div');
-    t.className = 'toast crit'; t.textContent = `⚡ COMBO: ${name}!`;
+    t.className = 'toast crit'; t.innerHTML = `${iconImg('bolt', {}, 'sm')} COMBO: ${name}!`;
     this.el.toastArea.appendChild(t); this.burstFX(t, 'fire', 12); setTimeout(() => t.remove(), 1700);
   }
   lootToast(gear) {
@@ -1156,7 +1176,7 @@ export class UI {
       const card = document.createElement('div');
       card.className = 'slot-card';
       card.innerHTML = s.exists
-        ? `<div class="slot-name">Slot ${i + 1}</div><div class="slot-info">🪙 ${s.gold} · ${s.spells} spells${s.tavern ? ' · 🍺 owner' : ''}</div>
+        ? `<div class="slot-name">Slot ${i + 1}</div><div class="slot-info">${iconImg('coin', {}, 'sm')} ${s.gold} · ${s.spells} spells${s.tavern ? ` · ${iconImg('beer', {}, 'sm')} owner` : ''}</div>
            <button class="shop-btn big" data-slot="${i}">Continue</button>
            <button class="shop-btn" data-slot="${i}" data-erase="1">Erase</button>`
         : `<div class="slot-name">Slot ${i + 1}</div><div class="slot-info">— empty —</div><button class="shop-btn big" data-slot="${i}">New Game</button>`;
@@ -1193,7 +1213,7 @@ export class UI {
   showStageBanner(n, total, gim) {
     const el = this.el.stageBanner; if (!el) return;
     el.innerHTML = `<div class="sb-count">Stage ${n} <span>/ ${total}</span></div>
-      <div class="sb-name"><span class="sb-ico">${gim.icon}</span>${gim.name}</div>
+      <div class="sb-name"><span class="sb-ico">${iconImg(gim.icon, {}, 'md')}</span>${gim.name}</div>
       <div class="sb-desc">${gim.desc}</div>`;
     el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
   }
@@ -1207,13 +1227,13 @@ export class UI {
   // ---- stage-mission HUD (small pinned objective; flashes its result) ----
   showMission(label) {
     const el = this.el.missionHud; if (!el) return;
-    el.className = ''; el.innerHTML = label; el.classList.remove('hidden');
+    el.className = ''; el.innerHTML = pixifyHtml(label, 'sm'); el.classList.remove('hidden');
   }
   hideMission() { const el = this.el.missionHud; if (el) el.classList.add('hidden'); }
   missionResult(won, reward) {
     const el = this.el.missionHud; if (!el) return;
     el.className = won ? 'won' : 'failed';
-    el.innerHTML = won ? `✅ Mission complete · +${reward}💎` : '❌ Mission failed';
+    el.innerHTML = won ? `${iconImg('check', {}, 'sm')} Mission complete · +${reward} ${iconImg('💎', {}, 'sm')}` : '✕ Mission failed';
     void el.offsetWidth;
     setTimeout(() => { if (el.classList.contains('won') || el.classList.contains('failed')) el.classList.add('hidden'); }, 2200);
   }
@@ -1264,7 +1284,7 @@ export class UI {
     built.position.set(-ctr.x, -ctr.y, -ctr.z);          // recentre the model inside its pivot
     const maxd = Math.max(sz.x, sz.y, sz.z) || 1; pivot.scale.setScalar(1.7 / maxd);
     this._pvScene.add(pivot); this._pvMesh = pivot;
-    const b = meta.buildableById(id); if (this.el.bpLabel) this.el.bpLabel.textContent = b ? `${b.icon} ${b.name}` : '';
+    const b = meta.buildableById(id); if (this.el.bpLabel) this.el.bpLabel.innerHTML = b ? `${iconImg(b.icon, {}, 'sm')} ${b.name}` : '';
   }
   _startPreview() {
     this._ensurePreview(); if (this._pvActive || !this._pvRenderer) return;
@@ -1333,8 +1353,8 @@ export class UI {
 
   _renderShop() {
     const kind = this._shopKind;
-    const titles = { skilltree: '✦ Spell Table', character: '🧙 Character', cauldron: '🜲 Cauldron', build: '🏛 Build Your Den', manager: '📜 Quest Board', ledger: '📒 Tavern Ledger', blacksmith: '🔨 Anvil', library: '📖 Arcane Library' };
-    this.el.shopTitle.textContent = titles[kind] || 'Tavern';
+    const titles = { skilltree: `✦ Spell Table`, character: `${iconImg('wizard', {}, 'sm')} Character`, cauldron: `${iconImg('cauldron', {}, 'sm')} Cauldron`, build: `${iconImg('hammer', {}, 'sm')} Build Your Den`, manager: `${iconImg('scroll', {}, 'sm')} Quest Board`, ledger: `${iconImg('ledger', {}, 'sm')} Tavern Ledger`, blacksmith: `${iconImg('anvil', {}, 'sm')} Anvil`, library: `${iconImg('book', {}, 'sm')} Arcane Library` };
+    this.el.shopTitle.innerHTML = titles[kind] || 'Tavern';
     let html = '';
     if (kind === 'skilltree') html = this._renderSkillTree();
     else if (kind === 'character') html = this._renderCharacter();
@@ -1350,23 +1370,23 @@ export class UI {
   // ===== Arcane Library: spend 💎 on research; a project finishes as DAYS pass =====
   _renderLibrary() {
     const active = meta.researchActive();
-    let h = '<p class="shop-sub">Fund a <b>research project</b> with 💎 gems. Days pass as you work shifts &amp; venture — when the work is done, its boon applies to <b>every future run</b>.</p>';
+    let h = `<p class="shop-sub">Fund a <b>research project</b> with ${iconImg('💎', {}, 'sm')} gems. Days pass as you work shifts &amp; venture — when the work is done, its boon applies to <b>every future run</b>.</p>`;
     if (active) {
       const r = active, left = meta.researchDaysLeft();
-      h += `<div class="quest-box main-quest"><div class="quest-title">🔬 Researching: ${r.icon} ${r.name}</div>
+      h += `<div class="quest-box main-quest"><div class="quest-title">${iconImg('alembic', {}, 'sm')} Researching: ${iconImg(r.icon, {}, 'sm')} ${r.name}</div>
         <div class="quest-text">${r.desc}</div>
-        <div class="quest-reward">⏳ Ready in <b>${left} day${left === 1 ? '' : 's'}</b> — work a shift or venture out to pass the time.</div></div>`;
+        <div class="quest-reward">${iconImg('hourglass', {}, 'sm')} Ready in <b>${left} day${left === 1 ? '' : 's'}</b> — work a shift or venture out to pass the time.</div></div>`;
     }
     h += '<div class="shop-grid">';
     for (const r of meta.RESEARCH) {
       const done = meta.researchDone(r.id), isActive = active && active.id === r.id;
       let action;
       if (done) action = '<button class="shop-btn on" disabled>✓ Complete</button>';
-      else if (isActive) action = '<button class="shop-btn" disabled>⏳ In progress</button>';
+      else if (isActive) action = `<button class="shop-btn" disabled>${iconImg('hourglass', {}, 'sm')} In progress</button>`;
       else if (active) action = '<button class="shop-btn" disabled>One at a time</button>';
-      else action = `<button class="shop-btn gem" data-act="research" data-id="${r.id}" ${meta.canAffordGems(r.gems) ? '' : 'disabled'}>💎${r.gems} · ${r.days} days</button>`;
+      else action = `<button class="shop-btn gem" data-act="research" data-id="${r.id}" ${meta.canAffordGems(r.gems) ? '' : 'disabled'}>${iconImg('💎', {}, 'sm')}${r.gems} · ${r.days} days</button>`;
       h += `<div class="shop-card ${done ? '' : isActive ? '' : active ? 'locked' : ''}">
-        <div class="shop-glyph">${r.icon}</div>
+        <div class="shop-glyph">${iconImg(r.icon, {}, 'md')}</div>
         <div class="shop-name">${r.name}</div>
         <div class="shop-desc">${r.desc}</div>
         <div class="shop-acts">${action}</div></div>`;
@@ -1378,22 +1398,22 @@ export class UI {
   _renderLedger() {
     if (!meta.tavernOwned()) return '<p class="shop-sub">Old Tomas\'s ledger. You just <b>work</b> here for now — avenge him (clear a stage) and the Tipsy Toad becomes yours to run.</p>';
     const bank = meta.tavernBank(), cap = meta.tavernCap(), rate = meta.tavernRate();
-    let h = `<p class="shop-sub">Your tavern earns <b>${rate}🪙/min</b> even while you\'re away (banked up to <b>${cap}🪙</b>).</p>
+    let h = `<p class="shop-sub">Your tavern earns <b>${rate}${iconImg('coin', {}, 'sm')}/min</b> even while you\'re away (banked up to <b>${cap}${iconImg('coin', {}, 'sm')}</b>).</p>
       <div class="loot-box" style="max-width:340px;margin:0 auto 14px">
-        <div class="loot-row"><span>Banked coin</span><b>${bank} / ${cap}🪙</b></div>
-        <div class="shop-acts"><button class="shop-btn big" data-act="collect" ${bank > 0 ? '' : 'disabled'}>Collect ${bank}🪙</button></div>
+        <div class="loot-row"><span>Banked coin</span><b>${bank} / ${cap} ${iconImg('coin', {}, 'sm')}</b></div>
+        <div class="shop-acts"><button class="shop-btn big" data-act="collect" ${bank > 0 ? '' : 'disabled'}>Collect ${bank} ${iconImg('coin', {}, 'sm')}</button></div>
       </div>
       <div class="shop-grid">`;
     for (const u of meta.TAVERN_UPGRADES) {
       const lvl = meta.tavernUpgradeLevel(u.id), cost = meta.tavernUpgradeCost(u.id);
-      h += `<div class="shop-card"><div class="shop-name">${u.name} <span class="lvtag">Lv${lvl}</span></div><div class="shop-desc">${u.desc}</div><div class="shop-acts"><button class="shop-btn" data-act="tavup" data-id="${u.id}" ${meta.canAfford(cost) ? '' : 'disabled'}>Buy ${cost}🪙</button></div></div>`;
+      h += `<div class="shop-card"><div class="shop-name">${u.name} <span class="lvtag">Lv${lvl}</span></div><div class="shop-desc">${u.desc}</div><div class="shop-acts"><button class="shop-btn" data-act="tavup" data-id="${u.id}" ${meta.canAfford(cost) ? '' : 'disabled'}>Buy ${cost} ${iconImg('coin', {}, 'sm')}</button></div></div>`;
     }
     h += '</div>';
     return h;
   }
 
   _gearStats(g) { return Object.entries(g.mods).map(([k, v]) => meta.statLabel(k, v)).join(' · '); }
-  _slotMeta(slot) { return ({ hat: { icon: '🎩', name: 'Hat' }, robe: { icon: '🧥', name: 'Robe' }, staff: { icon: '🪄', name: 'Staff' }, charm: { icon: '🔮', name: 'Charm' } })[slot] || { icon: '🎒', name: slot }; }
+  _slotMeta(slot) { const known = ({ hat: 'Hat', robe: 'Robe', staff: 'Staff', charm: 'Charm' })[slot]; return { kind: known ? slot : 'bag', name: known || slot }; }
   _gearCard(g, acts, on) {
     const rc = meta.RARITIES[g.rarity];
     return `<div class="shop-card gear rar-${g.rarity} ${on ? 'worn' : ''}" style="--rc:${rc.color}">
@@ -1407,9 +1427,9 @@ export class UI {
   _renderCharacter() {
     const tab = this._charTab || (this._charTab = 'gear');
     let h = `<div class="vil-tabs">
-      <button class="vil-tab ${tab === 'gear' ? 'on' : ''}" data-act="chartab" data-id="gear">🎽 Gear</button>
+      <button class="vil-tab ${tab === 'gear' ? 'on' : ''}" data-act="chartab" data-id="gear">${iconImg('robe', {}, 'sm')} Gear</button>
       <button class="vil-tab ${tab === 'spells' ? 'on' : ''}" data-act="chartab" data-id="spells">✦ Spells</button>
-      <button class="vil-tab ${tab === 'satchel' ? 'on' : ''}" data-act="chartab" data-id="satchel">🎒 Satchel</button></div>`;
+      <button class="vil-tab ${tab === 'satchel' ? 'on' : ''}" data-act="chartab" data-id="satchel">${iconImg('bag', {}, 'sm')} Satchel</button></div>`;
     if (tab === 'gear') h += this._renderWardrobe();
     else if (tab === 'spells') h += this._renderCharSpells();
     else h += this._renderInventory();
@@ -1424,7 +1444,7 @@ export class UI {
       const m = meta.SPELL_META[id]; const { e } = this._elChip(m.element);
       const equipped = eq.includes(id);
       h += `<div class="shop-card spell-card" style="--el:${e.color}">
-        <div class="spell-el" style="color:${e.color}">${e.icon} ${e.name}</div>
+        <div class="spell-el" style="color:${e.color}">${iconImg(e.icon, {}, 'sm')} ${e.name}</div>
         <div class="shop-glyph" style="color:${e.color}">${m.glyph}</div>
         <div class="shop-name">${m.name} <span class="lvtag">Lv${meta.spellLevel(id)}</span></div>
         <div class="shop-acts"><button class="shop-btn ${equipped ? 'on' : ''}" data-act="equip" data-id="${id}">${equipped ? '✓ Equipped' : 'Equip'}</button></div></div>`;
@@ -1442,26 +1462,26 @@ export class UI {
       const g = meta.gearById(meta.equippedGearId(slot));
       const rc = g ? meta.RARITIES[g.rarity] : null;
       strip += `<div class="eq-slot ${g ? 'filled' : ''}" style="${rc ? `--rc:${rc.color}` : ''}">
-        <div class="eq-slot-frame">${g ? `${gearImg(g, 'md')}<span class="eq-lv">Lv${g.level}</span>` : `<span class="eq-slot-ph">${sm.icon}</span>`}</div>
+        <div class="eq-slot-frame">${g ? `${gearImg(g, 'md')}<span class="eq-lv">Lv${g.level}</span>` : `<span class="eq-slot-ph">${spriteImg(sm.kind, {}, 'md')}</span>`}</div>
         <div class="eq-slot-name">${g ? g.name : sm.name}</div>
         <div class="eq-slot-rar ${g ? '' : 'empty'}" ${rc ? `style="color:${rc.color}"` : ''}>${g ? rc.name : '— empty —'}</div></div>`;
     }
     strip += '</div>';
     let h = '<p class="shop-sub">Your relics &amp; regalia — one piece per slot. Rarer &amp; higher-level hits harder; bonuses apply on your next venture.</p>';
     h += strip;
-    h += `<div class="eq-totals"><span>⚔ Equipped bonuses</span><b>${totalStr}</b></div>`;
+    h += `<div class="eq-totals"><span>${iconImg('swords', {}, 'sm')} Equipped bonuses</span><b>${totalStr}</b></div>`;
     for (const slot of meta.GEAR_SLOTS) {
       const sm = this._slotMeta(slot);
       const eqId = meta.equippedGearId(slot);
       const items = meta.gearList().filter(g => g.slot === slot)
         .sort((a, b) => meta.RARITIES[b.rarity].mult * b.level - meta.RARITIES[a.rarity].mult * a.level);
-      h += `<div class="eq-section"><div class="eq-section-head">${sm.icon} ${sm.name}s <span class="eq-count">${items.length}</span></div><div class="shop-grid eq-grid">`;
+      h += `<div class="eq-section"><div class="eq-section-head">${spriteImg(sm.kind, {}, 'sm')} ${sm.name}s <span class="eq-count">${items.length}</span></div><div class="shop-grid eq-grid">`;
       if (!items.length) h += `<div class="eq-empty">No ${sm.name.toLowerCase()} found yet — slay monsters &amp; bosses to loot some.</div>`;
       for (const g of items) {
         const on = eqId === g.id, cost = meta.upgradeGearCost(g), max = g.level >= 10;
         const acts = `<button class="shop-btn ${on ? 'on' : ''}" data-act="equipgear" data-id="${g.id}">${on ? '✓ Worn' : 'Wear'}</button>`
-          + (max ? '<button class="shop-btn" disabled>MAX</button>' : `<button class="shop-btn" data-act="upgradegear" data-id="${g.id}" ${meta.canAfford(cost) ? '' : 'disabled'}>⚒ ${cost}🪙</button>`)
-          + `<button class="shop-btn ghost" data-act="salvage" data-id="${g.id}">♻ ${meta.gearValue(g)}🪙</button>`;
+          + (max ? '<button class="shop-btn" disabled>MAX</button>' : `<button class="shop-btn" data-act="upgradegear" data-id="${g.id}" ${meta.canAfford(cost) ? '' : 'disabled'}>+Lv ${cost} ${iconImg('coin', {}, 'sm')}</button>`)
+          + `<button class="shop-btn ghost" data-act="salvage" data-id="${g.id}">Scrap ${meta.gearValue(g)} ${iconImg('coin', {}, 'sm')}</button>`;
         h += this._gearCard(g, acts, on);
       }
       h += '</div></div>';
@@ -1469,7 +1489,7 @@ export class UI {
     return h;
   }
   _renderBlacksmith() {
-    let h = '<p class="shop-sub">⚒️ The forge-gacha: spend 🪙 gold &amp; 💎 gems to <b>cast a random piece of gear</b>. Richer ingredients tilt the odds toward the good stuff.</p><div class="shop-grid">';
+    let h = `<p class="shop-sub">${iconImg('anvil', {}, 'sm')} The forge-gacha: spend ${iconImg('coin', {}, 'sm')} gold &amp; ${iconImg('💎', {}, 'sm')} gems to <b>cast a random piece of gear</b>. Richer ingredients tilt the odds toward the good stuff.</p><div class="shop-grid">`;
     for (const t of meta.FORGE_TIERS) {
       const odds = meta.GEAR_RARITY_ORDER.filter(r => t.w[r]).map(r => `<span style="color:${meta.RARITIES[r].color}">${t.w[r]}%</span>`).join(' / ');
       const can = meta.canForge(t.id);
@@ -1477,7 +1497,7 @@ export class UI {
         <div class="shop-glyph">${spriteImg('hammer', { rarity: ['common', 'rare', 'epic'][meta.FORGE_TIERS.indexOf(t)] || 'epic' }, 'md', t.icon)}</div>
         <div class="shop-name">${t.name}</div>
         <div class="shop-desc">Cast a random piece.<br><span style="font-size:11px">${odds}</span></div>
-        <div class="shop-acts"><button class="shop-btn gem" data-act="forge" data-id="${t.id}" ${can ? '' : 'disabled'}>🪙${t.gold} · 💎${t.gems}</button></div></div>`;
+        <div class="shop-acts"><button class="shop-btn gem" data-act="forge" data-id="${t.id}" ${can ? '' : 'disabled'}>${iconImg('coin', {}, 'sm')}${t.gold} · ${iconImg('💎', {}, 'sm')}${t.gems}</button></div></div>`;
     }
     h += '</div>';
     const items = meta.gearList().slice().sort((a, b) => meta.RARITIES[b.rarity].mult * b.level - meta.RARITIES[a.rarity].mult * a.level);
@@ -1485,7 +1505,7 @@ export class UI {
     if (!items.length) h += '<div class="eq-empty">No gear yet — cast some above, or loot it on a venture!</div>';
     for (const g of items) {
       const cost = meta.upgradeGearCost(g), max = g.level >= 10;
-      const acts = `${max ? '<button class="shop-btn" disabled>MAX</button>' : `<button class="shop-btn" data-act="upgradegear" data-id="${g.id}" ${meta.canAfford(cost) ? '' : 'disabled'}>⚒ +Lv ${cost}🪙</button>`}<button class="shop-btn ghost" data-act="salvage" data-id="${g.id}">♻ ${meta.gearValue(g)}🪙</button>`;
+      const acts = `${max ? '<button class="shop-btn" disabled>MAX</button>' : `<button class="shop-btn" data-act="upgradegear" data-id="${g.id}" ${meta.canAfford(cost) ? '' : 'disabled'}>+Lv ${cost} ${iconImg('coin', {}, 'sm')}</button>`}<button class="shop-btn ghost" data-act="salvage" data-id="${g.id}">Scrap ${meta.gearValue(g)} ${iconImg('coin', {}, 'sm')}</button>`;
       h += this._gearCard(g, acts, false);
     }
     h += '</div>';
@@ -1494,11 +1514,11 @@ export class UI {
 
   _elChip(elementId) {
     const e = meta.ELEMENTS[elementId] || { icon: '✦', color: 'var(--magic)', name: '' };
-    return { e, chip: `<span class="spell-el" style="color:${e.color}">${e.icon} ${e.name}</span>` };
+    return { e, chip: `<span class="spell-el" style="color:${e.color}">${iconImg(e.icon, {}, 'sm')} ${e.name}</span>` };
   }
   _renderSkillTree() {
     const eq = meta.getLoadout();
-    let h = '<p class="shop-sub">Unlock & upgrade spells with <b>💎 gems</b> (won in battle), then equip up to <b>3</b> as your loadout. Each channels one of the four elements.</p><div class="shop-grid">';
+    let h = `<p class="shop-sub">Unlock & upgrade spells with <b>${iconImg('💎', {}, 'sm')} gems</b> (won in battle), then equip up to <b>3</b> as your loadout. Each channels one of the four elements.</p><div class="shop-grid">`;
     for (const id of meta.SPELL_LIST) {
       const m = meta.SPELL_META[id];
       const { e } = this._elChip(m.element);
@@ -1506,14 +1526,14 @@ export class UI {
       let action;
       if (!owned) {
         const c = meta.spellUnlockGems(id);
-        action = `<button class="shop-btn gem" data-act="unlock" data-id="${id}" ${meta.canAffordGems(c) ? '' : 'disabled'}>Unlock 💎${c}</button>`;
+        action = `<button class="shop-btn gem" data-act="unlock" data-id="${id}" ${meta.canAffordGems(c) ? '' : 'disabled'}>Unlock ${iconImg('💎', {}, 'sm')}${c}</button>`;
       } else {
         const up = lvl >= meta.MAX_LEVEL ? `<button class="shop-btn" disabled>MAX</button>` :
-          `<button class="shop-btn gem" data-act="upgrade" data-id="${id}" ${meta.canAffordGems(meta.spellUpgradeGems(lvl)) ? '' : 'disabled'}>Lv${lvl}→${lvl + 1} · 💎${meta.spellUpgradeGems(lvl)}</button>`;
+          `<button class="shop-btn gem" data-act="upgrade" data-id="${id}" ${meta.canAffordGems(meta.spellUpgradeGems(lvl)) ? '' : 'disabled'}>Lv${lvl}→${lvl + 1} · ${iconImg('💎', {}, 'sm')}${meta.spellUpgradeGems(lvl)}</button>`;
         action = up + `<button class="shop-btn ${equipped ? 'on' : ''}" data-act="equip" data-id="${id}">${equipped ? '✓ Equipped' : 'Equip'}</button>`;
       }
       h += `<div class="shop-card spell-card ${owned ? '' : 'locked'}" style="--el:${e.color}">
-        <div class="spell-el" style="color:${e.color}">${e.icon} ${e.name}</div>
+        <div class="spell-el" style="color:${e.color}">${iconImg(e.icon, {}, 'sm')} ${e.name}</div>
         <div class="shop-glyph" style="color:${e.color}">${m.glyph}</div>
         <div class="shop-name">${m.name}${owned ? ` <span class="lvtag">Lv${lvl}</span>` : ''}</div>
         <div class="shop-acts">${action}</div></div>`;
@@ -1527,33 +1547,33 @@ export class UI {
     const statStr = Object.keys(eqMods).length ? Object.entries(eqMods).map(([k, v]) => meta.statLabel(k, v)).join(' · ') : 'No gear equipped';
     const ownedSpells = meta.SPELL_LIST.filter(id => meta.owns(id)).length;
     const tally = {}; for (const id of meta.SPELL_LIST) if (meta.owns(id)) { const el = meta.SPELL_META[id].element; tally[el] = (tally[el] || 0) + 1; }
-    const elh = meta.ELEMENT_LIST.map(el => { const e = meta.ELEMENTS[el]; return `<span class="inv-el" style="color:${e.color}">${e.icon} ${e.name} ×${tally[el] || 0}</span>`; }).join('');
+    const elh = meta.ELEMENT_LIST.map(el => { const e = meta.ELEMENTS[el]; return `<span class="inv-el" style="color:${e.color}">${iconImg(e.icon, {}, 'sm')} ${e.name} ×${tally[el] || 0}</span>`; }).join('');
     let h = '<p class="shop-sub">Your satchel — currencies, gear and known magic at a glance.</p>';
     h += `<div class="inv-cur">
-      <div class="inv-coin"><span class="inv-ico">🪙</span><b>${meta.gold()}</b><small>gold · earned by working</small></div>
-      <div class="inv-coin"><span class="inv-ico">💎</span><b>${meta.gems()}</b><small>gems · won in battle</small></div>
-      <div class="inv-coin"><span class="inv-ico">🌿</span><b>${meta.herbs()}</b><small>herbs · brew potions</small></div>
-      <div class="inv-coin"><span class="inv-ico">☀️</span><b>Day ${meta.currentDay()}</b><small>the tavern clock</small></div>
+      <div class="inv-coin"><span class="inv-ico">${iconImg('coin', {}, 'md')}</span><b>${meta.gold()}</b><small>gold · earned by working</small></div>
+      <div class="inv-coin"><span class="inv-ico">${iconImg('💎', {}, 'md')}</span><b>${meta.gems()}</b><small>gems · won in battle</small></div>
+      <div class="inv-coin"><span class="inv-ico">${iconImg('herb', {}, 'md')}</span><b>${meta.herbs()}</b><small>herbs · brew potions</small></div>
+      <div class="inv-coin"><span class="inv-ico">${iconImg('sun', {}, 'md')}</span><b>Day ${meta.currentDay()}</b><small>the tavern clock</small></div>
     </div>`;
-    h += `<div class="eq-totals"><span>⚔ Equipped bonuses</span><b>${statStr}</b></div>`;
+    h += `<div class="eq-totals"><span>${iconImg('swords', {}, 'sm')} Equipped bonuses</span><b>${statStr}</b></div>`;
     h += `<div class="inv-row"><span>Spells known</span><b>${ownedSpells} / ${meta.SPELL_LIST.length}</b></div>
       <div class="inv-row"><span>Boons unlocked</span><b>${meta.unlockedUpgradeCount()} / ${meta.earnableUpgradeTotal()}</b></div>
       <div class="inv-row"><span>Gear in stash</span><b>${meta.gearList().length}</b></div>
       <div class="inv-els">${elh}</div>`;
     // elemental gemstones — collected from battle, brewed at the Cauldron
     const gs = meta.gemstones();
-    const gsh = meta.ELEMENT_LIST.map(el => { const e = meta.ELEMENTS[el]; return `<span class="inv-el" style="color:${e.color}">${e.icon} ${e.name} ×${gs[el] || 0}</span>`; }).join('');
-    h += `<div class="eq-section-head" style="margin-top:14px">💎 Elemental Gemstones <span class="eq-count">${meta.totalGemstones()} total</span></div>
-      <p class="shop-sub" style="margin:.2em 0 .5em">Won in battle. Brew them with 🌿 herbs into potions at the Cauldron.</p>
+    const gsh = meta.ELEMENT_LIST.map(el => { const e = meta.ELEMENTS[el]; return `<span class="inv-el" style="color:${e.color}">${iconImg(e.icon, {}, 'sm')} ${e.name} ×${gs[el] || 0}</span>`; }).join('');
+    h += `<div class="eq-section-head" style="margin-top:14px">${iconImg('💎', {}, 'sm')} Elemental Gemstones <span class="eq-count">${meta.totalGemstones()} total</span></div>
+      <p class="shop-sub" style="margin:.2em 0 .5em">Won in battle. Brew them with ${iconImg('herb', {}, 'sm')} herbs into potions at the Cauldron.</p>
       <div class="inv-els">${gsh}</div>`;
     // pantry: foraged cooking ingredients — herbs and mushrooms each in their own row
-    const ingSpan = (g) => `<span class="inv-el" style="color:#${g.color.toString(16).padStart(6, '0')}">${g.icon} ${g.name} ×${meta.ingredientCount(g.id)}</span>`;
+    const ingSpan = (g) => `<span class="inv-el" style="color:#${g.color.toString(16).padStart(6, '0')}">${iconImg(g.icon, {}, 'sm')} ${g.name} ×${meta.ingredientCount(g.id)}</span>`;
     const herbsList = meta.ingredientsByKind('herb').filter(g => meta.ingredientCount(g.id) > 0);
     const shroomList = meta.ingredientsByKind('shroom').filter(g => meta.ingredientCount(g.id) > 0);
-    h += `<div class="eq-section-head" style="margin-top:14px">🍳 Pantry <span class="eq-count">${meta.totalIngredients()} items</span></div>
-      <p class="shop-sub" style="margin:.2em 0 .5em">Foraged on runs and dropped by foes — spend them to unlock 🍳 Bar recipes.</p>
-      <div class="inv-els">🌿 ${herbsList.length ? herbsList.map(ingSpan).join('') : '<span class="eq-empty" style="font-size:12px">no herbs yet</span>'}</div>
-      <div class="inv-els" style="margin-top:6px">🍄 ${shroomList.length ? shroomList.map(ingSpan).join('') : '<span class="eq-empty" style="font-size:12px">no mushrooms yet</span>'}</div>`;
+    h += `<div class="eq-section-head" style="margin-top:14px">${iconImg('basket', {}, 'sm')} Pantry <span class="eq-count">${meta.totalIngredients()} items</span></div>
+      <p class="shop-sub" style="margin:.2em 0 .6em">Foraged on runs and dropped by foes — spend them to unlock Bar recipes.</p>
+      <div class="inv-els">${iconImg('herb', {}, 'sm')} ${herbsList.length ? herbsList.map(ingSpan).join('') : '<span class="eq-empty" style="font-size:12px">no herbs yet</span>'}</div>
+      <div class="inv-els" style="margin-top:6px">${iconImg('mushroom', {}, 'sm')} ${shroomList.length ? shroomList.map(ingSpan).join('') : '<span class="eq-empty" style="font-size:12px">no mushrooms yet</span>'}</div>`;
     // collected artifacts — carry up to MAX into your runs
     const owned = meta.ownedArtifacts();
     h += `<div class="eq-section-head" style="margin-top:14px">✦ Artifacts <span class="eq-count">${meta.equippedArtifacts().length} carried · ${owned.length}/${ARTIFACTS.length} found</span></div>`;
@@ -1563,7 +1583,7 @@ export class UI {
       const a = artifactById(id); if (!a) continue;
       const on = meta.artifactEquipped(id);
       h += `<div class="shop-card art-card ${on ? 'worn' : ''}" style="--rc:var(--gold)">
-        <div class="grim-vfx"><span class="vfx-orb" style="--c:#ffcf5c"></span><span class="grim-glyph" style="color:var(--gold)">${a.icon}</span></div>
+        <div class="grim-vfx"><span class="vfx-orb" style="--c:#ffcf5c"></span><span class="grim-glyph">${iconImg(a.icon, {}, 'md')}</span></div>
         <div class="shop-name" style="color:var(--gold)">${a.name}</div>
         <div class="shop-desc">${a.desc}</div>
         <div class="shop-acts"><button class="shop-btn ${on ? 'on' : ''}" data-act="artieq" data-id="${id}">${on ? '✓ Carrying' : 'Carry'}</button></div></div>`;
@@ -1582,7 +1602,7 @@ export class UI {
       let action;
       if (learned) action = '<button class="shop-btn on" disabled>✓ Learned</button>';
       else if (!haveParts) action = '<button class="shop-btn" disabled>Need both spells</button>';
-      else action = `<button class="shop-btn" data-act="learn" data-id="${id}" ${meta.canAfford(c.cost) ? '' : 'disabled'}>Learn ${c.cost}🪙</button>`;
+      else action = `<button class="shop-btn" data-act="learn" data-id="${id}" ${meta.canAfford(c.cost) ? '' : 'disabled'}>Learn ${c.cost} ${iconImg('coin', {}, 'sm')}</button>`;
       h += `<div class="shop-card ${learned ? '' : 'locked'}">
         <div class="shop-glyph">${ga}+${gb}</div>
         <div class="shop-name">${c.name}</div>
@@ -1591,15 +1611,15 @@ export class UI {
     }
     h += '</div>';
     // ---- brew lasting potions from gathered herbs + elemental gemstones ----
-    h += `<div class="eq-section-head" style="margin-top:14px">🧪 Brew Potions <span class="eq-count">🌿 ${meta.herbs()} herbs</span></div>
-      <p class="shop-sub" style="margin:.2em 0 .6em">Spend 🌿 herbs (gathered while venturing) and an elemental 💎 gemstone for a <b>permanent</b> boon.</p><div class="shop-grid">`;
+    h += `<div class="eq-section-head" style="margin-top:14px">${iconImg('potion', { color: '#9bff5a' }, 'sm')} Brew Potions <span class="eq-count">${iconImg('herb', {}, 'sm')} ${meta.herbs()} herbs</span></div>
+      <p class="shop-sub" style="margin:.2em 0 .6em">Spend ${iconImg('herb', {}, 'sm')} herbs (gathered while venturing) and an elemental ${iconImg('💎', {}, 'sm')} gemstone for a <b>permanent</b> boon.</p><div class="shop-grid">`;
     for (const p of meta.POTIONS) {
       const e = meta.ELEMENTS[p.el], can = meta.canBrew(p.id), have = meta.brewCount(p.id);
       h += `<div class="shop-card" style="--el:${e.color}">
         <div class="shop-glyph">${spriteImg('potion', { color: e.color }, 'md', p.icon)}</div>
         <div class="shop-name">${p.name}${have ? ` ×${have}` : ''}</div>
         <div class="shop-desc">${p.desc}</div>
-        <div class="shop-acts"><button class="shop-btn" data-act="brew" data-id="${p.id}" ${can ? '' : 'disabled'}>🌿${p.herbs} + ${e.icon}${p.gems}</button></div></div>`;
+        <div class="shop-acts"><button class="shop-btn" data-act="brew" data-id="${p.id}" ${can ? '' : 'disabled'}>${iconImg('herb', {}, 'sm')}${p.herbs} + ${iconImg(e.icon, {}, 'sm')}${p.gems}</button></div></div>`;
     }
     h += '</div>';
     return h;
@@ -1614,22 +1634,22 @@ export class UI {
     const stationsBuilt = meta.BUILDABLES.filter(b => b.station && meta.stationBuilt(b.id)).length;
     let h = `<p class="shop-sub">Build your wizard's den Clash-style: <b>pick</b> a building, then <b>tap a tile</b> to place it (tap a placed tile to sell it back at half). <b>Stations</b> let you manage spells &amp; gear right here; <b>comforts</b> deepen your rest bonus.</p>`;
     h += `<div class="vil-stats">
-      <div class="vil-stat"><span>🏛 Stations</span><b>${stationsBuilt}/${stationsTotal}</b></div>
-      <div class="vil-stat"><span>🛋 Comfort</span><b>${comfort}</b></div>
-      <div class="vil-stat"><span>🛏 Rest bonus</span><b>+${restAmt} HP</b></div>
+      <div class="vil-stat"><span>${iconImg('hammer', {}, 'sm')} Stations</span><b>${stationsBuilt}/${stationsTotal}</b></div>
+      <div class="vil-stat"><span>${iconImg('chair', {}, 'sm')} Comfort</span><b>${comfort}</b></div>
+      <div class="vil-stat"><span>${iconImg('bed', {}, 'sm')} Rest bonus</span><b>+${restAmt} HP</b></div>
     </div>`;
     h += '<div class="build-grid">';
     for (let gy = 0; gy < meta.ROOM_GH; gy++) {
       for (let gx = 0; gx < meta.ROOM_GW; gx++) {
         const item = meta.placedItems().find(p => p.gx === gx && p.gy === gy);
         const b = item ? meta.buildableById(item.id) : null;
-        h += `<button class="build-cell ${item ? 'filled' : ''} ${b && b.station ? 'is-station' : ''}" data-act="place" data-id="${gx}_${gy}" title="${b ? b.name + ' — tap to sell' : 'empty tile'}">${b ? b.icon : ''}</button>`;
+        h += `<button class="build-cell ${item ? 'filled' : ''} ${b && b.station ? 'is-station' : ''}" data-act="place" data-id="${gx}_${gy}" title="${b ? b.name + ' — tap to sell' : 'empty tile'}">${b ? iconImg(b.icon, {}, 'sm') : ''}</button>`;
       }
     }
     h += '</div>';
     h += `<div class="vil-tabs">
-      <button class="vil-tab ${tab === 'station' ? 'on' : ''}" data-act="buildtab" data-id="station">🏛 Stations</button>
-      <button class="vil-tab ${tab === 'comfort' ? 'on' : ''}" data-act="buildtab" data-id="comfort">🛋 Comforts</button></div>`;
+      <button class="vil-tab ${tab === 'station' ? 'on' : ''}" data-act="buildtab" data-id="station">${iconImg('hammer', {}, 'sm')} Stations</button>
+      <button class="vil-tab ${tab === 'comfort' ? 'on' : ''}" data-act="buildtab" data-id="comfort">${iconImg('chair', {}, 'sm')} Comforts</button></div>`;
     h += '<div class="build-cat">';
     for (const b of meta.BUILDABLES) {
       if ((tab === 'station') !== !!b.station) continue;
@@ -1637,12 +1657,12 @@ export class UI {
       const sel = this._buildSel === b.id;
       const built = b.station && meta.stationBuilt(b.id);
       const dis = locked || built || !meta.canAfford(b.cost);
-      const cost = locked ? '🔒 quest' : built ? '✓ Built' : b.cost === 0 ? 'Free' : b.cost + '🪙';
+      const cost = locked ? `${iconImg('lock', {}, 'sm')} quest` : built ? '✓ Built' : b.cost === 0 ? 'Free' : `${b.cost} ${iconImg('coin', {}, 'sm')}`;
       h += `<button class="build-item ${sel ? 'sel' : ''} ${b.station ? 'is-station' : ''} ${locked ? 'locked' : ''}" data-act="selbuild" data-id="${b.id}" ${dis ? 'disabled' : ''} title="${locked ? 'Unlock by claiming a bounty in your quest log' : b.name}">
-        <span class="bi-icon">${locked ? '🔒' : b.icon}</span><span class="bi-name">${b.name}</span><span class="bi-cost">${cost}</span></button>`;
+        <span class="bi-icon">${locked ? iconImg('lock', {}, 'sm') : iconImg(b.icon, {}, 'sm')}</span><span class="bi-name">${b.name}</span><span class="bi-cost">${cost}</span></button>`;
     }
     h += '</div>';
-    if (this._buildSel) { const sb = meta.buildableById(this._buildSel); if (sb) h += `<p class="build-hint">Placing <b>${sb.icon} ${sb.name}</b> — spin it in the preview with <b>⟳ Rotate</b>, then tap an empty tile. <span data-act="selbuild" data-id="${this._buildSel}" style="text-decoration:underline;cursor:pointer">cancel</span></p>`; }
+    if (this._buildSel) { const sb = meta.buildableById(this._buildSel); if (sb) h += `<p class="build-hint">Placing <b>${iconImg(sb.icon, {}, 'sm')} ${sb.name}</b> — spin it in the preview with <b>⟳ Rotate</b>, then tap an empty tile. <span data-act="selbuild" data-id="${this._buildSel}" style="text-decoration:underline;cursor:pointer">cancel</span></p>`; }
     return h;
   }
 
@@ -1654,24 +1674,24 @@ export class UI {
     if (debt > 0) {
       const pay = Math.min(meta.gold(), debt);
       h += `<div class="quest-box main-quest">
-        <div class="quest-title">⚜ MAIN QUEST · The Tavern Debt</div>
+        <div class="quest-title">${iconImg('⚜', {}, 'sm')} MAIN QUEST · The Tavern Debt</div>
         <div class="quest-text">Old Tomas left the Tipsy Toad drowning in debt — and you smashed up the rest on your way in. Pay it off to truly own the place.</div>
-        <div class="debt-bar"><div class="debt-fill" style="width:${pct}%"></div><span class="debt-label">${paid} / ${total}🪙 paid</span></div>
-        <div class="shop-acts"><button class="shop-btn big" data-act="paydebt" ${pay > 0 ? '' : 'disabled'}>Pay ${pay}🪙</button></div>
+        <div class="debt-bar"><div class="debt-fill" style="width:${pct}%"></div><span class="debt-label">${paid} / ${total} ${iconImg('coin', {}, 'sm')} paid</span></div>
+        <div class="shop-acts"><button class="shop-btn big" data-act="paydebt" ${pay > 0 ? '' : 'disabled'}>Pay ${pay} ${iconImg('coin', {}, 'sm')}</button></div>
       </div>`;
     } else {
-      h += `<div class="quest-box main-quest done"><div class="quest-title">⚜ MAIN QUEST · Debt Cleared!</div><div class="quest-text">Paid in full. The Tipsy Toad is yours, free and clear. 🍺</div></div>`;
+      h += `<div class="quest-box main-quest done"><div class="quest-title">${iconImg('⚜', {}, 'sm')} MAIN QUEST · Debt Cleared!</div><div class="quest-text">Paid in full. The Tipsy Toad is yours, free and clear. ${iconImg('beer', {}, 'sm')}</div></div>`;
     }
     // ---- side bounty ----
     h += `<div class="quest-box">
-      <div class="quest-title">📜 Bounty</div>
-      <div class="quest-text">${q.text}</div>
-      <div class="quest-reward">Reward: <b>${q.reward}🪙</b> · claim it to unlock a new facility</div>
+      <div class="quest-title">${iconImg('scroll', {}, 'sm')} Bounty</div>
+      <div class="quest-text">${pixify(q.text, 'sm')}</div>
+      <div class="quest-reward">Reward: <b>${q.reward} ${iconImg('coin', {}, 'sm')}</b> · claim it to unlock a new facility</div>
       <div class="shop-acts">${done ? '<button class="shop-btn big on" data-act="claim">✓ Claim reward</button>' : '<button class="shop-btn big" disabled>Complete it in a run</button>'}</div>
     </div>`;
     // ---- unlock track ----
-    h += '<div class="eq-section-head" style="margin-top:12px">🔓 Facilities (claim bounties to unlock, then build them)</div><div class="unlock-row">';
-    for (const f of meta.FEATURE_ORDER) { const u = meta.featureUnlocked(f); h += `<span class="unlock-chip ${u ? 'on' : ''}">${u ? '✓' : '🔒'} ${meta.FEATURE_LABELS[f]}</span>`; }
+    h += `<div class="eq-section-head" style="margin-top:12px">${iconImg('unlock', {}, 'sm')} Facilities (claim bounties to unlock, then build them)</div><div class="unlock-row">`;
+    for (const f of meta.FEATURE_ORDER) { const u = meta.featureUnlocked(f); h += `<span class="unlock-chip ${u ? 'on' : ''}">${u ? '✓' : iconImg('lock', {}, 'sm')} ${meta.FEATURE_LABELS[f]}</span>`; }
     h += '</div>';
     return h;
   }

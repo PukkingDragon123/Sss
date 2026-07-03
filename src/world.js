@@ -5,6 +5,7 @@
 // flags, and a unique landmark on every island. Same primitives-only rules.
 import * as THREE from 'three';
 import { STAGE_ORDER, STAGES } from './story.js';
+import { iconCanvas } from './pixelicons.js';
 
 // where each region sits on the overworld + how it looks
 const LAYOUT = {
@@ -18,11 +19,17 @@ const LAYOUT = {
   void:      { x: 1,   z: -13, tone: 0x9a6fd0, icon: '🌌', deco: 'void' },
 };
 
-function iconSprite(emoji, px = 96) {
+// a floating map icon built from OUR pixel sprites (no emoji): the sprite canvas is
+// drawn centred with a soft drop shadow so it pops against the sea
+function iconSprite(key, px = 96) {
   const c = document.createElement('canvas'); c.width = c.height = 128;
   const x = c.getContext('2d');
-  x.font = px + 'px serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.shadowColor = 'rgba(0,0,0,0.6)'; x.shadowBlur = 8; x.fillText(emoji, 64, 72);
+  const spr = iconCanvas(key, { scale: 6 });
+  if (spr) {
+    x.imageSmoothingEnabled = false;
+    x.shadowColor = 'rgba(0,0,0,0.55)'; x.shadowBlur = 0; x.shadowOffsetY = 5;
+    x.drawImage(spr, (128 - px) / 2, (128 - px) / 2 + 4, px, px);
+  }
   const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
   s.scale.set(2.4, 2.4, 2.4); return s;
@@ -42,20 +49,21 @@ function labelSprite(text, tone) {
 }
 const hx = (n) => '#' + ('000000' + n.toString(16)).slice(-6);
 
-// hand-scattered pixel water: two blue tones + sparse foam specks, tiled & drifted
+// hand-scattered stylized water: layered wave strokes on a finer canvas with smooth
+// filtering — clean low-poly-adjacent look rather than chunky pixels
 function seaTexture() {
-  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const c = document.createElement('canvas'); c.width = c.height = 128;
   const x = c.getContext('2d');
-  x.fillStyle = '#14304e'; x.fillRect(0, 0, 64, 64);
+  x.fillStyle = '#14304e'; x.fillRect(0, 0, 128, 128);
   x.fillStyle = '#112741';
-  for (let i = 0; i < 30; i++) x.fillRect((Math.random() * 64) | 0, (Math.random() * 64) | 0, 3 + ((Math.random() * 5) | 0), 2);
+  for (let i = 0; i < 46; i++) { const w = 8 + ((Math.random() * 14) | 0); x.fillRect((Math.random() * 128) | 0, (Math.random() * 128) | 0, w, 3); }
   x.fillStyle = '#1e4468';
-  for (let i = 0; i < 26; i++) x.fillRect((Math.random() * 64) | 0, (Math.random() * 64) | 0, 4, 1);
-  x.fillStyle = '#4f9ecf';
-  for (let i = 0; i < 12; i++) x.fillRect((Math.random() * 64) | 0, (Math.random() * 64) | 0, 2, 1);
+  for (let i = 0; i < 40; i++) { const w = 7 + ((Math.random() * 10) | 0); x.fillRect((Math.random() * 128) | 0, (Math.random() * 128) | 0, w, 2); }
+  x.fillStyle = 'rgba(79,158,207,0.9)';
+  for (let i = 0; i < 22; i++) x.fillRect((Math.random() * 128) | 0, (Math.random() * 128) | 0, 5, 1);
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter;
+  tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearMipmapLinearFilter;
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.repeat.set(6, 5);
   return tex;

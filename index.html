@@ -33,18 +33,18 @@
           <div class="vital beer" id="mana-vital" title="Mana. It does NOT refill on its own — DRINK (Q) to top it up."><div class="vital-fill" id="mana-fill"></div><div class="beer-foam" id="mana-foam"></div><span class="vital-num" id="mana-label">100</span></div>
           <div class="xpwrap">
             <div class="bar xp"><div class="bar-fill" id="xp-fill"></div><span class="bar-label" id="xp-label">Lv 1</span></div>
-            <div class="bar drunk" id="drunk-wrap" title="How spinny the room is. Drinking fills it; it eases off over time."><div class="bar-fill" id="drunk-fill"></div><span class="bar-label">🥴 Spins</span></div>
+            <div class="bar drunk" id="drunk-wrap" title="How spinny the room is. Drinking fills it; it eases off over time."><div class="bar-fill" id="drunk-fill"></div><span class="bar-label"><i class="pix" data-pix="tornado"></i> Spins</span></div>
           </div>
         </div>
         <div id="wave-wrap" class="hidden"><span id="wave">Wave 1/6</span><div id="wave-pips"></div></div>
       </div>
       <div class="stats">
-        <div class="stat" id="gold">🪙 0</div>
-        <div class="stat" id="gems" title="Gemstones — won in battle, spent on spells & research.">💎 0</div>
-        <div class="stat" id="clock" title="The tavern clock. Work by day; venture by night.">☀️ Day 1</div>
+        <div class="stat"><i class="pix" data-pix="coin"></i><b id="gold">0</b></div>
+        <div class="stat" title="Gemstones — won in battle, spent on spells & research."><i class="pix" data-pix="💎"></i><b id="gems">0</b></div>
+        <div class="stat" id="clock-wrap" title="The tavern clock. Work by day; venture by night."><i class="pix" id="clock-ico" data-pix="sun"></i><b id="clock">Day 1</b></div>
         <div class="stat" id="timer">0:00</div>
-        <div class="stat" id="kills">☠ 0</div>
-        <div class="stat" id="sobriety" title="How steady the wizard is. Lower = wonkier.">🍺 Sloshed</div>
+        <div class="stat" id="kills-wrap"><i class="pix" data-pix="skull"></i><b id="kills">0</b></div>
+        <div class="stat" id="sobriety-wrap" title="How steady the wizard is. Lower = wonkier."><i class="pix" data-pix="beer"></i><b id="sobriety">Sloshed</b></div>
       </div>
     </div>
 
@@ -58,24 +58,24 @@
     </div>
 
     <div id="tavern-hud" class="hidden">
-      <div class="tavern-obj">🚪 Stagger to the glowing door</div>
+      <div class="tavern-obj"><i class="pix" data-pix="door"></i> Stagger to the glowing door</div>
       <div class="tavern-ruckus">Ruckus caused: <b id="ruckus-count">0</b></div>
     </div>
 
     <!-- persistent main-quest tracker (shown while roaming the hub/room) -->
     <div id="quest-tracker" class="hidden">
-      <div class="qt-goal">⚜ <span id="qt-goal-text">The Tavern Debt</span></div>
+      <div class="qt-goal"><i class="pix" data-pix="star"></i> <span id="qt-goal-text">The Tavern Debt</span></div>
       <div class="debt-bar"><div class="debt-fill" id="qt-fill"></div></div>
       <div class="qt-step" id="qt-step"></div>
       <div class="qt-bounty" id="qt-bounty"></div>
     </div>
 
     <div id="top-buttons">
-      <button class="iconbtn" id="btn-quests" title="Quest log">📜</button>
-      <button class="iconbtn" id="btn-inv" title="Inventory / satchel">🎒</button>
-      <button class="iconbtn" id="btn-guide" title="How to draw spells (H)">📖</button>
-      <button class="iconbtn" id="btn-pause" title="Pause (P)">⏸</button>
-      <button class="iconbtn" id="btn-mute" title="Mute (M)">🔊</button>
+      <button class="iconbtn" id="btn-quests" title="Quest log"><i class="pix" data-pix="scroll"></i></button>
+      <button class="iconbtn" id="btn-inv" title="Inventory / satchel"><i class="pix" data-pix="bag"></i></button>
+      <button class="iconbtn" id="btn-guide" title="How to draw spells (H)"><i class="pix" data-pix="book"></i></button>
+      <button class="iconbtn" id="btn-pause" title="Pause (P)"><i class="pix" data-pix="pause"></i></button>
+      <button class="iconbtn" id="btn-mute" title="Mute (M)"><i class="pix" data-pix="sound"></i></button>
     </div>
 
     <div id="joystick" class="hidden"><div id="joy-knob"></div></div>
@@ -88,15 +88,15 @@
       <div class="spell-chip hidden" data-spell="heal"><span class="glyph">∨</span><span class="name">Heal</span><span class="key">5</span></div>
     </div>
 
-    <button id="btn-drink" class="hidden" title="Hold to chug — fills mana (Q)">🍺 Drink<span class="drink-key">Q</span></button>
-    <button id="btn-build" class="hidden" title="Build &amp; place facilities in your room">🔨 Build</button>
+    <button id="btn-drink" class="hidden" title="Hold to chug — fills mana (Q)"><i class="pix" data-pix="beer"></i> Drink<span class="drink-key">Q</span></button>
+    <button id="btn-build" class="hidden" title="Build &amp; place facilities in your room"><i class="pix" data-pix="hammer"></i> Build</button>
 
     <!-- channeled-drink progress bar (shows while chugging) -->
-    <div id="drink-bar" class="hidden"><div id="drink-bar-fill"></div><span class="drink-bar-label">🍺 Chugging…</span></div>
+    <div id="drink-bar" class="hidden"><div id="drink-bar-fill"></div><span class="drink-bar-label"><i class="pix" data-pix="beer"></i> Chugging…</span></div>
 
 
     <div id="boss-bar" class="hidden">
-      <div class="boss-bar-name" id="boss-bar-name">👑 Boss</div>
+      <div class="boss-bar-name"><i class="pix" data-pix="crown"></i> <span id="boss-bar-name">Boss</span></div>
       <div class="boss-bar-track"><div class="boss-bar-fill" id="boss-bar-fill"></div></div>
     </div>
 
@@ -109,22 +109,22 @@
     <div id="combo-hud"><div class="combo-n" id="combo-n">x0</div><div class="combo-lbl">combo</div></div>
     <div id="toast-area"></div>
     <!-- the wisp speaks: warnings &amp; tips (replaces blunt popups) -->
-    <div id="wisp-bubble" class="hidden"><div class="wisp-portrait">✨</div><div class="wisp-text" id="wisp-text"></div></div>
+    <div id="wisp-bubble" class="hidden"><div class="wisp-portrait" id="wisp-portrait"></div><div class="wisp-text" id="wisp-text"></div></div>
     <div id="interact-prompt" class="hidden"></div>
-    <button id="btn-interact" class="hidden">✋ Interact</button>
+    <button id="btn-interact" class="hidden"><i class="pix" data-pix="hand"></i> <span id="btn-interact-label">Interact</span></button>
     <div id="cast-hint">Hold <b>Right-Mouse</b> and draw a glyph to cast · <b>WASD</b> to stagger · <b>Q</b> to drink (refills mana, makes you woozy)</div>
   </div>
 
   <!-- ===== Quest log: a slide-in side panel tracking the debt, bounties &amp; every mechanic ===== -->
   <div id="quest-panel">
-    <div class="qp-head"><span>📜 Quest Log</span><button class="qp-close" id="qp-close">✕</button></div>
+    <div class="qp-head"><span><i class="pix" data-pix="scroll"></i> Quest Log</span><button class="qp-close" id="qp-close">✕</button></div>
     <div class="qp-body" id="qp-body"></div>
   </div>
 
   <!-- ===== Story / dialogue popup ===== -->
   <div id="story" class="overlay hidden">
     <div class="story-box">
-      <div class="story-speaker" id="story-speaker">Wisp</div>
+      <div class="story-head"><div class="story-portrait" id="story-portrait"></div><div class="story-speaker" id="story-speaker">Wisp</div></div>
       <div class="story-text" id="story-text"></div>
       <button class="btn" id="story-next">Continue ▸</button>
     </div>
@@ -149,7 +149,7 @@
   <!-- ===== Path event (choice dilemma / skill trial) ===== -->
   <div id="event-modal" class="overlay hidden">
     <div class="event-box">
-      <div class="event-icon" id="event-icon">❓</div>
+      <div class="event-icon" id="event-icon"></div>
       <h2 class="event-title" id="event-title">A Mystery</h2>
       <p class="event-prompt" id="event-prompt"></p>
       <div class="event-opts" id="event-opts"></div>
@@ -181,7 +181,7 @@
       <div class="cine-qte-hint">tap / click as fast as you can!</div>
     </div>
     <div id="cine-dialogue" class="hidden">
-      <div class="cine-portrait" id="cine-portrait">🧙</div>
+      <div class="cine-portrait" id="cine-portrait"></div>
       <div class="cine-text-wrap"><div class="cine-speaker" id="cine-speaker"></div><div class="cine-line" id="cine-line"></div></div>
       <button class="cine-next" id="cine-next">▸</button>
     </div>
@@ -202,11 +202,11 @@
       <h3>How to Play</h3>
       <ul>
         <li><b>Move</b> with WASD/arrows (drag the left side on phone). <b>Cast</b> by holding Right-Mouse (draw on the right on phone) and tracing a glyph — cleaner = more damage, <b>perfect = CRIT</b>. Or tap a spell / press <b>1–3</b>.</li>
-        <li><b>Mana is beer</b> and won't refill itself. Tap <b>🍺</b> (or Q) to <b>chug</b>: a 3-second drink fills mana to full — but spins the room.</li>
-        <li><b>The bar is your hub:</b> the <b>bar</b> for work, the <b>🚪 door</b> for the world map, the <b>🪜 stairs</b> to your room. Press <b>E</b> / tap ✋ to interact.</li>
-        <li><b>Venture out:</b> pick a region, then a <b>door each step</b> — ⚔️ fight, 💀 elite, 💰 treasure, ❓ mystery or ✶ trial. The last fork is the <b>crowned boss</b>, who drops a build-defining <b>✦ artifact</b> (carry up to 3).</li>
-        <li><b>Two purses:</b> 💎 <b>gems</b> (won venturing) buy spells &amp; research; 🪙 <b>gold</b> (earned working &amp; quests) builds your den.</li>
-        <li><b>Your room:</b> tap <b>🔨 Build</b> to place stations Clash-style — Spell Table, Library, Cauldron (combos), Equipment Hall, Anvil — then walk up to use them.</li>
+        <li><b>Mana is beer</b> and won't refill itself. Tap <i class="pix" data-pix="beer"></i> (or Q) to <b>chug</b>: a 3-second drink fills mana to full — but spins the room.</li>
+        <li><b>The bar is your hub:</b> the <b>bar</b> for work, the <i class="pix" data-pix="door"></i> <b>door</b> for the world map, the <i class="pix" data-pix="stairs"></i> <b>stairs</b> to your room. Press <b>E</b> / tap <i class="pix" data-pix="hand"></i> to interact.</li>
+        <li><b>Venture out:</b> pick a region, then a <b>door each step</b> — <i class="pix" data-pix="swords"></i> fight, <i class="pix" data-pix="skull"></i> elite, <i class="pix" data-pix="moneybag"></i> treasure, <i class="pix" data-pix="question"></i> mystery or ✶ trial. The last fork is the <b>crowned boss</b>, who drops a build-defining <b>✦ artifact</b> (carry up to 3).</li>
+        <li><b>Two purses:</b> <i class="pix" data-pix="💎"></i> <b>gems</b> (won venturing) buy spells &amp; research; <i class="pix" data-pix="coin"></i> <b>gold</b> (earned working &amp; quests) builds your den.</li>
+        <li><b>Your room:</b> tap <i class="pix" data-pix="hammer"></i> <b>Build</b> to place stations Clash-style — Spell Table, Library, Cauldron (combos), Equipment Hall, Anvil — then walk up to use them.</li>
         <li><b>Work for gold:</b> take a patron's order at a <b>table</b>, pour at the <b>bar</b>, carry it back to serve — don't spill!</li>
       </ul>
       <button class="btn" id="btn-how-close">Got it</button>
@@ -231,7 +231,7 @@
   <!-- ===== Settings ===== -->
   <div id="settings" class="overlay hidden">
     <div class="shop-box" style="max-width:460px">
-      <div class="shop-head"><h2>⚙ Settings</h2></div>
+      <div class="shop-head"><h2><i class="pix" data-pix="cog"></i> Settings</h2></div>
       <div class="set-row"><label for="set-vol">Volume</label><input type="range" id="set-vol" min="0" max="100" value="50"></div>
       <div class="set-row"><label for="set-mute">Mute</label><input type="checkbox" id="set-mute"></div>
       <div class="set-row"><label for="set-shake">Screen shake</label><input type="checkbox" id="set-shake" checked></div>
@@ -249,7 +249,7 @@
         <p>Design, code & wonk — <b>you</b>, with Claude.</p>
         <p>Engine: <b>three.js</b> · Sound: synthesized WebAudio · Art: humble primitives.</p>
         <p>Gesture magic via the <b>$1 Unistroke Recognizer</b> (Wobbrock et al.).</p>
-        <p style="color:var(--ink-dim)">Thanks for playing. Mind the furniture. 🍺</p>
+        <p style="color:var(--ink-dim)">Thanks for playing. Mind the furniture. <i class="pix" data-pix="beer"></i></p>
       </div>
       <button class="btn" id="credits-close">Close ▸</button>
     </div>
@@ -260,7 +260,7 @@
   <div id="minigame" class="overlay hidden">
     <h2 class="levelup-title" id="mg-title">Party Game</h2>
     <p class="levelup-sub" id="mg-sub"></p>
-    <div id="mg-hud"><span id="mg-timer">⏱ 0.0</span></div>
+    <div id="mg-hud"><span class="mg-timer-wrap"><i class="pix" data-pix="clock"></i> <span id="mg-timer">0.0</span></span></div>
     <div class="mg-stage">
       <canvas id="mg-canvas" width="400" height="440"></canvas>
     </div>
@@ -270,7 +270,7 @@
 
   <!-- ===== World map HUD (the map itself is the 3D scene; this panel scouts it) ===== -->
   <div id="world-hud" class="hidden">
-    <div class="world-title">🗺 The Realm — tap a region to scout it</div>
+    <div class="world-title"><i class="pix" data-pix="map"></i> The Realm — tap a region to scout it</div>
     <div id="world-detail"></div>
   </div>
 
@@ -282,7 +282,7 @@
 
   <!-- ===== Spell drawing guide ===== -->
   <div id="glyph-guide" class="overlay hidden">
-    <h2 class="levelup-title">✍️ How to Draw Spells</h2>
+    <h2 class="levelup-title"><i class="pix" data-pix="quill"></i> How to Draw Spells</h2>
     <p class="levelup-sub">Hold <b>Right-Mouse</b> (or draw on the <b>right side</b> on phone) and trace the shape from the green dot. A cleaner glyph hits harder — a <b>perfect</b> one <b>crits!</b></p>
     <div class="guide-cards" id="guide-cards"></div>
     <button class="btn big" id="btn-guide-close">Got it ▸</button>
@@ -291,7 +291,7 @@
   <!-- ===== Shop / station panel (skill tree, cauldron, room, manager) ===== -->
   <div id="shop" class="overlay hidden">
     <div class="shop-box">
-      <div class="shop-head"><h2 id="shop-title">Shop</h2><div class="shop-cur"><div id="shop-gold">🪙 0</div><div id="shop-gems">💎 0</div></div></div>
+      <div class="shop-head"><h2 id="shop-title">Shop</h2><div class="shop-cur"><div class="shop-cur-item"><i class="pix" data-pix="coin"></i><b id="shop-gold">0</b></div><div class="shop-cur-item"><i class="pix" data-pix="💎"></i><b id="shop-gems">0</b></div></div></div>
       <div id="shop-body"></div>
       <button class="btn" id="shop-close">Close ▸</button>
     </div>
@@ -300,8 +300,8 @@
   <!-- ===== Wandering Merchant: visits mid-run every few rooms, sells boons for gems ===== -->
   <div id="merchant" class="overlay hidden">
     <div class="shop-box">
-      <div class="shop-head"><h2>🛒 Wandering Merchant</h2><div class="shop-cur"><div id="merch-gems">💎 0</div></div></div>
-      <p class="shop-sub">"Psst. Rare boons, cheap-ish. Spend your 💎 gems — what you buy is yours <b>this run</b> and unlocked <b>forever</b>."</p>
+      <div class="shop-head"><h2><i class="pix" data-pix="moneybag"></i> Wandering Merchant</h2><div class="shop-cur"><div class="shop-cur-item"><i class="pix" data-pix="💎"></i><b id="merch-gems">0</b></div></div></div>
+      <p class="shop-sub">"Psst. Rare boons, cheap-ish. Spend your <i class="pix" data-pix="💎"></i> gems — what you buy is yours <b>this run</b> and unlocked <b>forever</b>."</p>
       <div id="merch-cards" class="shop-grid"></div>
       <button class="btn" id="merch-leave">Leave ▸</button>
     </div>

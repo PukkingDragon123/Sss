@@ -45,6 +45,7 @@ function _human(o) {
     B(g, tw, 0.7, 0.42, robe, 0, 0.95, 0, { metal: o.metalBody ? 0.7 : 0, rough: o.metalBody ? 0.4 : 0.82 });
   }
   if (o.apron) B(g, tw * 0.66, 0.5, 0.06, o.apron, 0, 0.9, 0.22);
+  if (o.belt) B(g, tw + 0.04, 0.12, 0.46, o.belt, 0, 0.68, 0, { metal: 0.5, rough: 0.4, emis: 0x3a2c00 });
   if (o.cracks) { B(g, 0.05, 0.34, 0.04, darken(robe, 0.5), -0.1, 0.95, 0.22); B(g, 0.05, 0.22, 0.04, darken(robe, 0.5), 0.14, 1.05, 0.22, { rotZ: 0.4 }); }
 
   // arms + hands
@@ -64,6 +65,7 @@ function _human(o) {
   B(g, 0.09, 0.12, 0.05, eC, -0.12, hy + 0.02, 0.24 + hunch, eo);
   B(g, 0.09, 0.12, 0.05, eC, 0.12, hy + 0.02, 0.24 + hunch, eo);
   if (o.nose !== false) B(g, 0.1, 0.1, 0.1, o.noseColor ?? 0xd98a72, 0, hy - 0.06, 0.26 + hunch);
+  if (o.cheeks) { B(g, 0.1, 0.08, 0.05, o.cheeks, -0.19, hy - 0.06, 0.24 + hunch); B(g, 0.1, 0.08, 0.05, o.cheeks, 0.19, hy - 0.06, 0.24 + hunch); }
   if (o.wideMouth) B(g, 0.32, 0.06, 0.05, 0x6a2a2a, 0, hy - 0.18, 0.24 + hunch);
   if (o.tooth) B(g, 0.06, 0.1, 0.04, 0xffffff, 0.06, hy - 0.16, 0.25 + hunch);
 
@@ -151,10 +153,40 @@ function acc(g, o, skin, ax) {
   }
 }
 
+// a portrait model for the wisp guide: a glowing cyan orb with a halo and motes
+// (matches the cutscene/pet wisp — core 0xdff4ff, halo 0x7fd0ff, motes 0xbfeaff)
+function _wisp() {
+  const g = new THREE.Group();
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(0.55, 18, 16),
+    new THREE.MeshStandardMaterial({ color: 0xdff4ff, emissive: 0x9fe0ff, emissiveIntensity: 1.6, roughness: 0.3 })
+  );
+  core.position.y = 1.35; g.add(core);
+  const halo = new THREE.Mesh(
+    new THREE.SphereGeometry(0.85, 16, 14),
+    new THREE.MeshBasicMaterial({ color: 0x7fd0ff, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  halo.position.y = 1.35; g.add(halo);
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * Math.PI * 2;
+    const mote = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 8, 8),
+      new THREE.MeshStandardMaterial({ color: 0xbfeaff, emissive: 0xbfeaff, emissiveIntensity: 1.2 })
+    );
+    mote.position.set(Math.cos(a) * 0.95, 1.35 + Math.sin(a * 2) * 0.4, Math.sin(a) * 0.5);
+    g.add(mote);
+  }
+  return g;
+}
+
 // ===== the cast of unique models (each visually distinct + fun) =====
 const KINDS = {
-  wizard: () => _human({ skin: 0xf0d6b8, robe: 0x3550b0, robe2: 0x26408a, hat: 'pointy', hatColor: 0x2a3a8a, beard: 'long', beardColor: 0xe8e8e0, acc: 'star' }),
-  barkeep: () => _human({ skin: 0xeac49a, robe: 0x8a5a3a, apron: 0xcdb38a, beard: 'mustache', hair: 0x3a2a1a, wide: true }),
+  // Wobblesworth's portrait mirrors the ACTUAL player rig (wizard.js): soft-purple
+  // robe 0x8f7bd6, deep-purple hat 0x6f5fc4, white beard, red nose, blush, gold belt
+  wizard: () => _human({ skin: 0xf2e0c9, robe: 0x8f7bd6, robe2: 0x6f5fc4, hat: 'pointy', hatColor: 0x6f5fc4, beard: 'long', beardColor: 0xf7f4ec, noseColor: 0xe06a55, cheeks: 0xe89a8a, belt: 0xffd98a, acc: 'star' }),
+  // Barkeep Tomas' portrait mirrors his cutscene set model (cinematics.js:61-68)
+  barkeep: () => _human({ skin: 0xf0c89a, robe: 0x6a4d34, apron: 0xd8c39a, beard: 'mustache', beardColor: 0x6a4326, hair: 0x6a4326, wide: true }),
+  wisp: () => _wisp(),
   knight: () => _human({ skin: 0xeac49a, robe: 0x9aa3ad, robe2: 0x6f7780, metalBody: true, hat: 'helm', plume: 0xc83a3a }),
   witch: () => _human({ skin: 0x9fc27a, robe: 0x5a3a7a, hat: 'wide', hatColor: 0x281a3a, hair: 0x2a2030, longHair: true, noseColor: 0x7faa5a }),
   bard: () => _human({ skin: 0xeac49a, robe: 0x3a8a5a, hat: 'cap', hatColor: 0x2a6a44, feather: 0xffd24a, acc: 'lute', hair: 0x6b4423 }),
@@ -171,7 +203,8 @@ const KINDS = {
   elder: () => _human({ skin: 0xe8c8a8, robe: 0x9a7a4a, beard: 'long', beardColor: 0xc8c8c8, hair: 0xc8c8c8, acc: 'cane', hunch: true }),
   merchant: () => _human({ skin: 0xeac49a, robe: 0x6a8a4a, hat: 'wide', hatColor: 0x8a6a3a, beard: 'short', acc: 'coin' }),
   barmaid: () => _human({ skin: 0xf0d6b8, robe: 0xcf6f8a, apron: 0xead6c0, hair: 0xb5651d, longHair: true, hairBun: true, acc: 'tray' }),
-  patron: () => _human({ skin: 0xeac49a, robe: 0x6a7a9a, hat: 'cap', hatColor: 0x4a5a6a, beard: 'short' }),
+  // matches the tavern/cutscene patrons: hatless, beardless, periwinkle robe
+  patron: () => _human({ skin: 0xf0d6b8, robe: 0x7a8bd0, noseColor: 0xd98a72 }),
 };
 
 export const CHAR_KINDS = Object.keys(KINDS);

@@ -470,7 +470,9 @@ export class Game {
       this._pr = pr;
       const c = new EffectComposer(this.renderer);
       const start = this._pixelWant || Math.max(2, Math.round(2.2 * pr)); // gentler default
-      const px = new RenderPixelatedPass(start, this.scene, this.camera, { normalEdgeStrength: 0.22, depthEdgeStrength: 0.3 }); // softer outlines
+      // crisper Megabonk look: barely-chunky blocks + stronger normal/depth edge lines so
+      // the flat-shaded low-poly models read with a drawn outline
+      const px = new RenderPixelatedPass(start, this.scene, this.camera, { normalEdgeStrength: 0.38, depthEdgeStrength: 0.45 });
       this._pixelPass = px;
       if (this._pixelWant) px.setPixelSize(this._pixelWant); // honor a per-scene request made before load (resizes internal RTs)
       c.addPass(px);
@@ -490,7 +492,7 @@ export class Game {
   // dpr1 and dpr2 (the old pr-multiplied math made dpr1 round to 1 = no pixelation at all).
   _setPixel(mode) {
     const pr = this._pr || this.renderer.getPixelRatio() || 1;
-    const cssBlock = mode === 'arena' ? 3 : 6;            // 3 CSS-px in the fight (legible), 6 in menus/map
+    const cssBlock = mode === 'arena' ? 2 : 3;            // near-crisp: 2 CSS-px in the fight, 3 in menus/map
     const n = Math.max(2, Math.round(cssBlock * pr));      // device px; never < 2 (1 = no pixelation)
     this._pixelWant = n;
     if (this._pixelPass) this._pixelPass.setPixelSize(n);
@@ -774,7 +776,8 @@ export class Game {
     const x = (v.x * 0.5 + 0.5) * window.innerWidth;
     const y = (-v.y * 0.5 + 0.5) * window.innerHeight;
     const crit = n >= 24; // big hits pop bigger & gold
-    this.ui.floatNumber(x, y, Math.round(n), crit ? '#ffd36b' : '#ffe08a', crit);
+    const scale = Math.min(2.1, 0.9 + n / 34);            // Megabonk numbers: the harder the hit, the fatter the digits
+    this.ui.floatNumber(x, y, Math.round(n), crit ? '#ffd36b' : '#ffe08a', crit, scale);
   }
 
   notifySpell(tags, pos) { this.jobs.onSpell(tags, pos, this); }
@@ -1853,7 +1856,7 @@ export class Game {
       ctx.font = 'bold 26px "Trebuchet MS", sans-serif';
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       ctx.fillStyle = `rgba(${c},1)`;
-      const label = this._live.locked ? `🔒 ${s.name}` : (this._live.score >= 0.9 ? `${s.glyph} ${s.name}  ✦CRIT` : `${s.glyph} ${s.name}`);
+      const label = this._live.locked ? `${s.name} (locked)` : (this._live.score >= 0.9 ? `${s.glyph} ${s.name}  ✦CRIT` : `${s.glyph} ${s.name}`);
       ctx.fillText(label, last.x + 16, last.y - 18);
     }
   }

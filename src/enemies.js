@@ -88,42 +88,45 @@ export class Enemies {
   _buildMesh(type) {
     const def = TYPES[type];
     const g = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({ color: def.color, roughness: def.metalness ? 0.4 : 0.85, metalness: def.metalness || 0, emissive: def.emissive || 0x000000, emissiveIntensity: def.emissive ? 0.6 : 0 });
-    const darkMat = new THREE.MeshStandardMaterial({ color: 0x2a2230, roughness: 0.7 });
-    const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.5 });
-    const anim = { wings: null, cape: null };
+    // Megabonk-style: FLAT-SHADED low-poly materials — every facet reads as a hard plane
+    const bodyMat = new THREE.MeshStandardMaterial({ color: def.color, roughness: def.metalness ? 0.4 : 0.85, metalness: def.metalness || 0, emissive: def.emissive || 0x000000, emissiveIntensity: def.emissive ? 0.6 : 0, flatShading: true });
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x2a2230, roughness: 0.7, flatShading: true });
+    const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf8f6ee, roughness: 0.45, flatShading: true });
+    const anim = { wings: null, cape: null, pupils: null };
 
     const fierce = !!(def.boss || def.emissive || type === 'vampire' || type === 'warden' || type === 'spider' || type === 'spiderqueen');
 
-    // squat blobby body (smoother now) + a paler belly patch for a bit of shape
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.55, 18, 16), bodyMat);
-    body.scale.set(1, 1.15, 1);
-    body.position.y = 0.6;
+    // chunky faceted gem-blob body (low-poly icosphere, squashed tall)
+    const body = new THREE.Mesh(new THREE.IcosahedronGeometry(0.6, 1), bodyMat);
+    body.scale.set(1, 1.1, 1);
+    body.position.y = 0.62;
     body.castShadow = true;
     g.add(body);
-    const bellyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.16, roughness: 0.9, depthWrite: false });
-    const belly = new THREE.Mesh(new THREE.SphereGeometry(0.4, 14, 12), bellyMat); belly.scale.set(0.9, 1.0, 0.6); belly.position.set(0, 0.52, 0.32); g.add(belly);
 
-    // simple eyes: just two small black dots
-    const eGeo = new THREE.SphereGeometry(0.11, 10, 10);
-    const eL = new THREE.Mesh(eGeo, darkMat); eL.position.set(-0.18, 0.92, 0.5);
-    const eR = new THREE.Mesh(eGeo, darkMat); eR.position.set(0.18, 0.92, 0.5);
-    g.add(eL, eR);
+    // BIG googly eyes: bulging white spheres + wobbly pupils, one slightly bigger (derp)
+    const sclGeo = new THREE.SphereGeometry(0.2, 8, 6);
+    const pupGeo = new THREE.SphereGeometry(0.088, 6, 5);
+    const sL = new THREE.Mesh(sclGeo, whiteMat); sL.position.set(-0.21, 0.96, 0.46); sL.scale.setScalar(1.12);
+    const sR = new THREE.Mesh(sclGeo, whiteMat); sR.position.set(0.21, 0.94, 0.47);
+    const pL = new THREE.Mesh(pupGeo, darkMat); pL.position.set(-0.2, 0.96, 0.64);
+    const pR = new THREE.Mesh(pupGeo, darkMat); pR.position.set(0.22, 0.93, 0.63);
+    g.add(sL, sR, pL, pR);
+    anim.pupils = [{ m: pL, bx: pL.position.x, by: pL.position.y }, { m: pR, bx: pR.position.x, by: pR.position.y }];
 
     // goofy raised brows (surprised, not scary) + a derpy open gob with a tongue and one buck tooth
-    const browGeo = new THREE.BoxGeometry(0.16, 0.05, 0.07);
-    const bL = new THREE.Mesh(browGeo, darkMat); bL.position.set(-0.22, 1.14, 0.4); bL.rotation.z = fierce ? -0.24 : 0.2;
-    const bR = new THREE.Mesh(browGeo, darkMat); bR.position.set(0.22, 1.14, 0.4); bR.rotation.z = fierce ? 0.24 : -0.2;
-    const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.6), darkMat); mouth.rotation.x = Math.PI; mouth.scale.set(1, 0.65, 0.5); mouth.position.set(0, 0.61, 0.48);
-    const tongue = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 8), new THREE.MeshStandardMaterial({ color: 0xff7a98, roughness: 0.6 })); tongue.scale.set(1, 0.5, 0.7); tongue.position.set(0.02, 0.55, 0.52);
-    const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.04), new THREE.MeshStandardMaterial({ color: 0xfffaf0, roughness: 0.5 })); tooth.position.set(-0.07, 0.65, 0.53);
+    const browGeo = new THREE.BoxGeometry(0.2, 0.055, 0.07);
+    const bL = new THREE.Mesh(browGeo, darkMat); bL.position.set(-0.24, 1.2, 0.4); bL.rotation.z = fierce ? -0.3 : 0.2;
+    const bR = new THREE.Mesh(browGeo, darkMat); bR.position.set(0.24, 1.2, 0.4); bR.rotation.z = fierce ? 0.3 : -0.2;
+    const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.6), darkMat); mouth.rotation.x = Math.PI; mouth.scale.set(1.1, 0.7, 0.5); mouth.position.set(0, 0.58, 0.5);
+    const tongue = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), new THREE.MeshStandardMaterial({ color: 0xff7a98, roughness: 0.6, flatShading: true })); tongue.scale.set(1, 0.5, 0.7); tongue.position.set(0.02, 0.52, 0.54);
+    const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.1, 0.04), new THREE.MeshStandardMaterial({ color: 0xfffaf0, roughness: 0.5 })); tooth.position.set(-0.08, 0.63, 0.55);
     g.add(bL, bR, mouth, tongue, tooth);
 
     // little feet (flyers/floaters have none)
     if (type !== 'bat' && type !== 'brutebat' && type !== 'wraith' && type !== 'drone') {
-      const footGeo = new THREE.SphereGeometry(0.16, 8, 8);
-      const fL = new THREE.Mesh(footGeo, darkMat); fL.position.set(-0.25, 0.12, 0.05); fL.castShadow = true;
-      const fR = new THREE.Mesh(footGeo, darkMat); fR.position.set(0.25, 0.12, 0.05); fR.castShadow = true;
+      const footGeo = new THREE.SphereGeometry(0.17, 6, 5);
+      const fL = new THREE.Mesh(footGeo, darkMat); fL.position.set(-0.26, 0.12, 0.05); fL.castShadow = true;
+      const fR = new THREE.Mesh(footGeo, darkMat); fR.position.set(0.26, 0.12, 0.05); fR.castShadow = true;
       g.add(fL, fR);
     }
 
@@ -142,39 +145,39 @@ export class Enemies {
     }
     if (def.boss) {
       // ---- regal KING kit: a jewelled crown, royal cape, pauldrons & a menacing aura ----
-      const goldMat = new THREE.MeshStandardMaterial({ color: 0xffd98a, metalness: 0.55, roughness: 0.32, emissive: 0x4a3400, emissiveIntensity: 0.5 });
-      const gemMat = new THREE.MeshStandardMaterial({ color: 0xff3a5a, emissive: 0x6a0a1a, emissiveIntensity: 0.85, roughness: 0.2, metalness: 0.2 });
+      const goldMat = new THREE.MeshStandardMaterial({ color: 0xffd98a, metalness: 0.55, roughness: 0.32, emissive: 0x4a3400, emissiveIntensity: 0.5, flatShading: true });
+      const gemMat = new THREE.MeshStandardMaterial({ color: 0xff3a5a, emissive: 0x6a0a1a, emissiveIntensity: 0.85, roughness: 0.2, metalness: 0.2, flatShading: true });
       const crown = new THREE.Group(); crown.position.y = 1.5;
       const band = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.22, 12), goldMat); crown.add(band);
       for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; const spike = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.36, 5), goldMat); spike.position.set(Math.cos(a) * 0.48, 0.26, Math.sin(a) * 0.48); crown.add(spike); }
       const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.14, 0), gemMat); gem.position.set(0, 0.06, 0.5); crown.add(gem);
       crown.castShadow = true; g.add(crown);
-      const capeMat = new THREE.MeshStandardMaterial({ color: 0x6a1020, roughness: 0.7, side: THREE.DoubleSide, emissive: 0x1a0206 });
+      const capeMat = new THREE.MeshStandardMaterial({ color: 0x6a1020, roughness: 0.7, side: THREE.DoubleSide, emissive: 0x1a0206, flatShading: true });
       const cape = new THREE.Mesh(new THREE.ConeGeometry(0.82, 1.7, 14, 1, true), capeMat); cape.position.set(0, 0.7, -0.36); cape.castShadow = true; g.add(cape); if (!anim.cape) anim.cape = cape;
-      const palMat = new THREE.MeshStandardMaterial({ color: 0xffd98a, metalness: 0.5, roughness: 0.4 });
-      for (const side of [-1, 1]) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.27, 10, 8), palMat); p.position.set(side * 0.62, 0.96, 0); p.scale.set(1, 0.68, 1); p.castShadow = true; g.add(p); }
+      const palMat = new THREE.MeshStandardMaterial({ color: 0xffd98a, metalness: 0.5, roughness: 0.4, flatShading: true });
+      for (const side of [-1, 1]) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.27, 6, 5), palMat); p.position.set(side * 0.62, 0.96, 0); p.scale.set(1, 0.68, 1); p.castShadow = true; g.add(p); }
       const aura = new THREE.Mesh(new THREE.SphereGeometry(0.88, 16, 12), new THREE.MeshBasicMaterial({ color: def.emissive ? def.color : 0xff5a8a, transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, depthWrite: false })); aura.position.y = 0.7; g.add(aura); anim.aura = aura;
     }
     // horns for the fiery folk
     if (type === 'imp' || type === 'hellhound' || type === 'demonlord') {
-      const hornMat = new THREE.MeshStandardMaterial({ color: 0x2a1410, roughness: 0.6 });
+      const hornMat = new THREE.MeshStandardMaterial({ color: 0x2a1410, roughness: 0.6, flatShading: true });
       const hgGeo = new THREE.ConeGeometry(0.13, 0.42, 6);
       const hL = new THREE.Mesh(hgGeo, hornMat); hL.position.set(-0.28, 1.0, 0); hL.rotation.z = 0.5; hL.castShadow = true;
       const hR = new THREE.Mesh(hgGeo, hornMat); hR.position.set(0.28, 1.0, 0); hR.rotation.z = -0.5; hR.castShadow = true;
       g.add(hL, hR);
       // a barbed devil tail with a glowing tip
       const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.02, 0.7, 6), hornMat); tail.position.set(0, 0.45, -0.5); tail.rotation.x = -0.9; tail.castShadow = true; g.add(tail);
-      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.22, 5), new THREE.MeshStandardMaterial({ color: def.color, emissive: def.emissive || 0x000000, emissiveIntensity: 0.7, roughness: 0.5 })); tip.position.set(0, 0.8, -0.76); tip.rotation.x = 0.5; g.add(tip);
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.22, 5), new THREE.MeshStandardMaterial({ color: def.color, emissive: def.emissive || 0x000000, emissiveIntensity: 0.7, roughness: 0.5, flatShading: true })); tip.position.set(0, 0.8, -0.76); tip.rotation.x = 0.5; g.add(tip);
     }
     // antenna + rotor for the machines
     if (type === 'drone' || type === 'bot' || type === 'overmind') {
-      const techMat = new THREE.MeshStandardMaterial({ color: 0xe8f6ff, metalness: 0.5, roughness: 0.3, emissive: 0x2a6a7a, emissiveIntensity: 0.5 });
+      const techMat = new THREE.MeshStandardMaterial({ color: 0xe8f6ff, metalness: 0.5, roughness: 0.3, emissive: 0x2a6a7a, emissiveIntensity: 0.5, flatShading: true });
       const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.4, 6), techMat); ant.position.y = 1.15; g.add(ant);
       const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), techMat); bulb.position.y = 1.4; g.add(bulb);
-      if (type === 'drone') { const wingMat = new THREE.MeshStandardMaterial({ color: 0x3fb0c8, metalness: 0.4, roughness: 0.4, side: THREE.DoubleSide }); const wgeo = new THREE.BoxGeometry(0.6, 0.04, 0.3); const wL = new THREE.Mesh(wgeo, wingMat); wL.position.set(-0.5, 0.7, 0); const wR = new THREE.Mesh(wgeo, wingMat); wR.position.set(0.5, 0.7, 0); g.add(wL, wR); anim.wings = [wL, wR]; }
+      if (type === 'drone') { const wingMat = new THREE.MeshStandardMaterial({ color: 0x3fb0c8, metalness: 0.4, roughness: 0.4, side: THREE.DoubleSide, flatShading: true }); const wgeo = new THREE.BoxGeometry(0.6, 0.04, 0.3); const wL = new THREE.Mesh(wgeo, wingMat); wL.position.set(-0.5, 0.7, 0); const wR = new THREE.Mesh(wgeo, wingMat); wR.position.set(0.5, 0.7, 0); g.add(wL, wR); anim.wings = [wL, wR]; }
     }
     if (type === 'bat' || type === 'brutebat') {
-      const wingMat = new THREE.MeshStandardMaterial({ color: type === 'brutebat' ? 0x3a2f4a : 0x4a3a66, roughness: 0.8, side: THREE.DoubleSide });
+      const wingMat = new THREE.MeshStandardMaterial({ color: type === 'brutebat' ? 0x3a2f4a : 0x4a3a66, roughness: 0.8, side: THREE.DoubleSide, flatShading: true });
       const wingGeo = new THREE.ConeGeometry(0.5, 0.9, 3); wingGeo.rotateZ(Math.PI / 2);
       const wL = new THREE.Mesh(wingGeo, wingMat); wL.position.set(-0.55, 0.7, 0); wL.castShadow = true;
       const wR = new THREE.Mesh(wingGeo, wingMat); wR.position.set(0.55, 0.7, 0); wR.rotation.y = Math.PI; wR.castShadow = true;
@@ -193,7 +196,7 @@ export class Enemies {
       }
       body.scale.set(1.2, 0.8, 1.1);
       // dripping mandible fangs
-      const fangMat = new THREE.MeshStandardMaterial({ color: 0xe8e4d6, roughness: 0.4 });
+      const fangMat = new THREE.MeshStandardMaterial({ color: 0xe8e4d6, roughness: 0.4, flatShading: true });
       for (const sx of [-1, 1]) { const f = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.2, 5), fangMat); f.position.set(sx * 0.12, 0.5, 0.5); f.rotation.x = 2.3; f.castShadow = true; g.add(f); }
     }
     if (type === 'zombie') {
@@ -205,7 +208,7 @@ export class Enemies {
     }
     if (type === 'skeleton' || type === 'skeletonking') {
       // ribcage hint + bony arms
-      const boneMat = new THREE.MeshStandardMaterial({ color: type === 'skeletonking' ? 0xd8d2bc : 0xeae6d6, roughness: 0.7 });
+      const boneMat = new THREE.MeshStandardMaterial({ color: type === 'skeletonking' ? 0xd8d2bc : 0xeae6d6, roughness: 0.7, flatShading: true });
       for (let r = 0; r < 3; r++) { const rib = new THREE.Mesh(new THREE.TorusGeometry(0.32 - r * 0.05, 0.04, 6, 14), boneMat); rib.position.set(0, 0.5 + r * 0.18, 0.2); rib.rotation.x = Math.PI / 2; g.add(rib); }
       const armGeo = new THREE.CylinderGeometry(0.07, 0.06, 0.7, 6); armGeo.translate(0, -0.35, 0);
       const aL = new THREE.Mesh(armGeo, boneMat); aL.position.set(-0.45, 0.95, 0.1); aL.rotation.x = -1.2; aL.castShadow = true;
@@ -214,13 +217,13 @@ export class Enemies {
     }
     if (type === 'wraith') {
       // tattered hood + wispy tail (no feet, floats)
-      const robe = new THREE.MeshStandardMaterial({ color: 0x6a7a9a, roughness: 0.9, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
+      const robe = new THREE.MeshStandardMaterial({ color: 0x6a7a9a, roughness: 0.9, transparent: true, opacity: 0.85, side: THREE.DoubleSide, flatShading: true });
       const hood = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.3, 12, 1, true), robe); hood.position.set(0, 0.5, 0); hood.castShadow = true;
       g.add(hood); anim.cape = hood;
     }
     if (type === 'vampire') {
       // a swishy cape + pale slicked look
-      const capeMat = new THREE.MeshStandardMaterial({ color: 0x2a0e1a, roughness: 0.7, side: THREE.DoubleSide });
+      const capeMat = new THREE.MeshStandardMaterial({ color: 0x2a0e1a, roughness: 0.7, side: THREE.DoubleSide, flatShading: true });
       const cape = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.2, 12, 1, true), capeMat);
       cape.position.set(0, 0.7, -0.3); cape.castShadow = true;
       const collar = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.4, 12, 1, true), capeMat);
@@ -427,6 +430,10 @@ export class Enemies {
       e.mesh.position.y = hover;
       if (e.anim.wings) { const f = Math.sin(e.phase * 6); e.anim.wings[0].rotation.y = f * 0.7; e.anim.wings[1].rotation.y = Math.PI - f * 0.7; }
       if (e.anim.cape) e.anim.cape.rotation.x = Math.sin(e.phase * 1.5) * 0.12;
+      if (e.anim.pupils) { // googly-eye jiggle — the pupils rattle around as it bounces
+        const jx = Math.sin(e.phase * 6.6) * 0.032, jy = Math.cos(e.phase * 4.9) * 0.022;
+        for (const p of e.anim.pupils) { p.m.position.x = p.bx + jx; p.m.position.y = p.by + jy; }
+      }
       if (e.anim.aura) { e.anim.aura.material.opacity = 0.1 + Math.abs(Math.sin(e.phase * 1.4)) * 0.12; e.anim.aura.scale.setScalar(1 + Math.sin(e.phase) * 0.06); }
 
       if (e.flash > 0) {

@@ -28,15 +28,20 @@ const moveDir = (ev) => {
 };
 
 // small shared canvas helpers (defensive draws)
+// flat two-band backdrop (no gradients — matches the game's stamped flat style)
 function bg(ctx, W, H, top, bot) {
-  const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, top); g.addColorStop(1, bot);
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = bot; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = top; ctx.fillRect(0, 0, W, Math.round(H * 0.42));
 }
 function text(ctx, s, x, y, size, color = '#fff', align = 'center') {
   ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'middle';
   ctx.font = `${size}px system-ui, sans-serif`; ctx.fillText(s, x, y);
 }
+// pixel-sprite pieces: ui.js injects a drawer (iconCanvas-based); in node this is a
+// no-op so the module keeps its zero-import, test-drivable contract
+let _iconDrawer = null;
+export function setIconDrawer(fn) { _iconDrawer = fn; }
+function icon(ctx, key, x, y, size) { if (_iconDrawer) _iconDrawer(ctx, key, x, y, size); }
 
 // ----------------------------------------------------------------------------- 1. REFLEX
 const reflex = {
@@ -61,7 +66,7 @@ const mash = {
   isOver(s) { return s.rope <= 0 || s.rope >= 1; },
   scoreOf(s) { return clamp(s.rope, 0, 1); },
   reward: defaultReward,
-  draw(ctx, W, H, s) { if (!ctx) return; bg(ctx, W, H, '#2a1c30', '#140a18'); const y = H * 0.5; ctx.strokeStyle = '#caa'; ctx.lineWidth = Math.max(4, H * 0.012); ctx.beginPath(); ctx.moveTo(W * 0.08, y); ctx.lineTo(W * 0.92, y); ctx.stroke(); ctx.strokeStyle = '#ffd34d'; ctx.beginPath(); ctx.moveTo(W / 2, y - H * 0.06); ctx.lineTo(W / 2, y + H * 0.06); ctx.stroke(); const kx = W * (0.12 + s.rope * 0.76); text(ctx, '🧙', kx - W * 0.06, y, W * 0.12); text(ctx, '👺', kx + W * 0.06, y, W * 0.12); text(ctx, s.rope >= 0.5 ? 'Pull!' : 'Losing!', W / 2, H * 0.86, W * 0.06, s.rope >= 0.5 ? '#8f8' : '#f88'); },
+  draw(ctx, W, H, s) { if (!ctx) return; bg(ctx, W, H, '#2a1c30', '#140a18'); const y = H * 0.5; ctx.strokeStyle = '#caa'; ctx.lineWidth = Math.max(4, H * 0.012); ctx.beginPath(); ctx.moveTo(W * 0.08, y); ctx.lineTo(W * 0.92, y); ctx.stroke(); ctx.strokeStyle = '#ffd34d'; ctx.beginPath(); ctx.moveTo(W / 2, y - H * 0.06); ctx.lineTo(W / 2, y + H * 0.06); ctx.stroke(); const kx = W * (0.12 + s.rope * 0.76); icon(ctx, 'wizard', kx - W * 0.06, y, W * 0.12); icon(ctx, 'goblinface', kx + W * 0.06, y, W * 0.12); text(ctx, s.rope >= 0.5 ? 'Pull!' : 'Losing!', W / 2, H * 0.86, W * 0.06, s.rope >= 0.5 ? '#8f8' : '#f88'); },
 };
 
 // ----------------------------------------------------------------------------- 3. DODGE
@@ -79,7 +84,7 @@ const dodge = {
   isOver(s) { return s.lives <= 0; },
   scoreOf(s) { return clamp((s.dur0 - Math.max(0, s.timeLeft)) / s.dur0, 0, 1); },
   reward: defaultReward,
-  draw(ctx, W, H, s) { if (!ctx) return; bg(ctx, W, H, '#241a14', '#0e0a06'); for (const r of s.rocks) text(ctx, '🪨', r.x * W, r.y * H, W * 0.09); text(ctx, '🧙', s.px * W, H * 0.92, W * 0.11); text(ctx, '❤'.repeat(Math.max(0, s.lives)), W * 0.5, H * 0.06, W * 0.05, '#f66'); },
+  draw(ctx, W, H, s) { if (!ctx) return; bg(ctx, W, H, '#241a14', '#0e0a06'); for (const r of s.rocks) icon(ctx, 'rock', r.x * W, r.y * H, W * 0.09); icon(ctx, 'wizard', s.px * W, H * 0.92, W * 0.11); for (let i = 0; i < Math.max(0, s.lives); i++) icon(ctx, 'heart', W * 0.5 + (i - (s.lives - 1) / 2) * W * 0.06, H * 0.06, W * 0.05); },
 };
 
 // ----------------------------------------------------------------------------- 4. SIMON
@@ -113,7 +118,7 @@ const simon = {
 
 // ----------------------------------------------------------------------------- 5. MOLE
 const mole = {
-  id: 'mole', name: 'Whack-a-Goblin', how: 'Tap goblins 👺, avoid bombs 💣!', dur: 20,
+  id: 'mole', name: 'Whack-a-Goblin', how: 'Tap the goblins, avoid the bombs!', dur: 20,
   controls: [], // canvas 3x3 grid
   init(o = {}) { const rng = o.rng || Math.random; return { rng, cells: new Array(9).fill(null), spawn: 0.5, hits: 0, misses: 0, timeLeft: 20 }; },
   update(s, dt) {
@@ -125,7 +130,7 @@ const mole = {
   isOver() { return false; },
   scoreOf(s) { const tot = s.hits + s.misses; return tot <= 0 ? 0 : clamp(s.hits / tot, 0, 1); },
   reward: defaultReward,
-  draw(ctx, W, H, s) { if (!ctx) return; bg(ctx, W, H, '#173018', '#08160a'); const m = W * 0.04, sz = (W - m * 4) / 3; for (let i = 0; i < 9; i++) { const c = i % 3, r = (i / 3) | 0; const x = m + c * (sz + m), y = m + r * (sz + m); ctx.fillStyle = '#2c4a2e'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, sz, sz, 10) : ctx.rect(x, y, sz, sz); ctx.fill(); const cell = s.cells[i]; if (cell) text(ctx, cell.type === 'mole' ? '👺' : '💣', x + sz / 2, y + sz / 2, sz * 0.6); } text(ctx, `👊 ${s.hits}`, W * 0.5, H * 0.95, W * 0.055, '#9f9'); },
+  draw(ctx, W, H, s) { if (!ctx) return; bg(ctx, W, H, '#173018', '#08160a'); const m = W * 0.04, sz = (W - m * 4) / 3; for (let i = 0; i < 9; i++) { const c = i % 3, r = (i / 3) | 0; const x = m + c * (sz + m), y = m + r * (sz + m); ctx.fillStyle = '#2c4a2e'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, sz, sz, 10) : ctx.rect(x, y, sz, sz); ctx.fill(); const cell = s.cells[i]; if (cell) icon(ctx, cell.type === 'mole' ? 'goblinface' : 'bomb', x + sz / 2, y + sz / 2, sz * 0.6); } icon(ctx, 'fist', W * 0.42, H * 0.95, W * 0.05); text(ctx, `${s.hits}`, W * 0.5, H * 0.95, W * 0.055, '#9f9'); },
 };
 
 // ----------------------------------------------------------------------------- 6. BALANCE
@@ -138,12 +143,12 @@ const balance = {
   isOver(s) { return s.fell; },
   scoreOf(s) { return s.n ? clamp(s.up / s.n, 0, 1) : 0; },
   reward: defaultReward,
-  draw(ctx, W, H, s) { if (!ctx) return; bg(ctx, W, H, '#1a2438', '#0a1020'); const cx = W / 2 + s.tilt * W * 0.32, cy = H * 0.55; ctx.strokeStyle = '#caa'; ctx.lineWidth = Math.max(3, H * 0.01); ctx.beginPath(); ctx.moveTo(W * 0.1, H * 0.8); ctx.lineTo(W * 0.9, H * 0.8); ctx.stroke(); ctx.save(); ctx.translate(cx, cy); ctx.rotate(s.tilt * 0.6); text(ctx, '🧙', 0, 0, W * 0.13); ctx.restore(); text(ctx, Math.abs(s.tilt) > 0.7 ? 'Whoa!' : 'Steady', W / 2, H * 0.92, W * 0.06, Math.abs(s.tilt) > 0.7 ? '#f88' : '#8f8'); },
+  draw(ctx, W, H, s) { if (!ctx) return; bg(ctx, W, H, '#1a2438', '#0a1020'); const cx = W / 2 + s.tilt * W * 0.32, cy = H * 0.55; ctx.strokeStyle = '#caa'; ctx.lineWidth = Math.max(3, H * 0.01); ctx.beginPath(); ctx.moveTo(W * 0.1, H * 0.8); ctx.lineTo(W * 0.9, H * 0.8); ctx.stroke(); ctx.save(); ctx.translate(cx, cy); ctx.rotate(s.tilt * 0.6); icon(ctx, 'wizard', 0, 0, W * 0.13); ctx.restore(); text(ctx, Math.abs(s.tilt) > 0.7 ? 'Whoa!' : 'Steady', W / 2, H * 0.92, W * 0.06, Math.abs(s.tilt) > 0.7 ? '#f88' : '#8f8'); },
 };
 
 // ----------------------------------------------------------------------------- 7. CATCH
 const catchg = {
-  id: 'catch', name: 'Brew Catch', how: 'Catch 🍺, dodge 💣! LEFT / RIGHT', dur: 20,
+  id: 'catch', name: 'Brew Catch', how: 'Catch the brews, dodge the bombs! LEFT / RIGHT', dur: 20,
   controls: [{ id: 'L', label: '◀' }, { id: 'R', label: '▶' }],
   init(o = {}) { const rng = o.rng || Math.random; return { rng, px: 0.5, items: [], spawn: 0.5, fall: 0.5, caught: 0, good: 0, bad: 0, timeLeft: 20 }; },
   update(s, dt) {
@@ -156,7 +161,7 @@ const catchg = {
   isOver() { return false; },
   scoreOf(s) { if (s.good <= 0) return 0; return clamp((s.caught - s.bad) / s.good, 0, 1); },
   reward: defaultReward,
-  draw(ctx, W, H, s) { if (!ctx) return; bg(ctx, W, H, '#201a10', '#0c0a04'); for (const it of s.items) text(ctx, it.good ? '🍺' : '💣', it.x * W, it.y * H, W * 0.08); text(ctx, '🧺', s.px * W, H * 0.92, W * 0.12); text(ctx, `🍺 ${s.caught}`, W * 0.5, H * 0.06, W * 0.055, '#fd8'); },
+  draw(ctx, W, H, s) { if (!ctx) return; bg(ctx, W, H, '#201a10', '#0c0a04'); for (const it of s.items) icon(ctx, it.good ? 'beer' : 'bomb', it.x * W, it.y * H, W * 0.08); icon(ctx, 'basket', s.px * W, H * 0.92, W * 0.12); icon(ctx, 'beer', W * 0.42, H * 0.06, W * 0.05); text(ctx, `${s.caught}`, W * 0.5, H * 0.06, W * 0.055, '#fd8'); },
 };
 
 // ----------------------------------------------------------------------------- 8. RHYTHM
@@ -169,7 +174,7 @@ const rhythm = {
   isOver(s) { return s.idx >= s.beats.length; },
   scoreOf(s) { return s.beats.length ? clamp((s.perfect + s.good * 0.5) / s.beats.length, 0, 1) : 0; },
   reward: defaultReward,
-  draw(ctx, W, H, s) { if (!ctx) return; bg(ctx, W, H, s.flash > 0 ? '#2a2050' : '#140e2a', '#06040f'); const next = s.beats[s.idx]; const d = next != null ? next - s.now : 1; const rr = clamp(Math.abs(d) / s.iv, 0, 1); const cx = W / 2, cy = H * 0.45, R = Math.min(W, H) * 0.34; ctx.strokeStyle = '#ffd34d'; ctx.lineWidth = Math.max(4, W * 0.02); ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke(); ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, R * (1 + rr), 0, 7); ctx.stroke(); text(ctx, `✨ ${s.perfect}`, W / 2, H * 0.9, W * 0.06, '#bdf'); },
+  draw(ctx, W, H, s) { if (!ctx) return; bg(ctx, W, H, s.flash > 0 ? '#2a2050' : '#140e2a', '#06040f'); const next = s.beats[s.idx]; const d = next != null ? next - s.now : 1; const rr = clamp(Math.abs(d) / s.iv, 0, 1); const cx = W / 2, cy = H * 0.45, R = Math.min(W, H) * 0.34; ctx.strokeStyle = '#ffd34d'; ctx.lineWidth = Math.max(4, W * 0.02); ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke(); ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, R * (1 + rr), 0, 7); ctx.stroke(); icon(ctx, 'star', W / 2 - W * 0.06, H * 0.9, W * 0.05); text(ctx, `${s.perfect}`, W / 2 + W * 0.02, H * 0.9, W * 0.06, '#bdf'); },
 };
 
 // ----------------------------------------------------------------------------- 9. STACK
@@ -196,7 +201,7 @@ const stack = {
 const match = {
   id: 'match', name: 'Card Match', how: 'Tap cards to find the matching pairs!', dur: 30,
   controls: [], // canvas grid
-  init(o = {}) { const rng = o.rng || Math.random; const pairs = 6, cols = 4; const vals = []; const faces = ['🍺', '🧙', '👺', '💎', '🔮', '⚔️']; for (let i = 0; i < pairs; i++) { vals.push(faces[i], faces[i]); } for (let i = vals.length - 1; i > 0; i--) { const j = (rng() * (i + 1)) | 0; const t = vals[i]; vals[i] = vals[j]; vals[j] = t; } const tiles = vals.map(v => ({ v, up: false, done: false })); return { rng, tiles, cols, pairs, matched: 0, first: -1, lockT: 0, lockPair: null, timeLeft: 30 }; },
+  init(o = {}) { const rng = o.rng || Math.random; const pairs = 6, cols = 4; const vals = []; const faces = ['beer', 'wizard', 'goblinface', '💎', '🔮', 'swords']; for (let i = 0; i < pairs; i++) { vals.push(faces[i], faces[i]); } for (let i = vals.length - 1; i > 0; i--) { const j = (rng() * (i + 1)) | 0; const t = vals[i]; vals[i] = vals[j]; vals[j] = t; } const tiles = vals.map(v => ({ v, up: false, done: false })); return { rng, tiles, cols, pairs, matched: 0, first: -1, lockT: 0, lockPair: null, timeLeft: 30 }; },
   update(s, dt) { if (s.lockT > 0) { s.lockT -= dt; if (s.lockT <= 0 && s.lockPair) { s.tiles[s.lockPair[0]].up = false; s.tiles[s.lockPair[1]].up = false; s.lockPair = null; s.first = -1; } } },
   onInput(s, ev) {
     if (s.lockT > 0) return;
@@ -211,7 +216,7 @@ const match = {
   isOver(s) { return s.matched >= s.pairs; },
   scoreOf(s) { return clamp(s.matched / s.pairs, 0, 1); },
   reward: defaultReward,
-  draw(ctx, W, H, s) { if (!ctx) return; bg(ctx, W, H, '#1a1230', '#0a0618'); const rows = Math.ceil(s.tiles.length / s.cols); const m = W * 0.03; const cw = (W - m * (s.cols + 1)) / s.cols, ch = (H * 0.86 - m * (rows + 1)) / rows; s.tiles.forEach((t, i) => { const c = i % s.cols, r = (i / s.cols) | 0; const x = m + c * (cw + m), y = m + r * (ch + m); ctx.fillStyle = t.done ? '#244' : (t.up ? '#46406a' : '#2a2444'); ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, cw, ch, 8) : ctx.rect(x, y, cw, ch); ctx.fill(); if (t.up || t.done) text(ctx, t.v, x + cw / 2, y + ch / 2, Math.min(cw, ch) * 0.6); else text(ctx, '❓', x + cw / 2, y + ch / 2, Math.min(cw, ch) * 0.5, '#776'); }); text(ctx, `${s.matched}/${s.pairs}`, W / 2, H * 0.95, W * 0.05, '#cbd'); },
+  draw(ctx, W, H, s) { if (!ctx) return; bg(ctx, W, H, '#1a1230', '#0a0618'); const rows = Math.ceil(s.tiles.length / s.cols); const m = W * 0.03; const cw = (W - m * (s.cols + 1)) / s.cols, ch = (H * 0.86 - m * (rows + 1)) / rows; s.tiles.forEach((t, i) => { const c = i % s.cols, r = (i / s.cols) | 0; const x = m + c * (cw + m), y = m + r * (ch + m); ctx.fillStyle = t.done ? '#244' : (t.up ? '#46406a' : '#2a2444'); ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, cw, ch, 8) : ctx.rect(x, y, cw, ch); ctx.fill(); if (t.up || t.done) icon(ctx, t.v, x + cw / 2, y + ch / 2, Math.min(cw, ch) * 0.6); else icon(ctx, 'question', x + cw / 2, y + ch / 2, Math.min(cw, ch) * 0.5); }); text(ctx, `${s.matched}/${s.pairs}`, W / 2, H * 0.95, W * 0.05, '#cbd'); },
 };
 
 export const MINIGAMES = { reflex, mash, dodge, simon, mole, balance, catch: catchg, rhythm, stack, match };

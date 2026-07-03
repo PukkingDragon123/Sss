@@ -127,6 +127,22 @@ glowing staff planted in his off-hand, rarity trim on the hat, a dyed robe and
 a pulsing charm pendant. Loot drops land as **little treasure chests**, mana as
 **corked flasks**, health as **plump hearts**.
 
+**Zero emoji, 100+ hand-built pixel icons.** The entire UI — currencies, spells,
+abilities, artifacts, buildings, quest markers, minigame pieces, even the world-map
+island icons — is drawn by the game's own **16×16 pixel-sprite engine**
+(`pixelicons.js`). Every level-up boon and artifact has its own icon; toasts and
+wisp tips swap any icon inline. Panels and buttons are **flat, stamped and
+gradient-free**. **Dialogue portraits are the real characters**: the face in the
+box is an actual render of the speaker's 3D model (the purple wizard, Barkeep
+Tomas, the patrons, even the wisp), so who you see is who's talking — in
+cutscenes, story beats AND tavern chats.
+
+**Megabonk-style foes.** Enemies are **chunky flat-shaded low-poly** blobs with
+**huge googly eyes** (the pupils rattle as they bounce), derpy open mouths and a
+buck tooth — and hits pop **big fat damage numbers** that scale with how hard you
+smack them. The 3D scene renders near-crisp with drawn-on edge outlines instead
+of heavy pixelation.
+
 **The world map.** Click the **🚪 door** for a **3D top-down world map** of the
 realm — a living pixel sea with **drifting clouds (and their shadows), circling
 gulls, a bobbing sailboat and a low moon**; conquered islands fly a **waving
@@ -216,9 +232,10 @@ src/
                   #   dedicated bar/forest sets, smash QTE, wisp + draw lesson
   wizard.js       # the wonky spring + verlet-ragdoll wizard rig
   tavern.js       # the bar hub + your buildable room (props, patrons, stations)
-  world.js        # the 3D top-down world map: pixel sea, clouds, gulls, a boat,
+  world.js        # the 3D top-down world map: living sea, clouds, gulls, a boat,
                   #   themed island landmarks, victory flags & pulsing routes
-  pixelicons.js   # procedural 16×16 pixel-art sprites for gear, tools & loot
+  pixelicons.js   # procedural 16×16 pixel sprites for EVERY icon in the game
+                  #   (gear, currencies, abilities, artifacts, markers — no emoji)
   enemies.js      # the monsters, wobbly AI, pooling
   spells.js       # the spells, projectiles, chain lightning, effects
   recognizer.js   # $1 unistroke gesture recognizer

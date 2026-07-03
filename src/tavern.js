@@ -7,6 +7,7 @@
 //     Quest Board) and comforts here with gold, then walk up to use them.
 import * as THREE from 'three';
 import { buildCharModel } from './charmodels.js';
+import { iconCanvas } from './pixelicons.js';
 
 // bar bounds
 const MINX = -11.5, MAXX = 11.5, SOUTH = 7, NORTH = -14.5;
@@ -211,8 +212,9 @@ export class Tavern {
     // a bold gold ring + thin dark outline for contrast
     x.lineWidth = 9; x.strokeStyle = '#ffcf5c'; x.beginPath(); x.arc(128, 100, 84, 0, 6.28); x.stroke();
     x.lineWidth = 3; x.strokeStyle = 'rgba(20,12,28,0.5)'; x.beginPath(); x.arc(128, 100, 89, 0, 6.28); x.stroke();
-    // the order icon, large and centred
-    x.font = '110px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#1a1020'; x.fillText(icon, 128, 104);
+    // the order icon, large and centred — one of OUR pixel sprites, not an emoji
+    const spr = iconCanvas(icon, { scale: 8 });
+    if (spr) { x.imageSmoothingEnabled = false; x.drawImage(spr, 128 - 56, 100 - 56, 112, 112); }
     ud.tex.needsUpdate = true;
     table.want = icon;
   }
@@ -247,7 +249,8 @@ export class Tavern {
     x.save(); x.shadowColor = 'rgba(0,0,0,0.45)'; x.shadowBlur = 10; x.shadowOffsetY = 4;
     x.fillStyle = '#ffcf5c'; x.beginPath(); x.arc(64, 56, 40, 0, 6.28); x.fill(); x.restore();
     x.lineWidth = 5; x.strokeStyle = '#1a1020'; x.beginPath(); x.arc(64, 56, 40, 0, 6.28); x.stroke();
-    x.font = '56px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(icon || '❗', 64, 60);
+    const spr = iconCanvas(icon || 'bang', { scale: 6 });
+    if (spr) { x.imageSmoothingEnabled = false; x.drawImage(spr, 64 - 28, 56 - 28, 56, 56); }
     const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
     s.scale.set(1.0, 1.0, 1.0);
@@ -280,7 +283,9 @@ export class Tavern {
       let person; try { person = c.model ? buildCharModel(c.model) : this._buildPatron(c.color, i % 2 === 0); } catch (e) { person = this._buildPatron(c.color, i % 2 === 0); }
       const [sx, sz] = spots[i];
       person.position.set(sx, 0, sz); person.rotation.y = Math.random() * Math.PI * 2;
-      const marker = this._makeQuestMarker(c.kind === 'quest' ? (c.icon || '❗') : '💬'); marker.position.set(0, 2.5, 0); person.add(marker);
+      // every quest-giver wears the "!" badge (their FACE is their 3D model already);
+      // regulars get a chat bubble — both painted from our pixel sprite set
+      const marker = this._makeQuestMarker(c.kind === 'quest' ? 'bang' : 'bubble'); marker.position.set(0, 2.5, 0); person.add(marker);
       this.group.add(person);
       const station = { type: 'customer', label: `chat with ${c.name}`, pos: new THREE.Vector3(sx, 0, sz), mark: null, quest: c.kind === 'quest' ? c.quest : null };
       const qn = { mesh: person, marker, pos: new THREE.Vector3(sx, 0, sz), target: new THREE.Vector3(sx, 0, sz), r: 0.6, phase: Math.random() * 6, repathCd: Math.random() * 3, speed: 0.9 + Math.random() * 0.5, yaw: 0, station, name: c.name, icon: c.icon, model: c.model, line: c.line, quest: station.quest, regularId: c.kind === 'regular' ? c.id : null };

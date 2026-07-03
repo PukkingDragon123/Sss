@@ -1170,3 +1170,248 @@ i.pix{display:inline-flex;align-items:center;justify-content:center;vertical-ali
 
 /* the currency ids moved onto the number <b> inside .shop-cur-item — strip their old pill look */
 #shop-gold,#shop-gems,#merch-gems{background:none;padding:0;border-radius:0;}
+
+/* ============================================================================
+   STARDEW VALLEY THEME — warm parchment panels in chunky wooden frames.
+   Appended last so it wins the cascade over the old dark-plum theme.
+   ========================================================================== */
+:root{
+  --ink:#5b2b12;             /* dark walnut text on parchment */
+  --ink-dim:#8a6242;
+  --magic:#7a3ac2;           /* deepened for cream backgrounds */
+  --hp:#e0364c; --mana:#3f8fd0; --xp:#4ea35f;
+  --panel:#f8dfa8;           /* parchment */
+  --panel-edge:#b3703c;      /* mid-oak frame */
+  --sv-dark:#5b2b12;         /* outline walnut */
+  --sv-bevel:#ffefc0;        /* inner cream bevel */
+  --sv-inset:#eccd8f;        /* slot / card inset tan */
+  --sv-head:#8a3a12;         /* header sienna */
+  --sv-gold:#8a5a10;         /* readable amber text */
+}
+body{color:var(--ink);}
+
+/* --- the signature wooden double frame on every major panel --- */
+.story-box,.shop-box,.howto,.event-box,.slot-card,.rm-frame,.quest-box,.card,
+#world-detail,.stage-card,.path-door,.guide-card,.chat-box,.arch-card,
+#job-tracker,#tavern-hud,#quest-tracker,#build-preview,.end-stats,#cine-dialogue{
+  background:var(--panel);
+  border:3px solid var(--panel-edge);
+  box-shadow:0 0 0 3px var(--sv-dark), inset 0 0 0 3px var(--sv-bevel), 0 10px 26px rgba(59,25,8,.45);
+}
+.qp-card{background:var(--sv-inset);border:2px solid var(--panel-edge);
+  box-shadow:inset 0 0 0 2px var(--sv-bevel);}
+#quest-panel{background:var(--panel);border-left:3px solid var(--panel-edge);
+  box-shadow:-4px 0 0 0 var(--sv-dark), inset 3px 0 0 0 var(--sv-bevel), -14px 0 36px rgba(59,25,8,.5);}
+.qp-head{color:var(--sv-head);border-bottom:2px solid var(--panel-edge);}
+.qp-close{background:var(--sv-inset);border:2px solid var(--panel-edge);color:var(--ink);}
+
+/* --- small chips & pills: parchment too --- */
+.stat,.toast,#interact-prompt,#wisp-bubble,.spell-chip,#mission-hud,.inv-coin,.vil-stat,
+.eq-totals,.research-active,.unlock-chip,.loot-box{
+  background:var(--panel);border:2px solid var(--panel-edge);color:var(--ink);
+  box-shadow:0 0 0 2px var(--sv-dark), inset 0 0 0 2px var(--sv-bevel);
+}
+.iconbtn{background:var(--panel);border:2px solid var(--panel-edge);color:var(--ink);
+  box-shadow:0 0 0 2px var(--sv-dark), inset 0 0 0 2px var(--sv-bevel), 0 3px 0 var(--sv-dark);}
+.toast{color:var(--sv-gold);text-shadow:0 1px 0 var(--sv-bevel);}
+.toast.crit{background:#f0b441;color:#4a2408;border-color:#8a4e2a;}
+.stat{font-weight:800;}
+#gems{color:#2f74c8;}
+.spell-chip{opacity:.97;}
+.spell-chip .glyph{color:var(--magic);}
+.spell-chip .key{background:rgba(91,43,18,.14);color:var(--ink-dim);}
+.spell-chip.cooling{opacity:.55;}
+.eq-totals{background:var(--sv-inset);}
+.eq-totals span{color:var(--sv-head);}
+.eq-totals b{color:var(--ink);}
+.research-active b{color:#2f74c8;}
+.unlock-chip{color:var(--ink-dim);}
+.unlock-chip.on{background:#7fc06a;color:#1d3a12;border-color:#4a7a38;}
+
+/* --- inner cards & slots: tan inset with a bevel, like Stardew inventory slots --- */
+.shop-card,.card-cell,.build-item,.eq-slot-frame{
+  background:var(--sv-inset);border:2px solid var(--panel-edge);
+  box-shadow:inset 0 2px 0 var(--sv-bevel), inset 0 -3px 0 rgba(91,43,18,.18);
+  border-radius:8px;
+}
+.shop-card.locked{opacity:.72;}
+.shop-card.gear{background:var(--sv-inset);}
+.shop-card.art-card{background:#f3d089;}
+.shop-card.art-card .shop-name{color:var(--sv-gold) !important;}
+.shop-desc{color:var(--ink-dim);}
+.shop-name{color:var(--ink);}
+.shop-glyph{color:var(--magic);}
+.card{background:var(--panel);}
+.card .card-name{color:var(--sv-head);}
+.card .card-desc{color:var(--ink);opacity:.9;}
+.card .card-tag{color:var(--magic);background:rgba(122,58,194,.1);border-color:rgba(122,58,194,.35);}
+.card.card-unique{background:#f3d089;}
+.card.card-unique .card-name{color:var(--sv-gold);text-shadow:none;}
+.card-cell .card-nm{color:var(--ink-dim);}
+.card-cell.has{background:#f3d089;}
+.loot-row b,.loot-purse b{color:var(--sv-gold);}
+.end-stats{color:var(--ink);}
+.end-stats b{color:var(--sv-gold);}
+.end-next{background:var(--sv-inset);border:2px solid var(--panel-edge);box-shadow:inset 0 0 0 2px var(--sv-bevel);}
+.end-next-t{color:var(--sv-head);}
+.end-goal{color:var(--ink);}
+.end-artifact{color:var(--sv-gold);text-shadow:none;}
+.end-artifact b{color:var(--sv-head);}
+
+/* --- headers inside parchment go sienna with a soft cream emboss --- */
+.shop-head h2,.story-speaker,.qp-card h4,.quest-title,.chat-name,.event-title,
+.wmd-name,.slot-name,.rm-banner,.gear-name,.eq-section-head,.bp-label{
+  color:var(--sv-head);text-shadow:0 1px 0 var(--sv-bevel);
+}
+.quest-box.main-quest{background:#f3d089;border-color:#a8650f;}
+.quest-box.main-quest .quest-title{color:var(--sv-gold);}
+.quest-reward{color:var(--sv-gold);}
+.shop-sub{color:var(--ink-dim);}
+.shop-sub b,.howto b,.qp-sub b{color:var(--sv-head);}
+.howto h3{color:var(--sv-head);}
+.howto ul{color:var(--ink);}
+.qp-task{color:var(--ink-dim);}
+.qp-task.done{color:#3a7a2a;}
+.qp-progress,.qp-sub{color:var(--ink-dim);}
+.qp-reward{color:#2f74c8;}
+.qp-claimed{color:#3a7a2a;}
+.lvtag{color:#3a7a2a;}
+.eq-count{background:rgba(91,43,18,.14);color:var(--ink-dim);}
+.eq-empty{color:var(--ink-dim);}
+.inv-row{border-bottom:1px solid rgba(139,90,42,.35);}
+.inv-row b{color:var(--ink);}
+.inv-coin b{color:var(--sv-gold);}
+.inv-coin small{color:var(--ink-dim);}
+.wmd-row{border-bottom:1px solid rgba(139,90,42,.4);}
+.wmd-row span{color:var(--ink-dim);}
+.wmd-row b{color:var(--ink);}
+.wmd-sub{color:var(--ink-dim);}
+.wm-done-t{color:#3a7a2a;}
+.wm-open-t{color:var(--sv-gold);}
+.wmd-name{text-shadow:0 1px 0 var(--sv-bevel), 0 0 6px rgba(59,25,8,.25);}
+.stage-meta{color:var(--ink-dim);}
+.vil-stat span{color:var(--ink-dim);}
+.vil-stat b{color:var(--sv-gold);}
+.bi-name{color:var(--ink);}
+.bi-cost{color:var(--sv-gold);}
+.build-item.is-station{background:#eed9f2;border-color:#9a6ac0;}
+.build-item.is-station .bi-name{color:#6a3a9a;}
+.build-hint{color:var(--sv-head);}
+.gear-stats{color:var(--ink);}
+.slot-info{color:var(--ink-dim);}
+.credits-body b{color:var(--sv-head);}
+.set-row{color:var(--ink);}
+.ne-blurb{color:var(--ink-dim);}
+.loading-text{color:#e8d8b0;}
+
+/* --- buttons: amber wood with cream bevel + walnut ledge --- */
+.btn,#btn-drink,#btn-interact,.cine-next,.bp-rotate{
+  background:#e8a33a;color:#3a1c06;border:2px solid var(--sv-dark);
+  box-shadow:0 4px 0 var(--sv-dark), inset 0 2px 0 #ffd98a;
+}
+.shop-btn{background:#e8a33a;color:#3a1c06;border:2px solid var(--sv-dark);box-shadow:0 3px 0 var(--sv-dark), inset 0 2px 0 #ffd98a;}
+.shop-btn.gem{background:#6fb3dd;color:#0e2c44;box-shadow:0 3px 0 #23445c, inset 0 2px 0 #c4e4f8;border-color:#23445c;}
+.shop-btn.on{background:#7fc06a;color:#1d3a12;box-shadow:0 3px 0 #2f5a24, inset 0 2px 0 #c0eab0;border-color:#2f5a24;}
+.shop-btn:disabled{background:#b8a888;color:#7a6a52;border-color:#8a7a5e;box-shadow:none;}
+#btn-build,#btn-bar{background:#7fc06a;color:#1d3a12;border:2px solid #2f5a24;box-shadow:0 4px 0 #2f5a24, inset 0 2px 0 #c0eab0;}
+.chat-go{background:#e8a33a;}
+.chat-no{background:#cbb289;}
+.vil-tab{background:#d9a05a;border:2px solid var(--panel-edge);border-bottom:none;border-radius:10px 10px 0 0;color:#6a3a17;box-shadow:inset 0 2px 0 var(--sv-bevel);}
+.vil-tab.on{background:var(--panel);color:var(--sv-head);transform:translateY(2px);box-shadow:inset 0 2px 0 var(--sv-bevel);}
+.qp-close{border-radius:8px;}
+
+/* --- Stardew dialogue: the portrait sits framed on the RIGHT with a name tag --- */
+#cine-dialogue{align-items:center;}
+.cine-portrait{order:3;width:92px;height:92px;border-radius:8px;
+  background:#f2c979;border:3px solid var(--panel-edge);
+  box-shadow:0 0 0 3px var(--sv-dark), inset 0 0 0 3px var(--sv-bevel);}
+.cine-text-wrap{order:1;}
+.cine-next{order:2;align-self:center;}
+.cine-speaker{display:inline-block;background:#d9a05a;border:2px solid var(--panel-edge);border-radius:6px;
+  padding:2px 10px;color:#4a2410;text-transform:none;font-size:13px;letter-spacing:.4px;
+  box-shadow:inset 0 1px 0 var(--sv-bevel);}
+.cine-line{color:var(--ink);}
+.chat-box{align-items:center;}
+.chat-portrait{order:2;width:96px;height:96px;border-radius:8px;
+  background:#f2c979;border:3px solid var(--panel-edge);
+  box-shadow:0 0 0 3px var(--sv-dark), inset 0 0 0 3px var(--sv-bevel);}
+.chat-main{order:1;}
+.chat-name{display:inline-block;background:#d9a05a;border:2px solid var(--panel-edge);border-radius:6px;
+  padding:2px 10px;color:#4a2410;font-size:13px;box-shadow:inset 0 1px 0 var(--sv-bevel);}
+.chat-line{color:var(--ink);font-style:italic;}
+.chat-ask{color:var(--sv-head);}
+.chat-prog{color:var(--ink-dim);}
+.chat-reward{color:#3a7a2a;}
+.story-head{justify-content:space-between;}
+.story-portrait{order:2;width:84px;height:84px;border-radius:8px;
+  background:#f2c979;border:3px solid var(--panel-edge);
+  box-shadow:0 0 0 3px var(--sv-dark), inset 0 0 0 3px var(--sv-bevel);}
+.story-speaker{display:inline-block;background:#d9a05a;border:2px solid var(--panel-edge);border-radius:6px;
+  padding:2px 10px;font-size:13px;text-transform:none;box-shadow:inset 0 1px 0 var(--sv-bevel);margin-bottom:0;}
+.story-text{color:var(--ink);}
+.wisp-portrait{background:#182835;border:3px solid var(--panel-edge);
+  box-shadow:0 0 0 2px var(--sv-dark), inset 0 0 0 2px rgba(255,239,192,.35);}
+.wisp-text{color:var(--ink);}
+#wisp-bubble.warn{border-color:#c23a3a;}
+
+/* --- build mode: cozy garden-bed grid + ghost placement preview --- */
+.build-grid{background:#caa060;border:3px solid var(--panel-edge);
+  box-shadow:0 0 0 3px var(--sv-dark), inset 0 0 0 3px var(--sv-bevel), inset 0 6px 18px rgba(91,43,18,.3);}
+.build-cell{background:var(--sv-inset);border:2px dashed #a8792e;border-radius:8px;}
+.build-cell:hover{border-color:var(--sv-head);background:#f3d089;}
+.build-cell.filled{border-style:solid;border-color:var(--panel-edge);background:#f3d089;
+  box-shadow:inset 0 2px 0 var(--sv-bevel), inset 0 -3px 0 rgba(91,43,18,.2);}
+.build-cell.is-station{border-color:#9a6ac0;background:#eed9f2;box-shadow:inset 0 0 10px rgba(122,58,194,.25);}
+.build-ghost{opacity:.3;transition:opacity .1s;}
+.build-cell.can-place:hover{border-style:solid;border-color:#4ea35f;background:#dceec0;}
+.build-cell.can-place:hover .build-ghost{opacity:.85;}
+
+/* --- run map keeps its wooden discs but framed in parchment --- */
+.rm-tip{color:var(--ink-dim);}
+.rm-scroll{border-block:2px solid rgba(139,90,42,.4);}
+.rm-edge{stroke:rgba(139,90,42,.5);}
+
+/* --- misc contrast fixes on parchment --- */
+#interact-prompt b{color:var(--sv-head);}
+#shop-gold,#shop-gems,#merch-gems{background:none;padding:0;border-radius:0;color:var(--sv-gold);}
+.shop-cur-item{background:var(--sv-inset);border:2px solid var(--panel-edge);color:var(--sv-gold);
+  box-shadow:inset 0 1px 0 var(--sv-bevel);}
+.event-prompt{color:var(--ink);}
+.eo-tip{color:#6a4a22;}
+.event-glyph{color:var(--sv-gold);text-shadow:0 1px 0 var(--sv-bevel);}
+.door-name{color:var(--sv-gold);}
+.door-desc{color:var(--ink-dim);}
+.door-reward{background:var(--sv-inset);border:2px solid var(--panel-edge);box-shadow:inset 0 1px 0 var(--sv-bevel);}
+.door-side{color:var(--magic);}
+.path-boss{background:#f3d089;border:2px solid #c23a3a;color:var(--ink);}
+.path-boss b{color:#a82a2a;}
+.pb-art{color:var(--sv-gold);text-shadow:none;}
+.guide-label{color:var(--ink);}
+.guide-cv{background:rgba(91,43,18,.12);}
+#skill-canvas{background:rgba(91,43,18,.16);border-color:var(--panel-edge);}
+.mg-hint{color:var(--ink-dim);}
+#quest-tracker .qt-step{color:#3a7a2a;}
+#quest-tracker .qt-bounty{color:var(--ink-dim);}
+#quest-tracker .qt-goal{color:var(--sv-gold);}
+.tavern-obj{color:var(--sv-gold);}
+.tavern-ruckus{color:var(--ink-dim);}
+.job-title{color:var(--magic);}
+.abil{background:#f3d089;border:2px solid var(--panel-edge);box-shadow:inset 0 1px 0 var(--sv-bevel);}
+.abil .abil-x{background:var(--sv-head);color:#ffefc0;border-color:var(--sv-dark);}
+.abil.art{background:#ffe9ad;border-color:#a8650f;}
+#ability-tray{background:rgba(248,223,168,.9);border:2px solid var(--panel-edge);
+  box-shadow:0 0 0 2px var(--sv-dark), inset 0 0 0 2px var(--sv-bevel);}
+.abil-label{color:var(--sv-head);}
+#cast-hint{background:rgba(20,12,6,.55);color:#e8d0a8;}
+#cast-hint b{color:#ffcf5c;}
+
+/* parchment slots panel on the title flow */
+.slots-row .slot-card .shop-btn{min-width:120px;}
+
+/* bars stay readable over the 3D scene: dark tracks, bright fills (unchanged) */
+
+/* text that sits DIRECTLY on the dark scrim (not inside a parchment panel) stays light */
+.levelup-sub{color:#dcc9a2;}
+.tagline{color:#c8b48e;}
+.door-lurk{color:#a82a2a;text-shadow:none;}
+#minigame .levelup-sub{color:#dcc9a2;}

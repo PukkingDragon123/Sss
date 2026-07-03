@@ -7,10 +7,10 @@ import { CARDS, CARD_BY_ID, rollCard } from './cards.js';
 
 // the four elements every spell belongs to (shown in the Grimoire & Spell Table)
 export const ELEMENTS = {
-  fire:  { name: 'Fire',  icon: '🔥', color: '#ff7a3a' },
-  water: { name: 'Water', icon: '💧', color: '#5fb0ff' },
-  air:   { name: 'Air',   icon: '🌬️', color: '#cfeaff' },
-  earth: { name: 'Earth', icon: '🪨', color: '#c9a06a' },
+  fire:  { name: 'Fire',  icon: '🔥', color: '#d65a1f' },
+  water: { name: 'Water', icon: '💧', color: '#2f74c8' },
+  air:   { name: 'Air',   icon: '🌬️', color: '#4a8ea8' },
+  earth: { name: 'Earth', icon: '🪨', color: '#8a6432' },
 };
 export const ELEMENT_LIST = ['fire', 'water', 'air', 'earth'];
 
@@ -103,10 +103,11 @@ export const roomComfort = () => placedItems().reduce((s, p) => { const b = buil
 // ---- RPG equipment: looted instances with rarity + level ----
 export const GEAR_SLOTS = ['hat', 'robe', 'staff', 'charm'];
 export const RARITIES = {
-  common:    { name: 'Common',    mult: 1.0, color: '#cfcad6', extra: 0, weight: 54 },
-  rare:      { name: 'Rare',      mult: 1.7, color: '#6fb0ff', extra: 1, weight: 28 },
-  epic:      { name: 'Epic',      mult: 2.6, color: '#b97bff', extra: 1, weight: 13 },
-  legendary: { name: 'Legendary', mult: 3.8, color: '#ffcf5c', extra: 2, weight: 5 },
+  // colors tuned to read on the parchment (Stardew-style) UI
+  common:    { name: 'Common',    mult: 1.0, color: '#7d7690', extra: 0, weight: 54 },
+  rare:      { name: 'Rare',      mult: 1.7, color: '#2f74c8', extra: 1, weight: 28 },
+  epic:      { name: 'Epic',      mult: 2.6, color: '#8a3ad0', extra: 1, weight: 13 },
+  legendary: { name: 'Legendary', mult: 3.8, color: '#b8741a', extra: 2, weight: 5 },
 };
 export const GEAR_RARITY_ORDER = ['common', 'rare', 'epic', 'legendary'];
 const SLOT_DEF = {
@@ -352,6 +353,7 @@ export function load() {
       state.menu = Object.assign({ houseale: 1 }, state.menu || {});
       state.staff = Object.assign({}, state.staff || {});
       state.cook = Object.assign({ served: 0, shifts: 0, best: 0 }, state.cook || {});
+      if (state.customer && Array.isArray(state.customer.active)) state.customer.active = state.customer.active.filter(q => q && q.kind !== 'deliver'); // foraging removed
       state.cookClaims = Object.assign({}, state.cookClaims || {});
       state.seen = state.seen || {};
       state.day = state.day || 1;
@@ -400,7 +402,7 @@ export function addGemstone(el, n = 1) { if (!state.gemstones) state.gemstones =
 export function spendGemstone(el, n = 1) { const g = state.gemstones || _emptyGemstones(); if ((g[el] || 0) < n) return false; g[el] -= n; state.gemstones = g; save(); return true; }
 export const totalGemstones = () => { const g = state.gemstones || {}; return (g.fire || 0) + (g.water || 0) + (g.air || 0) + (g.earth || 0); };
 
-// ---- brewing: spend 🌿 herbs + an elemental gemstone at the Cauldron for a lasting potion (a permanent boon) ----
+// ---- brewing: spend elemental gemstones at the Cauldron for a lasting potion (a permanent boon) ----
 export const POTIONS = [
   { id: 'vigor', name: 'Potion of Vigor',   icon: '🧪', el: 'fire',  herbs: 3, gems: 2, perHp: 8,     desc: '+8 max health, for good.' },
   { id: 'focus', name: 'Potion of Focus',   icon: '🧪', el: 'air',   herbs: 3, gems: 2, perMana: 6,   desc: '+6 max mana, for good.' },
@@ -409,7 +411,7 @@ export const POTIONS = [
 ];
 export const potionById = (id) => POTIONS.find(p => p.id === id);
 export const brewCount = (id) => (state.brews && state.brews[id]) || 0;
-export function canBrew(id) { const p = potionById(id); if (!p) return false; return herbs() >= p.herbs && (gemstones()[p.el] || 0) >= p.gems; }
+export function canBrew(id) { const p = potionById(id); if (!p) return false; return (gemstones()[p.el] || 0) >= p.gems; }
 export function brewPotion(id) {
   const p = potionById(id); if (!p || !canBrew(id)) return false;
   spendHerbs(p.herbs); spendGemstone(p.el, p.gems);
@@ -593,12 +595,7 @@ function _genCustomerQuest() {
   // regions whose boss you've yet to fell (for the "champion" quest)
   const uncleared = STAGE_ORDER.filter(r => !(state.cleared || []).includes(r));
   let q;
-  if (roll < 0.5) {
-    const ing = randomIngredient(2);
-    const need = 2 + Math.floor(Math.random() * 3);
-    q = { kind: 'deliver', item: ing.id, count: need, icon: ing.icon,
-      ask: `Bring me ${need}× ${ing.name} ${ing.icon}.`, reward: { gold: 14 + need * 5, gems: 2 } };
-  } else if (roll >= 0.78 && uncleared.length > 0) {
+  if (roll < 0.45 && uncleared.length > 0) {
     const region = uncleared[0];
     q = { kind: 'clear', region, icon: '👑',
       ask: `Fell the champion of ${STAGES[region].name}.`, reward: { gold: 45, gems: 6 } };
@@ -620,10 +617,9 @@ export function refreshCustomers(max = 2) {
   if (added) save();
   return state.customer.active;
 }
-// has the player met this quest's goal (and, for deliveries, do they hold the goods)?
+// has the player met this quest's goal?
 export function customerQuestReady(q) {
   if (!q) return false;
-  if (q.kind === 'deliver') return ingredientCount(q.item) >= q.count;
   if (q.kind === 'reach') return _maxRegionBest() >= q.stage;
   if (q.kind === 'clear') return (state.cleared || []).includes(q.region);
   return false;
@@ -631,7 +627,6 @@ export function customerQuestReady(q) {
 // a short progress string for the talk dialog
 export function customerQuestProgress(q) {
   if (!q) return '';
-  if (q.kind === 'deliver') { const ing = ingredientById(q.item); return `You hold ${ingredientCount(q.item)} / ${q.count} ${ing ? ing.icon : ''}`; }
   if (q.kind === 'reach') return `Best stage reached: ${_maxRegionBest()} / ${q.stage}`;
   if (q.kind === 'clear') return (state.cleared || []).includes(q.region) ? 'Champion felled!' : 'Not yet conquered.';
   return '';
@@ -643,7 +638,6 @@ export function claimCustomerQuest(id) {
   if (i < 0) return null;
   const q = state.customer.active[i];
   if (!customerQuestReady(q)) return null;
-  if (q.kind === 'deliver') { if (!spendIngredient(q.item, q.count)) return null; }
   if (q.reward.gems) state.gems += q.reward.gems;
   if (q.reward.gold) state.gold += q.reward.gold;
   state.customer.active.splice(i, 1);

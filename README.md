@@ -127,21 +127,29 @@ glowing staff planted in his off-hand, rarity trim on the hat, a dyed robe and
 a pulsing charm pendant. Loot drops land as **little treasure chests**, mana as
 **corked flasks**, health as **plump hearts**.
 
+**A Stardew Valley UI.** Every menu is a warm **parchment panel in a chunky
+wooden double frame** — cream interiors, walnut outlines, bookmark-style tabs,
+tan inventory slots and amber buttons with a hard ledge. Dialogue is the full
+Stardew treatment: a parchment box with the speaker's **framed portrait on the
+right**, a little wooden **name tag**, and **letter-by-letter text** — and the
+portrait is an actual render of the speaker's 3D model, so who you see is who's
+talking, in cutscenes, story beats AND tavern chats.
+
 **Zero emoji, 100+ hand-built pixel icons.** The entire UI — currencies, spells,
 abilities, artifacts, buildings, quest markers, minigame pieces, even the world-map
 island icons — is drawn by the game's own **16×16 pixel-sprite engine**
 (`pixelicons.js`). Every level-up boon and artifact has its own icon; toasts and
-wisp tips swap any icon inline. Panels and buttons are **flat, stamped and
-gradient-free**. **Dialogue portraits are the real characters**: the face in the
-box is an actual render of the speaker's 3D model (the purple wizard, Barkeep
-Tomas, the patrons, even the wisp), so who you see is who's talking — in
-cutscenes, story beats AND tavern chats.
+wisp tips swap any icon inline.
 
-**Megabonk-style foes.** Enemies are **chunky flat-shaded low-poly** blobs with
-**huge googly eyes** (the pupils rattle as they bounce), derpy open mouths and a
-buck tooth — and hits pop **big fat damage numbers** that scale with how hard you
-smack them. The 3D scene renders near-crisp with drawn-on edge outlines instead
-of heavy pixelation.
+**Megabonk-style, round and cute.** EVERYONE is round: enemies are chunky
+flat-shaded blobs with **huge googly eyes** (the pupils rattle as they bounce),
+and every NPC — barkeep, quest-givers, patrons, nobles, golems, ghosts — is a
+**ball-bodied chibi** with a big head and the same googly eyes. Hits pop **big
+fat damage numbers** that scale with how hard you smack them, and the whole 3D
+scene renders through a **chunky pixel-art pass** with drawn-on edge outlines.
+(Foraging is gone — no more herb picking; potions brew straight from the
+elemental gemstones you win in battle, and patrons ask for deeds, not fetch
+quests.)
 
 **The world map.** Click the **🚪 door** for a **3D top-down world map** of the
 realm — a living pixel sea with **drifting clouds (and their shadows), circling

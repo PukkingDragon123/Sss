@@ -26,71 +26,108 @@ function CONE(g, r, h, color, x, y, z, o = {}) {
   m.castShadow = true; g.add(m); return m;
 }
 
+// round-primitive helpers (cute chibi look — flat-shaded so facets read chunky)
+function S(g, r, color, x, y, z, o = {}) {
+  const mat = new THREE.MeshStandardMaterial({
+    color, roughness: o.rough ?? 0.8, metalness: o.metal ?? 0, flatShading: true,
+    emissive: o.emis ?? 0x000000, emissiveIntensity: o.emisI ?? 1,
+  });
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r, o.seg ?? 10, o.seg2 ?? 8), mat);
+  m.position.set(x, y, z);
+  m.scale.set(o.sx ?? 1, o.sy ?? 1, o.sz ?? 1);
+  if (o.rotX) m.rotation.x = o.rotX; if (o.rotY) m.rotation.y = o.rotY; if (o.rotZ) m.rotation.z = o.rotZ;
+  m.castShadow = true; g.add(m); return m;
+}
+function CAP(g, r, len, color, x, y, z, o = {}) {
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: o.rough ?? 0.8, metalness: o.metal ?? 0, flatShading: true, emissive: o.emis ?? 0x000000 });
+  const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 3, 8), mat);
+  m.position.set(x, y, z);
+  if (o.rotX) m.rotation.x = o.rotX; if (o.rotY) m.rotation.y = o.rotY; if (o.rotZ) m.rotation.z = o.rotZ;
+  m.castShadow = true; g.add(m); return m;
+}
+function CYL(g, rT, rB, h, color, x, y, z, o = {}) {
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: o.rough ?? 0.8, metalness: o.metal ?? 0, flatShading: true, emissive: o.emis ?? 0x000000, emissiveIntensity: o.emisI ?? 1 });
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rT, rB, h, o.seg ?? 12), mat);
+  m.position.set(x, y, z);
+  if (o.rotX) m.rotation.x = o.rotX; if (o.rotZ) m.rotation.z = o.rotZ;
+  m.castShadow = true; g.add(m); return m;
+}
+
 // ---- the parametric humanoid that most characters derive from ----
+// Round chibi build: big head, ball body, googly eyes — every NPC is a cute round thing.
 function _human(o) {
   const g = new THREE.Group();
   const skin = o.skin ?? 0xf0d6b8, robe = o.robe ?? 0x7a8bd0, robe2 = o.robe2 ?? darken(robe);
-  const tw = o.wide ? 0.8 : 0.62;
+  const bodyR = o.wide ? 0.52 : 0.44;
+  const metal = o.metalBody ? { metal: 0.7, rough: 0.4 } : {};
 
-  // lower body: a gown/skirt, or two legs, or a wavy ghost tail
+  // lower body: ghost tail, gown skirt, or two round feet
   if (o.float) {
-    B(g, tw * 0.9, 0.5, 0.4, robe, 0, 0.95, 0);
-    B(g, tw * 0.78, 0.34, 0.34, robe, 0, 0.55, 0);
-    B(g, tw * 0.5, 0.26, 0.24, robe, -0.1, 0.28, 0); B(g, tw * 0.42, 0.2, 0.2, robe, 0.14, 0.18, 0);
+    S(g, bodyR * 0.72, robe, 0, 0.5, 0, { sy: 0.9 });
+    S(g, bodyR * 0.5, robe, -0.08, 0.26, 0);
+    S(g, bodyR * 0.34, robe, 0.1, 0.12, 0);
   } else if (o.gown) {
-    B(g, tw * 1.25, 0.7, 0.5, robe, 0, 0.4, 0); B(g, tw, 0.6, 0.44, robe, 0, 0.95, 0);
+    CYL(g, bodyR * 0.7, bodyR * 1.3, 0.7, robe, 0, 0.36, 0);
   } else {
-    B(g, 0.2, 0.5, 0.24, o.pants ?? robe2, -0.16, 0.25, 0);
-    B(g, 0.2, 0.5, 0.24, o.pants ?? robe2, 0.16, 0.25, 0);
-    B(g, tw, 0.7, 0.42, robe, 0, 0.95, 0, { metal: o.metalBody ? 0.7 : 0, rough: o.metalBody ? 0.4 : 0.82 });
+    S(g, 0.14, o.pants ?? robe2, -0.18, 0.13, 0.02);
+    S(g, 0.14, o.pants ?? robe2, 0.18, 0.13, 0.02);
   }
-  if (o.apron) B(g, tw * 0.66, 0.5, 0.06, o.apron, 0, 0.9, 0.22);
-  if (o.belt) B(g, tw + 0.04, 0.12, 0.46, o.belt, 0, 0.68, 0, { metal: 0.5, rough: 0.4, emis: 0x3a2c00 });
-  if (o.cracks) { B(g, 0.05, 0.34, 0.04, darken(robe, 0.5), -0.1, 0.95, 0.22); B(g, 0.05, 0.22, 0.04, darken(robe, 0.5), 0.14, 1.05, 0.22, { rotZ: 0.4 }); }
+  // torso: one friendly ball
+  S(g, bodyR, robe, 0, 0.78, 0, { sy: 1.14, ...metal });
+  if (o.apron) S(g, bodyR * 0.62, o.apron, 0, 0.74, bodyR * 0.62, { sy: 1.1, sz: 0.45 });
+  if (o.belt) { const b = CYL(g, bodyR + 0.03, bodyR + 0.03, 0.1, o.belt, 0, 0.66, 0, { metal: 0.5, rough: 0.4, emis: 0x3a2c00 }); b.scale.z = 0.96; }
+  if (o.cracks) { B(g, 0.05, 0.3, 0.04, darken(robe, 0.5), -0.1, 0.82, bodyR - 0.02); B(g, 0.05, 0.2, 0.04, darken(robe, 0.5), 0.14, 0.9, bodyR - 0.02, { rotZ: 0.4 }); }
 
-  // arms + hands
-  const ax = tw / 2 + 0.1;
-  B(g, 0.16, 0.5, 0.18, robe, -ax, 0.98, 0, { rotZ: 0.12, metal: o.metalBody ? 0.7 : 0 });
-  B(g, 0.16, 0.5, 0.18, robe, ax, 0.98, 0, { rotZ: -0.12, metal: o.metalBody ? 0.7 : 0 });
-  B(g, 0.14, 0.14, 0.14, skin, -ax - 0.04, 0.72, 0.03); B(g, 0.14, 0.14, 0.14, skin, ax + 0.04, 0.72, 0.03);
+  // stubby arms + ball hands
+  const ax = bodyR + 0.06;
+  CAP(g, 0.09, 0.26, robe, -ax, 0.86, 0, { rotZ: 0.55, ...metal });
+  CAP(g, 0.09, 0.26, robe, ax, 0.86, 0, { rotZ: -0.55, ...metal });
+  S(g, 0.11, skin, -ax - 0.1, 0.66, 0.04);
+  S(g, 0.11, skin, ax + 0.1, 0.66, 0.04);
 
-  // neck + head
-  const hunch = o.hunch ? 0.12 : 0;
-  B(g, 0.18, 0.12, 0.18, skin, 0, 1.36, hunch * 0.5);
-  const hy = 1.66, hw = 0.5;
-  const head = B(g, hw, 0.5, 0.46, skin, 0, hy, hunch, o.hunch ? { rotX: 0.18 } : {});
+  // big round head (chibi ratio)
+  const hunch = o.hunch ? 0.14 : 0;
+  const hy = 1.58, hw = 0.5;
+  const head = S(g, 0.5, skin, 0, hy, hunch, { sy: 0.95, seg: 12, seg2: 10 });
+  if (o.hunch) head.rotation.x = 0.14;
 
-  // eyes
-  const eC = o.eyeColor ?? 0x141414, eo = o.glowEyes ? { emis: eC, emisI: 2.2 } : {};
-  B(g, 0.09, 0.12, 0.05, eC, -0.12, hy + 0.02, 0.24 + hunch, eo);
-  B(g, 0.09, 0.12, 0.05, eC, 0.12, hy + 0.02, 0.24 + hunch, eo);
-  if (o.nose !== false) B(g, 0.1, 0.1, 0.1, o.noseColor ?? 0xd98a72, 0, hy - 0.06, 0.26 + hunch);
-  if (o.cheeks) { B(g, 0.1, 0.08, 0.05, o.cheeks, -0.19, hy - 0.06, 0.24 + hunch); B(g, 0.1, 0.08, 0.05, o.cheeks, 0.19, hy - 0.06, 0.24 + hunch); }
-  if (o.wideMouth) B(g, 0.32, 0.06, 0.05, 0x6a2a2a, 0, hy - 0.18, 0.24 + hunch);
-  if (o.tooth) B(g, 0.06, 0.1, 0.04, 0xffffff, 0.06, hy - 0.16, 0.25 + hunch);
+  // googly eyes: white sclera + pupil (glowing for spooky folk)
+  const eC = o.eyeColor ?? 0x2a2230;
+  const glow = o.glowEyes ? { emis: eC, emisI: 2.0 } : {};
+  S(g, 0.13, 0xf8f6ee, -0.17, hy + 0.05, 0.38 + hunch, { seg: 8, seg2: 6 });
+  S(g, 0.12, 0xf8f6ee, 0.18, hy + 0.03, 0.39 + hunch, { seg: 8, seg2: 6 });
+  S(g, 0.058, eC, -0.17, hy + 0.05, 0.5 + hunch, { seg: 6, seg2: 5, ...glow });
+  S(g, 0.055, eC, 0.18, hy + 0.03, 0.5 + hunch, { seg: 6, seg2: 5, ...glow });
+  if (o.nose !== false) S(g, 0.09, o.noseColor ?? 0xd98a72, 0, hy - 0.1, 0.47 + hunch);
+  if (o.cheeks) { S(g, 0.08, o.cheeks, -0.27, hy - 0.12, 0.36 + hunch, { sy: 0.7 }); S(g, 0.08, o.cheeks, 0.27, hy - 0.12, 0.36 + hunch, { sy: 0.7 }); }
+  if (o.wideMouth) B(g, 0.3, 0.05, 0.05, 0x6a2a2a, 0, hy - 0.22, 0.42 + hunch);
+  if (o.tooth) B(g, 0.06, 0.09, 0.04, 0xffffff, 0.06, hy - 0.2, 0.44 + hunch);
 
-  // ears / cat ears / frog eye-bumps
-  if (o.ears) { B(g, 0.1, 0.22, 0.14, skin, -0.3, hy + 0.04, 0, { rotZ: -0.5 }); B(g, 0.1, 0.22, 0.14, skin, 0.3, hy + 0.04, 0, { rotZ: 0.5 }); }
-  if (o.catEars) { CONE(g, 0.12, 0.22, o.hair ?? skin, -0.16, hy + 0.3, 0, { seg: 4 }); CONE(g, 0.12, 0.22, o.hair ?? skin, 0.16, hy + 0.3, 0, { seg: 4 }); }
-  if (o.whiskers) { B(g, 0.26, 0.02, 0.02, 0xffffff, -0.24, hy - 0.04, 0.22); B(g, 0.26, 0.02, 0.02, 0xffffff, 0.24, hy - 0.04, 0.22); }
-  if (o.tail) B(g, 0.1, 0.1, 0.5, o.hair ?? robe, 0, 0.7, -0.36, { rotX: -0.5 });
-  if (o.topEyes) { B(g, 0.16, 0.16, 0.16, skin, -0.16, hy + 0.28, 0.04); B(g, 0.16, 0.16, 0.16, skin, 0.16, hy + 0.28, 0.04); B(g, 0.08, 0.08, 0.05, 0x141414, -0.16, hy + 0.3, 0.13); B(g, 0.08, 0.08, 0.05, 0x141414, 0.16, hy + 0.3, 0.13); }
+  // ears / cat ears / frog eye-bumps / tail
+  if (o.ears) { CONE(g, 0.1, 0.3, skin, -0.5, hy + 0.08, 0, { rotZ: 1.25, seg: 6 }); CONE(g, 0.1, 0.3, skin, 0.5, hy + 0.08, 0, { rotZ: -1.25, seg: 6 }); }
+  if (o.catEars) { CONE(g, 0.13, 0.24, o.hair ?? skin, -0.2, hy + 0.44, 0, { seg: 5 }); CONE(g, 0.13, 0.24, o.hair ?? skin, 0.2, hy + 0.44, 0, { seg: 5 }); }
+  if (o.whiskers) { B(g, 0.26, 0.02, 0.02, 0xffffff, -0.28, hy - 0.08, 0.34); B(g, 0.26, 0.02, 0.02, 0xffffff, 0.28, hy - 0.08, 0.34); }
+  if (o.tail) { S(g, 0.1, o.hair ?? robe, 0, 0.6, -bodyR - 0.12); S(g, 0.08, o.hair ?? robe, 0.06, 0.78, -bodyR - 0.26); }
+  if (o.topEyes) {
+    S(g, 0.15, skin, -0.18, hy + 0.42, 0.1); S(g, 0.15, skin, 0.18, hy + 0.42, 0.1);
+    S(g, 0.06, 0x2a2230, -0.18, hy + 0.44, 0.23); S(g, 0.06, 0x2a2230, 0.18, hy + 0.44, 0.23);
+  }
 
-  // hair
+  // hair: a round mop hugging the head
   if (o.hair && !o.mushroomCap) {
-    B(g, hw + 0.04, 0.16, 0.5, o.hair, 0, hy + 0.27, hunch);
-    if (o.longHair) B(g, hw + 0.06, 0.42, 0.16, o.hair, 0, hy - 0.1, -0.26);
-    if (o.hairBun) B(g, 0.22, 0.22, 0.22, o.hair, 0, hy + 0.14, -0.3);
+    S(g, 0.52, o.hair, 0, hy + 0.12, -0.06 + hunch, { sy: 0.72, seg: 10, seg2: 8 });
+    if (o.longHair) CAP(g, 0.2, 0.4, o.hair, 0, hy - 0.28, -0.34 + hunch);
+    if (o.hairBun) S(g, 0.2, o.hair, 0, hy + 0.22, -0.42 + hunch);
   }
-  // beard
-  if (o.beard === 'long') B(g, 0.36, 0.42, 0.14, o.beardColor ?? 0xe8e8e0, 0, hy - 0.28, 0.2 + hunch);
-  else if (o.beard === 'short') B(g, 0.38, 0.16, 0.12, o.beardColor ?? 0x4a2f1a, 0, hy - 0.22, 0.22 + hunch);
-  else if (o.beard === 'mustache') B(g, 0.3, 0.07, 0.08, o.beardColor ?? 0x3a2a1a, 0, hy - 0.1, 0.25 + hunch);
+  // beards: soft cones & tufts
+  if (o.beard === 'long') CONE(g, 0.3, 0.56, o.beardColor ?? 0xe8e8e0, 0, hy - 0.5, 0.24 + hunch, { rotX: -0.22, seg: 9 });
+  else if (o.beard === 'short') S(g, 0.24, o.beardColor ?? 0x4a2f1a, 0, hy - 0.32, 0.3 + hunch, { sy: 0.55 });
+  else if (o.beard === 'mustache') { S(g, 0.12, o.beardColor ?? 0x3a2a1a, -0.11, hy - 0.16, 0.44 + hunch, { sy: 0.5 }); S(g, 0.12, o.beardColor ?? 0x3a2a1a, 0.11, hy - 0.16, 0.44 + hunch, { sy: 0.5 }); }
 
   // mushroom cap (replaces hair/hat)
   if (o.mushroomCap) {
-    B(g, 0.9, 0.3, 0.9, o.mushroomCap, 0, hy + 0.34, 0); B(g, 0.7, 0.2, 0.7, o.mushroomCap, 0, hy + 0.54, 0);
-    B(g, 0.14, 0.05, 0.14, 0xfff3e0, -0.22, hy + 0.5, 0.18); B(g, 0.12, 0.05, 0.12, 0xfff3e0, 0.2, hy + 0.46, -0.16); B(g, 0.1, 0.05, 0.1, 0xfff3e0, 0.26, hy + 0.5, 0.1);
+    S(g, 0.66, o.mushroomCap, 0, hy + 0.34, 0, { sy: 0.6, seg: 12, seg2: 8 });
+    S(g, 0.09, 0xfff3e0, -0.26, hy + 0.5, 0.26); S(g, 0.08, 0xfff3e0, 0.24, hy + 0.46, -0.2); S(g, 0.07, 0xfff3e0, 0.32, hy + 0.52, 0.12);
   }
 
   hat(g, o, hy, hw);
@@ -104,38 +141,39 @@ function _human(o) {
 }
 
 function hat(g, o, hy, hw) {
-  const top = hy + 0.27, c = o.hatColor ?? 0x333333;
+  const top = hy + 0.34, c = o.hatColor ?? 0x333333;
   switch (o.hat) {
     case 'pointy':
-      B(g, hw + 0.18, 0.08, hw + 0.18, c, 0, top, 0);
-      CONE(g, 0.3, 0.95, c, 0, top + 0.55, 0, { rotZ: 0.06, seg: 6 });
+      CYL(g, 0.56, 0.62, 0.09, c, 0, top, 0);
+      CONE(g, 0.34, 0.95, c, 0, top + 0.5, 0, { rotZ: 0.08, seg: 9 });
       break;
     case 'wide':
-      B(g, hw + 0.5, 0.07, hw + 0.5, c, 0, top, 0);
-      CONE(g, 0.26, 0.6, c, 0, top + 0.36, 0, { seg: 6 });
+      CYL(g, 0.74, 0.8, 0.07, c, 0, top, 0);
+      CONE(g, 0.28, 0.55, c, 0, top + 0.3, 0, { seg: 9 });
       break;
     case 'cap':
-      B(g, hw + 0.04, 0.18, hw + 0.02, c, 0, top, 0);
-      B(g, hw + 0.04, 0.05, 0.2, c, 0, top - 0.02, 0.28);
-      if (o.feather) B(g, 0.05, 0.4, 0.05, o.feather, 0.22, top + 0.24, -0.02, { rotZ: -0.4 });
+      S(g, 0.52, c, 0, top - 0.04, 0, { sy: 0.5, seg: 10, seg2: 6 });
+      CYL(g, 0.2, 0.24, 0.05, c, 0, top - 0.02, 0.4, { rotX: 0.12 });
+      if (o.feather) CAP(g, 0.035, 0.3, o.feather, 0.24, top + 0.24, -0.02, { rotZ: -0.45 });
       break;
     case 'helm':
-      B(g, hw + 0.06, 0.52, hw + 0.06, c, 0, hy + 0.02, 0, { metal: 0.7, rough: 0.4 });
-      B(g, hw + 0.02, 0.07, 0.06, 0x101014, 0, hy + 0.02, 0.27); // visor slit
-      if (o.plume) CONE(g, 0.1, 0.4, o.plume, 0, top + 0.3, -0.05, { seg: 5 });
-      if (o.horns) { CONE(g, 0.09, 0.26, 0xeae0c8, -0.3, top + 0.1, 0, { rotZ: 0.5, seg: 5 }); CONE(g, 0.09, 0.26, 0xeae0c8, 0.3, top + 0.1, 0, { rotZ: -0.5, seg: 5 }); }
+      S(g, 0.56, c, 0, hy + 0.06, 0, { sy: 0.92, metal: 0.7, rough: 0.4, seg: 12, seg2: 8 });
+      B(g, 0.6, 0.08, 0.06, 0x101014, 0, hy + 0.04, 0.46); // visor slit
+      if (o.plume) CONE(g, 0.1, 0.4, o.plume, 0, top + 0.34, -0.05, { seg: 5 });
+      if (o.horns) { CONE(g, 0.09, 0.3, 0xeae0c8, -0.5, top, 0, { rotZ: 0.7, seg: 6 }); CONE(g, 0.09, 0.3, 0xeae0c8, 0.5, top, 0, { rotZ: -0.7, seg: 6 }); }
       break;
     case 'hood':
-      B(g, hw + 0.12, 0.56, hw + 0.12, c, 0, hy + 0.04, -0.04);
-      B(g, hw + 0.08, 0.5, 0.1, c, 0, hy + 0.02, 0.24); // brim shadowing the face
+      S(g, 0.58, c, 0, hy + 0.04, -0.05, { sy: 1.02, seg: 12, seg2: 8 });
+      CYL(g, 0.5, 0.52, 0.14, c, 0, hy + 0.02, 0.18, { rotX: 1.35 }); // brim shading the face
       break;
     case 'crown':
-      B(g, hw + 0.02, 0.1, hw, c, 0, top, 0, { metal: 0.6, rough: 0.3, emis: darken(c, 0.4) });
-      B(g, 0.06, 0.12, 0.06, c, 0, top + 0.1, 0.18, { metal: 0.6 }); B(g, 0.06, 0.1, 0.06, c, -0.18, top + 0.08, 0, { metal: 0.6 }); B(g, 0.06, 0.1, 0.06, c, 0.18, top + 0.08, 0, { metal: 0.6 });
+      CYL(g, 0.34, 0.36, 0.16, c, 0, top + 0.02, 0, { metal: 0.6, rough: 0.3, emis: darken(c, 0.4) });
+      for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2; CONE(g, 0.06, 0.14, c, Math.cos(a) * 0.3, top + 0.14, Math.sin(a) * 0.3, { seg: 5 }); }
+      S(g, 0.06, 0xff3a5a, 0, top + 0.08, 0.34, { emis: 0x6a0a1a, emisI: 0.9 });
       break;
     case 'scarf':
-      B(g, hw + 0.06, 0.3, hw + 0.06, c, 0, top - 0.05, -0.02);
-      B(g, 0.14, 0.34, 0.1, c, -0.28, hy - 0.04, 0.04); B(g, 0.14, 0.34, 0.1, c, 0.28, hy - 0.04, 0.04);
+      CYL(g, 0.54, 0.56, 0.24, c, 0, top - 0.1, 0);
+      CAP(g, 0.1, 0.24, c, -0.34, hy - 0.16, 0.08, { rotZ: 0.3 }); CAP(g, 0.1, 0.24, c, 0.34, hy - 0.16, 0.08, { rotZ: -0.3 });
       break;
     default: break;
   }
@@ -143,12 +181,12 @@ function hat(g, o, hy, hw) {
 
 function acc(g, o, skin, ax) {
   switch (o.acc) {
-    case 'star': B(g, 0.12, 0.12, 0.08, 0xffe14a, 0, 2.55, 0, { emis: 0xffc83a, emisI: 1.6, rotZ: 0.6 }); break;
-    case 'lute': B(g, 0.34, 0.5, 0.12, 0x8a5a2a, -0.34, 1.0, -0.28, { rotZ: 0.5 }); B(g, 0.06, 0.5, 0.06, 0x6a4420, -0.18, 1.32, -0.3, { rotZ: 0.5 }); break;
-    case 'dagger': B(g, 0.05, 0.3, 0.05, 0xcfd6dd, ax + 0.06, 0.7, 0.06, { metal: 0.7, rough: 0.3 }); B(g, 0.1, 0.06, 0.06, 0x5a3a22, ax + 0.06, 0.86, 0.06); break;
-    case 'cane': B(g, 0.05, 1.1, 0.05, 0x6a4a2a, ax + 0.1, 0.55, 0.12); B(g, 0.12, 0.06, 0.06, 0x8a6a44, ax + 0.07, 1.08, 0.12); break;
-    case 'coin': B(g, 0.16, 0.16, 0.1, 0x6a4a2a, ax - 0.02, 0.62, 0.1); B(g, 0.08, 0.08, 0.04, 0xffd24a, ax - 0.02, 0.74, 0.13, { emis: 0x6a4a00 }); break;
-    case 'tray': B(g, 0.34, 0.04, 0.26, 0x9a7a4a, ax + 0.14, 0.78, 0.18); B(g, 0.08, 0.12, 0.08, 0xe8c060, ax + 0.14, 0.86, 0.18); break;
+    case 'star': S(g, 0.1, 0xffe14a, 0, 2.62, 0, { emis: 0xffc83a, emisI: 1.6 }); break;
+    case 'lute': S(g, 0.2, 0x8a5a2a, -0.4, 0.9, -0.3, { sy: 1.3, sz: 0.5 }); CYL(g, 0.03, 0.03, 0.5, 0x6a4420, -0.28, 1.24, -0.32, { rotZ: 0.5 }); break;
+    case 'dagger': CAP(g, 0.03, 0.22, 0xcfd6dd, ax + 0.08, 0.72, 0.06, { metal: 0.7, rough: 0.3 }); S(g, 0.06, 0x5a3a22, ax + 0.08, 0.88, 0.06); break;
+    case 'cane': CYL(g, 0.03, 0.04, 1.0, 0x6a4a2a, ax + 0.12, 0.52, 0.12); S(g, 0.07, 0x8a6a44, ax + 0.12, 1.04, 0.12); break;
+    case 'coin': S(g, 0.12, 0x6a4a2a, ax - 0.02, 0.6, 0.1); CYL(g, 0.07, 0.07, 0.03, 0xffd24a, ax - 0.02, 0.74, 0.12, { rotX: 0.3, emis: 0x6a4a00 }); break;
+    case 'tray': CYL(g, 0.2, 0.2, 0.03, 0x9a7a4a, ax + 0.16, 0.78, 0.18); CYL(g, 0.05, 0.06, 0.12, 0xe8c060, ax + 0.16, 0.86, 0.18); break;
     default: break;
   }
 }

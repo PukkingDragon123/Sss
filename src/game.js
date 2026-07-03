@@ -492,7 +492,7 @@ export class Game {
   // dpr1 and dpr2 (the old pr-multiplied math made dpr1 round to 1 = no pixelation at all).
   _setPixel(mode) {
     const pr = this._pr || this.renderer.getPixelRatio() || 1;
-    const cssBlock = mode === 'arena' ? 2 : 3;            // near-crisp: 2 CSS-px in the fight, 3 in menus/map
+    const cssBlock = mode === 'arena' ? 3 : 4;            // chunkier pixel-art feel: 3 CSS-px in the fight, 4 in menus/map
     const n = Math.max(2, Math.round(cssBlock * pr));      // device px; never < 2 (1 = no pixelation)
     this._pixelWant = n;
     if (this._pixelPass) this._pixelPass.setPixelSize(n);
@@ -668,17 +668,15 @@ export class Game {
   // loot table when an enemy dies
   enemyDrop(pos, def) {
     const lvl = Math.max(1, this.level);
-    if (def.boss) { // bosses always drop a good piece, a heart, a couple of gemstones + a rare cooking ingredient
+    if (def.boss) { // bosses always drop a good piece, a heart + a couple of gemstones
       this.spawnGear(pos.clone(), meta.dropGear(lvl + 2, true));
       this.spawnHeart(pos.clone().add(new THREE.Vector3(1, 0, 0)));
       const els = meta.ELEMENT_LIST; for (let k = 0; k < 2; k++) meta.addGemstone(els[Math.floor(Math.random() * els.length)]);
-      const rare = meta.randomRareIngredient(); meta.addIngredient(rare.id, 1);
-      this.ui.toast(`💎 Gemstones + ${rare.icon} ${rare.name} recovered!`);
+      this.ui.toast(`💎 Elemental gemstones recovered!`);
       return;
     }
     const big = def.size >= 1.4;
     if (Math.random() < (big ? 0.10 : 0.035)) meta.addGemstone(meta.ELEMENT_LIST[Math.floor(Math.random() * meta.ELEMENT_LIST.length)]); // a gemstone into the satchel
-    if (Math.random() < (big ? 0.09 : 0.02)) { const ing = meta.randomRareIngredient(); meta.addIngredient(ing.id, 1); this.ui.toast(`${ing.icon} ${ing.name} — a cooking find!`); } // rare cooking material
     const r = Math.random();
     if (r < (big ? 0.30 : 0.06)) this.spawnHeart(pos);
     else if (r < (big ? 0.50 : 0.13)) this.spawnMana(pos);
@@ -1229,7 +1227,6 @@ export class Game {
     this.input.pointMode = false;
     this.camOffset.set(0, 27, 22);
     this._applyStageTheme(stage);
-    this._spawnBarrels();        // refreshing beer kegs scattered in the arena
     this._spawnShrine();         // a rune shrine: draw a glyph at it to channel a relic
     this._spawnWisp();           // your glowing wisp guide-pet drifts along
     this.ui.setPhase('arena', this.input.isTouch);
@@ -2020,7 +2017,6 @@ export class Game {
     }
     if (this.stats.hpRegen > 0 && this.wizard.alive) this.wizard.heal(this.stats.hpRegen * sdt);
 
-    this._updateBarrels(sdt);
     this._updateShrine(sdt);
     this._updateDrink(sdt);
     this._updateWisp(sdt);
@@ -2029,76 +2025,6 @@ export class Game {
     if (this.pendingLevels > 0 && this.state === 'play') this._openLevelUp();
     // boss slain -> win the whole level
     if (this._endState === 'win' && !this.storyShowing && this.state === 'play') { this.state = 'win'; this._showEnd(true); }
-  }
-
-  // ---- forageables scattered in the arena: mushrooms (eat for a random effect) + herbs (gather to brew) ----
-  _spawnBarrels() {
-    if (!this._barrelGroup) { this._barrelGroup = new THREE.Group(); this.arenaGroup.add(this._barrelGroup); }
-    const grp = this._barrelGroup;
-    for (let i = grp.children.length - 1; i >= 0; i--) { const c = grp.children[i]; c.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); grp.remove(c); }
-    this.barrels = [];
-    const spots = [['herb', -16, -11], ['shroom', 16, -11], ['herb', -13, 15], ['shroom', 13, 15], ['herb', 0, -21]];
-    for (const [kind, x, z] of spots) {
-      const pool = meta.ingredientsByKind(kind === 'herb' ? 'herb' : 'shroom').filter(g => g.tier <= 2);
-      const ing = pool[Math.floor(Math.random() * pool.length)];
-      const m = this._buildForage(kind, ing); m.position.set(x, 0, z); grp.add(m);
-      this.barrels.push({ mesh: m, kind, ing, full: true, t: 0, x, z });
-    }
-  }
-  _buildForage(kind, ing) {
-    const g = new THREE.Group();
-    const col = (ing && ing.color) || (kind === 'herb' ? 0x5fb84a : 0xc8402a);
-    if (kind === 'herb') {
-      const stemMat = new THREE.MeshStandardMaterial({ color: 0x3a6a2a, roughness: 0.85 });
-      const leafMat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.7 });
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.5, 6), stemMat); stem.position.y = 0.25; g.add(stem);
-      for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.52, 5), leafMat); leaf.position.set(Math.cos(a) * 0.2, 0.5, Math.sin(a) * 0.2); leaf.rotation.z = Math.cos(a) * 0.7; leaf.rotation.x = Math.sin(a) * 0.7; leaf.castShadow = true; g.add(leaf); }
-      const bud = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 10), new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.35, roughness: 0.5 })); bud.position.y = 0.78; g.add(bud);
-    } else { // mushroom
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.55, 10), new THREE.MeshStandardMaterial({ color: 0xf0e6d0, roughness: 0.85 })); stem.position.y = 0.3; stem.castShadow = true; g.add(stem);
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.45, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: col, roughness: 0.6, emissive: col, emissiveIntensity: 0.25 })); cap.position.y = 0.6; cap.scale.y = 0.8; cap.castShadow = true; g.add(cap);
-      for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; const dot = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), new THREE.MeshStandardMaterial({ color: 0xfff0e0, roughness: 0.7 })); dot.position.set(Math.cos(a) * 0.27, 0.72, Math.sin(a) * 0.27); g.add(dot); }
-    }
-    const mkCol = kind === 'herb' ? 0x6fe89a : 0xff7a5a;
-    const mk = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.04, 8, 16), new THREE.MeshBasicMaterial({ color: mkCol, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false })); mk.position.y = 1.4; mk.rotation.x = Math.PI / 2; g.add(mk); g.userData.mark = mk;
-    return g;
-  }
-  _updateBarrels(sdt) {
-    if (!this.barrels) return;
-    const w = this.wizard.pos;
-    for (const b of this.barrels) {
-      const mk = b.mesh.userData.mark;
-      if (!b.full) {
-        b.t -= sdt;
-        if (b.t <= 0) { b.full = true; b.mesh.visible = true; } else { b.mesh.visible = false; }
-        continue;
-      }
-      if (mk) { mk.rotation.y += sdt * 2; mk.position.y = 1.5 + Math.sin(this.elapsed * 3 + b.x) * 0.12; }
-      const dx = w.x - b.x, dz = w.z - b.z;
-      if (dx * dx + dz * dz < 1.7 * 1.7) this._forage(b);
-    }
-  }
-  _forage(b) {
-    b.full = false; b.t = b.kind === 'herb' ? 22 : 20; b.mesh.visible = false;
-    const ing = b.ing || meta.randomIngredient(1);
-    meta.addIngredient(ing.id, 1);
-    if (this.ui.burstFX) this.ui.burstFX({ x: window.innerWidth / 2, y: window.innerHeight * 0.55 }, b.kind === 'herb' ? 'sparkle' : 'bubble', 6);
-    if (b.kind === 'herb') {
-      meta.addHerbs(1);   // also stocks generic brewing herbs for the Cauldron
-      this.audio.play('xp');
-      this.particles.burst({ pos: new THREE.Vector3(b.x, 0.8, b.z), color: ing.color, count: 9, speed: 3, size: 0.2, life: 0.7, grav: 2, blend: 'normal' });
-      this.ui.wispSay(`${ing.icon} You gathered ${ing.name}. Cook with it at the Bar, or brew at the Cauldron.`);
-      return;
-    }
-    // mushroom: collected for the pantry AND eaten for a random effect
-    this.audio.play('heal');
-    this.particles.burst({ pos: new THREE.Vector3(b.x, 0.9, b.z), color: ing.color, count: 13, speed: 4, size: 0.22, life: 0.8, grav: 2, blend: 'normal' });
-    const w = this.wizard, s = this.stats, roll = Math.floor(Math.random() * 5);
-    if (roll === 0) { w.heal(35); this.ui.wispSay(`${ing.icon} ${ing.name} — a healing nibble. One for the pantry too.`); }
-    else if (roll === 1) { w.mana = Math.min(s.manaMax, w.mana + 60); this.ui.wispSay(`${ing.icon} ${ing.name} — your mana surges. Pantry stocked.`); }
-    else if (roll === 2) { this.drunkenness = Math.max(0, this.drunkenness - 0.3); this.ui.wispSay(`${ing.icon} ${ing.name} — bitter; your head clears a little.`); }
-    else if (roll === 3) { this.gainXP(25); this.ui.wispSay(`${ing.icon} ${ing.name} — a wise cap. You feel a little sharper.`); }
-    else { this.drunkenness = Math.min(1, this.drunkenness + 0.35); this._drunkSurge = 1; this.ui.wispSay(`${ing.icon} ${ing.name} — whoa, the room is spinning!`); }
   }
 
   // ---- rune shrine: walk up & DRAW a glyph to channel a free artifact (re-arms slowly) ----

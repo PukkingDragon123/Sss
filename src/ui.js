@@ -1085,6 +1085,7 @@ export class UI {
     }
     this.el.storyText.textContent = this._storyLines[0] || '';
     this.el.story.classList.remove('hidden');
+    this._typeInto(this.el.storyText);           // Stardew-style letter-by-letter reveal
   }
   _storyAdvance() {
     this._storyIdx++;
@@ -1094,6 +1095,7 @@ export class UI {
       if (cb) cb();
     } else {
       this.el.storyText.textContent = this._storyLines[this._storyIdx];
+      this._typeInto(this.el.storyText);
     }
   }
 
@@ -1552,7 +1554,6 @@ export class UI {
     h += `<div class="inv-cur">
       <div class="inv-coin"><span class="inv-ico">${iconImg('coin', {}, 'md')}</span><b>${meta.gold()}</b><small>gold · earned by working</small></div>
       <div class="inv-coin"><span class="inv-ico">${iconImg('💎', {}, 'md')}</span><b>${meta.gems()}</b><small>gems · won in battle</small></div>
-      <div class="inv-coin"><span class="inv-ico">${iconImg('herb', {}, 'md')}</span><b>${meta.herbs()}</b><small>herbs · brew potions</small></div>
       <div class="inv-coin"><span class="inv-ico">${iconImg('sun', {}, 'md')}</span><b>Day ${meta.currentDay()}</b><small>the tavern clock</small></div>
     </div>`;
     h += `<div class="eq-totals"><span>${iconImg('swords', {}, 'sm')} Equipped bonuses</span><b>${statStr}</b></div>`;
@@ -1564,16 +1565,8 @@ export class UI {
     const gs = meta.gemstones();
     const gsh = meta.ELEMENT_LIST.map(el => { const e = meta.ELEMENTS[el]; return `<span class="inv-el" style="color:${e.color}">${iconImg(e.icon, {}, 'sm')} ${e.name} ×${gs[el] || 0}</span>`; }).join('');
     h += `<div class="eq-section-head" style="margin-top:14px">${iconImg('💎', {}, 'sm')} Elemental Gemstones <span class="eq-count">${meta.totalGemstones()} total</span></div>
-      <p class="shop-sub" style="margin:.2em 0 .5em">Won in battle. Brew them with ${iconImg('herb', {}, 'sm')} herbs into potions at the Cauldron.</p>
+      <p class="shop-sub" style="margin:.2em 0 .5em">Won in battle. Brew them into potions at the Cauldron.</p>
       <div class="inv-els">${gsh}</div>`;
-    // pantry: foraged cooking ingredients — herbs and mushrooms each in their own row
-    const ingSpan = (g) => `<span class="inv-el" style="color:#${g.color.toString(16).padStart(6, '0')}">${iconImg(g.icon, {}, 'sm')} ${g.name} ×${meta.ingredientCount(g.id)}</span>`;
-    const herbsList = meta.ingredientsByKind('herb').filter(g => meta.ingredientCount(g.id) > 0);
-    const shroomList = meta.ingredientsByKind('shroom').filter(g => meta.ingredientCount(g.id) > 0);
-    h += `<div class="eq-section-head" style="margin-top:14px">${iconImg('basket', {}, 'sm')} Pantry <span class="eq-count">${meta.totalIngredients()} items</span></div>
-      <p class="shop-sub" style="margin:.2em 0 .6em">Foraged on runs and dropped by foes — spend them to unlock Bar recipes.</p>
-      <div class="inv-els">${iconImg('herb', {}, 'sm')} ${herbsList.length ? herbsList.map(ingSpan).join('') : '<span class="eq-empty" style="font-size:12px">no herbs yet</span>'}</div>
-      <div class="inv-els" style="margin-top:6px">${iconImg('mushroom', {}, 'sm')} ${shroomList.length ? shroomList.map(ingSpan).join('') : '<span class="eq-empty" style="font-size:12px">no mushrooms yet</span>'}</div>`;
     // collected artifacts — carry up to MAX into your runs
     const owned = meta.ownedArtifacts();
     h += `<div class="eq-section-head" style="margin-top:14px">✦ Artifacts <span class="eq-count">${meta.equippedArtifacts().length} carried · ${owned.length}/${ARTIFACTS.length} found</span></div>`;
@@ -1611,15 +1604,15 @@ export class UI {
     }
     h += '</div>';
     // ---- brew lasting potions from gathered herbs + elemental gemstones ----
-    h += `<div class="eq-section-head" style="margin-top:14px">${iconImg('potion', { color: '#9bff5a' }, 'sm')} Brew Potions <span class="eq-count">${iconImg('herb', {}, 'sm')} ${meta.herbs()} herbs</span></div>
-      <p class="shop-sub" style="margin:.2em 0 .6em">Spend ${iconImg('herb', {}, 'sm')} herbs (gathered while venturing) and an elemental ${iconImg('💎', {}, 'sm')} gemstone for a <b>permanent</b> boon.</p><div class="shop-grid">`;
+    h += `<div class="eq-section-head" style="margin-top:14px">${iconImg('potion', { color: '#9bff5a' }, 'sm')} Brew Potions</div>
+      <p class="shop-sub" style="margin:.2em 0 .6em">Spend elemental ${iconImg('💎', {}, 'sm')} gemstones (won in battle) for a <b>permanent</b> boon.</p><div class="shop-grid">`;
     for (const p of meta.POTIONS) {
       const e = meta.ELEMENTS[p.el], can = meta.canBrew(p.id), have = meta.brewCount(p.id);
       h += `<div class="shop-card" style="--el:${e.color}">
         <div class="shop-glyph">${spriteImg('potion', { color: e.color }, 'md', p.icon)}</div>
         <div class="shop-name">${p.name}${have ? ` ×${have}` : ''}</div>
         <div class="shop-desc">${p.desc}</div>
-        <div class="shop-acts"><button class="shop-btn" data-act="brew" data-id="${p.id}" ${can ? '' : 'disabled'}>${iconImg('herb', {}, 'sm')}${p.herbs} + ${iconImg(e.icon, {}, 'sm')}${p.gems}</button></div></div>`;
+        <div class="shop-acts"><button class="shop-btn" data-act="brew" data-id="${p.id}" ${can ? '' : 'disabled'}>${iconImg(e.icon, {}, 'sm')} ×${p.gems}</button></div></div>`;
     }
     h += '</div>';
     return h;
@@ -1638,12 +1631,15 @@ export class UI {
       <div class="vil-stat"><span>${iconImg('chair', {}, 'sm')} Comfort</span><b>${comfort}</b></div>
       <div class="vil-stat"><span>${iconImg('bed', {}, 'sm')} Rest bonus</span><b>+${restAmt} HP</b></div>
     </div>`;
+    // ghost of the selected piece previews on every empty tile — tap to place
+    const selB = this._buildSel ? meta.buildableById(this._buildSel) : null;
+    const ghost = selB ? `<span class="build-ghost">${iconImg(selB.icon, {}, 'sm')}</span>` : '';
     h += '<div class="build-grid">';
     for (let gy = 0; gy < meta.ROOM_GH; gy++) {
       for (let gx = 0; gx < meta.ROOM_GW; gx++) {
         const item = meta.placedItems().find(p => p.gx === gx && p.gy === gy);
         const b = item ? meta.buildableById(item.id) : null;
-        h += `<button class="build-cell ${item ? 'filled' : ''} ${b && b.station ? 'is-station' : ''}" data-act="place" data-id="${gx}_${gy}" title="${b ? b.name + ' — tap to sell' : 'empty tile'}">${b ? iconImg(b.icon, {}, 'sm') : ''}</button>`;
+        h += `<button class="build-cell ${item ? 'filled' : ''} ${b && b.station ? 'is-station' : ''} ${!item && selB ? 'can-place' : ''}" data-act="place" data-id="${gx}_${gy}" title="${b ? b.name + ' — tap to sell' : selB ? 'place ' + selB.name + ' here' : 'empty tile'}">${b ? iconImg(b.icon, {}, 'sm') : ghost}</button>`;
       }
     }
     h += '</div>';

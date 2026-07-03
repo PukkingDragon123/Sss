@@ -17,7 +17,6 @@ import { Jobs } from './jobs.js';
 import { Tavern } from './tavern.js';
 import { World } from './world.js';
 import { Cinematics } from './cinematics.js';
-import { Atmosphere } from './atmosphere.js';
 import { rollUpgrades, rollArtifact, artifactById, ARCHETYPES, archetypeById } from './upgrades.js';
 import * as meta from './meta.js';
 import { COMBO_META } from './meta.js';
@@ -156,7 +155,6 @@ export class Game {
     // subsystems
     this.audio = new AudioEngine();
     this.particles = new Particles(this.scene);
-    this.atmosphere = new Atmosphere(this.scene); // volumetric god-rays + dust (core three; always builds)
     this.enemies = new Enemies(this.scene);
     this.spells = new SpellSystem(this.scene);
     this.jobs = new Jobs(this.scene);
@@ -469,10 +467,10 @@ export class Game {
       const w = window.innerWidth, h = window.innerHeight, pr = this.renderer.getPixelRatio();
       this._pr = pr;
       const c = new EffectComposer(this.renderer);
-      const start = this._pixelWant || Math.max(2, Math.round(2.2 * pr)); // gentler default
-      // crisper Megabonk look: barely-chunky blocks + stronger normal/depth edge lines so
-      // the flat-shaded low-poly models read with a drawn outline
-      const px = new RenderPixelatedPass(start, this.scene, this.camera, { normalEdgeStrength: 0.38, depthEdgeStrength: 0.45 });
+      const start = this._pixelWant || Math.max(1, Math.round(1 * pr)); // very light default
+      // very light pixelation: minimal block size + soft edge lines, just enough texture
+      // to keep the retro feel without the scene looking chunky or blurry
+      const px = new RenderPixelatedPass(start, this.scene, this.camera, { normalEdgeStrength: 0.12, depthEdgeStrength: 0.15 });
       this._pixelPass = px;
       if (this._pixelWant) px.setPixelSize(this._pixelWant); // honor a per-scene request made before load (resizes internal RTs)
       c.addPass(px);
@@ -492,8 +490,8 @@ export class Game {
   // dpr1 and dpr2 (the old pr-multiplied math made dpr1 round to 1 = no pixelation at all).
   _setPixel(mode) {
     const pr = this._pr || this.renderer.getPixelRatio() || 1;
-    const cssBlock = mode === 'arena' ? 3 : 4;            // chunkier pixel-art feel: 3 CSS-px in the fight, 4 in menus/map
-    const n = Math.max(2, Math.round(cssBlock * pr));      // device px; never < 2 (1 = no pixelation)
+    const cssBlock = mode === 'arena' ? 1 : 1.5;          // very light pixelation: barely-there texture
+    const n = Math.max(1, Math.round(cssBlock * pr));      // device px; 1 = essentially no pixelation
     this._pixelWant = n;
     if (this._pixelPass) this._pixelPass.setPixelSize(n);
   }
@@ -524,7 +522,6 @@ export class Game {
     this.rugMat.color.setHex(t.rug);
     this._buildScatter(t.scatter);
     this.renderer.toneMappingExposure = 0.98; // crisper, less washed
-    if (this.atmosphere) { this.atmosphere.setMood('arena'); this.atmosphere.setVisible(true); }
     if (this._gradePass) { const u = this._gradePass.uniforms; // cool, tense, high-contrast grade
       u.uContrast.value = 1.18; u.uSaturation.value = 1.04;
       u.uShadowTint.value.set(0.82, 0.90, 1.10); u.uHighlightTint.value.set(1.04, 1.01, 0.95);
@@ -1052,7 +1049,6 @@ export class Game {
     this.rim.color.setHex(0xbfe0ff); this.rim.intensity = 1.0;
     if (this.heroLight) this.heroLight.intensity = 0;
     this.renderer.toneMappingExposure = 1.1;
-    if (this.atmosphere) this.atmosphere.setVisible(false); // no god-ray haze over the chart
     if (this._gradePass) { const u = this._gradePass.uniforms; // bright, storybook grade for the map
       u.uContrast.value = 1.08; u.uSaturation.value = 1.14;
       u.uShadowTint.value.set(0.9, 0.95, 1.06); u.uHighlightTint.value.set(1.05, 1.02, 0.94);
@@ -1292,7 +1288,6 @@ export class Game {
   // (combat / elite / treasure / campfire / choice-event / skill-trial), Slay-the-
   // Spire style; the door previews what waits. The last fork leads to the boss. ----
   _beginRoom(isBoss, elite) {
-    if (this.atmosphere) this.atmosphere.setVisible(true); // always re-show on stage entry, whatever path got us here
     // which of the region's ten stages is this? (1 = entrance … 10 = boss lair)
     const stageNum = isBoss ? STAGES_PER_REGION : Math.min(STAGES_PER_REGION, this._forksDone + 1);
     const gim = gimmickFor(stageNum);
@@ -1365,7 +1360,6 @@ export class Game {
   _showPath() {
     if (!this._runMap) { this._runRegion = this.stage ? this.stage.id : 'forest'; this._runMap = this._buildRunMap(); this._mapNodeId = this._runMap.startId; this._mapVisited = new Set(); }
     this.state = 'runmap';
-    if (this.atmosphere) this.atmosphere.setVisible(false); // same as openRegionMap: keep the node map clean
     this.audio.play('levelup');
     this.ui.showRunMap(this);
   }
@@ -1375,7 +1369,6 @@ export class Game {
   // ----- region level map (Mewgenics / Slay-the-Spire style) -----
   openRegionMap(id) {
     this._setPixel('menu');
-    if (this.atmosphere) this.atmosphere.setVisible(false); // keep the node map clean
     this._worldSel = id; this._runRegion = id;
     this._runMap = this._buildRunMap();
     this._mapNodeId = null;          // null = run not started yet; entrance is the only choice
@@ -1625,7 +1618,6 @@ export class Game {
       this.rim.color.setHex(0xffe2b0); this.rim.intensity = 1.15;
       if (this.heroLight) this.heroLight.intensity = 0; // arena-only
       this.renderer.toneMappingExposure = 0.95;
-      if (this.atmosphere) { this.atmosphere.setMood('tavern'); this.atmosphere.setVisible(true); }
       if (this._gradePass) { const u = this._gradePass.uniforms; // warm, cozy grade
         u.uContrast.value = 1.10; u.uSaturation.value = 1.14;
         u.uShadowTint.value.set(0.90, 0.95, 1.04); u.uHighlightTint.value.set(1.10, 1.02, 0.86);
@@ -1641,7 +1633,6 @@ export class Game {
       this.fill.color.setHex(0xbfd0ff); this.fill.intensity = 0.22; // cool fill for arenas
       this.rim.color.setHex(0xbfe6ff); this.rim.intensity = 1.6;
       this.renderer.toneMappingExposure = 0.98;
-      if (this.atmosphere) { this.atmosphere.setMood('arena'); this.atmosphere.setVisible(true); }
       if (this._gradePass) { const u = this._gradePass.uniforms;
         u.uContrast.value = 1.18; u.uSaturation.value = 1.04;
         u.uShadowTint.value.set(0.82, 0.90, 1.10); u.uHighlightTint.value.set(1.04, 1.01, 0.95);
@@ -1981,7 +1972,6 @@ export class Game {
 
     this.ui.updateHUD(this);
     this._updateCamera(dt);
-    this.atmosphere.update(dt); // volumetric shafts/dust drift (real dt, so it breathes during hitstop too)
     if (this._gradePass) this._gradePass.uniforms.uTime.value = this.clock.getElapsedTime();
     this.present();
   }

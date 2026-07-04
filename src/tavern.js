@@ -48,7 +48,7 @@ export class Tavern {
   // from the post-process edge pass, so structural geometry gets no hull twin here.
   _texturize(root) {
     root.traverse((o) => {
-      if (!o.isMesh || o.userData.isOutline || !o.material || !o.material.isMeshStandardMaterial) return;
+      if (!o.isMesh || o.userData.isOutline || o.userData.noTex || !o.material || !o.material.isMeshStandardMaterial) return;
       const m = o.material; if (m.map || m.transparent || (m.emissiveIntensity || 0) >= 0.4) return;
       const c = m.color;
       const tk = m.metalness > 0.35 ? 'metal'
@@ -139,29 +139,36 @@ export class Tavern {
   _buildPatron(robeColor, hasHat) {
     const person = new THREE.Group();
     const robe = new THREE.MeshStandardMaterial({ flatShading: true, color: robeColor, roughness: 0.85 });
-    const robe2 = new THREE.MeshStandardMaterial({ flatShading: true, color: robeColor, roughness: 0.85 }); robe2.color.multiplyScalar(0.8);
+    const robe2 = new THREE.MeshStandardMaterial({ flatShading: true, color: robeColor, roughness: 0.85 }); robe2.color.multiplyScalar(0.78);
     const skin = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xf0d6b8, roughness: 0.8 });
-    const dark = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x2a2230, roughness: 0.7 });
-    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.62, 0.85, 9), robe); skirt.position.y = 0.72; skirt.castShadow = true;
-    const torso = new THREE.Mesh(new THREE.SphereGeometry(0.42, 9, 7), robe); torso.position.y = 1.2; torso.scale.set(1, 0.95, 0.92); torso.castShadow = true;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 9, 7), skin); head.position.y = 1.72; head.castShadow = true;
-    person.add(skirt, torso, head);
-    const eyeGeo = new THREE.SphereGeometry(0.05, 8, 8);
-    const eL = new THREE.Mesh(eyeGeo, dark); eL.position.set(-0.12, 1.76, 0.3); eL.scale.y = 0.7;
-    const eR = new THREE.Mesh(eyeGeo, dark); eR.position.set(0.12, 1.76, 0.3); eR.scale.y = 0.7;
-    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), new THREE.MeshStandardMaterial({ flatShading: true, color: 0xd98a72, roughness: 0.75 })); nose.position.set(0, 1.68, 0.34);
-    person.add(eL, eR, nose);
-    const armGeo = new THREE.CapsuleGeometry(0.1, 0.5, 4, 8);
-    const aL = new THREE.Mesh(armGeo, robe); aL.position.set(-0.44, 1.15, 0); aL.rotation.z = 0.5; aL.castShadow = true;
-    const aR = new THREE.Mesh(armGeo, robe); aR.position.set(0.44, 1.15, 0); aR.rotation.z = -0.5; aR.castShadow = true;
-    person.add(aL, aR);
-    const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.24, 10), new THREE.MeshStandardMaterial({ flatShading: true, color: 0x9a6a3a, roughness: 0.7 })); mug.position.set(0.6, 1.0, 0.1); person.add(mug);
-    if (hasHat) {
-      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.46, 0.08, 9), robe2); brim.position.y = 1.98; brim.castShadow = true;
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.9, 8), robe2); cone.position.y = 2.4; cone.rotation.z = 0.12; cone.castShadow = true;
-      person.add(brim, cone);
+    const dark = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x141018, roughness: 0.6 });
+    const sclera = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xf4efe2, roughness: 0.6 });
+    // a proper TALL humanoid: two legs, a longer torso, a head up high (no more squat blob)
+    const legGeo = new THREE.CapsuleGeometry(0.13, 0.42, 3, 7);
+    const legL = new THREE.Mesh(legGeo, robe2); legL.position.set(-0.16, 0.36, 0.02); legL.castShadow = true;
+    const legR = new THREE.Mesh(legGeo, robe2); legR.position.set(0.16, 0.36, 0.02); legR.castShadow = true;
+    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 0.7, 9), robe); skirt.position.y = 0.98; skirt.castShadow = true;
+    const torso = new THREE.Mesh(new THREE.SphereGeometry(0.4, 9, 7), robe); torso.position.y = 1.48; torso.scale.set(1, 1.05, 0.92); torso.castShadow = true;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.33, 9, 7), skin); head.position.y = 2.04; head.castShadow = true;
+    person.add(legL, legR, skirt, torso, head);
+    // googly eyes: a light eyeball the ink hull rings + a dark pupil dot (opted out)
+    for (const sx of [-0.13, 0.13]) {
+      const e = new THREE.Mesh(new THREE.SphereGeometry(0.09, 7, 6), sclera); e.position.set(sx, 2.08, 0.25); e.scale.z = 0.7; e.userData.noTex = true; person.add(e);
+      const p = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 5), dark); p.position.set(sx, 2.07, 0.33); p.userData.noOutline = true; p.userData.noTex = true; person.add(p);
+    }
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshStandardMaterial({ flatShading: true, color: 0xd98a72, roughness: 0.75 })); nose.position.set(0, 1.98, 0.35); person.add(nose);
+    const armGeo = new THREE.CapsuleGeometry(0.1, 0.44, 3, 7);
+    const aL = new THREE.Mesh(armGeo, robe); aL.position.set(-0.42, 1.42, 0); aL.rotation.z = 0.34; aL.castShadow = true;
+    const aR = new THREE.Mesh(armGeo, robe); aR.position.set(0.42, 1.42, 0); aR.rotation.z = -0.34; aR.castShadow = true;
+    const hL = new THREE.Mesh(new THREE.SphereGeometry(0.1, 7, 5), skin); hL.position.set(-0.5, 1.14, 0.05);
+    const hR = new THREE.Mesh(new THREE.SphereGeometry(0.1, 7, 5), skin); hR.position.set(0.5, 1.14, 0.05);
+    person.add(aL, aR, hL, hR);
+    const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.22, 9), new THREE.MeshStandardMaterial({ flatShading: true, color: 0x9a6a3a, roughness: 0.7 })); mug.position.set(0.56, 1.28, 0.14); person.add(mug);
+    if (hasHat) { // a plain rounded cap for variety — NOT a wizard hat
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.36, 9, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), robe2); cap.position.y = 2.18; cap.castShadow = true; person.add(cap);
     }
     person._mug = mug;
+    person.userData.limbs = { legL, legR, armL: aL, armR: aR, handL: hL, handR: hR, mug };
     outlineGroup(person, { thick: 0.045 }); // Megabonk ink contour on the patron
     return person;
   }
@@ -657,48 +664,48 @@ export class Tavern {
     const bob = Math.abs(Math.sin(qn.phase * 5)) * 0.06;
     const step = (tx, tz, spd) => { const dx = tx - qn.pos.x, dz = tz - qn.pos.z, d = Math.hypot(dx, dz) || 1e-4; const s = Math.min(d, spd * dt); qn.pos.x += (dx / d) * s; qn.pos.z += (dz / d) * s; if (d > 0.12) qn.yaw = Math.atan2(dx, dz); return d; };
     const seat = qn.seat;
-    let seated = false;
+    let seated = false, anim = 'idle', intens = 1;
     switch (qn.state) {
       case 'enter': { // walk in from the door to their spot
         if (qn.stateT < (qn.enterDelay || 0)) { qn.mesh.position.set(qn.pos.x, 0, qn.pos.z); break; }
-        const d = step(seat.x, seat.z, qn.speed * 1.25);
+        const d = step(seat.x, seat.z, qn.speed * 1.25); anim = 'walk';
         qn.mesh.position.set(qn.pos.x, bob, qn.pos.z);
         if (d < 0.45) { qn.state = 'sit'; qn.stateT = 0; }
         break;
       }
       case 'sit': { // amble to the seat, then plonk down
         const d = step(seat.x, seat.z, qn.speed);
-        if (d < 0.4) { seated = true; qn.yaw = qn.seatYaw; if (qn.stateT > 2.4) { qn.state = 'drink'; qn.stateT = 0; } }
-        else qn.mesh.position.set(qn.pos.x, bob, qn.pos.z);
+        if (d < 0.4) { seated = true; anim = 'sit'; qn.yaw = qn.seatYaw; if (qn.stateT > 2.4) { qn.state = 'drink'; qn.stateT = 0; } }
+        else { anim = 'walk'; qn.mesh.position.set(qn.pos.x, bob, qn.pos.z); }
         break;
       }
-      case 'drink': { // raise the mug and take a few pulls
-        seated = true; qn.yaw = qn.seatYaw;
+      case 'drink': { // raise the mug to the mouth and take a few pulls
+        seated = true; anim = 'drink'; qn.yaw = qn.seatYaw;
         if (qn.mug) qn.mug.visible = true;
-        const sip = Math.max(0, Math.sin(qn.stateT * 3.1));
-        qn.mesh.rotation.x = -0.2 * sip;
-        if (qn.stateT > 2.3) {
+        qn.mesh.rotation.x = -0.16 * Math.max(0, Math.sin(qn.stateT * 3.2)); // head tips back
+        if (qn.stateT > 2.4) {
           qn.mesh.rotation.x = 0; if (qn.mug) qn.mug.visible = false;
           qn.drinks++; qn.stateT = 0;
-          game.particles.burst({ pos: qn.mesh.position.clone().setY(1.8), color: 0xf7f4ec, count: 4, speed: 1.4, size: 0.08, life: 0.5, grav: -3, blend: 'normal' });
+          game.particles.burst({ pos: qn.mesh.position.clone().setY(2.0), color: 0xf7f4ec, count: 5, speed: 1.5, size: 0.08, life: 0.5, grav: -3, blend: 'normal' });
           if (qn.drinks >= 3) { qn.state = 'mad'; qn.stateT = 0; qn.madDur = 5 + Math.random() * 4; game.audio && game.audio.play('cheers'); }
           else if (Math.random() < 0.55) { qn.state = 'wander'; qn.stateT = 0; qn.wanderDur = 2 + Math.random() * 2.5; qn.target.set(seat.x + (Math.random() - 0.5) * 5, 0, seat.z + (Math.random() - 0.5) * 4); }
         }
         break;
       }
       case 'wander': { // stretch the legs, then head back to the stool
-        const d = step(qn.target.x, qn.target.z, qn.speed);
+        const d = step(qn.target.x, qn.target.z, qn.speed); anim = 'walk';
         qn.mesh.position.set(qn.pos.x, bob, qn.pos.z);
         if (qn.stateT > qn.wanderDur || d < 0.4) { qn.state = 'sit'; qn.stateT = 0; }
         break;
       }
       case 'mad': { // gloriously drunk: lurch about, wave, hiccup sparkles
+        anim = 'walk'; intens = 1.8;
         if (qn.pos.distanceTo(qn.target) < 0.6 || qn.stateT > qn.madDur * 0.4) qn.target.set(seat.x + (Math.random() - 0.5) * 8, 0, seat.z + (Math.random() - 0.5) * 6);
         step(qn.target.x, qn.target.z, qn.speed * 1.9);
         qn.mesh.position.set(qn.pos.x, Math.abs(Math.sin(qn.phase * 8)) * 0.13, qn.pos.z);
         qn.mesh.rotation.z = Math.sin(qn.phase * 10) * 0.22;
         qn.hicCd = (qn.hicCd || 0) - dt;
-        if (qn.hicCd <= 0) { qn.hicCd = 0.7 + Math.random() * 0.9; game.particles.burst({ pos: qn.mesh.position.clone().setY(1.95), color: 0xbfe0ff, count: 2, speed: 1, size: 0.1, life: 0.7, grav: 2, blend: 'add' }); if (game.audio && Math.random() < 0.35) game.audio.play('hiccup'); }
+        if (qn.hicCd <= 0) { qn.hicCd = 0.7 + Math.random() * 0.9; game.particles.burst({ pos: qn.mesh.position.clone().setY(2.1), color: 0xbfe0ff, count: 2, speed: 1, size: 0.1, life: 0.7, grav: 2, blend: 'add' }); if (game.audio && Math.random() < 0.35) game.audio.play('hiccup'); }
         if (qn.stateT > qn.madDur) { qn.state = 'sit'; qn.stateT = 0; qn.drinks = 0; }
         break;
       }
@@ -706,8 +713,35 @@ export class Tavern {
     if (seated) qn.mesh.position.set(qn.pos.x, -0.16, qn.pos.z); // sunk down = sitting
     if (qn.state !== 'mad') qn.mesh.rotation.z = Math.sin(qn.phase) * 0.04;
     qn.mesh.rotation.y = qn.yaw;
+    this._animLimbs(qn.mesh.userData.limbs, anim, qn.phase, qn.mug, intens);
     qn.marker.position.y = 2.5 + Math.sin(this.phase * 3 + qn.pos.x) * 0.14;
     qn.station.pos.set(qn.pos.x, 0, qn.pos.z);
+  }
+
+  // pose a model's limbs for a mode: 'walk' swings legs+arms, 'sit' tucks, 'drink' raises
+  // the right arm + mug to the mouth, 'idle' rests. Base transforms snapshotted on first use.
+  _animLimbs(limbs, mode, t, mug, intens = 1) {
+    if (!limbs) return;
+    const snap = (m) => { if (m && !m.userData._b) m.userData._b = { px: m.position.x, py: m.position.y, pz: m.position.z, rx: m.rotation.x }; };
+    ['legL', 'legR', 'armL', 'armR', 'handL', 'handR'].forEach(k => snap(limbs[k])); snap(mug);
+    const { legL, legR, armL, armR, handR } = limbs;
+    const pz = (m, dz) => { if (m) m.position.z = m.userData._b.pz + (dz || 0); };
+    const rx = (m, d) => { if (m) m.rotation.x = m.userData._b.rx + (d || 0); };
+    const restMug = () => { if (mug) { const b = mug.userData._b; mug.position.set(b.px, b.py, b.pz); } };
+    if (mode === 'walk') {
+      const s = Math.sin(t * 10) * 0.16 * intens;
+      pz(legL, s); pz(legR, -s); rx(armL, s * 1.4); rx(armR, -s * 1.4); restMug();
+    } else if (mode === 'sit') {
+      pz(legL, 0.16); pz(legR, 0.16); rx(armL, 0); rx(armR, 0); restMug();
+    } else if (mode === 'drink') {
+      pz(legL, 0.16); pz(legR, 0.16); rx(armL, 0);
+      const pump = 0.5 + 0.5 * Math.sin(t * 3.2);
+      rx(armR, -1.15 * pump);
+      if (handR) { const b = handR.userData._b; handR.position.set(b.px * 0.5, b.py + 0.45 * pump, b.pz + 0.22); }
+      if (mug) { const b = mug.userData._b; mug.position.set(b.px * 0.35, b.py + 0.5 * pump, b.pz + 0.14); }
+    } else { // idle
+      pz(legL, 0); pz(legR, 0); rx(armL, 0); rx(armR, 0); restMug();
+    }
   }
 
   _flicker() { if (this._flames) for (let i = 0; i < this._flames.length; i++) { const f = this._flames[i]; const s = 1 + Math.sin(this.phase * 9 + i * 1.7) * 0.18; f.scale.set(s, 1.5 * s, s); f.material.opacity = 0.8 + Math.sin(this.phase * 13 + i) * 0.12; } }
@@ -727,6 +761,8 @@ export class Tavern {
         n.pos.x += (tx / td) * step; n.pos.z += (tz / td) * step; if (td > 0.1) n.yaw = Math.atan2(tx, tz);
       }
       n.mesh.position.set(n.pos.x, Math.abs(Math.sin(n.phase * 5)) * 0.06, n.pos.z); n.mesh.rotation.y = n.yaw;
+      const moving = n.annoyedCd <= 0.6 && n.pos.distanceTo(n.target) > 0.4;
+      const lb = n.mesh.userData.limbs; this._animLimbs(lb, moving ? 'walk' : 'idle', n.phase, lb && lb.mug);
       const dx = w.pos.x - n.pos.x, dz = w.pos.z - n.pos.z; const d = Math.hypot(dx, dz) || 1e-4; const minD = wr + n.r;
       if (d < minD) {
         const push = (minD - d); w.pos.x += (dx / d) * push; w.pos.z += (dz / d) * push; w.vel.x += (dx / d) * 3; w.vel.z += (dz / d) * 3; w.leanV.x += (dx / d) * 5; w.leanV.z += (dz / d) * 5;

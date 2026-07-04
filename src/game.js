@@ -148,6 +148,7 @@ export class Game {
     this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 400);
     this.camOffset = new THREE.Vector3(0, 27, 22);
     this.camTarget = new THREE.Vector3();
+    this.camZoom = 1; // player zoom (wheel / pinch), multiplies the camera offset
 
     this._buildWorld();
     this.scene.environment = this._makeEnvMap(); // soft image-based lighting: metals/gems read as real material
@@ -166,6 +167,18 @@ export class Game {
     this.cine = new Cinematics(this);
     this.ui = new UI();
     this.input = new Input(this.canvas);
+    // camera zoom: mouse wheel (desktop) + two-finger pinch (touch), clamped
+    const clampZoom = (z) => Math.max(0.5, Math.min(1.8, z));
+    this.canvas.addEventListener('wheel', (e) => { e.preventDefault(); this.camZoom = clampZoom(this.camZoom + Math.sign(e.deltaY) * 0.12); }, { passive: false });
+    let _pinchD = 0;
+    this.canvas.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2) {
+        const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        if (_pinchD) this.camZoom = clampZoom(this.camZoom - (d - _pinchD) * 0.004);
+        _pinchD = d; e.preventDefault();
+      }
+    }, { passive: false });
+    this.canvas.addEventListener('touchend', () => { _pinchD = 0; });
 
     this.recognizer = new Recognizer();
     this.recognizer.add('triangle', TEMPLATES.triangle);
@@ -359,8 +372,10 @@ export class Game {
     //    forest/cave/graveyard wall instead of vanishing into the haze.
     //  - inside(): foliage sprinkled across the playfield. CRUCIAL: it only sets
     //    x/z and PRESERVES the y the build() chose, so nothing gets buried at 0.
+    const DENSITY = 0.58; // thin the scatter out — the arena was too cluttered with foliage
     const place = (o, x, z, jitterY) => { o.position.set(x, o.position.y + (jitterY || 0), z); o.rotation.y = Math.random() * 6.28; grp.add(o); };
     const treeLine = (build, count = 64) => {
+      count = Math.round(count * DENSITY);
       for (let i = 0; i < count; i++) {
         const a = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.06;
         const r = ARENA - 3 + (i % 3) * 2.2 + Math.random() * 1.5; // ~43-49: a visible wall, two rows deep
@@ -370,6 +385,7 @@ export class Game {
     };
     // scattered across the clearing, biased toward the centre (sqrt keeps it even, *0.86 pulls inward)
     const inside = (n, build, minR = 3, maxR = ARENA - 7) => {
+      n = Math.round(n * DENSITY);
       for (let i = 0; i < n; i++) {
         const a = Math.random() * Math.PI * 2;
         const r = (minR + Math.sqrt(Math.random()) * (maxR - minR)) * 0.92;
@@ -478,8 +494,9 @@ export class Game {
     grp.traverse((o) => {
       if (!o.isMesh || o.userData.isOutline || !o.material || !o.material.isMeshStandardMaterial) return;
       const m = o.material; if (m.map || m.transparent || (m.emissiveIntensity || 0) >= 0.4) return;
-      const c = m.color, tk = (c.g > c.r + 0.02 && c.g >= c.b) ? 'leaf' : (c.r > 0.32 && c.b < c.r) ? 'wood' : 'stone';
-      pxMap(m, tk, 2);
+      const c = m.color;
+      const tk = (c.g > c.r + 0.02 && c.g >= c.b) ? 'leaf' : (c.r > 0.28 && c.b < c.r * 0.92) ? 'wood' : 'stone';
+      pxMap(m, tk, 3); // a touch denser so bushes/rocks/trees clearly read as pixel-textured
     });
   }
 
@@ -596,6 +613,7 @@ export class Game {
       u.uShadowTint.value.set(0.88, 0.93, 1.08); u.uHighlightTint.value.set(1.05, 1.01, 0.95);
       u.uTintStrength.value = 0.26; u.uVignette.value = 0.40; u.uVignetteSoft.value = 0.52;
       u.uGrain.value = 0.012;
+      this._baseVig = 0.40; // authoritative vignette base for the low-HP pulse
     }
   }
 
@@ -1394,7 +1412,7 @@ export class Game {
       this.particles.ring({ pos: wp.clone().setY(0.1), color: 0xece3cf, r0: 0.3, r1: 4, life: 0.5 });
       this.particles.burst({ pos: wp.setY(0.4), color: 0xbfae90, count: 14, speed: 5, size: 0.22, life: 0.6, up: 1.5, grav: -10, blend: 'normal' });
     }
-    this._baseVig = null; // re-capture the vignette base for the new stage's grade
+    // (vignette base is owned by _applyStageTheme/_setMood — never recaptured from the live uniform)
     // every stage announces its gimmick and recolours the scene so it LOOKS different
     this.ui.showStageBanner(stageNum, STAGES_PER_REGION, gim);
     this.ui.setStageTint(gim.tint);
@@ -1719,7 +1737,7 @@ export class Game {
       if (this._gradePass) { const u = this._gradePass.uniforms; // warm, moody tavern grade
         u.uContrast.value = 1.09; u.uSaturation.value = 1.19;
         u.uShadowTint.value.set(0.88, 0.94, 1.05); u.uHighlightTint.value.set(1.11, 1.02, 0.85);
-        u.uTintStrength.value = 0.30; u.uVignette.value = 0.42; u.uVignetteSoft.value = 0.56;
+        u.uTintStrength.value = 0.30; u.uVignette.value = 0.42; u.uVignetteSoft.value = 0.56; this._baseVig = 0.42;
         u.uGrain.value = 0.013;
       }
     } else {
@@ -1734,7 +1752,7 @@ export class Game {
       if (this._gradePass) { const u = this._gradePass.uniforms;
         u.uContrast.value = 1.13; u.uSaturation.value = 1.19;
         u.uShadowTint.value.set(0.88, 0.93, 1.08); u.uHighlightTint.value.set(1.05, 1.01, 0.95);
-        u.uTintStrength.value = 0.26; u.uVignette.value = 0.40; u.uVignetteSoft.value = 0.52;
+        u.uTintStrength.value = 0.26; u.uVignette.value = 0.40; u.uVignetteSoft.value = 0.52; this._baseVig = 0.40;
         u.uGrain.value = 0.012;
       }
     }
@@ -2022,7 +2040,7 @@ export class Game {
     const bx = this.state === 'title' ? -9 : 0;
     const focus = this.camTarget.clone(); focus.x += bx;
     if (this.phase === 'tavern') focus.y += (this.wizard.floorY || 0); // rise with him onto the upper deck
-    const desired = focus.clone().add(this.camOffset);
+    const desired = focus.clone().add(this.camOffset.clone().multiplyScalar(this.camZoom));
     this.camera.position.lerp(desired, Math.min(1, dt * 6));
     if (this.shakeAmt > 0) {
       this.shakeAmt = Math.max(0, this.shakeAmt - dt * 4);
@@ -2106,10 +2124,12 @@ export class Game {
     }
     if (this._gradePass) {
       const u = this._gradePass.uniforms;
-      if (this._baseVig == null) this._baseVig = u.uVignette.value;
+      // base comes from the grade (set in _applyStageTheme/_setMood), NEVER the live uniform —
+      // capturing the live value would bake the low-HP pulse in and darken the screen forever.
+      const base = this._baseVig != null ? this._baseVig : 0.40;
       const frac = this.wizard._maxHp ? this.wizard.hp / this.wizard._maxHp : 1;
-      let target = this._baseVig;
-      if (frac < 0.3 && this.wizard.alive) target = this._baseVig + 0.3 * (0.5 + 0.5 * Math.sin(this.clock.getElapsedTime() * 6)) * ((0.3 - frac) / 0.3);
+      let target = base;
+      if (frac < 0.3 && this.wizard.alive) target = base + 0.3 * (0.5 + 0.5 * Math.sin(this.clock.getElapsedTime() * 6)) * ((0.3 - frac) / 0.3);
       u.uVignette.value += (target - u.uVignette.value) * Math.min(1, sdt * 5);
     }
   }

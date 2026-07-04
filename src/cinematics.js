@@ -58,10 +58,18 @@ export class Cinematics {
     const tBody = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 12), M(0x6a4d34)); tBody.position.y = 1.0; tBody.scale.set(1, 1.25, 1); tomas.add(tBody);
     const tApron = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.7, 0.18), M(0xd8c39a, 0.95)); tApron.position.set(0, 0.95, 0.42); tomas.add(tApron);
     const tHead = new THREE.Mesh(new THREE.SphereGeometry(0.32, 14, 12), M(0xf0c89a)); tHead.position.y = 1.75; tomas.add(tHead);
-    const tMous = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.12, 0.12), M(0x6a4326)); tMous.position.set(0, 1.66, 0.3); tomas.add(tMous);
-    const tHair = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.07, 6, 14), M(0x6a4326)); tHair.position.set(0, 1.82, 0); tHair.rotation.x = Math.PI / 2; tomas.add(tHair);
+    const tHair = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.07, 6, 14), M(0x6a4326)); tHair.position.set(0, 1.86, 0); tHair.rotation.x = Math.PI / 2; tomas.add(tHair);
+    // a clear, readable face that PROTRUDES from the head so the close-up reads: big googly
+    // eyes (bulging past the skull), a ruddy nose, a bushy moustache. His +Z front faces the room.
+    for (const sx of [-0.14, 0.14]) {
+      const e = new THREE.Mesh(new THREE.SphereGeometry(0.12, 7, 6), M(0xf4efe2, 0.6)); e.position.set(sx, 1.79, 0.3); e.scale.set(1, 1.1, 0.85); tomas.add(e);
+      const p = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), M(0x141018, 0.6)); p.position.set(sx, 1.78, 0.4); p.userData.noOutline = true; tomas.add(p);
+    }
+    const tNose = new THREE.Mesh(new THREE.SphereGeometry(0.11, 7, 5), M(0xd98a6a, 0.75)); tNose.position.set(0, 1.66, 0.4); tomas.add(tNose);
+    const tMous = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.12, 0.14), M(0x5a3820)); tMous.position.set(0, 1.55, 0.34); tomas.add(tMous);
     for (const sx of [-1, 1]) { const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.12, 0.5, 4, 8), M(0x6a4d34)); arm.position.set(sx * 0.5, 1.0, 0.18); arm.rotation.z = sx * 0.5; tomas.add(arm); }
-    tomas.position.set(-4.5, 0, -4.7); tomas.traverse(o => { if (o.isMesh) o.castShadow = true; }); bar.add(tomas);
+    tomas.position.set(-4.5, 0, -4.4); // behind the counter; +Z front faces out to the room
+    tomas.traverse(o => { if (o.isMesh) o.castShadow = true; }); outlineGroup(tomas, { thick: 0.045 }); bar.add(tomas);
 
     // ---- FIREPLACE (back wall, right of centre) with a live flicker light ----
     const hearth = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.8, 0.7), M(0x52504e, 0.96)); hearth.position.set(3.2, 1.4, -5.7); bar.add(hearth);
@@ -470,6 +478,8 @@ const SCRIPTS = {
   // 1) DRUNK — Wobblesworth drinks himself silly at the bar (no spirit — he's just plastered)
   drunk: [
     { scene: 'bar', pose: [0, 0, 0], yaw: 0.2, cam: { pos: [3.2, 1.6, 5], look: [0, 1.5, 0], push: true }, speaker: 'Wobblesworth', text: 'Another ale, Tomas! Keep them coming. It has been a long, dry week.' },
+    // cut to the barkeep at his bar as he grumbles back — a close-in shot from the room
+    { scene: 'bar', pose: [0, 0, 0], cam: { pos: [-2.6, 2.0, -1.6], look: [-4.5, 1.7, -4.4], push: true }, speaker: 'Barkeep Tomas', text: 'Aye, aye. But mind yourself, Wobblesworth — last time you near burned my tavern down.' },
     { scene: 'bar', pose: [0, 0, 0], cam: { pos: [-1.4, 1.9, 3.2], look: [0, 1.5, 0] }, special: 'getDrunk', speaker: 'Wobblesworth', text: 'Gulp. Whew. The room is going all swimmy. I feel great.' },
     { scene: 'bar', cam: { pos: [0, 1.4, 4.5], look: [0, 1.6, 0], push: true }, speaker: 'Wobblesworth', text: 'You know what this dusty old place needs? A bit of chaos. Hehe.' },
   ],

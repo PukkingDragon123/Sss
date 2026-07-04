@@ -59,6 +59,7 @@ function CYL(g, rT, rB, h, color, x, y, z, o = {}) {
 // Round chibi build: big head, ball body, googly eyes — every NPC is a cute round thing.
 function _human(o) {
   const g = new THREE.Group();
+  const limbs = {}; // captured leg/arm/hand refs so the tavern can walk/sit/drink them
   const skin = o.skin ?? 0xf0d6b8, robe = o.robe ?? 0x7a8bd0, robe2 = o.robe2 ?? darken(robe);
   const bodyR = o.wide ? 0.52 : 0.44;
   const metal = o.metalBody ? { metal: 0.7, rough: 0.4 } : {};
@@ -71,8 +72,8 @@ function _human(o) {
   } else if (o.gown) {
     CYL(g, bodyR * 0.7, bodyR * 1.3, 0.7, robe, 0, 0.36, 0);
   } else {
-    S(g, 0.14, o.pants ?? robe2, -0.18, 0.13, 0.02);
-    S(g, 0.14, o.pants ?? robe2, 0.18, 0.13, 0.02);
+    limbs.legL = S(g, 0.14, o.pants ?? robe2, -0.18, 0.13, 0.02);
+    limbs.legR = S(g, 0.14, o.pants ?? robe2, 0.18, 0.13, 0.02);
   }
   // torso: one friendly ball
   S(g, bodyR, robe, 0, 0.78, 0, { sy: 1.14, ...metal });
@@ -82,10 +83,10 @@ function _human(o) {
 
   // stubby arms + ball hands
   const ax = bodyR + 0.06;
-  CAP(g, 0.09, 0.26, robe, -ax, 0.86, 0, { rotZ: 0.55, ...metal });
-  CAP(g, 0.09, 0.26, robe, ax, 0.86, 0, { rotZ: -0.55, ...metal });
-  S(g, 0.11, skin, -ax - 0.1, 0.66, 0.04);
-  S(g, 0.11, skin, ax + 0.1, 0.66, 0.04);
+  limbs.armL = CAP(g, 0.09, 0.26, robe, -ax, 0.86, 0, { rotZ: 0.55, ...metal });
+  limbs.armR = CAP(g, 0.09, 0.26, robe, ax, 0.86, 0, { rotZ: -0.55, ...metal });
+  limbs.handL = S(g, 0.11, skin, -ax - 0.1, 0.66, 0.04);
+  limbs.handR = S(g, 0.11, skin, ax + 0.1, 0.66, 0.04);
 
   // big round head (chibi ratio)
   const hunch = o.hunch ? 0.14 : 0;
@@ -143,7 +144,9 @@ function _human(o) {
   // post-process: transparency (ghost) + shadow opt-out
   if (o.opacity != null) g.traverse(m => { if (m.material) { m.material.transparent = true; m.material.opacity = o.opacity; } });
   if (o.noShadow) g.traverse(m => { if (m.isMesh) m.castShadow = false; });
-  if (o.scale) g.scale.setScalar(o.scale);
+  // stand taller than the old squat chibi — a touch bigger and noticeably taller (adult-ish)
+  const s = o.scale ?? 1; g.scale.set(s * 1.06, s * 1.26, s * 1.06);
+  g.userData.limbs = limbs; // { legL, legR, armL, armR, handL, handR } for walk/sit/drink anim
   return g;
 }
 

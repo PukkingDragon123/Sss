@@ -41,12 +41,12 @@ export class Particles {
   spawn(opts) {
     const p = this._free();
     if (!p) return;
-    const { pos, color = 0xffffff, vel = new THREE.Vector3(), life = 0.8, size = 0.4, grav = -9, drag = 0.86, blend = 'add', fadePow = 1 } = opts;
+    const { pos, color = 0xffffff, vel = new THREE.Vector3(), life = 0.8, size = 0.4, grav = -9, drag = 0.86, blend = 'add', fadePow = 1, floor = true } = opts;
     p.active = true;
     p.mesh.visible = true;
     p.mesh.position.copy(pos);
     p.vel.copy(vel);
-    p.life = life; p.max = life; p.grav = grav; p.drag = drag; p.fadePow = fadePow;
+    p.life = life; p.max = life; p.grav = grav; p.drag = drag; p.fadePow = fadePow; p.floor = floor;
     p.scale0 = size;
     p.mesh.scale.setScalar(size);
     p.spin.set((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
@@ -57,7 +57,7 @@ export class Particles {
   }
 
   // A spray of bits from a point.
-  burst({ pos, color = 0xffffff, count = 14, speed = 6, spread = 1, life = 0.8, size = 0.4, grav = -9, up = 2, blend = 'add' }) {
+  burst({ pos, color = 0xffffff, count = 14, speed = 6, spread = 1, life = 0.8, size = 0.4, grav = -9, up = 2, blend = 'add', drag = 0.86, fadePow = 1, floor = true }) {
     for (let i = 0; i < count; i++) {
       const dir = new THREE.Vector3(
         (Math.random() - 0.5) * 2 * spread,
@@ -71,7 +71,24 @@ export class Particles {
         vel: dir.multiplyScalar(s).add(new THREE.Vector3(0, up, 0)),
         life: life * (0.6 + Math.random() * 0.7),
         size: size * (0.6 + Math.random() * 0.8),
-        grav, blend,
+        grav, blend, drag, fadePow, floor,
+      });
+    }
+  }
+
+  // A ribbon of bits laid from A->B, each drifting toward B — cast trails, pickup streaks,
+  // soul streaks. Cheap: N staggered bits with a light pull toward the target.
+  streak(from, to, { color = 0xffffff, count = 8, life = 0.5, size = 0.18, blend = 'add' } = {}) {
+    const dir = to.clone().sub(from);
+    for (let i = 0; i < count; i++) {
+      const t = i / Math.max(1, count - 1);
+      const pos = from.clone().addScaledVector(dir, t);
+      this.spawn({
+        pos,
+        color,
+        vel: dir.clone().multiplyScalar(1.6 + Math.random()).add(new THREE.Vector3((Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 1.2)),
+        life: life * (0.7 + Math.random() * 0.6), size: size * (0.6 + Math.random() * 0.7),
+        grav: 0, drag: 0.8, blend, floor: false, fadePow: 1.4,
       });
     }
   }
@@ -97,7 +114,7 @@ export class Particles {
       const d = Math.pow(p.drag, dt * 60);
       p.vel.multiplyScalar(d);
       p.mesh.position.addScaledVector(p.vel, dt);
-      if (p.mesh.position.y < 0.1) { p.mesh.position.y = 0.1; p.vel.y *= -0.4; p.vel.x *= 0.7; p.vel.z *= 0.7; }
+      if (p.floor !== false && p.mesh.position.y < 0.1) { p.mesh.position.y = 0.1; p.vel.y *= -0.4; p.vel.x *= 0.7; p.vel.z *= 0.7; }
       p.mesh.rotation.x += p.spin.x * dt;
       p.mesh.rotation.y += p.spin.y * dt;
       p.mesh.rotation.z += p.spin.z * dt;

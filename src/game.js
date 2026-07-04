@@ -635,6 +635,9 @@ export class Game {
     this.wizard.mana = Math.min(this.stats.manaMax, this.wizard.mana + 6); // chaining is rewarded
     if (this.combo >= 15) this._hitstop(0.08);           // a beat of weight on big chains
     this.ui.burstFX({ x: window.innerWidth / 2, y: window.innerHeight * 0.15 }, 'fire', 8 + tier * 3);
+    // a punchy named call-out at each escalating tier
+    const cry = document.getElementById('streak-cry');
+    if (cry) { cry.textContent = ['NICE!', 'RAMPAGE!', 'UNSTOPPABLE!', 'GODLIKE!'][Math.min(3, tier - 1)] || 'GODLIKE!'; cry.classList.remove('show'); void cry.offsetWidth; cry.classList.add('show'); }
   }
   _hitstop(dur) { this._hitstopT = Math.max(this._hitstopT || 0, dur); }
   breakCombo() { if (this.combo > 0) { this.combo = 0; this.comboT = 0; this.ui.hideCombo(); } }
@@ -654,6 +657,12 @@ export class Game {
   _openLevelUp() {
     this.state = 'levelup';
     this.audio.play('levelup');
+    // level-up flourish: a golden fountain of motes + a ground ring + a screen-space pop
+    const lp = this.wizard.pos.clone().setY(1.2);
+    this.particles.burst({ pos: lp, color: 0xffd97a, count: 26, speed: 5, size: 0.28, life: 1.0, up: 5.5, grav: 5, blend: 'add', floor: false, fadePow: 1.4 });
+    this.particles.ring({ pos: this.wizard.pos.clone().setY(0.1), color: 0xffd97a, r0: 0.4, r1: 4.5, life: 0.6 });
+    if (this.ui.burstFX) this.ui.burstFX({ x: window.innerWidth / 2, y: window.innerHeight * 0.42 }, 'sparkle', 14);
+    this.shake(0.5);
     const choices = rollUpgrades(this, 3);
     this.ui.showLevelUp(choices, (u) => {
       this.applyAbility(u);
@@ -801,7 +810,11 @@ export class Game {
         // a collect pop so every vacuumed drop reads (kept feather-light for XP rain)
         const pc = it.type === 'xp' ? 0x6ee7a0 : it.type === 'heart' ? 0xff5d6c : it.type === 'mana' ? 0x56b8ff : 0xffd98a;
         this.particles.burst({ pos: it.mesh.position.clone().setY(0.6), color: pc, count: it.type === 'xp' ? 2 : 8, speed: 3, size: 0.14, life: 0.4, grav: -2, blend: 'add' });
-        if (it.type !== 'xp') this.particles.ring({ pos: it.mesh.position.clone().setY(0.15), color: pc, r0: 0.2, r1: 1.1, life: 0.3 });
+        if (it.type !== 'xp') {
+          this.particles.ring({ pos: it.mesh.position.clone().setY(0.15), color: pc, r0: 0.2, r1: 1.1, life: 0.3 });
+          // a little streak of motes flies from the pickup into the wizard
+          this.particles.streak(it.mesh.position.clone().setY(0.6), this.wizard.pos.clone().setY(1.1), { color: pc, count: 6, life: 0.4, size: 0.14 });
+        }
         if (it.type === 'xp') { this.gainXP(it.value); this.audio.play('xp'); }
         else if (it.type === 'heart') { this.wizard.heal(it.value); this.audio.play('heal'); this.ui.toast(`❤ +${it.value} HP`); }
         else if (it.type === 'mana') { this.wizard.mana = Math.min(this.stats.manaMax, this.wizard.mana + it.value); this.audio.play('heal'); this.ui.toast(`🧪 +${it.value} mana`); }
@@ -881,6 +894,13 @@ export class Game {
     this.bossActive = true;
     const e = this.enemies.spawn(stage.bossType, 1.0, this.wizard.pos, this);
     this._bossEnemy = e;
+    // boss-arrival shockwave: twin ground rings + a heavy dust ejecta at its feet
+    if (e) {
+      const bp = e.mesh.position.clone();
+      this.particles.ring({ pos: bp.clone().setY(0.12), color: 0xff5a8a, r0: 0.5, r1: 10, life: 0.75 });
+      this.particles.ring({ pos: bp.clone().setY(0.12), color: 0xffffff, r0: 0.3, r1: 5.5, life: 0.5 });
+      this.particles.burst({ pos: bp.setY(1.2), color: 0xff5a8a, count: 30, speed: 9, size: 0.42, life: 1.0, up: 4, blend: 'normal' });
+    }
     this.bossCine = 2.8; // dramatic focus + slow-mo
     this.shake(2);
     this.ui.bossBanner(stage.bossName);
@@ -1300,6 +1320,8 @@ export class Game {
     this.ui.hideJob(); this.ui.closeModals(); this.ui.fadeBlack(false);
     this.ui.setGold(meta.gold());
     this.state = 'play';
+    document.body.classList.remove('paused'); // never carry a stale pause dim into a fight
+    if (this.ui.wispSay) this.ui.wispSay('⚔ Clear the waves — the boss guards an ✦ artifact.', { ms: 3600 });
     if (this._introRun) {
       // the wisp's cutscene already taught casting & mana — drop straight into the guided fight
       this.director.start(stage, { waves: 3, boss: false, hpScale: 0.9, sizeMult: 0.85 });
@@ -1366,6 +1388,13 @@ export class Game {
     const sizeMult = (1 + this._forksDone * 0.06 + (elite ? 0.2 : 0)) * gim.spawnMult;
     this.director.start(this.stage, { waves: isBoss ? 1 : 2, boss: isBoss, hpScale: scale, sizeMult });
     this.shake(0.45); this.wizard.squash(0.2, 1, 0.22); // a landing thump on stage entry
+    // arrival poof: a ground dust ring + radial dust kicked up under the wizard
+    if (this.particles) {
+      const wp = this.wizard.pos.clone();
+      this.particles.ring({ pos: wp.clone().setY(0.1), color: 0xece3cf, r0: 0.3, r1: 4, life: 0.5 });
+      this.particles.burst({ pos: wp.setY(0.4), color: 0xbfae90, count: 14, speed: 5, size: 0.22, life: 0.6, up: 1.5, grav: -10, blend: 'normal' });
+    }
+    this._baseVig = null; // re-capture the vignette base for the new stage's grade
     // every stage announces its gimmick and recolours the scene so it LOOKS different
     this.ui.showStageBanner(stageNum, STAGES_PER_REGION, gim);
     this.ui.setStageTint(gim.tint);
@@ -1713,8 +1742,8 @@ export class Game {
 
   castById(id) { if (this.state === 'play' && this.phase === 'arena' && this.unlocked.has(id)) this._castAt(id, this.aimPoint, { accuracy: 0.8 }); }
   togglePause() {
-    if (this.state === 'play') { this.state = 'paused'; this.ui.toast('⏸ Paused'); }
-    else if (this.state === 'paused') { this.state = 'play'; this.ui.toast('▶ Resumed'); }
+    if (this.state === 'play') { this.state = 'paused'; document.body.classList.add('paused'); this.ui.toast('⏸ Paused'); }
+    else if (this.state === 'paused') { this.state = 'play'; document.body.classList.remove('paused'); this.ui.toast('▶ Resumed'); }
   }
   toggleMute() { this.audio.resume(); this.audio.setMuted(!this.audio.muted); this.ui.setMuteIcon(this.audio.muted); }
 
@@ -1840,8 +1869,14 @@ export class Game {
       // muzzle flash at the casting hand — a satisfying pop of light on every cast
       const crit = !!(opts && opts.crit);
       const hp = this.wizard.castGlow ? this.wizard.castGlow.getWorldPosition(new THREE.Vector3()) : this.wizard.pos.clone().setY(1.4);
-      this.particles.burst({ pos: hp, color: crit ? 0xffd36b : 0xbfa3ff, count: crit ? 12 : 6, speed: crit ? 7 : 4.5, size: crit ? 0.28 : 0.2, life: 0.34, up: 1, blend: 'add' });
-      this.particles.ring({ pos: hp, color: crit ? 0xffd36b : 0x9b7bff, r0: 0.12, r1: crit ? 1.4 : 0.85, life: 0.26 });
+      // colour the muzzle flash by the spell's element (crit overrides to gold)
+      const sm = meta.SPELL_META[id]; const el = sm && sm.element;
+      const eCol = (el && meta.ELEMENTS[el]) ? new THREE.Color(meta.ELEMENTS[el].color).getHex() : 0xbfa3ff;
+      const col = crit ? 0xffd36b : eCol;
+      this.particles.burst({ pos: hp, color: col, count: crit ? 14 : 7, speed: crit ? 7 : 4.5, size: crit ? 0.28 : 0.2, life: 0.34, up: 1, blend: 'add', floor: false });
+      this.particles.ring({ pos: hp, color: col, r0: 0.12, r1: crit ? 1.5 : 0.9, life: 0.26 });
+      // a short trail from the hand toward the aim point sells the cast direction
+      this.particles.streak(hp, new THREE.Vector3(this.aimPoint.x, 1.0, this.aimPoint.z), { color: col, count: 5, life: 0.3, size: 0.16 });
       if (crit) this.shake(0.4);
     }
   }
@@ -2053,6 +2088,32 @@ export class Game {
     this.present();
   }
 
+  // ambient life: drifting motes/embers coloured by the stage, plus a throbbing low-HP
+  // vignette that darkens (and quickens) the closer the wizard is to death.
+  _ambientFX(sdt) {
+    if (!this.particles) return;
+    this._moteCd = (this._moteCd || 0) - sdt;
+    if (this._moteCd <= 0) {
+      this._moteCd = 0.13 + Math.random() * 0.12;
+      const col = (this.stage && this.stage.theme && this.stage.theme.rim) || 0xbfe0ff;
+      const w = this.wizard.pos, a = Math.random() * Math.PI * 2, r = 4 + Math.random() * 13;
+      this.particles.spawn({
+        pos: new THREE.Vector3(w.x + Math.cos(a) * r, 0.4 + Math.random() * 3.4, w.z + Math.sin(a) * r),
+        color: col, size: 0.055 + Math.random() * 0.06, life: 2.4 + Math.random() * 2.4,
+        vel: new THREE.Vector3((Math.random() - 0.5) * 0.4, 0.22 + Math.random() * 0.35, (Math.random() - 0.5) * 0.4),
+        grav: 0, drag: 0.985, blend: 'add', floor: false, fadePow: 1.6,
+      });
+    }
+    if (this._gradePass) {
+      const u = this._gradePass.uniforms;
+      if (this._baseVig == null) this._baseVig = u.uVignette.value;
+      const frac = this.wizard._maxHp ? this.wizard.hp / this.wizard._maxHp : 1;
+      let target = this._baseVig;
+      if (frac < 0.3 && this.wizard.alive) target = this._baseVig + 0.3 * (0.5 + 0.5 * Math.sin(this.clock.getElapsedTime() * 6)) * ((0.3 - frac) / 0.3);
+      u.uVignette.value += (target - u.uVignette.value) * Math.min(1, sdt * 5);
+    }
+  }
+
   _updateArena(sdt) {
     this.elapsed += sdt;
     this.wizard._hitThisFrame = false;   // any hit taken this frame will break the kill-combo
@@ -2068,6 +2129,7 @@ export class Game {
     this.jobs.update(sdt, this);
     this.particles.update(sdt);
     this._updatePickups(sdt);
+    this._ambientFX(sdt);           // drifting motes/embers + low-HP vignette pulse
 
     // ---- kill-combo upkeep: lapses over time, snaps on any hit taken ----
     if (this.comboT > 0) { this.comboT -= sdt; if (this.comboT <= 0) this.breakCombo(); }
@@ -2215,6 +2277,7 @@ export class Game {
     this.spells.update(dt, this);
     this._updatePickups(dt);
     this.particles.update(dt);
+    this._ambientFX(dt); // drifting motes on the title so the menu feels alive
     // the demo wizard is immortal
     this.wizard.hp = this.stats.hpMax; this.wizard.alive = true; this.wizard.invuln = 1;
   }

@@ -3,11 +3,11 @@
 // node for the test suite. Art is emoji only (self-contained, no assets).
 
 export const CARD_RARITY = {
-  common:    { name: 'Common',    color: '#9fb0c0', w: 50 },
-  uncommon:  { name: 'Uncommon',  color: '#6ee7a0', w: 28 },
-  rare:      { name: 'Rare',      color: '#5cc8ff', w: 14 },
-  epic:      { name: 'Epic',      color: '#c08bff', w: 6 },
-  legendary: { name: 'Legendary', color: '#ffcf5c', w: 2 },
+  common:    { name: 'Common',    color: '#c9c2b4', w: 50 },
+  uncommon:  { name: 'Uncommon',  color: '#4bd25e', w: 28 },
+  rare:      { name: 'Rare',      color: '#3a8fe0', w: 14 },
+  epic:      { name: 'Epic',      color: '#a24be0', w: 6 },
+  legendary: { name: 'Legendary', color: '#f0a92e', w: 2 },
 };
 
 // 24 cards. ~half are pure collectibles (perk:null); the rest grant a TINY passive

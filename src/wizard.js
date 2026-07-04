@@ -124,10 +124,16 @@ export class Wizard {
     const cl = new THREE.Mesh(cheekGeo, cheekMat); cl.position.set(-0.27, -0.05, 0.31);
     const cr = new THREE.Mesh(cheekGeo, cheekMat); cr.position.set(0.27, -0.05, 0.31);
     head.add(cl, cr);
-    const eyeGeo = new THREE.SphereGeometry(0.06, 6, 5);
-    const el = new THREE.Mesh(eyeGeo, darkMat); el.position.set(-0.15, 0.07, 0.39); el.scale.y = 0.62;
-    const er = new THREE.Mesh(eyeGeo, darkMat); er.position.set(0.15, 0.07, 0.39); er.scale.y = 0.62;
-    head.add(el, er);
+    // googly eyes: a light eyeball (the ink hull rings it -> a crisp black outline) with a
+    // dark pupil dot opted OUT of the hull so it stays a clean dot. Untextured = pure read.
+    const scleraMat = new THREE.MeshStandardMaterial({ color: 0xf4efe2, roughness: 0.55, flatShading: true });
+    const pupilMat = new THREE.MeshStandardMaterial({ color: 0x0a0a12, roughness: 0.5, flatShading: true });
+    const scleraGeo = new THREE.SphereGeometry(0.1, 7, 6);
+    const pupilGeo = new THREE.SphereGeometry(0.05, 6, 5);
+    for (const sx of [-0.16, 0.16]) {
+      const sc = new THREE.Mesh(scleraGeo, scleraMat); sc.position.set(sx, 0.06, 0.4); sc.scale.set(0.95, 1.0, 0.72); head.add(sc);
+      const pu = new THREE.Mesh(pupilGeo, pupilMat); pu.position.set(sx, 0.05, 0.48); pu.userData.noOutline = true; head.add(pu);
+    }
     const nose = new THREE.Mesh(new THREE.SphereGeometry(0.1, 7, 5), new THREE.MeshStandardMaterial({ color: 0xe06a55, roughness: 0.7, flatShading: true }));
     nose.position.set(0, -0.04, 0.45);
     head.add(nose);
@@ -393,9 +399,16 @@ export class Wizard {
     if (this.pos.z < -ARENA) { this.pos.z = -ARENA; this.vel.z *= -0.4; }
     if (this.pos.z > ARENA) { this.pos.z = ARENA; this.vel.z *= -0.4; }
 
-    // scuffed-up dust when he's really motoring — grounds the stagger in the world
-    if (sp > 4.2 && game.particles && Math.random() < dt * 9) {
-      game.particles.burst({ pos: this.pos.clone().setY(0.12), color: 0x8a7a62, count: 1, speed: 0.9, size: 0.13, life: 0.45, grav: -1.5, up: 1.2, blend: 'normal' });
+    // footstep dust on a STRIDE cadence — a little puff + scuff ring every step he takes,
+    // so walking always kicks up dust (not just when sprinting). Distance-accumulated.
+    if (game.particles && sp > 0.8) {
+      this._stride = (this._stride || 0) + sp * dt;
+      if (this._stride > 1.1) {
+        this._stride = 0;
+        const fp = this.pos.clone().setY(0.1);
+        game.particles.burst({ pos: fp, color: 0x9a8a6c, count: 2, speed: 0.9, size: 0.12, life: 0.45, grav: -1.5, up: 1.0, blend: 'normal' });
+        game.particles.ring({ pos: fp, color: 0xbfae90, r0: 0.1, r1: 0.7, life: 0.28 });
+      }
     }
 
     // ---- face the aim ----

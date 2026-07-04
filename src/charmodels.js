@@ -93,11 +93,18 @@ function _human(o) {
   const head = S(g, 0.5, skin, 0, hy, hunch, { sy: 0.95, seg: 12, seg2: 10 });
   if (o.hunch) head.rotation.x = 0.14;
 
-  // simple face: two small dot eyes (glowing for spooky folk)
-  const eC = o.eyeColor ?? 0x2a2230;
-  const glow = o.glowEyes ? { emis: eC, emisI: 2.0 } : {};
-  S(g, 0.068, eC, -0.16, hy + 0.05, 0.45 + hunch, { seg: 6, seg2: 5, ...glow });
-  S(g, 0.068, eC, 0.16, hy + 0.05, 0.45 + hunch, { seg: 6, seg2: 5, ...glow });
+  // googly eyes: light eyeball (the ink hull rings it -> crisp outline) + a dark pupil dot
+  // opted out of the hull. Glowing folk keep a lone luminous orb. All flagged noTex = pure.
+  if (o.glowEyes) {
+    const eC = o.eyeColor ?? 0x9fd8ff;
+    for (const sx of [-0.17, 0.17]) { const e = S(g, 0.09, eC, sx, hy + 0.05, 0.46 + hunch, { seg: 7, seg2: 6, emis: eC, emisI: 2.2 }); e.userData.noTex = true; }
+  } else {
+    const scl = o.sclera ?? 0xf4efe2;
+    for (const sx of [-0.16, 0.16]) {
+      const sc = S(g, 0.1, scl, sx, hy + 0.05, 0.46 + hunch, { seg: 7, seg2: 6, sz: 0.72 }); sc.userData.noTex = true;
+      const pu = S(g, 0.05, 0x141018, sx, hy + 0.04, 0.55 + hunch, { seg: 6, seg2: 5 }); pu.userData.noOutline = true; pu.userData.noTex = true;
+    }
+  }
   if (o.nose !== false) S(g, 0.09, o.noseColor ?? 0xd98a72, 0, hy - 0.1, 0.47 + hunch);
   if (o.cheeks) { S(g, 0.08, o.cheeks, -0.27, hy - 0.12, 0.36 + hunch, { sy: 0.7 }); S(g, 0.08, o.cheeks, 0.27, hy - 0.12, 0.36 + hunch, { sy: 0.7 }); }
   if (o.wideMouth) B(g, 0.3, 0.05, 0.05, 0x6a2a2a, 0, hy - 0.22, 0.42 + hunch);
@@ -250,7 +257,7 @@ export const CHAR_KINDS = Object.keys(KINDS);
 // stamp a subtle pixel-art grain on the solid materials, then add a Megabonk ink outline
 function _dress(g) {
   g.traverse((o) => {
-    if (!o.isMesh || o.userData.isOutline) return;
+    if (!o.isMesh || o.userData.isOutline || o.userData.noTex) return;
     const m = o.material;
     if (m && m.isMeshStandardMaterial && !m.map && !m.transparent) pxMap(m, m.metalness > 0.3 ? 'metal' : 'cloth', 2);
   });

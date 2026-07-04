@@ -109,11 +109,18 @@ export class Enemies {
     body.castShadow = true;
     g.add(body);
 
-    // minimal face: just two small black dot eyes (a touch bigger + angrier tilt on fierce foes)
-    const eGeo = new THREE.SphereGeometry(fierce ? 0.105 : 0.09, 6, 5);
-    const eL = new THREE.Mesh(eGeo, darkMat); eL.position.set(-0.18, 0.95, 0.52);
-    const eR = new THREE.Mesh(eGeo, darkMat); eR.position.set(0.18, 0.95, 0.52);
-    g.add(eL, eR);
+    // googly eyes: pale eyeball (ink hull rings it -> crisp outline) + dark pupil dot (opted
+    // out of the hull); bigger + red-tinted with angry brows on fierce foes. Untextured mats.
+    const scleraMat = new THREE.MeshStandardMaterial({ color: fierce ? 0xffdccf : 0xf2ece0, roughness: 0.6, flatShading: true });
+    const pupilMat = new THREE.MeshStandardMaterial({ color: 0x0a0a12, roughness: 0.5, flatShading: true });
+    const er0 = fierce ? 0.13 : 0.11;
+    const eGeo = new THREE.SphereGeometry(er0, 7, 6);
+    const pGeo = new THREE.SphereGeometry(er0 * 0.5, 6, 5);
+    for (const sx of [-1, 1]) {
+      const sc = new THREE.Mesh(eGeo, scleraMat); sc.position.set(sx * 0.2, 0.95, 0.52); sc.scale.set(1, 1.08, 0.72); g.add(sc);
+      const pu = new THREE.Mesh(pGeo, pupilMat); pu.position.set(sx * 0.2, 0.95, 0.6); pu.userData.noOutline = true; g.add(pu);
+      if (fierce) { const brow = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.06, 0.08), pupilMat); brow.position.set(sx * 0.2, 1.13, 0.5); brow.rotation.z = sx * 0.5; g.add(brow); }
+    }
 
     // little feet (flyers/floaters have none)
     if (type !== 'bat' && type !== 'brutebat' && type !== 'wraith' && type !== 'drone' && type !== 'wispling') {

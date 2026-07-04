@@ -103,11 +103,11 @@ export const roomComfort = () => placedItems().reduce((s, p) => { const b = buil
 // ---- RPG equipment: looted instances with rarity + level ----
 export const GEAR_SLOTS = ['hat', 'robe', 'staff', 'charm'];
 export const RARITIES = {
-  // bright hues tuned to read on the dark felt (Balatro-style) UI
-  common:    { name: 'Common',    mult: 1.0, color: '#cfcad6', extra: 0, weight: 54 },
-  rare:      { name: 'Rare',      mult: 1.7, color: '#6fb0ff', extra: 1, weight: 28 },
-  epic:      { name: 'Epic',      mult: 2.6, color: '#b97bff', extra: 1, weight: 13 },
-  legendary: { name: 'Legendary', mult: 3.8, color: '#ffcf5c', extra: 2, weight: 5 },
+  // classic RPG rarity ladder (grey -> blue -> purple -> orange) on the dark-fantasy UI
+  common:    { name: 'Common',    mult: 1.0, color: '#c9c2b4', extra: 0, weight: 54 },
+  rare:      { name: 'Rare',      mult: 1.7, color: '#3a8fe0', extra: 1, weight: 28 },
+  epic:      { name: 'Epic',      mult: 2.6, color: '#a24be0', extra: 1, weight: 13 },
+  legendary: { name: 'Legendary', mult: 3.8, color: '#f0a92e', extra: 2, weight: 5 },
 };
 export const GEAR_RARITY_ORDER = ['common', 'rare', 'epic', 'legendary'];
 const SLOT_DEF = {

@@ -160,11 +160,11 @@ export const ABILITIES = UPGRADES;
 
 // RPG rarity — derived from how common a boon is (its roll weight). Rarer boons hit harder & glow brighter.
 export const UPGRADE_RARITY = [
-  // bright hues tuned to read on the dark felt (Balatro-style) UI
-  { key: 'common',    name: 'Common',    color: '#cfcad6', min: 9 },
-  { key: 'rare',      name: 'Rare',      color: '#6fb0ff', min: 7 },
-  { key: 'epic',      name: 'Epic',      color: '#b97bff', min: 5 },
-  { key: 'legendary', name: 'Legendary', color: '#ffcf5c', min: 0 },
+  // classic RPG rarity ladder (grey -> blue -> purple -> orange) on the dark-fantasy UI
+  { key: 'common',    name: 'Common',    color: '#c9c2b4', min: 9 },
+  { key: 'rare',      name: 'Rare',      color: '#3a8fe0', min: 7 },
+  { key: 'epic',      name: 'Epic',      color: '#a24be0', min: 5 },
+  { key: 'legendary', name: 'Legendary', color: '#f0a92e', min: 0 },
 ];
 export function upgradeRarity(u) {
   if (!u) return UPGRADE_RARITY[0];

@@ -372,6 +372,19 @@ export function load() {
       state.features = state.features || {};
       state.regionBest = state.regionBest || {};
       state.stars = state.stars || {};
+      // migrate pre-star saves: the world map is now star-gated, so grant retroactive
+      // stars for prior progress (each cleared region = its 10 levels; partial regions up
+      // to their furthest reached stage) so no already-earned region ever re-locks. Only
+      // fills stages that have no rating yet, so it never lowers real stars.
+      {
+        const seed = (region, upto) => {
+          if (!region || !(upto > 0)) return;
+          state.stars[region] = state.stars[region] || {};
+          for (let s = 1; s <= upto; s++) if (!state.stars[region][s]) state.stars[region][s] = 1;
+        };
+        for (const id of (state.cleared || [])) seed(id, 10);
+        for (const id in (state.regionBest || {})) seed(id, state.regionBest[id]);
+      }
       state.customer = Object.assign({ active: [], seq: 1, done: 0 }, state.customer || {});
       state.cards = Array.isArray(state.cards) ? state.cards : [];
       state.sideClaims = Object.assign({}, state.sideClaims || {});

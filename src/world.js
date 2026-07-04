@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { STAGE_ORDER, STAGES } from './story.js';
 import { iconCanvas } from './pixelicons.js';
+import { pxMap } from './pixeltex.js';
 
 // where each region sits on the overworld + how it looks
 const LAYOUT = {
@@ -248,6 +249,19 @@ export class World {
     const sail = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 1.05, 3, 1), sailMat); sail.position.set(-0.5, 1.0, 0); boat.add(sail);
     boat.userData = { sail };
     g.add(boat); this._boat = boat;
+
+    // pixel-art grain on every island prop (chosen by hue; sea/glow/transparent skipped)
+    g.traverse((o) => {
+      if (!o.isMesh || o.userData.isOutline || !o.material || !o.material.isMeshStandardMaterial) return;
+      const m = o.material; if (m.map || m.transparent || (m.emissiveIntensity || 0) >= 0.4) return;
+      const c = m.color;
+      const tk = m.metalness > 0.35 ? 'metal'
+        : (c.g > c.r && c.g > c.b) ? 'leaf'
+        : (c.r > 0.32 && c.b < c.r * 0.85) ? 'wood'
+        : (Math.abs(c.r - c.g) < 0.09 && Math.abs(c.g - c.b) < 0.09) ? 'stone'
+        : 'cloth';
+      pxMap(m, tk, 2);
+    });
 
     this._built = true;
   }

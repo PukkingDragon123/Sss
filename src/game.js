@@ -20,6 +20,7 @@ import { Cinematics } from './cinematics.js';
 import { rollUpgrades, rollArtifact, artifactById, ARCHETYPES, archetypeById } from './upgrades.js';
 import * as meta from './meta.js';
 import { COMBO_META } from './meta.js';
+import { pxMap } from './pixeltex.js';
 
 // Cinematic color grade — runs LAST (after OutputPass), so it operates on sRGB display
 // values in [0,1]: contrast/saturation/split-tone, a radial vignette for darkness/mood,
@@ -271,10 +272,12 @@ export class Game {
     // rolling triangulated hills beyond the tree line. Vertex colours hold a
     // grayscale patchwork jitter, so floorMat.color per-stage tinting still works.
     this.floorMat = new THREE.MeshStandardMaterial({ color: 0x2f4a32, roughness: 1, flatShading: true, vertexColors: true });
+    pxMap(this.floorMat, 'grass', 60); // crisp pixel turf (multiplies with the per-stage tint)
     const floor = new THREE.Mesh(this._makeTerrainGeo(), this.floorMat);
     floor.receiveShadow = true; G.add(floor);
     // Inner clearing: a hand-triangulated meadow disc with per-face patchwork
     this.rugMat = new THREE.MeshStandardMaterial({ color: 0x3f6440, roughness: 1, flatShading: true, vertexColors: true });
+    pxMap(this.rugMat, 'grass', 26);
     const rug = new THREE.Mesh(this._makeClearingGeo(), this.rugMat);
     rug.position.y = 0.012; rug.receiveShadow = true; G.add(rug);
     const rugRing = new THREE.Mesh(new THREE.RingGeometry(ARENA - 0.7, ARENA, 96), new THREE.MeshBasicMaterial({ color: 0xbfe0c2, transparent: true, opacity: 0.3, side: THREE.DoubleSide }));
@@ -469,6 +472,15 @@ export class Game {
       inside(30, () => { const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.5 + Math.random() * 0.7, 0), crystalMat); c.position.y = 0.5 + Math.random() * 0.5; c.castShadow = true; return c; });
       inside(40, () => { const s = new THREE.Mesh(new THREE.SphereGeometry(0.08 + Math.random() * 0.08, 6, 6), starMat); s.position.y = 0.3 + Math.random() * 3; return s; });
     }
+
+    // pixel-art grain on every scattered prop, chosen by hue (glow/transparent bits skipped;
+    // silhouettes get their ink line from the post-process edge pass, not a hull twin)
+    grp.traverse((o) => {
+      if (!o.isMesh || o.userData.isOutline || !o.material || !o.material.isMeshStandardMaterial) return;
+      const m = o.material; if (m.map || m.transparent || (m.emissiveIntensity || 0) >= 0.4) return;
+      const c = m.color, tk = (c.g > c.r + 0.02 && c.g >= c.b) ? 'leaf' : (c.r > 0.32 && c.b < c.r) ? 'wood' : 'stone';
+      pxMap(m, tk, 2);
+    });
   }
 
   // addon-free image-based lighting: bake a tiny gradient sky + a couple of bright
@@ -525,9 +537,9 @@ export class Game {
       this._pr = pr;
       const c = new EffectComposer(this.renderer);
       const start = this._pixelWant || Math.max(1, Math.round(1 * pr)); // very light default
-      // very light pixelation: minimal block size + soft edge lines, just enough texture
-      // to keep the retro feel without the scene looking chunky or blurry
-      const px = new RenderPixelatedPass(start, this.scene, this.camera, { normalEdgeStrength: 0.12, depthEdgeStrength: 0.15 });
+      // minimal block size (per the "less pixelation" ask) but STRONG edge lines — this is
+      // what draws the Megabonk-style ink outline on every mesh silhouette & crease for free
+      const px = new RenderPixelatedPass(start, this.scene, this.camera, { normalEdgeStrength: 0.5, depthEdgeStrength: 0.45 });
       this._pixelPass = px;
       if (this._pixelWant) px.setPixelSize(this._pixelWant); // honor a per-scene request made before load (resizes internal RTs)
       c.addPass(px);

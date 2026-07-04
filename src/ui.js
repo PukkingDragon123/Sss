@@ -1260,7 +1260,8 @@ export class UI {
     if (!this._pvMesh) return;
     this._pvScene.remove(this._pvMesh);
     this._pvMesh.traverse(o => {
-      if (o.isMesh) { if (o.geometry) o.geometry.dispose(); const m = o.material; if (Array.isArray(m)) m.forEach(x => x && x.dispose()); else if (m) m.dispose(); }
+      if (o.userData.isOutline) return;
+      if (o.isMesh) { if (o.geometry) o.geometry.dispose(); const m = o.material; if (Array.isArray(m)) m.forEach(x => x && !x.userData.outline && x.dispose()); else if (m && !m.userData.outline) { if (m.map && !m.map.userData?.keep) m.map.dispose(); m.dispose(); } }
       if (o.isLight && o.dispose) o.dispose();
     });
     this._pvMesh = null;

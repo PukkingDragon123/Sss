@@ -5,6 +5,8 @@
 // charPortrait returns '' and callers fall back to the 2D face / emoji.
 import * as THREE from 'three';
 import { faceImg } from './faces.js';
+import { outlineGroup } from './outline.js';
+import { pxMap } from './pixeltex.js';
 
 const darken = (hex, k = 0.78) => { const c = new THREE.Color(hex); c.multiplyScalar(k); return c.getHex(); };
 
@@ -244,8 +246,31 @@ const KINDS = {
 };
 
 export const CHAR_KINDS = Object.keys(KINDS);
-export function buildCharModel(kind) { return (KINDS[kind] || KINDS.patron)(); }
-function disposeModel(g) { g.traverse(m => { if (m.geometry) m.geometry.dispose(); if (m.material) m.material.dispose(); }); }
+
+// stamp a subtle pixel-art grain on the solid materials, then add a Megabonk ink outline
+function _dress(g) {
+  g.traverse((o) => {
+    if (!o.isMesh || o.userData.isOutline) return;
+    const m = o.material;
+    if (m && m.isMeshStandardMaterial && !m.map && !m.transparent) pxMap(m, m.metalness > 0.3 ? 'metal' : 'cloth', 2);
+  });
+  outlineGroup(g, { thick: 0.045 });
+  return g;
+}
+export function buildCharModel(kind) {
+  const g = (KINDS[kind] || KINDS.patron)();
+  return kind === 'wisp' ? g : _dress(g); // the wisp is a glowing orb — no ink outline / grain
+}
+// dispose a built model WITHOUT killing shared resources (the cached outline material &
+// the singleton pixel-art textures, both flagged so they survive per-model teardown)
+function disposeModel(g) {
+  g.traverse((m) => {
+    if (m.userData.isOutline) return;
+    if (m.geometry) m.geometry.dispose();
+    const mat = m.material;
+    if (mat && !mat.userData.outline) { if (mat.map && !mat.map.userData?.keep) mat.map.dispose(); mat.dispose(); }
+  });
+}
 
 // ===== offscreen portrait rig: render a model once to a small pixel dataURL (cached) =====
 const _cache = new Map();

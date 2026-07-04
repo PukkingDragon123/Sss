@@ -4,6 +4,8 @@
 // entrance + draw-a-glyph lesson. Self-contained: it owns its sets, its actors, and
 // the #cinema DOM.
 import * as THREE from 'three';
+import { outlineGroup } from './outline.js';
+import { pxMap } from './pixeltex.js';
 
 const $ = (id) => document.getElementById(id);
 const V = (a) => new THREE.Vector3(a[0], a[1], a[2]);
@@ -165,6 +167,17 @@ export class Cinematics {
     wisp.add(core, halo, wlight); wisp.userData = { core, halo, light: wlight, motes: [] };
     for (let i = 0; i < 5; i++) { const m = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), glow(0xbfeaff, 0.9)); wisp.add(m); wisp.userData.motes.push(m); }
     wisp.visible = false; forest.add(wisp);
+
+    // pixel-art grain on both cutscene sets + ink outlines on the cutscene patrons
+    const dress = (root) => root.traverse((o) => {
+      if (!o.isMesh || o.userData.isOutline || !o.material || !o.material.isMeshStandardMaterial) return;
+      const m = o.material; if (m.map || m.transparent || (m.emissiveIntensity || 0) >= 0.4) return;
+      const c = m.color;
+      const tk = m.metalness > 0.35 ? 'metal' : (c.g > c.r && c.g > c.b) ? 'leaf' : (c.r > 0.32 && c.b < c.r * 0.85) ? 'wood' : (Math.abs(c.r - c.g) < 0.09 && Math.abs(c.g - c.b) < 0.09) ? 'stone' : 'cloth';
+      pxMap(m, tk, 2);
+    });
+    dress(bar); dress(forest);
+    for (const p of this._patrons) outlineGroup(p.mesh, { thick: 0.045 });
   }
 
   _bindDom() {

@@ -8,6 +8,8 @@
 import * as THREE from 'three';
 import { buildCharModel } from './charmodels.js';
 import { iconCanvas } from './pixelicons.js';
+import { outlineGroup } from './outline.js';
+import { pxMap } from './pixeltex.js';
 
 // bar bounds
 const MINX = -11.5, MAXX = 11.5, SOUTH = 7, NORTH = -14.5;
@@ -38,6 +40,23 @@ export class Tavern {
     this._buildTavernTables();
     this._buildRoomScene();
     this.roomItems = new THREE.Group(); this.roomScene.add(this.roomItems); // player-placed things
+    this._texturize(this.group); this._texturize(this.roomScene); // pixel-art grain on the built rooms
+  }
+
+  // stamp a subtle pixel-art grain on solid materials, chosen by hue (idempotent — skips
+  // anything already mapped, plus outlines / glow / glass). The silhouette ink line comes
+  // from the post-process edge pass, so structural geometry gets no hull twin here.
+  _texturize(root) {
+    root.traverse((o) => {
+      if (!o.isMesh || o.userData.isOutline || !o.material || !o.material.isMeshStandardMaterial) return;
+      const m = o.material; if (m.map || m.transparent || (m.emissiveIntensity || 0) >= 0.4) return;
+      const c = m.color;
+      const tk = m.metalness > 0.35 ? 'metal'
+        : (c.r > 0.32 && c.b < c.r * 0.85) ? 'wood'
+        : (Math.abs(c.r - c.g) < 0.09 && Math.abs(c.g - c.b) < 0.09) ? 'stone'
+        : 'cloth';
+      pxMap(m, tk, 2);
+    });
   }
 
   // ===================== THE BAR =====================
@@ -143,6 +162,7 @@ export class Tavern {
       person.add(brim, cone);
     }
     person._mug = mug;
+    outlineGroup(person, { thick: 0.045 }); // Megabonk ink contour on the patron
     return person;
   }
 
@@ -262,8 +282,9 @@ export class Tavern {
     for (const qn of this.questNpcs) {
       this.group.remove(qn.mesh);
       qn.mesh.traverse(o => {
+        if (o.userData.isOutline) return; // shared outline material — never dispose
         if (o.geometry) o.geometry.dispose();
-        const m = o.material; if (m) { if (m.map) m.map.dispose(); m.dispose(); }
+        const m = o.material; if (m && !m.userData.outline) { if (m.map && !m.map.userData?.keep) m.map.dispose(); m.dispose(); }
       });
     }
     this.questNpcs.length = 0;
@@ -286,6 +307,7 @@ export class Tavern {
       // every quest-giver wears the "!" badge (their FACE is their 3D model already);
       // regulars get a chat bubble — both painted from our pixel sprite set
       const marker = this._makeQuestMarker(c.kind === 'quest' ? 'bang' : 'bubble'); marker.position.set(0, 2.5, 0); person.add(marker);
+      this._texturize(person); // grain the fallback patrons (buildCharModel ones are already mapped)
       this.group.add(person);
       const station = { type: 'customer', label: `chat with ${c.name}`, pos: new THREE.Vector3(sx, 0, sz), mark: null, quest: c.kind === 'quest' ? c.quest : null };
       const qn = { mesh: person, marker, pos: new THREE.Vector3(sx, 0, sz), target: new THREE.Vector3(sx, 0, sz), r: 0.6, phase: Math.random() * 6, repathCd: Math.random() * 3, speed: 0.9 + Math.random() * 0.5, yaw: 0, station, name: c.name, icon: c.icon, model: c.model, line: c.line, quest: station.quest, regularId: c.kind === 'regular' ? c.id : null };
@@ -395,7 +417,8 @@ export class Tavern {
     for (let i = grp.children.length - 1; i >= 0; i--) {
       const c = grp.children[i];
       c.traverse(o => {
-        if (o.isMesh) { if (o.geometry) o.geometry.dispose(); const m = o.material; if (Array.isArray(m)) m.forEach(x => x && x.dispose()); else if (m) m.dispose(); }
+        if (o.userData.isOutline) return;
+        if (o.isMesh) { if (o.geometry) o.geometry.dispose(); const m = o.material; if (Array.isArray(m)) m.forEach(x => x && !x.userData.outline && x.dispose()); else if (m && !m.userData.outline) { if (m.map && !m.map.userData?.keep) m.map.dispose(); m.dispose(); } }
         if (o.isLight && o.dispose) o.dispose();
       });
       grp.remove(c);
@@ -411,6 +434,7 @@ export class Tavern {
         this.roomStations.push({ type: 'station', kind: b.station, label: `the ${b.name}`, pos: new THREE.Vector3(x, 0, z), mark: null });
       }
     }
+    this._texturize(grp); // pixel-art grain on the freshly-placed furniture
   }
 
   _buildPlaced(id) {

@@ -2,6 +2,8 @@
 // Goblin King boss. Survivor-style: they shamble toward the wizard and swarm.
 import * as THREE from 'three';
 import { ARENA } from './wizard.js';
+import { outlineGroup } from './outline.js';
+import { pxMap } from './pixeltex.js';
 
 const TYPES = {
   // forest
@@ -90,6 +92,7 @@ export class Enemies {
     const g = new THREE.Group();
     // Megabonk-style: FLAT-SHADED low-poly materials — every facet reads as a hard plane
     const bodyMat = new THREE.MeshStandardMaterial({ color: def.color, roughness: def.metalness ? 0.4 : 0.85, metalness: def.metalness || 0, emissive: def.emissive || 0x000000, emissiveIntensity: def.emissive ? 0.6 : 0, flatShading: true });
+    pxMap(bodyMat, 'cloth', 2); // pixel-art hide grain (multiplies with the type colour)
     const darkMat = new THREE.MeshStandardMaterial({ color: 0x2a2230, roughness: 0.7, flatShading: true });
     const anim = { wings: null, cape: null };
 
@@ -131,8 +134,8 @@ export class Enemies {
     }
     if (def.boss) {
       // ---- regal KING kit: a jewelled crown, royal cape, pauldrons & a menacing aura ----
-      const goldMat = new THREE.MeshStandardMaterial({ color: 0xffd98a, metalness: 0.55, roughness: 0.32, emissive: 0x4a3400, emissiveIntensity: 0.5, flatShading: true });
-      const gemMat = new THREE.MeshStandardMaterial({ color: 0xff3a5a, emissive: 0x6a0a1a, emissiveIntensity: 0.85, roughness: 0.2, metalness: 0.2, flatShading: true });
+      const goldMat = pxMap(new THREE.MeshStandardMaterial({ color: 0xffd98a, metalness: 0.55, roughness: 0.32, emissive: 0x4a3400, emissiveIntensity: 0.5, flatShading: true }), 'metal', 2);
+      const gemMat = pxMap(new THREE.MeshStandardMaterial({ color: 0xff3a5a, emissive: 0x6a0a1a, emissiveIntensity: 0.85, roughness: 0.2, metalness: 0.2, flatShading: true }), 'gem', 1);
       const crown = new THREE.Group(); crown.position.y = 1.5;
       const band = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.22, 12), goldMat); crown.add(band);
       for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; const spike = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.36, 5), goldMat); spike.position.set(Math.cos(a) * 0.48, 0.26, Math.sin(a) * 0.48); crown.add(spike); }
@@ -222,6 +225,8 @@ export class Enemies {
     }
 
     g.scale.setScalar(def.size);
+    // Megabonk ink contour around the whole critter (eyes/aura/FX are skipped by the helper)
+    outlineGroup(g, { thick: 0.04 });
     this.group.add(g);
     return { mesh: g, bodyMat, anim, _baseEmissive: new THREE.Color(def.emissive || 0x000000) };
   }

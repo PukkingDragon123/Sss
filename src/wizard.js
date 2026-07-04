@@ -5,6 +5,8 @@
 // behind the shoulders, so every stagger sends them swinging.
 import * as THREE from 'three';
 import { makeBlob } from './blobshadow.js';
+import { outlineGroup } from './outline.js';
+import { pxMap } from './pixeltex.js';
 
 const ARENA = 46;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -86,6 +88,9 @@ export class Wizard {
     const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf7f4ec, roughness: 0.9, flatShading: true });
     const darkMat = new THREE.MeshStandardMaterial({ color: 0x3a2f4a, roughness: 0.7, flatShading: true });
     const goldMat = new THREE.MeshStandardMaterial({ color: 0xffd98a, roughness: 0.45, metalness: 0.3, emissive: 0x3a2c00, flatShading: true });
+    // pixel-art grain on every clay surface (multiplies with colour, so gear-dye still works)
+    pxMap(robeMat, 'cloth', 3); pxMap(robeMat2, 'cloth', 3); pxMap(skinMat, 'skin', 2);
+    pxMap(whiteMat, 'cloth', 3); pxMap(goldMat, 'metal', 2); pxMap(darkMat, 'cloth', 2);
     this.robeMat = robeMat; this.skinMat = skinMat;
     this.armMat = robeMat; this.handMat = skinMat;
 
@@ -199,6 +204,10 @@ export class Wizard {
     this.armGroup.add(this.castGlow);
     this.handLight = new THREE.PointLight(0x9b7bff, 0, 7);
     this.armGroup.add(this.handLight);
+
+    // Megabonk ink outline on the body + the verlet arms (cheeks/glow/light auto-skipped)
+    outlineGroup(this.facer, { thick: 0.05 });
+    outlineGroup(this.armGroup, { thick: 0.05 });
   }
 
   // ---- equipped gear, worn on the model (staff in hand, hat trim, robe dye, charm) ----
@@ -206,7 +215,7 @@ export class Wizard {
   _disposeGearPiece(key) {
     const m = this[key]; if (!m) return;
     (m.parent || this.scene).remove(m);
-    m.traverse(o => { if (o.isMesh) { o.geometry.dispose(); if (o.material) o.material.dispose(); } });
+    m.traverse(o => { if (o.userData.isOutline) return; if (o.isMesh) { o.geometry.dispose(); const mat = o.material; if (mat && !mat.userData.outline) { if (mat.map && !mat.map.userData?.keep) mat.map.dispose(); mat.dispose(); } } });
     this[key] = null;
   }
   // eq: { staff: 'rare'|null, hat: ..., robe: ..., charm: ... } — rarity per worn slot

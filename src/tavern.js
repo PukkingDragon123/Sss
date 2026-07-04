@@ -307,10 +307,15 @@ export class Tavern {
       // every quest-giver wears the "!" badge (their FACE is their 3D model already);
       // regulars get a chat bubble — both painted from our pixel sprite set
       const marker = this._makeQuestMarker(c.kind === 'quest' ? 'bang' : 'bubble'); marker.position.set(0, 2.5, 0); person.add(marker);
+      // a foamy mug they raise while drinking (hidden until the 'drink' beat)
+      const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.22, 9), new THREE.MeshStandardMaterial({ flatShading: true, color: 0x9a6a3a, roughness: 0.7 }));
+      mug.position.set(0.36, 1.04, 0.34); mug.visible = false; person.add(mug); pxMap(mug.material, 'wood', 2);
       this._texturize(person); // grain the fallback patrons (buildCharModel ones are already mapped)
       this.group.add(person);
       const station = { type: 'customer', label: `chat with ${c.name}`, pos: new THREE.Vector3(sx, 0, sz), mark: null, quest: c.kind === 'quest' ? c.quest : null };
-      const qn = { mesh: person, marker, pos: new THREE.Vector3(sx, 0, sz), target: new THREE.Vector3(sx, 0, sz), r: 0.6, phase: Math.random() * 6, repathCd: Math.random() * 3, speed: 0.9 + Math.random() * 0.5, yaw: 0, station, name: c.name, icon: c.icon, model: c.model, line: c.line, quest: station.quest, regularId: c.kind === 'regular' ? c.id : null };
+      // start them strolling in from the door, then they settle at their spot
+      const enterX = (i - (spots.length - 1) / 2) * 1.4;
+      const qn = { mesh: person, marker, mug, pos: new THREE.Vector3(enterX, 0, -9.5), target: new THREE.Vector3(sx, 0, sz), seat: new THREE.Vector3(sx, 0, sz), seatYaw: Math.random() * Math.PI * 2, r: 0.6, phase: Math.random() * 6, state: 'enter', stateT: 0, enterDelay: i * 0.45, drinks: 0, speed: 1.2 + Math.random() * 0.5, yaw: 0, station, name: c.name, icon: c.icon, model: c.model, line: c.line, quest: station.quest, regularId: c.kind === 'regular' ? c.id : null };
       station.npc = qn;
       this.questNpcs.push(qn);
       this.stations.push(station);
@@ -646,6 +651,65 @@ export class Tavern {
   show(v) { this.group.visible = v; }
   showRoom(v) { this.roomScene.visible = v; }
 
+  // one patron's little life: enter -> sit -> drink -> (rowdy) -> wander -> sit ...
+  _updateNpcLife(qn, dt, game) {
+    qn.phase += dt; qn.stateT += dt;
+    const bob = Math.abs(Math.sin(qn.phase * 5)) * 0.06;
+    const step = (tx, tz, spd) => { const dx = tx - qn.pos.x, dz = tz - qn.pos.z, d = Math.hypot(dx, dz) || 1e-4; const s = Math.min(d, spd * dt); qn.pos.x += (dx / d) * s; qn.pos.z += (dz / d) * s; if (d > 0.12) qn.yaw = Math.atan2(dx, dz); return d; };
+    const seat = qn.seat;
+    let seated = false;
+    switch (qn.state) {
+      case 'enter': { // walk in from the door to their spot
+        if (qn.stateT < (qn.enterDelay || 0)) { qn.mesh.position.set(qn.pos.x, 0, qn.pos.z); break; }
+        const d = step(seat.x, seat.z, qn.speed * 1.25);
+        qn.mesh.position.set(qn.pos.x, bob, qn.pos.z);
+        if (d < 0.45) { qn.state = 'sit'; qn.stateT = 0; }
+        break;
+      }
+      case 'sit': { // amble to the seat, then plonk down
+        const d = step(seat.x, seat.z, qn.speed);
+        if (d < 0.4) { seated = true; qn.yaw = qn.seatYaw; if (qn.stateT > 2.4) { qn.state = 'drink'; qn.stateT = 0; } }
+        else qn.mesh.position.set(qn.pos.x, bob, qn.pos.z);
+        break;
+      }
+      case 'drink': { // raise the mug and take a few pulls
+        seated = true; qn.yaw = qn.seatYaw;
+        if (qn.mug) qn.mug.visible = true;
+        const sip = Math.max(0, Math.sin(qn.stateT * 3.1));
+        qn.mesh.rotation.x = -0.2 * sip;
+        if (qn.stateT > 2.3) {
+          qn.mesh.rotation.x = 0; if (qn.mug) qn.mug.visible = false;
+          qn.drinks++; qn.stateT = 0;
+          game.particles.burst({ pos: qn.mesh.position.clone().setY(1.8), color: 0xf7f4ec, count: 4, speed: 1.4, size: 0.08, life: 0.5, grav: -3, blend: 'normal' });
+          if (qn.drinks >= 3) { qn.state = 'mad'; qn.stateT = 0; qn.madDur = 5 + Math.random() * 4; game.audio && game.audio.play('cheers'); }
+          else if (Math.random() < 0.55) { qn.state = 'wander'; qn.stateT = 0; qn.wanderDur = 2 + Math.random() * 2.5; qn.target.set(seat.x + (Math.random() - 0.5) * 5, 0, seat.z + (Math.random() - 0.5) * 4); }
+        }
+        break;
+      }
+      case 'wander': { // stretch the legs, then head back to the stool
+        const d = step(qn.target.x, qn.target.z, qn.speed);
+        qn.mesh.position.set(qn.pos.x, bob, qn.pos.z);
+        if (qn.stateT > qn.wanderDur || d < 0.4) { qn.state = 'sit'; qn.stateT = 0; }
+        break;
+      }
+      case 'mad': { // gloriously drunk: lurch about, wave, hiccup sparkles
+        if (qn.pos.distanceTo(qn.target) < 0.6 || qn.stateT > qn.madDur * 0.4) qn.target.set(seat.x + (Math.random() - 0.5) * 8, 0, seat.z + (Math.random() - 0.5) * 6);
+        step(qn.target.x, qn.target.z, qn.speed * 1.9);
+        qn.mesh.position.set(qn.pos.x, Math.abs(Math.sin(qn.phase * 8)) * 0.13, qn.pos.z);
+        qn.mesh.rotation.z = Math.sin(qn.phase * 10) * 0.22;
+        qn.hicCd = (qn.hicCd || 0) - dt;
+        if (qn.hicCd <= 0) { qn.hicCd = 0.7 + Math.random() * 0.9; game.particles.burst({ pos: qn.mesh.position.clone().setY(1.95), color: 0xbfe0ff, count: 2, speed: 1, size: 0.1, life: 0.7, grav: 2, blend: 'add' }); if (game.audio && Math.random() < 0.35) game.audio.play('hiccup'); }
+        if (qn.stateT > qn.madDur) { qn.state = 'sit'; qn.stateT = 0; qn.drinks = 0; }
+        break;
+      }
+    }
+    if (seated) qn.mesh.position.set(qn.pos.x, -0.16, qn.pos.z); // sunk down = sitting
+    if (qn.state !== 'mad') qn.mesh.rotation.z = Math.sin(qn.phase) * 0.04;
+    qn.mesh.rotation.y = qn.yaw;
+    qn.marker.position.y = 2.5 + Math.sin(this.phase * 3 + qn.pos.x) * 0.14;
+    qn.station.pos.set(qn.pos.x, 0, qn.pos.z);
+  }
+
   _flicker() { if (this._flames) for (let i = 0; i < this._flames.length; i++) { const f = this._flames[i]; const s = 1 + Math.sin(this.phase * 9 + i * 1.7) * 0.18; f.scale.set(s, 1.5 * s, s); f.material.opacity = 0.8 + Math.sin(this.phase * 13 + i) * 0.12; } }
 
   update(dt, game) {
@@ -673,19 +737,10 @@ export class Tavern {
       if (n.wob > 0) { n.wob -= dt * 2; n.mesh.rotation.z = Math.sin(this.phase * 22) * 0.15 * Math.max(0, n.wob); } else { n.mesh.rotation.z = Math.sin(n.phase) * 0.03; }
     }
 
-    // unique quest-giver customers: roam gently, bob their "!" marker, keep their
-    // (moving) interact-station in sync so you can walk up and talk to them
-    for (const qn of this.questNpcs) {
-      qn.phase += dt; qn.repathCd -= dt;
-      const reached = qn.pos.distanceTo(qn.target) < 0.4;
-      if (qn.repathCd <= 0 || reached) { qn.repathCd = 2.5 + Math.random() * 3.5; qn.target.set(-8 + Math.random() * 16, 0, -8 + Math.random() * 12); }
-      const tx = qn.target.x - qn.pos.x, tz = qn.target.z - qn.pos.z, td = Math.hypot(tx, tz) || 1e-4, step = Math.min(td, qn.speed * dt);
-      qn.pos.x += (tx / td) * step; qn.pos.z += (tz / td) * step; if (td > 0.1) qn.yaw = Math.atan2(tx, tz);
-      qn.mesh.position.set(qn.pos.x, Math.abs(Math.sin(qn.phase * 5)) * 0.06, qn.pos.z);
-      qn.mesh.rotation.y = qn.yaw; qn.mesh.rotation.z = Math.sin(qn.phase) * 0.04;
-      qn.marker.position.y = 2.5 + Math.sin(this.phase * 3 + qn.pos.x) * 0.14;
-      qn.station.pos.set(qn.pos.x, 0, qn.pos.z);
-    }
+    // unique customers now LIVE: they walk in, settle at their spot, sip a brew, and
+    // eventually get gloriously rowdy — then wander it off and sit back down. Their
+    // (moving) interact-station stays in sync so you can always walk up and chat.
+    for (const qn of this.questNpcs) this._updateNpcLife(qn, dt, game);
 
     for (const p of this.props) {
       if (!p.knocked) {

@@ -42,15 +42,15 @@ const PAINTERS = {
   // grassy ground: mottled clumps + a few upright blades (used tiled hard across the floor)
   grass(ctx, n, r) {
     for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-      const q = r(); let g = 0.86 + (q - 0.5) * 0.22;
+      const q = r(); let g = 0.82 + (q - 0.5) * 0.36;
       ctx.fillStyle = gc(g); ctx.fillRect(x, y, 1, 1);
     }
-    for (let i = 0; i < n * 0.7; i++) { const x = (r() * n) | 0, y = (r() * n) | 0, h = 1 + ((r() * 2) | 0); const g = r() < 0.5 ? 1.0 : 0.74; ctx.fillStyle = gc(g); ctx.fillRect(x, y, 1, h); }
+    for (let i = 0; i < n * 0.9; i++) { const x = (r() * n) | 0, y = (r() * n) | 0, h = 1 + ((r() * 2) | 0); const g = r() < 0.5 ? 1.05 : 0.66; ctx.fillStyle = gc(g); ctx.fillRect(x, y, 1, h); }
   },
   // packed dirt / sand: mottled with tiny pebbles
   dirt(ctx, n, r) {
-    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { const g = 0.88 + (r() - 0.5) * 0.16; ctx.fillStyle = gc(g); ctx.fillRect(x, y, 1, 1); }
-    for (let i = 0; i < n * 0.5; i++) { const x = (r() * n) | 0, y = (r() * n) | 0; ctx.fillStyle = gc(r() < 0.5 ? 0.72 : 1.0); ctx.fillRect(x, y, 1, 1); }
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { const g = 0.86 + (r() - 0.5) * 0.26; ctx.fillStyle = gc(g); ctx.fillRect(x, y, 1, 1); }
+    for (let i = 0; i < n * 0.6; i++) { const x = (r() * n) | 0, y = (r() * n) | 0; ctx.fillStyle = gc(r() < 0.5 ? 0.62 : 1.05); ctx.fillRect(x, y, 1, 1); }
   },
   // masonry / rock: blocky cells with darker mortar seams
   stone(ctx, n, r) {
@@ -58,7 +58,7 @@ const PAINTERS = {
     const cell = Math.max(4, (n / 4) | 0);
     for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
       const seam = (x % cell === 0) || (y % cell === ((((x / cell) | 0) % 2) ? (cell >> 1) % cell : 0));
-      let g = 0.82 + r() * 0.16; if (seam) g = 0.66;
+      let g = 0.8 + r() * 0.22; if (seam) g = 0.56;
       ctx.fillStyle = gc(g); ctx.fillRect(x, y, 1, 1);
     }
   },
@@ -68,12 +68,12 @@ const PAINTERS = {
     for (let y = 0; y < n; y++) {
       const seam = (y % plank === 0);
       for (let x = 0; x < n; x++) {
-        let g = 0.9 + Math.sin((x + y * 0.3) * 0.7) * 0.05 + (r() - 0.5) * 0.06;
-        if (seam) g = 0.66;
+        let g = 0.9 + Math.sin((x + y * 0.3) * 0.7) * 0.08 + (r() - 0.5) * 0.09;
+        if (seam) g = 0.55;
         ctx.fillStyle = gc(g); ctx.fillRect(x, y, 1, 1);
       }
     }
-    for (let i = 0; i < 2; i++) { const kx = (r() * n) | 0, ky = (r() * n) | 0; ctx.fillStyle = gc(0.7); ctx.fillRect(kx, ky, 2, 1); }
+    for (let i = 0; i < 2; i++) { const kx = (r() * n) | 0, ky = (r() * n) | 0; ctx.fillStyle = gc(0.6); ctx.fillRect(kx, ky, 2, 1); }
   },
   // brushed metal / gold: horizontal streaks + a couple of rivets (trims, armour, coins)
   metal(ctx, n, r) {
@@ -85,9 +85,10 @@ const PAINTERS = {
   leaf(ctx, n, r) {
     for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
       const c = Math.sin(x * 0.9) * Math.cos(y * 0.9);
-      let g = 0.85 + c * 0.1 + (r() - 0.5) * 0.12;
+      let g = 0.83 + c * 0.16 + (r() - 0.5) * 0.18;
       ctx.fillStyle = gc(g); ctx.fillRect(x, y, 1, 1);
     }
+    for (let i = 0; i < n * 0.5; i++) { const x = (r() * n) | 0, y = (r() * n) | 0; ctx.fillStyle = gc(r() < 0.5 ? 1.05 : 0.64); ctx.fillRect(x, y, 1, 1); } // leaf speckle
   },
   // crystal / gem: bright faces with a diagonal glint and a few dark facets
   gem(ctx, n, r) {

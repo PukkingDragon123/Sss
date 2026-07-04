@@ -11,15 +11,19 @@ const TYPES = {
   bat:     { hp: 5,   speed: 5.0, dmg: 4,  r: 0.45, xp: 3,   color: 0x8c6fb8, size: 0.7, baseY: 1.4 },
   vampire: { hp: 26,  speed: 3.5, dmg: 9,  r: 0.7,  xp: 16,  color: 0xe6dcec, size: 1.15, baseY: 0 },
   zombie:  { hp: 52,  speed: 1.5, dmg: 11, r: 0.95, xp: 13,  color: 0x6f9e5a, size: 1.55, baseY: 0 },
+  slime:   { hp: 20,  speed: 2.2, dmg: 7,  r: 0.7,  xp: 7,   color: 0x4ad0a8, size: 1.0, baseY: 0 },
+  mushroomcap: { hp: 60, speed: 1.4, dmg: 10, r: 0.85, xp: 12, color: 0xc44a5a, size: 1.35, baseY: 0 },
   goblinking:  { hp: 850, speed: 1.9, dmg: 18, r: 2.0, xp: 220, color: 0x6fae3a, size: 3.2, baseY: 0, boss: true },
   // cave
   rat:      { hp: 8,  speed: 4.3, dmg: 5,  r: 0.45, xp: 3,  color: 0x8a7a66, size: 0.7, baseY: 0 },
   brutebat: { hp: 34, speed: 3.1, dmg: 10, r: 0.75, xp: 9,  color: 0x6a5a8c, size: 1.25, baseY: 1.2 },
   spider:   { hp: 22, speed: 3.4, dmg: 9,  r: 0.7,  xp: 10, color: 0x4a3a55, size: 1.05, baseY: 0 },
+  stonegolem: { hp: 70, speed: 1.6, dmg: 13, r: 0.9, xp: 15, color: 0x8a8f96, size: 1.45, baseY: 0, metalness: 0.2 },
   spiderqueen: { hp: 1000, speed: 1.9, dmg: 18, r: 2.0, xp: 240, color: 0x6a2f6a, size: 3.0, baseY: 0, boss: true },
   // graveyard
   skeleton: { hp: 24, speed: 2.7, dmg: 9,  r: 0.65, xp: 9,  color: 0xe6e2d0, size: 1.05, baseY: 0 },
   wraith:   { hp: 18, speed: 3.9, dmg: 11, r: 0.65, xp: 12, color: 0x9fb0c8, size: 1.1, baseY: 0.9 },
+  wispling: { hp: 10, speed: 4.8, dmg: 6, r: 0.5, xp: 6, color: 0xbfe6ff, size: 0.75, baseY: 1.3, emissive: 0x2a6a8a },
   skeletonking: { hp: 1100, speed: 2.0, dmg: 20, r: 2.0, xp: 260, color: 0xd8d2bc, size: 3.1, baseY: 0, boss: true },
   // inferno
   imp:      { hp: 14, speed: 4.6, dmg: 7,  r: 0.5,  xp: 6,  color: 0xff5a3a, size: 0.8, baseY: 0, emissive: 0x661508 },
@@ -112,7 +116,7 @@ export class Enemies {
     g.add(eL, eR);
 
     // little feet (flyers/floaters have none)
-    if (type !== 'bat' && type !== 'brutebat' && type !== 'wraith' && type !== 'drone') {
+    if (type !== 'bat' && type !== 'brutebat' && type !== 'wraith' && type !== 'drone' && type !== 'wispling') {
       const footGeo = new THREE.SphereGeometry(0.17, 6, 5);
       const fL = new THREE.Mesh(footGeo, darkMat); fL.position.set(-0.26, 0.12, 0.05); fL.castShadow = true;
       const fR = new THREE.Mesh(footGeo, darkMat); fR.position.set(0.26, 0.12, 0.05); fR.castShadow = true;
@@ -223,6 +227,39 @@ export class Enemies {
       const fangMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
       for (const sx of [-1, 1]) { const f = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 5), fangMat); f.position.set(sx * 0.07, 0.56, 0.52); f.rotation.x = Math.PI; g.add(f); }
     }
+    if (type === 'slime') {
+      // squashed gelatinous blob with a few drips sliding off it + a glossy inner shine
+      body.scale.set(1.3, 0.72, 1.3);
+      for (const [ox, oz, s] of [[-0.36, 0.18, 0.17], [0.34, -0.12, 0.14], [0.08, 0.38, 0.12]]) {
+        const drip = new THREE.Mesh(new THREE.SphereGeometry(s, 7, 6), bodyMat); drip.position.set(ox, 0.16, oz); drip.scale.y = 1.4; drip.castShadow = true; g.add(drip);
+      }
+      const shine = new THREE.Mesh(new THREE.IcosahedronGeometry(0.15, 0), new THREE.MeshStandardMaterial({ color: 0xe6fff6, roughness: 0.25, flatShading: true })); shine.position.set(-0.18, 0.7, 0.32); g.add(shine);
+    }
+    if (type === 'mushroomcap') {
+      // a big domed toadstool cap crowning the squat fungus body, dotted white
+      const capMat = new THREE.MeshStandardMaterial({ color: 0xd8465e, roughness: 0.75, flatShading: true });
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.85, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.5), capMat); cap.position.y = 1.02; cap.scale.set(1, 0.7, 1); cap.castShadow = true; g.add(cap);
+      const spotMat = new THREE.MeshStandardMaterial({ color: 0xf4ece0, roughness: 0.6, flatShading: true });
+      for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; const rr = 0.3 + (k % 3) * 0.13; const yy = 1.02 + Math.sqrt(Math.max(0, 0.85 * 0.85 - rr * rr)) * 0.7; const sp = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 5), spotMat); sp.position.set(Math.cos(a) * rr, yy, Math.sin(a) * rr); sp.scale.y = 0.45; g.add(sp); }
+      body.scale.set(1.05, 0.9, 1.05);
+    }
+    if (type === 'wispling') {
+      // a floating will-o'-wisp: the glowing body wrapped in a soft additive halo, dripping a wispy tail
+      const halo = new THREE.Mesh(new THREE.SphereGeometry(0.85, 14, 12), new THREE.MeshBasicMaterial({ color: def.color, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false })); halo.position.y = 0.62; g.add(halo); anim.aura = halo;
+      const tailGeo = new THREE.ConeGeometry(0.32, 1.1, 8, 1, true); tailGeo.rotateX(Math.PI);
+      const tail = new THREE.Mesh(tailGeo, new THREE.MeshBasicMaterial({ color: def.color, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); tail.position.set(0, 0.1, 0); g.add(tail); anim.cape = tail;
+    }
+    if (type === 'stonegolem') {
+      // a lumbering rock brute: chunky boxy shoulders, heavy boulder fists, jagged crown crag
+      const rockMat = new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.5, metalness: def.metalness || 0.2, flatShading: true });
+      for (const side of [-1, 1]) {
+        const shoulder = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.42, 0.5), rockMat); shoulder.position.set(side * 0.6, 1.0, 0); shoulder.rotation.y = side * 0.3; shoulder.rotation.z = side * 0.15; shoulder.castShadow = true; g.add(shoulder);
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.7, 0.3), rockMat); arm.position.set(side * 0.72, 0.5, 0.12); arm.rotation.z = side * 0.12; arm.castShadow = true; g.add(arm);
+        const fist = new THREE.Mesh(new THREE.DodecahedronGeometry(0.26, 0), rockMat); fist.position.set(side * 0.78, 0.16, 0.16); fist.castShadow = true; g.add(fist);
+      }
+      const crag = new THREE.Mesh(new THREE.OctahedronGeometry(0.24, 0), rockMat); crag.position.set(0, 1.28, -0.1); crag.rotation.y = 0.5; crag.castShadow = true; g.add(crag);
+      body.scale.set(1.15, 1.05, 1.1);
+    }
 
     g.scale.setScalar(def.size);
     // Megabonk ink contour around the whole critter (eyes/aura/FX are skipped by the helper)
@@ -289,7 +326,12 @@ export class Enemies {
     if (knockDir && knockAmt) e.knock.addScaledVector(knockDir.clone().setY(0).normalize(), knockAmt);
     if (game) {
       game.popDamage(e.mesh.position, n);
-      if (game.particles && e.hp > 0) game.particles.burst({ pos: e.mesh.position.clone().setY(0.7 * TYPES[e.type].size), color: 0xfff2c0, count: 3, speed: 4.5, size: 0.15, life: 0.28, up: 1.5 }); // chip sparks
+      if (game.particles && e.hp > 0) {
+        const hy = 0.6 * TYPES[e.type].size;
+        game.particles.burst({ pos: e.mesh.position.clone().setY(hy), color: 0xfff2c0, count: 5, speed: 5, size: 0.16, life: 0.28, up: 1.5 }); // chip sparks
+        game.particles.ring({ pos: e.mesh.position.clone().setY(hy * 0.8), color: 0xffffff, r0: 0.1, r1: 0.7 * TYPES[e.type].size + 0.4, life: 0.16 }); // crisp hit pop
+      }
+      if (n >= 40) game._hitstop(0.05); // a beat of weight on a heavy blow
     }
     if (e.hp <= 0) this._kill(e, game);
   }

@@ -1835,7 +1835,15 @@ export class Game {
     this.aimPoint = aim;
     const ok = this.spells.tryCast(this, id, opts);
     this.aimPoint = saved;
-    if (ok) this._registerCast(id);
+    if (ok) {
+      this._registerCast(id);
+      // muzzle flash at the casting hand — a satisfying pop of light on every cast
+      const crit = !!(opts && opts.crit);
+      const hp = this.wizard.castGlow ? this.wizard.castGlow.getWorldPosition(new THREE.Vector3()) : this.wizard.pos.clone().setY(1.4);
+      this.particles.burst({ pos: hp, color: crit ? 0xffd36b : 0xbfa3ff, count: crit ? 12 : 6, speed: crit ? 7 : 4.5, size: crit ? 0.28 : 0.2, life: 0.34, up: 1, blend: 'add' });
+      this.particles.ring({ pos: hp, color: crit ? 0xffd36b : 0x9b7bff, r0: 0.12, r1: crit ? 1.4 : 0.85, life: 0.26 });
+      if (crit) this.shake(0.4);
+    }
   }
 
   _updateAim() {

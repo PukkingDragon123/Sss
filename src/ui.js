@@ -129,7 +129,7 @@ export class UI {
       ctx.drawImage(c, x - size / 2, y - size / 2, size, size);
     });
     this.el.btnStart.addEventListener('click', () => { game.audio.resume(); game.audio.play('click'); this.showSlots(); });
-    this.el.btnAgain.addEventListener('click', () => { game.audio.play('click'); game.enterTavern(); });
+    this.el.btnAgain.addEventListener('click', () => { game.audio.play('click'); this.wipe('iris', () => game.enterTavern()); });
     this.el.btnHow.addEventListener('click', () => { game.audio.play('click'); this.el.howto.classList.toggle('hidden'); });
     this.el.btnHowClose.addEventListener('click', () => { game.audio.play('click'); this.el.howto.classList.add('hidden'); });
     this.el.btnSettings.addEventListener('click', () => { game.audio.resume(); game.audio.play('click'); this.showSettings(); });

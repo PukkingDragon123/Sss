@@ -1567,7 +1567,7 @@ export class Game {
   retreatFromMap() {
     this.ui.hideRunMap();
     if (this._mapNodeId == null) { this.openWorldMap(); }   // hadn't started — back to the realm map
-    else { this._runMap = null; this._mapNodeId = null; this.audio.play('click'); this.enterTavern(); } // give up the run
+    else { this._runMap = null; this._mapNodeId = null; this.audio.play('click'); this.ui.wipe('diamond', () => this.enterTavern()); } // give up the run — goofy exit wipe
   }
   choosePath(i) {
     if (this.state !== 'path') return;

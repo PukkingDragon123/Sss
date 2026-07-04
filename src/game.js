@@ -931,6 +931,7 @@ export class Game {
   onBossDead() {
     if (this._drinking) this._cancelDrink();
     this.bossActive = false; this.bossKilled = true; this._roomsCleared = this._forksTotal + 2;
+    this._awardStageStars(STAGES_PER_REGION); // ⭐ the boss lair is the region's final level
     meta.bumpStat('bossKills', 1); // feeds the "defeat a boss" side quest
     this._hitstop(0.13); this.shake(1.4); // a big satisfying beat on the kill
     this._learn('boss', 'Boss down! It dropped an artifact and gemstones. Carry artifacts from your satchel into a run.');
@@ -953,7 +954,8 @@ export class Game {
     if (this._introRun) { this._finishIntroRun(); return; } // you can't fail the tutorial — just stagger home
     this.state = 'gameover';
     this.audio.play('gameover');
-    this._showEnd(false);
+    this.shake(1.2);
+    this.ui.deathTumble(() => this._showEnd(false)); // comedic spin-to-black, THEN the results
   }
   // backwards-compat alias used by the wizard-death check
   _lose() { this._loseRun(); }
@@ -1170,14 +1172,18 @@ export class Game {
     this.ui.showWorldHud(this, sel);
     this.ui.setGold(meta.gold());
   }
-  _stageUnlocked(id) { const o = this.world.order, i = o.indexOf(id); return i <= 0 || meta.stageCleared(o[i - 1]); }
+  _stageUnlocked(id) { const o = this.world.order, i = o.indexOf(id); return i <= 0 || meta.regionUnlockedByStars(i); }
   selectWorldRegion(id) {
     if (!id) return;
     this._worldSel = id; this.world.select(id); this.audio.play('click'); this.ui.showWorldHud(this, id);
   }
   ventureSelected() {
     const id = this._worldSel;
-    if (!id || !this._stageUnlocked(id)) { this.ui.wispSay('🔒 Conquer the region before it to open this one.', { tone: 'warn' }); return; }
+    if (!id || !this._stageUnlocked(id)) {
+      const i = this.world.order.indexOf(id);
+      this.ui.wispSay(`🔒 Earn ⭐ ${meta.regionStarReq(i)} stars to open this region — you have ${meta.totalStars()}. Win levels (with high HP) for more stars!`, { tone: 'warn' });
+      return;
+    }
     this.ui.hideWorldHud(); this.input.pointMode = false;
     // no more playstyle pick — your build comes from collected cards + the upgrades you
     // pick along the run. Open the region's level map to choose your path in.
@@ -1267,6 +1273,7 @@ export class Game {
     this._pendingStage = STAGES[stageId] || STAGES.forest;
     this.audio.play('jobDone');
     this.state = 'blackout';
+    this.ui.wipe('spin');   // a goofy pinwheel as you venture out
     this.ui.fadeBlack(true);
     setTimeout(() => {
       this.showStory(BLACKOUT_LINES.speaker, BLACKOUT_LINES.lines, () => this.enterArena(this._pendingStage));
@@ -1443,10 +1450,30 @@ export class Game {
     else this.ui.missionResult(false, 0);
   }
 
+  // ⭐ candy-crush star rating for a completed level. For fights it's earned by HP left
+  // (3 = flawless/near-full, 2 = comfortable, 1 = scraped through); reward levels (treasure,
+  // rest, events) pass a `forced` rating. Keeps the player's best per level, pops the stars.
+  _awardStageStars(stageNum, forced) {
+    let stars;
+    if (forced != null) stars = forced;
+    else {
+      const maxHp = (this.wizard && this.wizard._maxHp) || (this.stats && this.stats.hpMax) || 1;
+      const hpFrac = this.wizard ? Math.max(0, this.wizard.hp / maxHp) : 0;
+      stars = 1;
+      if (this._stageNoHit || hpFrac >= 0.85) stars = 3;
+      else if (hpFrac >= 0.45) stars = 2;
+    }
+    const region = this.stage ? this.stage.id : this._runRegion;
+    const gained = meta.awardStars(region, stageNum, stars);
+    if (this.ui && this.ui.starAward) this.ui.starAward(stars, gained);
+    return stars;
+  }
+
   // a combat room cleared -> pay out its promised reward, then offer the next fork
   onEncounterCleared() {
     if (this._introRun) { this._finishIntroRun(); return; } // the guided first fight is over
     this._evalMission(); // judge this stage's optional mission, pay the bonus
+    this._awardStageStars(Math.min(STAGES_PER_REGION, (this._forksDone || 0) + 1)); // ⭐ rate this level
     if (this._pendingReward) { this._grantReward(this._pendingReward); this._pendingReward = null; }
     this._nextFork();
   }
@@ -1480,7 +1507,8 @@ export class Game {
     this.ui.showRunMap(this);
   }
   _buildRunMap() {
-    return generateRunMap(Math.random, { rows: STAGES_PER_REGION, cols: 3, paths: 5 });
+    // a single winding candy-crush level path (linear chain of levels), not a branch graph
+    return generateRunMap(Math.random, { rows: STAGES_PER_REGION, cols: 1, paths: 1 });
   }
   // ----- region level map (Mewgenics / Slay-the-Spire style) -----
   openRegionMap(id) {
@@ -1518,18 +1546,23 @@ export class Game {
       const elite = node.type === 'elite';
       this._travel(null, () => { this.state = 'play'; this._beginRoom(false, elite); });
     } else if (node.type === 'treasure') {
+      this._awardStageStars(mnode.row + 1, 3); // ⭐ a cache level: full marks for the loot
       this._grantReward(node.reward); this._nextFork();
     } else if (node.type === 'campfire') {
+      this._awardStageStars(mnode.row + 1, 3); // ⭐ a rest level: full marks
       this.stats.hpMax += 12; this.wizard._maxHp = this.stats.hpMax; this.wizard.hp = this.stats.hpMax;
       this.wizard.mana = this.stats.manaMax; this.audio.play('heal');
       this.ui.toast('🔥 Rested — fully healed & +12 max HP'); this._nextFork();
     } else if (node.type === 'event') {
+      this._awardStageStars(mnode.row + 1, 2); // ⭐ a mystery level cleared
       this.state = 'path'; this._curEvent = node.event; this.ui.showChoiceEvent(this, node.event);
     } else if (node.type === 'skill') {
+      this._awardStageStars(mnode.row + 1, 2); // ⭐ a trial level cleared
       this.state = 'path'; this.ui.showSkillEvent(this);
     } else if (node.type === 'minigame') {
+      this._awardStageStars(mnode.row + 1, 2); // ⭐ a game level cleared
       this.state = 'minigame'; this.ui.showMinigame(this, node.gameKey);
-    } else { this._nextFork(); }
+    } else { this._awardStageStars(mnode.row + 1, 2); this._nextFork(); }
   }
   retreatFromMap() {
     this.ui.hideRunMap();

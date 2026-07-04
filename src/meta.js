@@ -4,6 +4,7 @@ import { UPGRADES } from './upgrades.js';
 // one-way import only — story.js must never import meta.js (would create a cycle)
 import { STAGE_ORDER, STAGES } from './story.js';
 import { CARDS, CARD_BY_ID, rollCard } from './cards.js';
+import { pickGearVariant } from './pixelicons.js';
 
 // the four elements every spell belongs to (shown in the Grimoire & Spell Table)
 export const ELEMENTS = {
@@ -149,7 +150,11 @@ export function genGear(slot, rarity, level) {
   const mods = {}; mods[def.primary] = roundStat(def.primary, def.base * rd.mult * lm);
   const pool = Object.keys(SECONDARY_BASE).filter(s => s !== def.primary);
   for (let i = 0; i < rd.extra; i++) { const s = pool.splice(Math.floor(Math.random() * pool.length), 1)[0]; if (!s) break; mods[s] = roundStat(s, SECONDARY_BASE[s] * rd.mult * lm); }
-  return { id: 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), slot, rarity, level, mods, name: `${pick(PREFIX[rarity])} ${def.noun}` };
+  // pick one of the slot's 7–8 unique pixel-sprite variants — each has its own art + noun
+  const variant = pickGearVariant(slot);
+  const sprite = variant ? variant.sprite : slot;
+  const noun = variant ? variant.name : def.noun;
+  return { id: 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), slot, rarity, level, mods, sprite, name: `${pick(PREFIX[rarity])} ${noun}` };
 }
 
 export const QUESTS = [
@@ -304,6 +309,7 @@ function defaultSave() {
     cleared: [], // stage ids whose boss you've beaten (gates the world map)
     introSeen: false, // played the opening cutscene + guided fight (once per save)
     regionBest: {}, // furthest stage (1–10) reached per region id
+    stars: {},      // ⭐ best star rating (0–3) per level, keyed [regionId][stageNum] — gates new regions
     customer: { active: [], seq: 1, done: 0 }, // walk-in customer quests (the RPG fetch/bounty loop)
     cards: [],            // collected card ids (fun rewards from minigames & side quests)
     sideClaims: {},       // claimed side-quest ids -> 1
@@ -365,6 +371,7 @@ export function load() {
       state.unlockedUpgrades = Object.assign({ maxhp: 1, damage: 1, haste: 1, mana: 1, cdr: 1 }, state.unlockedUpgrades || {});
       state.features = state.features || {};
       state.regionBest = state.regionBest || {};
+      state.stars = state.stars || {};
       state.customer = Object.assign({ active: [], seq: 1, done: 0 }, state.customer || {});
       state.cards = Array.isArray(state.cards) ? state.cards : [];
       state.sideClaims = Object.assign({}, state.sideClaims || {});
@@ -514,6 +521,31 @@ export function markStageCleared(id) { if (!state.cleared) state.cleared = []; i
 export const regionBest = (id) => (state.regionBest && state.regionBest[id]) || 0;
 export function setRegionBest(id, n) { if (!state.regionBest) state.regionBest = {}; if (n > (state.regionBest[id] || 0)) { state.regionBest[id] = n; save(); } }
 export const maxRegionBest = () => Object.values(state.regionBest || {}).reduce((a, b) => Math.max(a, b), 0);
+
+// ---- ⭐ candy-crush stars: each of a region's 10 levels earns up to 3 stars (best
+// kept). Accumulated stars gate the next region on the world map. Gates are set so
+// clearing the region before it always earns more than enough — you can never soft-lock,
+// but chasing 3-stars lets keen players race ahead. ----
+export const MAX_STARS = 3;
+// total stars needed to open the Nth region (index into the world-map order). Each region
+// yields up to 30 stars, and unlocking region i means regions 0…i-1 are already cleared
+// (≥10·i stars), so every gate here is comfortably reachable.
+export const REGION_STAR_GATE = [0, 6, 14, 22, 30, 38, 46, 54];
+export const regionStarReq = (idx) => (idx <= 0 ? 0 : (REGION_STAR_GATE[idx] != null ? REGION_STAR_GATE[idx] : idx * 8));
+export const stageStars = (region, stageNum) => ((state.stars && state.stars[region] && state.stars[region][stageNum]) || 0);
+// record a level's star result, keeping the player's best; returns how many NEW stars were gained
+export function awardStars(region, stageNum, n) {
+  n = Math.max(0, Math.min(MAX_STARS, n | 0));
+  if (!state.stars) state.stars = {};
+  if (!state.stars[region]) state.stars[region] = {};
+  const cur = state.stars[region][stageNum] || 0;
+  if (n > cur) { state.stars[region][stageNum] = n; save(); return n - cur; }
+  return 0;
+}
+export function regionStars(region) { const r = (state.stars && state.stars[region]) || {}; let s = 0; for (const k in r) s += r[k] || 0; return s; }
+export function totalStars() { let s = 0; const all = state.stars || {}; for (const region in all) for (const k in all[region]) s += all[region][k] || 0; return s; }
+// is the Nth world-map region unlocked? (region 0 is always open; the rest are star-gated)
+export const regionUnlockedByStars = (idx) => totalStars() >= regionStarReq(idx);
 
 // ===================== generic stat counters (read by side quests) =====================
 export function bumpStat(name, n = 1) { if (!state.stats) state.stats = {}; state.stats[name] = (state.stats[name] || 0) + n; save(); }

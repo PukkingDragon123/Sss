@@ -8,7 +8,7 @@ import { STAGES, STAGE_ORDER } from './story.js';
 import { ARTIFACTS, artifactById, UPGRADES, upgradeRarity } from './upgrades.js';
 import { MINIGAMES, setIconDrawer } from './minigames.js';
 import { CARDS, CARD_BY_ID, CARD_RARITY } from './cards.js';
-import { spriteImg, gearImg, iconImg, iconCanvas, pixify, pixifyHtml } from './pixelicons.js';
+import { spriteImg, gearImg, iconImg, iconCanvas, pixify, pixifyHtml, SPELL_SPRITE, COMBO_SPRITE } from './pixelicons.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -108,7 +108,7 @@ export class UI {
       buildPreview: $('build-preview'), bpCanvas: $('bp-canvas'), bpLabel: $('bp-label'), bpRotate: $('bp-rotate'),
       comboHud: $('combo-hud'), comboN: $('combo-n'),
       merchant: $('merchant'), merchCards: $('merch-cards'), merchGems: $('merch-gems'), merchLeave: $('merch-leave'),
-      joystick: $('joystick'), joyKnob: $('joy-knob'), blackout: $('blackout'),
+      joystick: $('joystick'), joyKnob: $('joy-knob'), blackout: $('blackout'), wipe: $('wipe'),
       glyphGuide: $('glyph-guide'), guideCards: $('guide-cards'), btnGuideClose: $('btn-guide-close'),
     };
     this.chips = {}; // rebuilt per run from the loadout
@@ -230,7 +230,7 @@ export class UI {
       const s = SPELLS[id]; if (!s) return;
       const chip = document.createElement('div');
       chip.className = 'spell-chip'; chip.dataset.spell = id;
-      chip.innerHTML = `<span class="glyph">${s.glyph}</span><span class="name">${s.name}</span><span class="key">${i + 1}</span>`;
+      chip.innerHTML = `<span class="glyph">${spriteImg(SPELL_SPRITE[id], {}, 'sm', s.glyph)}</span><span class="name">${s.name}</span><span class="key">${i + 1}</span>`;
       chip.addEventListener('click', () => this.game.castById(id));
       this.el.spellbook.appendChild(chip);
       this.chips[id] = chip;
@@ -318,7 +318,7 @@ export class UI {
       drawTemplate(cv, TEMPLATES[s.gesture]);
       const label = document.createElement('div');
       label.className = 'guide-label';
-      label.innerHTML = `<span class="guide-glyph">${s.glyph}</span> ${s.name} <span class="key">${i + 1}</span>`;
+      label.innerHTML = `<span class="guide-glyph">${spriteImg(SPELL_SPRITE[id], {}, 'sm', s.glyph)}</span> ${s.name} <span class="key">${i + 1}</span>`;
       card.appendChild(cv); card.appendChild(label);
       this.el.guideCards.appendChild(card);
     });
@@ -396,13 +396,13 @@ export class UI {
   // update the map's hovered-node info bar
   // ---- the 3D world map HUD: a side panel that scouts the selected region ----
   _wmOrder() { return STAGE_ORDER.filter(id => STAGE_MAP[id] && STAGES[id]); }
-  _wmUnlocked(id) { const o = this._wmOrder(), i = o.indexOf(id); return i === 0 || meta.stageCleared(o[i - 1]); }
+  _wmUnlocked(id) { const o = this._wmOrder(), i = o.indexOf(id); return i <= 0 || meta.regionUnlockedByStars(i); }
   showWorldHud(game, id) {
     if (!this.el.worldDetail) return;
     const s = STAGES[id], m = STAGE_MAP[id];
     const order = this._wmOrder(), idx = order.indexOf(id);
     const unlocked = this._wmUnlocked(id), cleared = meta.stageCleared(id);
-    const access = cleared ? '<span class="wm-done-t">✓ Conquered</span>' : unlocked ? '<span class="wm-open-t">Open — ready to venture</span>' : `${iconImg('lock', {}, 'sm')} Clear <b>${STAGES[order[idx - 1]].name}</b> first`;
+    const access = cleared ? '<span class="wm-done-t">✓ Conquered</span>' : unlocked ? '<span class="wm-open-t">Open — ready to venture</span>' : `${iconImg('lock', {}, 'sm')} Needs ${iconImg('star', {}, 'sm')} <b>${meta.regionStarReq(idx)}</b> — have ${meta.totalStars()}`;
     this.el.worldDetail.innerHTML = `
       <div class="wmd-head"><span class="wmd-ico" style="filter:drop-shadow(0 0 8px ${m.tone})">${unlocked ? iconImg(m.icon, {}, 'lg') : iconImg('lock', {}, 'lg')}</span>
         <div><div class="wmd-name" style="color:${m.tone}">${s.name}</div>
@@ -411,6 +411,7 @@ export class UI {
         <div class="wmd-row"><span>Danger</span><b>${iconImg('skull', {}, 'sm').repeat(m.danger)}</b></div>
         <div class="wmd-row"><span>Access</span><b>${access}</b></div>
         <div class="wmd-row"><span>Stages</span><b>${cleared ? `${iconImg('trophy', {}, 'sm')} 10 / 10` : `${meta.regionBest(id)} / 10 reached`}</b></div>
+        <div class="wmd-row"><span>Stars</span><b>${iconImg('star', {}, 'sm')} ${meta.regionStars(id)} / 30</b></div>
         <div class="wmd-row"><span>Loot</span><b>${pixify(m.loot, 'sm')}</b></div>
       </div>
       <button class="btn big wmd-venture" data-act="venture" ${unlocked ? '' : 'disabled'}>${unlocked ? '▸ Venture here' : `${iconImg('lock', {}, 'sm')} Locked`}</button>
@@ -420,43 +421,90 @@ export class UI {
   hideWorldHud() { if (this.el.worldHud) this.el.worldHud.classList.add('hidden'); }
 
   // ---- region level map: a Mewgenics / Slay-the-Spire branching node map ----
+  // ---- the run map: a 3D candy-crush winding level trail. The region is a single chain of
+  // 10 levels; we lay them out as a bobbing S-curve of glossy numbered bubbles climbing to
+  // the boss, a fat candy path linking them, a star rating stamped under each, and reward
+  // charms floating beside cache/rest levels. Stars you bank here unlock the next region. ----
   showRunMap(game) {
     const el = this.el.runMap; if (!el) return;
     const map = game._runMap; if (!map) return;
     const cur = game._mapNodeId;                 // null = run not started
     const visited = game._mapVisited || new Set();
+    const region = game._runRegion;
     const reach = new Set();
     if (cur == null) reach.add(map.startId);
     else { const c = map.byId[cur]; if (c) c.next.forEach(id => reach.add(id)); }
-    const META = { combat: ['⚔️', 'Skirmish'], elite: ['💀', 'Elite'], treasure: ['💰', 'Cache'], campfire: ['🔥', 'Rest'], event: ['❓', 'Mystery'], skill: ['✶', 'Trial'], minigame: ['🎲', 'Game'], boss: ['👑', 'Boss'] };
-    const COLW = 96, ROWH = 80, PADX = 38, PADY = 44;
-    const W = (map.cols - 1) * COLW + PADX * 2, H = (map.rows - 1) * ROWH + PADY * 2;
-    const px = (c) => PADX + c * COLW, py = (r) => PADY + r * ROWH;
-    let edges = '';
-    for (const n of map.nodes) for (const id of n.next) {
-      const m = map.byId[id]; const open = (n.id === cur) && reach.has(id);
-      edges += `<line x1="${px(n.col)}" y1="${py(n.row)}" x2="${px(m.col)}" y2="${py(m.row)}" class="rm-edge${open ? ' open' : ''}"/>`;
-    }
-    const relic = game._opArtifact; // the guaranteed boss-drop relic, previewed on the boss node
+    const curRow = cur != null && map.byId[cur] ? map.byId[cur].row : -1;
+    const META = { combat: ['⚔️', 'Skirmish'], elite: ['💀', 'Elite'], treasure: ['💰', 'Cache'], campfire: ['🔥', 'Rest'], event: ['❓', 'Mystery'], skill: ['✶', 'Trial'], minigame: ['🎲', 'Game'], boss: ['👑', 'Boss Lair'] };
+    const REWARD = { treasure: '💎', campfire: '❤️', minigame: '🎲' }; // little charm shown beside reward levels
+
+    // winding S-curve layout: row 0 (entrance) at the BOTTOM, boss at the TOP — you climb up
+    const rows = map.rows, AMP = 92, ROWH = 108, PADX = 64, PADY = 70, R = 1;
+    const CX = PADX + AMP, W = CX * 2, H = PADY * 2 + (rows - 1) * ROWH;
+    const X = (r) => CX + Math.sin(r * 0.9 + 0.5) * AMP;
+    const Y = (r) => PADY + (rows - 1 - r) * ROWH;
+    const rr = (v) => Math.round(v * 10) / 10;
+    const pts = map.nodes.slice().sort((a, b) => a.row - b.row).map(n => ({ n, x: X(n.row), y: Y(n.row) }));
+    const smooth = (arr) => {
+      const m = arr.length; if (m < 2) return '';
+      let d = `M ${rr(arr[0].x)} ${rr(arr[0].y)}`;
+      for (let i = 0; i < m - 1; i++) { const p = arr[i], q = arr[i + 1]; d += ` Q ${rr(p.x)} ${rr(p.y)} ${rr((p.x + q.x) / 2)} ${rr((p.y + q.y) / 2)}`; }
+      const last = arr[m - 1]; d += ` L ${rr(last.x)} ${rr(last.y)}`; return d;
+    };
+    const basePath = smooth(pts);
+    const donePts = pts.filter(p => p.n.row <= curRow);
+    const donePath = donePts.length >= 2 ? smooth(donePts) : '';
+    // the glowing "next" connector from where you stand to the reachable level
+    let openPath = '';
+    if (cur != null) { const nx = pts.find(p => reach.has(p.n.id)); const c = pts.find(p => p.n.id === cur); if (nx && c) openPath = smooth([c, nx]); }
+
+    const relic = game._opArtifact; // guaranteed boss-drop relic, previewed on the boss node
     let nodes = '';
-    for (const n of map.nodes) {
-      const meta = META[n.type] || META.combat;
+    for (const p of pts) {
+      const n = p.n, mt = META[n.type] || META.combat;
       const isCur = n.id === cur, isReach = reach.has(n.id), isVis = visited.has(n.id) && !isCur;
-      const cls = ['rm-node', 'rm-' + n.type, isCur ? 'cur' : '', isReach ? 'reach' : '', isVis ? 'vis' : ''].filter(Boolean).join(' ');
-      const lbl = (n.type === 'boss' && relic) ? '✦ Relic' : meta[1];
-      const tip = (n.type === 'boss' && relic) ? `Boss — wins ${relic.name}` : meta[1];
-      nodes += `<button class="${cls}" data-node="${n.id}" title="${tip}" style="left:${px(n.col)}px;top:${py(n.row)}px" ${isReach ? '' : 'disabled'}><span class="rm-ico">${iconImg(meta[0], {}, 'md')}</span><span class="rm-lbl">${lbl}</span></button>`;
+      const isBoss = n.type === 'boss';
+      const cls = ['rm-node', 'rm-' + n.type, isCur ? 'cur' : '', isReach ? 'reach' : '', isVis ? 'done' : ''].filter(Boolean).join(' ');
+      const tip = isBoss && relic ? `Boss — wins ${relic.name}` : mt[1];
+      // main face: boss shows a crown, everyone else the level number with a small type badge
+      const face = isBoss
+        ? `<span class="rm-face rm-boss-face">${iconImg('crown', {}, 'md')}</span>`
+        : `<span class="rm-face"><b class="rm-num">${n.row + 1}</b><span class="rm-badge">${iconImg(mt[0], {}, 'sm')}</span></span>`;
+      // star rating stamped under the bubble (best you've earned on this level)
+      const got = meta.stageStars(region, n.row + 1);
+      let stars = '';
+      for (let i = 0; i < 3; i++) stars += `<span class="rm-star ${i < got ? 'on' : ''}">${iconImg('star', {}, 'sm')}</span>`;
+      // reward charm beside cache / rest / game levels ("rewards between")
+      const charm = REWARD[n.type] ? `<span class="rm-charm">${iconImg(REWARD[n.type], {}, 'sm')}</span>` : '';
+      nodes += `<button class="${cls}" data-node="${n.id}" title="${tip}" style="left:${rr(p.x)}px;top:${rr(p.y)}px" ${isReach ? '' : 'disabled'}>${face}${charm}<span class="rm-stars">${stars}</span></button>`;
     }
-    const region = (STAGES[game._runRegion] && STAGES[game._runRegion].name) || 'The Path';
+
+    // banner: region name + your star bank and the next region's unlock gate
+    const order = this._wmOrder(); const rIdx = order.indexOf(region);
+    const total = meta.totalStars();
+    const nextId = order[rIdx + 1];
+    const nextReq = nextId ? meta.regionStarReq(rIdx + 1) : 0;
+    const nextName = nextId && STAGES[nextId] ? STAGES[nextId].name : '';
+    const gate = nextId
+      ? `<div class="rm-gate ${total >= nextReq ? 'open' : ''}">${iconImg('star', {}, 'sm')} <b>${total}</b>/${nextReq} to unlock ${nextName}</div>`
+      : `<div class="rm-gate open">${iconImg('star', {}, 'sm')} <b>${total}</b> stars banked</div>`;
+    const regionName = (STAGES[region] && STAGES[region].name) || 'The Path';
     el.innerHTML = `<div class="rm-frame">
-      <div class="rm-banner">${iconImg('map', {}, 'sm')} ${region}</div>
-      <div class="rm-tip">${cur == null ? 'Tap the first level to begin' : 'Choose your next level'}${relic ? ` · ${iconImg('crown', {}, 'sm')} boss drops ${iconImg(relic.icon, {}, 'sm')} ${relic.name}` : ''}</div>
+      <div class="rm-banner">${iconImg('map', {}, 'sm')} ${regionName}</div>
+      ${gate}
+      <div class="rm-tip">${cur == null ? 'Tap the first level to begin your climb' : 'Tap the next level to press on'}${relic ? ` · ${iconImg('crown', {}, 'sm')} boss drops ${iconImg(relic.icon, {}, 'sm')} ${relic.name}` : ''}</div>
       <div class="rm-scroll"><div class="rm-graph" style="width:${W}px;height:${H}px">
-        <svg class="rm-edges" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${edges}</svg>${nodes}
+        <svg class="rm-edges" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+          <path class="rm-trail-base" d="${basePath}"/>
+          ${donePath ? `<path class="rm-trail-done" d="${donePath}"/>` : ''}
+          ${openPath ? `<path class="rm-trail-open" d="${openPath}"/>` : ''}
+        </svg>${nodes}
       </div></div>
       <button class="btn rm-retreat" data-rm="retreat">◂ ${cur == null ? 'Back to realm' : 'Retreat'}</button>
     </div>`;
     el.classList.remove('hidden');
+    // start scrolled to the bottom (the entrance / where you stand) so the climb reads upward
+    const sc = el.querySelector('.rm-scroll'); if (sc) { const target = cur != null ? Math.max(0, Y(curRow) - sc.clientHeight * 0.78) : sc.scrollHeight; sc.scrollTop = target; }
   }
   hideRunMap() { if (this.el.runMap) this.el.runMap.classList.add('hidden'); }
 
@@ -775,6 +823,47 @@ export class UI {
   }
 
   fadeBlack(on) { this.el.blackout.classList.toggle('show', !!on); }
+
+  // goofy scene wipe: cover the screen (kind: 'iris'|'diamond'|'spin'), run `mid` at the
+  // covered moment (swap the scene there), then reveal. Safe no-op if the element is missing.
+  wipe(kind = 'iris', mid, done, ms = 460) {
+    const el = this.el.wipe;
+    if (!el) { if (mid) mid(); if (done) done(); return; }
+    if (this._wipeT) { clearTimeout(this._wipeT); this._wipeT = null; }
+    el.className = ''; void el.offsetWidth; // restart animations
+    el.classList.add('show', 'w-' + kind, 'covering');
+    this._wipeT = setTimeout(() => {
+      if (mid) { try { mid(); } catch (e) {} }
+      el.classList.remove('covering'); el.classList.add('revealing');
+      this._wipeT = setTimeout(() => { el.className = ''; if (done) { try { done(); } catch (e) {} } }, ms + 120);
+    }, ms);
+  }
+
+  // a quick white slam-flash (cutscene starts, big reveals)
+  flash() { const el = this.el.wipe; if (!el) return; el.className = ''; void el.offsetWidth; el.classList.add('show', 'flash'); setTimeout(() => { el.className = ''; }, 380); }
+
+  // comedic death: the world drunkenly spins & shrinks to black, then `done` fires
+  deathTumble(done) {
+    document.body.classList.add('dying');
+    setTimeout(() => { document.body.classList.remove('dying'); if (done) { try { done(); } catch (e) {} } }, 1150);
+  }
+
+  // ⭐ candy-crush star pop when a level is rated: three stars stamp in one-by-one,
+  // the earned ones gold & bouncing, with a "new best!" ribbon when it beats your record.
+  starAward(stars = 1, gained = 0) {
+    // NB: append to <body>, not #toast-area — that host has a transform, which would make
+    // this position:fixed popup resolve against it and collapse to zero size.
+    const host = document.body;
+    const wrap = document.createElement('div');
+    wrap.className = 'star-award';
+    let row = '';
+    for (let i = 0; i < 3; i++) row += `<span class="sa-star ${i < stars ? 'on' : 'off'}" style="animation-delay:${i * 0.13}s">${iconImg('star', {}, 'lg')}</span>`;
+    wrap.innerHTML = `<div class="sa-row">${row}</div>${gained ? '<div class="sa-cap">★ New best!</div>' : ''}`;
+    host.appendChild(wrap);
+    try { this.audio && this.audio.play && this.audio.play('xp'); } catch (e) {}
+    if (stars >= 2) setTimeout(() => this.burstFX(wrap, 'gem', 6 + stars * 2), 240);
+    setTimeout(() => wrap.remove(), 1850);
+  }
 
   // opening rampage objective (reuses the tavern HUD banner)
   showRampage(done, total) {
@@ -1438,7 +1527,7 @@ export class UI {
       const equipped = eq.includes(id);
       h += `<div class="shop-card spell-card" style="--el:${e.color}">
         <div class="spell-el" style="color:${e.color}">${iconImg(e.icon, {}, 'sm')} ${e.name}</div>
-        <div class="shop-glyph" style="color:${e.color}">${m.glyph}</div>
+        <div class="shop-glyph" style="color:${e.color}">${spriteImg(SPELL_SPRITE[id], {}, 'lg', m.glyph)}</div>
         <div class="shop-name">${m.name} <span class="lvtag">Lv${meta.spellLevel(id)}</span></div>
         <div class="shop-acts"><button class="shop-btn ${equipped ? 'on' : ''}" data-act="equip" data-id="${id}">${equipped ? '✓ Equipped' : 'Equip'}</button></div></div>`;
     }
@@ -1527,7 +1616,7 @@ export class UI {
       }
       h += `<div class="shop-card spell-card ${owned ? '' : 'locked'}" style="--el:${e.color}">
         <div class="spell-el" style="color:${e.color}">${iconImg(e.icon, {}, 'sm')} ${e.name}</div>
-        <div class="shop-glyph" style="color:${e.color}">${m.glyph}</div>
+        <div class="shop-glyph" style="color:${e.color}">${spriteImg(SPELL_SPRITE[id], {}, 'lg', m.glyph)}</div>
         <div class="shop-name">${m.name}${owned ? ` <span class="lvtag">Lv${lvl}</span>` : ''}</div>
         <div class="shop-acts">${action}</div></div>`;
     }
@@ -1588,7 +1677,7 @@ export class UI {
       else if (!haveParts) action = '<button class="shop-btn" disabled>Need both spells</button>';
       else action = `<button class="shop-btn" data-act="learn" data-id="${id}" ${meta.canAfford(c.cost) ? '' : 'disabled'}>Learn ${c.cost} ${iconImg('coin', {}, 'sm')}</button>`;
       h += `<div class="shop-card ${learned ? '' : 'locked'}">
-        <div class="shop-glyph">${ga}+${gb}</div>
+        <div class="shop-glyph combo-glyph">${spriteImg(COMBO_SPRITE[id], {}, 'lg', ga + '+' + gb)}<span class="combo-parts">${spriteImg(SPELL_SPRITE[c.a], {}, 'sm', ga)}<b>+</b>${spriteImg(SPELL_SPRITE[c.b], {}, 'sm', gb)}</span></div>
         <div class="shop-name">${c.name}</div>
         <div class="shop-desc">${c.desc}</div>
         <div class="shop-acts">${action}</div></div>`;

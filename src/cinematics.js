@@ -202,6 +202,7 @@ export class Cinematics {
   // ---------- public ----------
   play(name, onDone) {
     this.script = SCRIPTS[name]; if (!this.script) { if (onDone) onDone(); return; }
+    if (this.game.ui.flash) this.game.ui.flash(); // a filmic slam-flash as the cutscene begins
     this.active = true; this.idx = -1; this.onDone = onDone || null; this.qte = null;
     this.game.state = 'cutscene';
     this.game.wizard.setVisible(true);

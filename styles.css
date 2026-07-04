@@ -1809,6 +1809,46 @@ html,body{background:#0b0d12;color:var(--ink);}
 .overlay,.btn,.iconbtn,.shop-btn,.spell-chip,.card,.vil-tab,.path-door,.slot-card{cursor:pointer;}
 
 /* ============================================================================
+   GOOFY SCENE TRANSITIONS — iris / diamond / spin wipes + a comedic death tumble.
+   #wipe is a full-screen cover; JS adds w-<kind> + covering|revealing.
+   ========================================================================== */
+#wipe{position:fixed;inset:0;z-index:60;pointer-events:none;display:none;}
+#wipe.show{display:block;}
+#wipe > i{position:absolute;inset:0;display:block;background:#0b0d12;}
+/* IRIS: a dark disc grows to cover, then shrinks to reveal */
+#wipe.w-iris > i{clip-path:circle(0% at 50% 50%);}
+#wipe.w-iris.covering > i{animation:irisCover .42s ease-in forwards;}
+#wipe.w-iris.revealing > i{clip-path:circle(150% at 50% 50%);animation:irisReveal .5s ease-out forwards;}
+@keyframes irisCover{from{clip-path:circle(0% at 50% 50%);}to{clip-path:circle(150% at 50% 50%);}}
+@keyframes irisReveal{from{clip-path:circle(150% at 50% 50%);}to{clip-path:circle(0% at 50% 50%);}}
+/* DIAMOND: a rotated square scales up to cover, down to reveal */
+#wipe.w-diamond > i{background:#0b0d12;transform:rotate(45deg) scale(0);transform-origin:50% 50%;}
+#wipe.w-diamond.covering > i{animation:diaCover .4s cubic-bezier(.5,0,.9,.5) forwards;}
+#wipe.w-diamond.revealing > i{transform:rotate(45deg) scale(3);animation:diaReveal .45s cubic-bezier(.1,.5,.5,1) forwards;}
+@keyframes diaCover{from{transform:rotate(45deg) scale(0);}to{transform:rotate(45deg) scale(3);}}
+@keyframes diaReveal{from{transform:rotate(45deg) scale(3);}to{transform:rotate(45deg) scale(0);}}
+/* SPIN: the cover pinwheels in and out */
+#wipe.w-spin > i{background:conic-gradient(from 0deg,#0b0d12 0 60deg,#171c24 60deg 120deg,#0b0d12 120deg 180deg,#171c24 180deg 240deg,#0b0d12 240deg 300deg,#171c24 300deg 360deg);transform:scale(0) rotate(0);transform-origin:50% 50%;}
+#wipe.w-spin.covering > i{animation:spinCover .5s ease-in forwards;}
+#wipe.w-spin.revealing > i{transform:scale(3) rotate(240deg);animation:spinReveal .5s ease-out forwards;}
+@keyframes spinCover{from{transform:scale(0) rotate(-220deg);}to{transform:scale(3) rotate(0);}}
+@keyframes spinReveal{from{transform:scale(3) rotate(0);}to{transform:scale(0) rotate(220deg);}}
+
+/* a quick white flash (cutscene slam) */
+#wipe.flash > i{background:#fff;animation:trFlash .35s ease-out forwards;}
+@keyframes trFlash{0%{opacity:0;}18%{opacity:.9;}100%{opacity:0;}}
+
+/* comedic DEATH: the whole scene drunkenly spins, squashes and tumbles away to black */
+body.dying #scene,body.dying #fx2d{animation:deathTumble 1.1s cubic-bezier(.5,0,.7,1) forwards;transform-origin:50% 60%;}
+@keyframes deathTumble{
+  0%{transform:none;filter:none;}
+  25%{transform:rotate(-8deg) scale(1.05);}
+  100%{transform:rotate(320deg) scale(.02) translateY(30%);filter:brightness(.3) saturate(.4);}
+}
+body.dying #hud{animation:deathFadeHud .5s ease forwards;}
+@keyframes deathFadeHud{to{opacity:0;}}
+
+/* ============================================================================
    INDIE COMPLETENESS — smooth screen fades, a paused dim, a living title.
    ========================================================================== */
 /* every overlay/menu settles in with a soft fade instead of a hard cut */
@@ -1832,3 +1872,95 @@ body.paused #pause-label{display:flex;}
   text-shadow:0 3px 0 rgba(0,0,0,.6);opacity:0;letter-spacing:2px;white-space:nowrap;}
 #streak-cry.show{animation:streakCry 1.1s cubic-bezier(.2,1.4,.4,1) forwards;}
 @keyframes streakCry{0%{opacity:0;transform:translateX(-50%) scale(.5) rotate(-4deg);}25%{opacity:1;transform:translateX(-50%) scale(1.1) rotate(2deg);}70%{opacity:1;transform:translateX(-50%) scale(1) rotate(0);}100%{opacity:0;transform:translateX(-50%) scale(1) translateY(-20px);}}
+
+/* ============================================================================
+   CANDY-CRUSH LEVEL TRAIL — a winding, 3D, glossy path of numbered level bubbles
+   climbing to the boss, with a fat candy ribbon, per-level star ratings, and
+   reward charms. Appended last so it wins over every earlier .rm-node theme rule.
+   ========================================================================== */
+.rm-scroll{width:100%;overflow-y:auto;overflow-x:hidden;flex:1;display:flex;justify-content:center;align-items:flex-start;
+  border-block:2px solid rgba(255,255,255,.08);padding:10px 0;scroll-behavior:smooth;}
+.rm-gate{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-dim);
+  background:rgba(0,0,0,.28);border:2px solid rgba(214,178,120,.28);border-radius:999px;padding:3px 14px;letter-spacing:.4px;}
+.rm-gate b{color:var(--gold);font-family:var(--font-head);}
+.rm-gate.open{border-color:rgba(120,220,140,.45);}
+.rm-gate.open b{color:#bdf6c1;}
+
+/* the ribbon: a thick base track, a gold "already climbed" overlay, an animated "next" dash */
+.rm-trail-base{fill:none;stroke:rgba(60,44,26,.6);stroke-width:17;stroke-linecap:round;stroke-linejoin:round;}
+.rm-trail-done{fill:none;stroke:#e6b04a;stroke-width:13;stroke-linecap:round;stroke-linejoin:round;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.4));}
+.rm-trail-open{fill:none;stroke:#fff3d0;stroke-width:6;stroke-linecap:round;stroke-dasharray:1 15;
+  filter:drop-shadow(0 0 5px rgba(255,243,208,.85));animation:rmflow .7s linear infinite;}
+@keyframes rmflow{to{stroke-dashoffset:-16;}}
+
+/* the glossy level bubble */
+.rm-node{position:absolute;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;gap:0;cursor:pointer;overflow:visible;
+  background:#c58a3e;border:4px solid #f2dca0;color:#2a1c08;font-family:var(--font-body);
+  box-shadow:inset 0 5px 0 rgba(255,255,255,.4),inset 0 -8px 12px rgba(0,0,0,.4),0 6px 0 #6e4a20,0 12px 15px rgba(0,0,0,.55);
+  transition:transform .1s ease,filter .1s ease;}
+.rm-node::before{content:"";position:absolute;top:6px;left:13px;width:22px;height:12px;border-radius:50%;
+  background:rgba(255,255,255,.55);filter:blur(.5px);pointer-events:none;}
+.rm-node.rm-treasure{background:#d9a83c;border-color:#ffe9ad;}
+.rm-node.rm-campfire{background:#cf5c38;border-color:#ffcda0;}
+.rm-node.rm-elite{background:#933a55;border-color:#f0aecb;}
+.rm-node.rm-event{background:#5570b2;border-color:#bcd0ff;}
+.rm-node.rm-skill{background:#3fa0a0;border-color:#b6f0f0;}
+.rm-node.rm-minigame{background:#8a5ab8;border-color:#dcc0f2;}
+.rm-node.rm-combat{background:#c58a3e;border-color:#f2dca0;}
+.rm-node.rm-boss{width:84px;height:84px;background:#ad2e3a;border-color:#ffcf5c;
+  box-shadow:inset 0 6px 0 rgba(255,255,255,.35),inset 0 -9px 14px rgba(0,0,0,.45),0 7px 0 #5e1119,0 14px 18px rgba(0,0,0,.6),0 0 18px rgba(255,120,90,.45);}
+.rm-node .rm-face{position:relative;display:flex;align-items:center;justify-content:center;line-height:1;}
+.rm-node .rm-num{font-family:var(--font-head);font-size:27px;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.55),0 0 5px rgba(0,0,0,.4);}
+.rm-node.rm-boss .rm-face{filter:drop-shadow(0 2px 3px rgba(0,0,0,.5));}
+.rm-node .rm-badge{position:absolute;bottom:-7px;right:-13px;width:23px;height:23px;border-radius:50%;
+  background:#2a2015;border:2px solid #f2dca0;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,.5);}
+.rm-node .rm-charm{position:absolute;top:-11px;left:-15px;width:27px;height:27px;border-radius:50%;
+  background:#241a10;border:2px solid #ffcf5c;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 6px rgba(0,0,0,.55);animation:rmcharm 1.9s ease-in-out infinite;z-index:2;}
+@keyframes rmcharm{0%,100%{transform:translateY(0) rotate(-9deg);}50%{transform:translateY(-4px) rotate(9deg);}}
+/* per-level star rating, hung under the bubble */
+.rm-node .rm-stars{position:absolute;left:50%;top:calc(100% + 2px);transform:translateX(-50%);display:flex;gap:0;white-space:nowrap;pointer-events:none;}
+.rm-node.rm-boss .rm-stars{top:calc(100% + 4px);}
+.rm-star{opacity:.9;filter:grayscale(1) brightness(.55);transform:scale(.6);transform-origin:center;}
+.rm-star.on{filter:drop-shadow(0 1px 1px rgba(0,0,0,.5));transform:scale(.72);}
+/* states */
+.rm-node[disabled]{cursor:default;filter:saturate(.6) brightness(.82);}
+.rm-node[disabled]::before{opacity:.3;}
+.rm-node.done{filter:brightness(.94);}
+.rm-node.reach{animation:rmpulse 1.2s ease-in-out infinite;z-index:3;}
+.rm-node.reach:hover{transform:translate(-50%,-50%) scale(1.13);filter:brightness(1.1);}
+.rm-node.cur{z-index:4;outline:3px solid #fff3d0;outline-offset:4px;}
+.rm-node:active{transform:translate(-50%,-50%) scale(.95);}
+@keyframes rmpulse{
+  0%,100%{box-shadow:inset 0 5px 0 rgba(255,255,255,.4),inset 0 -8px 12px rgba(0,0,0,.4),0 6px 0 #6e4a20,0 12px 15px rgba(0,0,0,.55),0 0 0 0 rgba(255,207,92,.6);}
+  50%{box-shadow:inset 0 5px 0 rgba(255,255,255,.4),inset 0 -8px 12px rgba(0,0,0,.4),0 6px 0 #6e4a20,0 12px 15px rgba(0,0,0,.55),0 0 22px 7px rgba(255,207,92,.7);}}
+
+/* ⭐ star-award pop when a level is rated. Base state is fully visible so the popup
+   still shows if animations are reduced/throttled; the keyframes are pure enhancement. */
+.star-award{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:40;pointer-events:none;opacity:1;
+  display:flex;flex-direction:column;align-items:center;gap:6px;animation:saFade 1.85s ease;}
+@keyframes saFade{0%{opacity:1;transform:translate(-50%,-50%) scale(.6);}12%{opacity:1;transform:translate(-50%,-50%) scale(1);}
+  82%{opacity:1;transform:translate(-50%,-56%) scale(1);}100%{opacity:0;transform:translate(-50%,-80%) scale(1);}}
+.star-award .sa-row{display:flex;gap:6px;}
+.star-award .sa-star{width:clamp(40px,8vw,54px);height:clamp(40px,8vw,54px);flex:none;
+  display:flex;align-items:center;justify-content:center;transform:scale(1);opacity:.4;
+  filter:grayscale(1) brightness(.6);animation:saPop .5s cubic-bezier(.2,1.6,.4,1);}
+.star-award .sa-star.on{opacity:1;filter:drop-shadow(0 3px 4px rgba(0,0,0,.5)) drop-shadow(0 0 10px rgba(255,207,92,.8));
+  animation:saPopOn .55s cubic-bezier(.2,1.7,.4,1);}
+.star-award .sa-star .pixi{width:100%;height:100%;}
+@keyframes saPop{0%{transform:scale(.5);}55%{transform:scale(1.15);}100%{transform:scale(1);}}
+@keyframes saPopOn{0%{transform:scale(.5) rotate(-24deg);}55%{transform:scale(1.35) rotate(6deg);}100%{transform:scale(1) rotate(0);}}
+.star-award .sa-cap{font-family:var(--font-head);font-size:15px;color:var(--gold-hi,#ffe08a);letter-spacing:1px;
+  text-shadow:0 2px 0 rgba(0,0,0,.6);}
+
+/* spell & combo pictures sit inside their existing glyph slots */
+.spell-chip .glyph{width:auto;}
+.spell-chip .glyph .pixgear{width:26px;height:26px;vertical-align:middle;animation:none;}
+.guide-glyph .pixgear{width:24px;height:24px;vertical-align:-6px;animation:none;}
+.shop-glyph .pixgear{width:56px;height:56px;animation:none;}
+.shop-glyph.combo-glyph{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.combo-glyph .combo-parts{display:flex;align-items:center;gap:3px;opacity:.82;}
+.combo-glyph .combo-parts .pixgear{width:22px;height:22px;}
+.combo-glyph .combo-parts b{color:var(--ink-dim);font-size:13px;}

@@ -106,6 +106,8 @@ export class Tavern {
     const barTop = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.16, 12.4), barTopMat); barTop.position.set(-9.1, 1.16, -4); barTop.castShadow = true; g.add(barTop);
     const footRail = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 12, 8), brassMat); footRail.rotation.x = Math.PI / 2; footRail.position.set(-8.1, 0.22, -4); g.add(footRail);
     for (const z of [-9, -4, 1]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.22, 6), brassMat); post.position.set(-8.1, 0.11, z); g.add(post); }
+    // SOLID obstacles you actually bump into (the bar counter blocks you — no walking through it)
+    this._barSolids = [{ x: -9.1, z: -4, hw: 1.35, hd: 6.4 }];
 
     // knockable furniture (the wonky-physics fun stays)
     const woodMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x7a5230, roughness: 0.9 });
@@ -826,8 +828,24 @@ export class Tavern {
     for (const s of this.stations) if (s.mark) { s.mark.rotation.y += dt * 2; s.mark.position.y = 2.4 + Math.sin(this.phase * 3 + s.pos.x) * 0.16; }
     game.nearStation = this.nearestStation(w.pos, this.stations);
 
+    this._resolveSolids(w, 0.55, this._barSolids); // bump off the bar counter
     w.pos.x = Math.max(MINX, Math.min(MAXX, w.pos.x));
     w.pos.z = Math.max(NORTH, Math.min(SOUTH, w.pos.z));
+  }
+
+  // push the wizard OUT of any solid axis-aligned box (slide along it, kill inward velocity)
+  _resolveSolids(w, r, solids) {
+    if (!solids) return;
+    for (const s of solids) {
+      const minx = s.x - s.hw - r, maxx = s.x + s.hw + r, minz = s.z - s.hd - r, maxz = s.z + s.hd + r;
+      if (w.pos.x <= minx || w.pos.x >= maxx || w.pos.z <= minz || w.pos.z >= maxz) continue;
+      const pl = w.pos.x - minx, pr = maxx - w.pos.x, pu = w.pos.z - minz, pd = maxz - w.pos.z;
+      const m = Math.min(pl, pr, pu, pd);
+      if (m === pl) { w.pos.x = minx; if (w.vel.x > 0) w.vel.x = 0; }
+      else if (m === pr) { w.pos.x = maxx; if (w.vel.x < 0) w.vel.x = 0; }
+      else if (m === pu) { w.pos.z = minz; if (w.vel.z > 0) w.vel.z = 0; }
+      else { w.pos.z = maxz; if (w.vel.z < 0) w.vel.z = 0; }
+    }
   }
 
   updateRoom(dt, game) {
@@ -836,6 +854,8 @@ export class Tavern {
     this._flicker();
     for (const s of this.roomStations) if (s.mark) { s.mark.rotation.y += dt * 2; s.mark.position.y = (s.type === 'station' ? 1.9 : 2.0) + Math.sin(this.phase * 3 + s.pos.x) * 0.14; }
     game.nearStation = this.nearestStation(w.pos, this.roomStations, 1.9);
+    // your crafted furniture/stations are solid — bump into them, don't ghost through
+    if (this.roomStations) this._resolveSolids(w, 0.5, this.roomStations.map(s => ({ x: s.pos.x, z: s.pos.z, hw: 0.55, hd: 0.55 })));
     w.pos.x = Math.max(RMINX, Math.min(RMAXX, w.pos.x));
     w.pos.z = Math.max(RNORTH, Math.min(RSOUTH, w.pos.z));
   }

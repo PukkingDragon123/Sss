@@ -82,7 +82,7 @@ export class World {
   build() {
     if (this._built) return;
     const g = this.group;
-    const M = (c, r = 0.9, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: o.metal || 0, emissive: o.emis || 0x000000, emissiveIntensity: o.emisI != null ? o.emisI : 1 });
+    const M = (c, r = 0.9, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: o.metal || 0, emissive: o.emis || 0x000000, emissiveIntensity: o.emisI != null ? o.emisI : 1, flatShading: true });
 
     // ---- the living pixel sea ----
     this._seaTex = seaTexture();
@@ -254,7 +254,7 @@ export class World {
 
   // themed island landmarks — every region gets a proper centrepiece + set dressing
   _deco(view, kind, tone) {
-    const M = (c, r = 0.9, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: o.metal || 0, emissive: o.emis || 0x000000, emissiveIntensity: o.emisI != null ? o.emisI : 1 });
+    const M = (c, r = 0.9, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: o.metal || 0, emissive: o.emis || 0x000000, emissiveIntensity: o.emisI != null ? o.emisI : 1, flatShading: true });
     const add = (m, x, z, y) => { m.position.set(x, y != null ? y : m.position.y, z); m.castShadow = true; view.add(m); return m; };
     const TOP = 0.75; // island surface height
     const tree = (x, z, s = 1) => { const t = new THREE.Group(); const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.16 * s, 0.24 * s, 0.9 * s, 6), M(0x4a3326)); tr.position.y = 0.45 * s; tr.castShadow = true; const l1 = new THREE.Mesh(new THREE.ConeGeometry(0.65 * s, 1.2 * s, 7), M(0x2f6e3f)); l1.position.y = 1.25 * s; l1.castShadow = true; const l2 = new THREE.Mesh(new THREE.ConeGeometry(0.45 * s, 0.9 * s, 7), M(0x3a824a)); l2.position.y = 1.85 * s; t.add(tr, l1, l2); t.position.set(x, TOP, z); view.add(t); return t; };

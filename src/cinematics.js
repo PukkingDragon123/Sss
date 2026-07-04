@@ -29,7 +29,7 @@ export class Cinematics {
 
   // ---------- sets ----------
   _build() {
-    const M = (c, r = 0.85, m = 0, e = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m, emissive: e, emissiveIntensity: e ? 0.7 : 0 });
+    const M = (c, r = 0.85, m = 0, e = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m, emissive: e, emissiveIntensity: e ? 0.7 : 0, flatShading: true });
     const glow = (c, o = 0.95) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false });
 
     // ===== the cutscene BAR set (a composed, dressed corner — NOT the playable tavern) =====

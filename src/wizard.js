@@ -79,70 +79,71 @@ export class Wizard {
     this.facer = facer;
 
     // soft "clay" palette
-    const robeMat = new THREE.MeshStandardMaterial({ color: 0x8f7bd6, roughness: 0.85 });
-    const robeMat2 = new THREE.MeshStandardMaterial({ color: 0x6f5fc4, roughness: 0.85 });
-    const skinMat = new THREE.MeshStandardMaterial({ color: 0xf2e0c9, roughness: 0.8 });
-    const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf7f4ec, roughness: 0.9 });
-    const darkMat = new THREE.MeshStandardMaterial({ color: 0x3a2f4a, roughness: 0.7 });
-    const goldMat = new THREE.MeshStandardMaterial({ color: 0xffd98a, roughness: 0.45, metalness: 0.3, emissive: 0x3a2c00 });
+    // low-poly hero: flat-shaded facets on every lit surface
+    const robeMat = new THREE.MeshStandardMaterial({ color: 0x8f7bd6, roughness: 0.85, flatShading: true });
+    const robeMat2 = new THREE.MeshStandardMaterial({ color: 0x6f5fc4, roughness: 0.85, flatShading: true });
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0xf2e0c9, roughness: 0.8, flatShading: true });
+    const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf7f4ec, roughness: 0.9, flatShading: true });
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x3a2f4a, roughness: 0.7, flatShading: true });
+    const goldMat = new THREE.MeshStandardMaterial({ color: 0xffd98a, roughness: 0.45, metalness: 0.3, emissive: 0x3a2c00, flatShading: true });
     this.robeMat = robeMat; this.skinMat = skinMat;
     this.armMat = robeMat; this.handMat = skinMat;
 
     const shadowed = (m) => { m.castShadow = true; return m; };
 
     // legs (soft rounded stubs)
-    const legGeo = new THREE.CapsuleGeometry(0.17, 0.3, 4, 8);
+    const legGeo = new THREE.CapsuleGeometry(0.17, 0.3, 2, 6);
     this.legL = shadowed(new THREE.Mesh(legGeo, darkMat)); this.legL.position.set(-0.24, 0.34, 0);
     this.legR = shadowed(new THREE.Mesh(legGeo, darkMat)); this.legR.position.set(0.24, 0.34, 0);
     facer.add(this.legL, this.legR);
 
     // robe / torso (rounded, soft)
-    const skirt = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.82, 1.0, 16), robeMat));
+    const skirt = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.82, 1.0, 9), robeMat));
     skirt.position.y = 0.95;
-    const torso = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.52, 16, 14), robeMat));
+    const torso = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.52, 10, 8), robeMat));
     torso.position.y = 1.5; torso.scale.set(1, 0.95, 0.92);
     facer.add(skirt, torso);
     this.torso = torso;
 
-    const belt = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.07, 8, 20), goldMat);
+    const belt = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.07, 5, 12), goldMat);
     belt.rotation.x = Math.PI / 2; belt.position.y = 1.02;
     facer.add(belt);
 
     // head
     const head = new THREE.Group(); head.position.y = 2.05;
     facer.add(head); this.head = head;
-    const skull = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.44, 18, 16), skinMat));
+    const skull = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.44, 12, 9), skinMat));
     head.add(skull);
     const cheekMat = new THREE.MeshStandardMaterial({ color: 0xe89a8a, roughness: 0.8, transparent: true, opacity: 0.55 });
-    const cheekGeo = new THREE.SphereGeometry(0.13, 8, 8);
+    const cheekGeo = new THREE.SphereGeometry(0.13, 6, 5);
     const cl = new THREE.Mesh(cheekGeo, cheekMat); cl.position.set(-0.27, -0.05, 0.31);
     const cr = new THREE.Mesh(cheekGeo, cheekMat); cr.position.set(0.27, -0.05, 0.31);
     head.add(cl, cr);
-    const eyeGeo = new THREE.SphereGeometry(0.06, 8, 8);
+    const eyeGeo = new THREE.SphereGeometry(0.06, 6, 5);
     const el = new THREE.Mesh(eyeGeo, darkMat); el.position.set(-0.15, 0.07, 0.39); el.scale.y = 0.62;
     const er = new THREE.Mesh(eyeGeo, darkMat); er.position.set(0.15, 0.07, 0.39); er.scale.y = 0.62;
     head.add(el, er);
-    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 10), new THREE.MeshStandardMaterial({ color: 0xe06a55, roughness: 0.7 }));
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.1, 7, 5), new THREE.MeshStandardMaterial({ color: 0xe06a55, roughness: 0.7, flatShading: true }));
     nose.position.set(0, -0.04, 0.45);
     head.add(nose);
-    const beard = shadowed(new THREE.Mesh(new THREE.ConeGeometry(0.36, 0.62, 14), whiteMat));
+    const beard = shadowed(new THREE.Mesh(new THREE.ConeGeometry(0.36, 0.62, 8), whiteMat));
     beard.position.set(0, -0.36, 0.2); beard.rotation.x = -0.2;
     head.add(beard);
 
     // hat (springy flop)
     const hat = new THREE.Group(); hat.position.y = 0.38;
     head.add(hat); this.hat = hat;
-    const brim = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.64, 0.1, 18), robeMat2));
+    const brim = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.64, 0.1, 10), robeMat2));
     hat.add(brim);
-    const cone = shadowed(new THREE.Mesh(new THREE.ConeGeometry(0.44, 1.3, 16), robeMat2));
+    const cone = shadowed(new THREE.Mesh(new THREE.ConeGeometry(0.44, 1.3, 9), robeMat2));
     cone.position.y = 0.66; cone.rotation.z = 0.16;
     hat.add(cone);
     // band + star get their own material so equipped HAT gear can recolour them
     this.hatTrimMat = goldMat.clone();
-    const band = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.07, 8, 20), this.hatTrimMat);
+    const band = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.07, 5, 12), this.hatTrimMat);
     band.rotation.x = Math.PI / 2; band.position.y = 0.12;
     hat.add(band);
-    const star = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), this.hatTrimMat);
+    const star = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 5), this.hatTrimMat);
     star.position.set(0.2, 0.95, 0.32);
     hat.add(star);
 
@@ -151,7 +152,7 @@ export class Wizard {
     this.shoulderR = new THREE.Object3D(); this.shoulderR.position.set(0.54, 1.62, 0.04);
     facer.add(this.shoulderL, this.shoulderR);
     // rounded "circle" shoulder pads so the arms join the body smoothly
-    const shoulderGeo = new THREE.SphereGeometry(0.21, 14, 12);
+    const shoulderGeo = new THREE.SphereGeometry(0.21, 8, 6);
     const sBallL = shadowed(new THREE.Mesh(shoulderGeo, robeMat)); sBallL.position.copy(this.shoulderL.position);
     const sBallR = shadowed(new THREE.Mesh(shoulderGeo, robeMat)); sBallR.position.copy(this.shoulderR.position);
     facer.add(sBallL, sBallR);
@@ -159,9 +160,9 @@ export class Wizard {
     // ---- verlet arms live in world space ----
     this.armGroup = new THREE.Group();
     this.scene.add(this.armGroup);
-    const upperGeo = new THREE.CylinderGeometry(0.14, 0.12, 1, 8);
-    const foreGeo = new THREE.CylinderGeometry(0.12, 0.1, 1, 8);
-    const mittenGeo = new THREE.SphereGeometry(0.18, 10, 10);
+    const upperGeo = new THREE.CylinderGeometry(0.14, 0.12, 1, 7);
+    const foreGeo = new THREE.CylinderGeometry(0.12, 0.1, 1, 7);
+    const mittenGeo = new THREE.SphereGeometry(0.18, 7, 5);
     const mkArm = (handMatOverride) => {
       const upper = shadowed(new THREE.Mesh(upperGeo, robeMat));
       const fore = shadowed(new THREE.Mesh(foreGeo, robeMat));
@@ -184,8 +185,8 @@ export class Wizard {
 
     // foamy tankard, glued to the left mitten
     this.mug = new THREE.Group();
-    const mugBody = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.12, 0.28, 12), new THREE.MeshStandardMaterial({ color: 0x9a6a3a, roughness: 0.6 }));
-    const foam = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 10), whiteMat); foam.position.y = 0.16; foam.scale.y = 0.6;
+    const mugBody = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.12, 0.28, 8), new THREE.MeshStandardMaterial({ color: 0x9a6a3a, roughness: 0.6, flatShading: true }));
+    const foam = new THREE.Mesh(new THREE.SphereGeometry(0.15, 7, 5), whiteMat); foam.position.y = 0.16; foam.scale.y = 0.6;
     this.mug.add(mugBody, foam);
     this.mug.visible = false; // only appears while he's actually drinking
     this.armGroup.add(this.mug);
@@ -216,14 +217,14 @@ export class Wizard {
     if (eq.staff) {
       const col = RC[eq.staff] || RC.common;
       const g = new THREE.Group();
-      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 1.7, 7),
-        new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.85 }));
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 1.7, 6),
+        new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.85, flatShading: true }));
       rod.position.y = 0.28; rod.castShadow = true; g.add(rod);
-      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.03, 6, 12),
-        new THREE.MeshStandardMaterial({ color: 0xffd98a, metalness: 0.5, roughness: 0.35 }));
+      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.03, 5, 10),
+        new THREE.MeshStandardMaterial({ color: 0xffd98a, metalness: 0.5, roughness: 0.35, flatShading: true }));
       collar.rotation.x = Math.PI / 2; collar.position.y = 1.02; g.add(collar);
       const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.15, 0),
-        new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.85, roughness: 0.3 }));
+        new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.85, roughness: 0.3, flatShading: true }));
       orb.position.y = 1.2; g.add(orb); g.userData.orb = orb;
       const halo = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 10),
         new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -249,7 +250,7 @@ export class Wizard {
     if (eq.charm) {
       const col = RC[eq.charm] || RC.common;
       const pend = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0),
-        new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.9, roughness: 0.25 }));
+        new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.9, roughness: 0.25, flatShading: true }));
       pend.position.set(0, 1.72, 0.47);
       this.facer.add(pend);
       this.gearCharm = pend;

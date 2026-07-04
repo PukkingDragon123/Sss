@@ -266,13 +266,17 @@ export class Game {
     this.heroLight = new THREE.PointLight(0xffe0b0, 0, 15, 2);
     this.scene.add(this.heroLight);
 
-    // floor + clearing (recoloured per stage)
-    this.floorMat = new THREE.MeshStandardMaterial({ color: 0x2f4a32, roughness: 1 });
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(240, 240), this.floorMat);
-    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; G.add(floor);
-    this.rugMat = new THREE.MeshStandardMaterial({ color: 0x3f6440, roughness: 1 });
-    const rug = new THREE.Mesh(new THREE.CircleGeometry(ARENA, 64), this.rugMat);
-    rug.rotation.x = -Math.PI / 2; rug.position.y = 0.01; rug.receiveShadow = true; G.add(rug);
+    // ---- LOW-POLY DIORAMA GROUND (recoloured per stage) ----
+    // Outer terrain: a faceted plane, dead-flat inside the arena, rising into
+    // rolling triangulated hills beyond the tree line. Vertex colours hold a
+    // grayscale patchwork jitter, so floorMat.color per-stage tinting still works.
+    this.floorMat = new THREE.MeshStandardMaterial({ color: 0x2f4a32, roughness: 1, flatShading: true, vertexColors: true });
+    const floor = new THREE.Mesh(this._makeTerrainGeo(), this.floorMat);
+    floor.receiveShadow = true; G.add(floor);
+    // Inner clearing: a hand-triangulated meadow disc with per-face patchwork
+    this.rugMat = new THREE.MeshStandardMaterial({ color: 0x3f6440, roughness: 1, flatShading: true, vertexColors: true });
+    const rug = new THREE.Mesh(this._makeClearingGeo(), this.rugMat);
+    rug.position.y = 0.012; rug.receiveShadow = true; G.add(rug);
     const rugRing = new THREE.Mesh(new THREE.RingGeometry(ARENA - 0.7, ARENA, 96), new THREE.MeshBasicMaterial({ color: 0xbfe0c2, transparent: true, opacity: 0.3, side: THREE.DoubleSide }));
     rugRing.rotation.x = -Math.PI / 2; rugRing.position.y = 0.02; G.add(rugRing);
 
@@ -287,6 +291,59 @@ export class Game {
     );
     this.reticle.rotation.x = -Math.PI / 2; this.reticle.position.y = 0.05;
     G.add(this.reticle);
+  }
+
+  // faceted outer terrain: flat play surface, pseudo-noise hills past the tree line,
+  // per-face grayscale jitter baked into vertex colours (tinted by floorMat.color)
+  _makeTerrainGeo() {
+    const g = new THREE.PlaneGeometry(260, 260, 52, 52);
+    g.rotateX(-Math.PI / 2);
+    const pos = g.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), z = pos.getZ(i);
+      const r = Math.hypot(x, z);
+      if (r > ARENA * 1.03) {
+        const t = Math.min(1, (r - ARENA * 1.03) / 26);            // ramp 0→1 past the edge
+        const n = Math.sin(x * 0.13) * Math.cos(z * 0.11) * 2.4
+                + Math.sin(x * 0.31 + z * 0.17) * 1.2
+                + Math.sin(z * 0.23 - x * 0.07) * 0.8;
+        pos.setY(i, Math.max(0, t * (2.2 + n)));                   // rolling hills, never below grade
+      }
+    }
+    const flat = g.toNonIndexed();
+    const n = flat.attributes.position.count;
+    const col = new Float32Array(n * 3);
+    for (let f = 0; f < n; f += 3) {                               // one shade per triangle = patchwork
+      const v = 0.88 + Math.random() * 0.24;
+      for (let k = 0; k < 3; k++) { col[(f + k) * 3] = v; col[(f + k) * 3 + 1] = v; col[(f + k) * 3 + 2] = v; }
+    }
+    flat.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    flat.computeVertexNormals();
+    return flat;
+  }
+  // hand-triangulated clearing disc (rings × sectors → even triangles, no pie slivers)
+  _makeClearingGeo() {
+    const RINGS = 7, SEC = 40, verts = [], cols = [];
+    const at = (ri, si) => {
+      const r = (ri / RINGS) * ARENA, a = (si / SEC) * Math.PI * 2;
+      return [Math.cos(a) * r, 0, Math.sin(a) * r];
+    };
+    const tri = (a, b, c) => {
+      const v = 0.9 + Math.random() * 0.2;                         // per-face patchwork shade
+      for (const p of [a, b, c]) { verts.push(p[0], p[1], p[2]); cols.push(v, v, v); }
+    };
+    for (let ri = 0; ri < RINGS; ri++) {
+      for (let si = 0; si < SEC; si++) {
+        const a = at(ri, si), b = at(ri + 1, si), c = at(ri + 1, si + 1), d = at(ri, si + 1);
+        tri(a, b, c);
+        if (ri > 0) tri(a, c, d);                                  // innermost ring: fan only
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(cols), 3));
+    g.computeVertexNormals();
+    return g;
   }
 
   _buildScatter(kind) {
@@ -319,16 +376,16 @@ export class Game {
     };
 
     if (kind === 'trees') {
-      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3326, roughness: 0.95 });
-      const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f6e3f, roughness: 0.9 });
-      const leafMat2 = new THREE.MeshStandardMaterial({ color: 0x3a824a, roughness: 0.9 });
-      const leafMat3 = new THREE.MeshStandardMaterial({ color: 0x255a34, roughness: 0.9 });
-      const bushMat = new THREE.MeshStandardMaterial({ color: 0x356b3e, roughness: 0.95 });
-      const fernMat = new THREE.MeshStandardMaterial({ color: 0x418a4a, roughness: 0.95 });
-      const capMat = new THREE.MeshStandardMaterial({ color: 0xc0556a, roughness: 0.8 });
-      const stalkMat = new THREE.MeshStandardMaterial({ color: 0xe8e0cc, roughness: 0.9 });
-      const rockMat = new THREE.MeshStandardMaterial({ color: 0x5a5e66, roughness: 1 });
-      const flowerMat = new THREE.MeshStandardMaterial({ color: 0xe8d24a, emissive: 0x4a4010, roughness: 0.7 });
+      const trunkMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x4a3326, roughness: 0.95 });
+      const leafMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x2f6e3f, roughness: 0.9 });
+      const leafMat2 = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x3a824a, roughness: 0.9 });
+      const leafMat3 = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x255a34, roughness: 0.9 });
+      const bushMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x356b3e, roughness: 0.95 });
+      const fernMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x418a4a, roughness: 0.95 });
+      const capMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xc0556a, roughness: 0.8 });
+      const stalkMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xe8e0cc, roughness: 0.9 });
+      const rockMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x5a5e66, roughness: 1 });
+      const flowerMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xe8d24a, emissive: 0x4a4010, roughness: 0.7 });
       const mkTree = () => { const t = new THREE.Group(); const h = 3.4 + Math.random() * 1.6; const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.75, h, 8), trunkMat); tr.position.y = h / 2; tr.castShadow = true; const lm = [leafMat, leafMat2, leafMat3][Math.floor(Math.random() * 3)]; const f1 = new THREE.Mesh(new THREE.ConeGeometry(2.2, 3.6, 9), lm); f1.position.y = h + 0.6; f1.castShadow = true; const f2 = new THREE.Mesh(new THREE.ConeGeometry(1.7, 2.8, 9), leafMat2); f2.position.y = h + 2.1; const f3 = new THREE.Mesh(new THREE.ConeGeometry(1.1, 2, 9), leafMat3); f3.position.y = h + 3.4; t.add(tr, f1, f2, f3); return t; };
       treeLine(mkTree, 54);
       inside(16, mkTree, 6, ARENA - 8);            // full trees dotted inside too
@@ -337,10 +394,10 @@ export class Game {
       inside(16, () => { const r = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5 + Math.random() * 0.6, 0), rockMat); r.position.y = 0.32; r.castShadow = true; return r; });
       inside(18, () => { const g = new THREE.Group(); for (let i = 0; i < 3; i++) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), flowerMat); fl.position.set((Math.random() - 0.5) * 0.6, 0.3 + Math.random() * 0.2, (Math.random() - 0.5) * 0.6); g.add(fl); } return g; });
     } else if (kind === 'rocks') {
-      const rockMat = new THREE.MeshStandardMaterial({ color: 0x4a443e, roughness: 1 });
-      const tipMat = new THREE.MeshStandardMaterial({ color: 0x5a524a, roughness: 1 });
-      const crystalMat = new THREE.MeshStandardMaterial({ color: 0x6fd0e8, emissive: 0x2a7a8a, roughness: 0.25 });
-      const mossMat = new THREE.MeshStandardMaterial({ color: 0x3a5a44, roughness: 1 });
+      const rockMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x4a443e, roughness: 1 });
+      const tipMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x5a524a, roughness: 1 });
+      const crystalMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x6fd0e8, emissive: 0x2a7a8a, roughness: 0.25 });
+      const mossMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x3a5a44, roughness: 1 });
       const mkStalagmite = () => { const g = new THREE.Group(); const h = 5 + Math.random() * 4; const base = new THREE.Mesh(new THREE.ConeGeometry(1.6, h, 7), rockMat); base.position.y = h / 2; base.castShadow = true; const tip = new THREE.Mesh(new THREE.ConeGeometry(0.6, 2, 6), tipMat); tip.position.y = h; g.add(base, tip); return g; };
       treeLine(mkStalagmite, 50);
       inside(16, mkStalagmite, 6, ARENA - 8);
@@ -348,10 +405,10 @@ export class Game {
       inside(22, () => { const g = new THREE.Group(); const n = 2 + Math.floor(Math.random() * 3); for (let i = 0; i < n; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.9 + Math.random(), 5), crystalMat); c.position.set((Math.random() - 0.5) * 0.5, 0.5, (Math.random() - 0.5) * 0.5); c.rotation.z = (Math.random() - 0.5) * 0.4; c.castShadow = true; g.add(c); } return g; });
       inside(16, () => { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.6 + Math.random() * 0.5, 0), mossMat); m.position.y = 0.3; m.scale.y = 0.6; return m; });
     } else if (kind === 'graves') {
-      const stoneMat = new THREE.MeshStandardMaterial({ color: 0x6a6e7a, roughness: 1 });
-      const deadMat = new THREE.MeshStandardMaterial({ color: 0x3a3026, roughness: 0.95 });
-      const boneMat = new THREE.MeshStandardMaterial({ color: 0xd8d2bc, roughness: 0.8 });
-      const fenceMat = new THREE.MeshStandardMaterial({ color: 0x2a2a30, roughness: 0.7, metalness: 0.3 });
+      const stoneMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x6a6e7a, roughness: 1 });
+      const deadMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x3a3026, roughness: 0.95 });
+      const boneMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xd8d2bc, roughness: 0.8 });
+      const fenceMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x2a2a30, roughness: 0.7, metalness: 0.3 });
       const mkLandmark = () => {
         const g = new THREE.Group();
         if (Math.random() < 0.55) { const s = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.2, 0.4), stoneMat); s.position.y = 1.1; s.rotation.z = (Math.random() - 0.5) * 0.3; s.castShadow = true; g.add(s); const top = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.4, 12, 1, false, 0, Math.PI), stoneMat); top.rotation.z = Math.PI / 2; top.position.y = 2.2; g.add(top); }
@@ -364,10 +421,10 @@ export class Game {
       inside(16, () => { const g = new THREE.Group(); const cross = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.1, 0.12), deadMat); cross.position.y = 0.55; const arm = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 0.12), deadMat); arm.position.y = 0.8; g.add(cross, arm); return g; });
       inside(14, () => { const f = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.9, 0.08), fenceMat); f.position.y = 0.45; f.castShadow = true; return f; });
     } else if (kind === 'swamp') {
-      const deadMat = new THREE.MeshStandardMaterial({ color: 0x3a3322, roughness: 0.95 });
-      const mossMat = new THREE.MeshStandardMaterial({ color: 0x4a6a3a, roughness: 0.95 });
-      const reedMat = new THREE.MeshStandardMaterial({ color: 0x6a8a4a, roughness: 0.9 });
-      const padMat = new THREE.MeshStandardMaterial({ color: 0x2f5a32, roughness: 0.9 });
+      const deadMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x3a3322, roughness: 0.95 });
+      const mossMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x4a6a3a, roughness: 0.95 });
+      const reedMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x6a8a4a, roughness: 0.9 });
+      const padMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x2f5a32, roughness: 0.9 });
       const mkDead = () => { const t = new THREE.Group(); const h = 4 + Math.random() * 2.5; const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.65, h, 7), deadMat); tr.position.y = h / 2; tr.rotation.z = (Math.random() - 0.5) * 0.2; tr.castShadow = true; const canopy = new THREE.Mesh(new THREE.IcosahedronGeometry(1.6, 0), mossMat); canopy.position.y = h; canopy.scale.y = 0.6; canopy.castShadow = true; const b1 = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.2, 2.2, 5), deadMat); b1.position.set(0.9, h - 1.4, 0); b1.rotation.z = -0.8; t.add(tr, canopy, b1); return t; };
       treeLine(mkDead, 52);
       inside(20, mkDead, 6, ARENA - 8);
@@ -375,18 +432,18 @@ export class Game {
       inside(22, () => { const p = new THREE.Mesh(new THREE.CircleGeometry(0.5 + Math.random() * 0.4, 12), padMat); p.rotation.x = -Math.PI / 2; p.position.y = 0.03; return p; });
       inside(14, () => { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5 + Math.random() * 0.5, 0), mossMat); m.position.y = 0.3; m.scale.y = 0.6; m.castShadow = true; return m; });
     } else if (kind === 'ice') {
-      const iceMat = new THREE.MeshStandardMaterial({ color: 0xbfe0ff, roughness: 0.2, metalness: 0.1, emissive: 0x2a5a7a, emissiveIntensity: 0.15 });
-      const snowMat = new THREE.MeshStandardMaterial({ color: 0xeef6ff, roughness: 0.95 });
-      const darkIce = new THREE.MeshStandardMaterial({ color: 0x8fb6d8, roughness: 0.3 });
+      const iceMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xbfe0ff, roughness: 0.2, metalness: 0.1, emissive: 0x2a5a7a, emissiveIntensity: 0.15 });
+      const snowMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xeef6ff, roughness: 0.95 });
+      const darkIce = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x8fb6d8, roughness: 0.3 });
       const mkSpire = () => { const g = new THREE.Group(); const h = 5 + Math.random() * 4; const s = new THREE.Mesh(new THREE.ConeGeometry(1.2, h, 6), iceMat); s.position.y = h / 2; s.castShadow = true; const s2 = new THREE.Mesh(new THREE.ConeGeometry(0.6, h * 0.6, 6), darkIce); s2.position.set(0.7, h * 0.3, 0.3); g.add(s, s2); return g; };
       treeLine(mkSpire, 56);
       inside(22, mkSpire, 6, ARENA - 8);
       inside(30, () => { const g = new THREE.Group(); const n = 2 + Math.floor(Math.random() * 3); for (let i = 0; i < n; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.8 + Math.random(), 5), iceMat); c.position.set((Math.random() - 0.5) * 0.5, 0.4, (Math.random() - 0.5) * 0.5); c.rotation.z = (Math.random() - 0.5) * 0.4; c.castShadow = true; g.add(c); } return g; });
       inside(24, () => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.5 + Math.random() * 0.5, 10, 8), snowMat); m.position.y = 0.2; m.scale.y = 0.5; m.receiveShadow = true; return m; });
     } else if (kind === 'hell') {
-      const rockMat = new THREE.MeshStandardMaterial({ color: 0x3a1810, roughness: 1 });
-      const lavaMat = new THREE.MeshStandardMaterial({ color: 0xff6a2a, emissive: 0xff4a10, emissiveIntensity: 0.9, roughness: 0.5 });
-      const boneMat = new THREE.MeshStandardMaterial({ color: 0x4a3328, roughness: 0.9 });
+      const rockMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x3a1810, roughness: 1 });
+      const lavaMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xff6a2a, emissive: 0xff4a10, emissiveIntensity: 0.9, roughness: 0.5 });
+      const boneMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x4a3328, roughness: 0.9 });
       const mkSpike = () => { const g = new THREE.Group(); const h = 4.5 + Math.random() * 4; const s = new THREE.Mesh(new THREE.ConeGeometry(1.3, h, 6), rockMat); s.position.y = h / 2; s.rotation.z = (Math.random() - 0.5) * 0.18; s.castShadow = true; const crack = new THREE.Mesh(new THREE.ConeGeometry(0.35, h * 0.7, 5), lavaMat); crack.position.y = h * 0.35; g.add(s, crack); return g; };
       treeLine(mkSpike, 54);
       inside(20, mkSpike, 6, ARENA - 8);
@@ -394,17 +451,17 @@ export class Game {
       inside(18, () => { const g = new THREE.Group(); const pool = new THREE.Mesh(new THREE.CircleGeometry(0.7 + Math.random() * 0.5, 14), lavaMat); pool.rotation.x = -Math.PI / 2; pool.position.y = 0.04; g.add(pool); return g; });
       inside(14, () => { const c = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.07, 6, 12, Math.PI), boneMat); c.position.y = 0.12; c.castShadow = true; return c; });
     } else if (kind === 'tech') {
-      const metalMat = new THREE.MeshStandardMaterial({ color: 0x46525e, roughness: 0.4, metalness: 0.6 });
-      const neonMat = new THREE.MeshStandardMaterial({ color: 0x5fe0ff, emissive: 0x2fb0d0, emissiveIntensity: 0.9, roughness: 0.3 });
-      const panelMat = new THREE.MeshStandardMaterial({ color: 0x1f2c38, roughness: 0.5, metalness: 0.4 });
+      const metalMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x46525e, roughness: 0.4, metalness: 0.6 });
+      const neonMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x5fe0ff, emissive: 0x2fb0d0, emissiveIntensity: 0.9, roughness: 0.3 });
+      const panelMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x1f2c38, roughness: 0.5, metalness: 0.4 });
       const mkPylon = () => { const g = new THREE.Group(); const h = 5 + Math.random() * 4; const p = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.55, h, 8), metalMat); p.position.y = h / 2; p.castShadow = true; for (let i = 1; i <= 3; i++) { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.06, 6, 14), neonMat); ring.rotation.x = Math.PI / 2; ring.position.y = (h / 4) * i; g.add(ring); } g.add(p); return g; };
       treeLine(mkPylon, 50);
       inside(18, mkPylon, 6, ARENA - 8);
       inside(28, () => { const b = new THREE.Mesh(new THREE.BoxGeometry(0.8 + Math.random() * 0.6, 0.8 + Math.random(), 0.8 + Math.random() * 0.6), panelMat); b.position.y = 0.5; b.castShadow = true; return b; });
       inside(22, () => { const n = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3 + Math.random() * 0.25, 0), neonMat); n.position.y = 0.4; return n; });
     } else if (kind === 'void') {
-      const monoMat = new THREE.MeshStandardMaterial({ color: 0x1a1430, roughness: 0.4, metalness: 0.3 });
-      const crystalMat = new THREE.MeshStandardMaterial({ color: 0xb68fff, emissive: 0x6a3ad0, emissiveIntensity: 0.8, roughness: 0.25 });
+      const monoMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x1a1430, roughness: 0.4, metalness: 0.3 });
+      const crystalMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xb68fff, emissive: 0x6a3ad0, emissiveIntensity: 0.8, roughness: 0.25 });
       const starMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
       const mkMono = () => { const g = new THREE.Group(); const h = 5 + Math.random() * 5; const m = new THREE.Mesh(new THREE.BoxGeometry(1.0, h, 0.7), monoMat); m.position.y = h / 2; m.rotation.y = Math.random(); m.castShadow = true; const edge = new THREE.Mesh(new THREE.BoxGeometry(1.04, h, 0.08), crystalMat); edge.position.y = h / 2; edge.rotation.y = m.rotation.y; g.add(m, edge); return g; };
       treeLine(mkMono, 48);
@@ -474,7 +531,7 @@ export class Game {
       this._pixelPass = px;
       if (this._pixelWant) px.setPixelSize(this._pixelWant); // honor a per-scene request made before load (resizes internal RTs)
       c.addPass(px);
-      c.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.65, 0.5, 0.82)); // tighter glow for the darker grade
+      c.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.5, 0.45, 0.85)); // restrained glow — clean, not blown out
       c.addPass(new OutputPass());            // tone mapping + sRGB (no longer the screen pass)
       const grade = new ShaderPass(CinematicGradeShader); // LAST: dither must hit the final 8-bit write
       this._gradePass = grade;
@@ -510,23 +567,23 @@ export class Game {
     const t = stage.theme;
     this._aimShadow(28, 46, 18, 48); // arena frustum — tighter than before = more shadow texels/unit
     this.scene.background.setHex(t.bg);
-    this.scene.fog.color.setHex(t.fog); this.scene.fog.density = t.fogD * 1.35; // deeper atmospheric haze
-    // deeper darkness: lower the light FLOORS (hemi/ambient/fill) while keeping the keyed
-    // dir + rim + hero bright, so the lit action stays legible against a moodier scene.
-    this.hemi.color.setHex(t.hemi); this.hemi.groundColor.setHex(t.hemiG); this.hemi.intensity = 0.65;
+    this.scene.fog.color.setHex(t.fog); this.scene.fog.density = t.fogD * 0.9; // light haze — the diorama must READ
+    // clean low-poly light: lifted floors so every facet catches a readable shade,
+    // with the keyed dir + rim still doing the sculpting.
+    this.hemi.color.setHex(t.hemi); this.hemi.groundColor.setHex(t.hemiG); this.hemi.intensity = 0.92;
     this.dir.color.setHex(t.dir); this.dir.intensity = t.dirI;
-    this.ambient.color.setHex(t.amb); this.ambient.intensity = 0.24;
-    this.fill.color.setHex(0xbfd0ff); this.fill.intensity = 0.26;
+    this.ambient.color.setHex(t.amb); this.ambient.intensity = 0.34;
+    this.fill.color.setHex(0xbfd0ff); this.fill.intensity = 0.36;
     this.rim.color.setHex(t.rim != null ? t.rim : t.dir); this.rim.intensity = (t.rimI != null ? t.rimI : 1.15) + 0.3;
     this.floorMat.color.setHex(t.floor);
     this.rugMat.color.setHex(t.rug);
     this._buildScatter(t.scatter);
-    this.renderer.toneMappingExposure = 0.98; // crisper, less washed
-    if (this._gradePass) { const u = this._gradePass.uniforms; // cool, tense, high-contrast grade
-      u.uContrast.value = 1.18; u.uSaturation.value = 1.04;
-      u.uShadowTint.value.set(0.82, 0.90, 1.10); u.uHighlightTint.value.set(1.04, 1.01, 0.95);
-      u.uTintStrength.value = 0.40; u.uVignette.value = 0.50; u.uVignetteSoft.value = 0.50;
-      u.uGrain.value = 0.018;
+    this.renderer.toneMappingExposure = 1.06; // bright, saturated, polished
+    if (this._gradePass) { const u = this._gradePass.uniforms; // clean punchy low-poly grade
+      u.uContrast.value = 1.10; u.uSaturation.value = 1.16;
+      u.uShadowTint.value.set(0.90, 0.94, 1.06); u.uHighlightTint.value.set(1.04, 1.01, 0.96);
+      u.uTintStrength.value = 0.22; u.uVignette.value = 0.30; u.uVignetteSoft.value = 0.55;
+      u.uGrain.value = 0.010;
     }
   }
 
@@ -1609,35 +1666,35 @@ export class Game {
 
   _setMood(mood) {
     if (mood === 'tavern') {
-      this.scene.background.setHex(0x18100e);
-      this.scene.fog.color.setHex(0x1c1310); this.scene.fog.density = 0.016; // moodier candle-lit haze
-      this.hemi.color.setHex(0xe8b070); this.hemi.groundColor.setHex(0x180e08); this.hemi.intensity = 0.5;
-      this.dir.color.setHex(0xffd29a); this.dir.intensity = 1.2;
-      this.ambient.color.setHex(0x2a1d1c); this.ambient.intensity = 0.26; // deep warm shadows
-      this.fill.color.setHex(0xe8b483); this.fill.intensity = 0.2; // warm, soft fill
+      this.scene.background.setHex(0x1c130f);
+      this.scene.fog.color.setHex(0x201612); this.scene.fog.density = 0.010; // gentle candle-lit haze
+      this.hemi.color.setHex(0xe8b070); this.hemi.groundColor.setHex(0x241610); this.hemi.intensity = 0.78;
+      this.dir.color.setHex(0xffd29a); this.dir.intensity = 1.35;
+      this.ambient.color.setHex(0x3a2a24); this.ambient.intensity = 0.36; // lifted warm shadows
+      this.fill.color.setHex(0xe8b483); this.fill.intensity = 0.3; // warm, soft fill
       this.rim.color.setHex(0xffe2b0); this.rim.intensity = 1.15;
       if (this.heroLight) this.heroLight.intensity = 0; // arena-only
-      this.renderer.toneMappingExposure = 0.95;
+      this.renderer.toneMappingExposure = 1.04;
       if (this._gradePass) { const u = this._gradePass.uniforms; // warm, cozy grade
-        u.uContrast.value = 1.10; u.uSaturation.value = 1.14;
+        u.uContrast.value = 1.06; u.uSaturation.value = 1.16;
         u.uShadowTint.value.set(0.90, 0.95, 1.04); u.uHighlightTint.value.set(1.10, 1.02, 0.86);
-        u.uTintStrength.value = 0.42; u.uVignette.value = 0.52; u.uVignetteSoft.value = 0.60;
-        u.uGrain.value = 0.024;
+        u.uTintStrength.value = 0.28; u.uVignette.value = 0.34; u.uVignetteSoft.value = 0.60;
+        u.uGrain.value = 0.012;
       }
     } else {
-      this.scene.background.setHex(0x0a1120);
-      this.scene.fog.color.setHex(0x0a1120); this.scene.fog.density = 0.015;
-      this.hemi.color.setHex(0x6f86c0); this.hemi.groundColor.setHex(0x0e1410); this.hemi.intensity = 0.55;
+      this.scene.background.setHex(0x101a30);
+      this.scene.fog.color.setHex(0x101a30); this.scene.fog.density = 0.009;
+      this.hemi.color.setHex(0x8ea2d8); this.hemi.groundColor.setHex(0x1a2418); this.hemi.intensity = 0.85;
       this.dir.color.setHex(0xcdd8ff); this.dir.intensity = 1.7;
-      this.ambient.color.setHex(0x202a44); this.ambient.intensity = 0.18;
-      this.fill.color.setHex(0xbfd0ff); this.fill.intensity = 0.22; // cool fill for arenas
+      this.ambient.color.setHex(0x2c3a58); this.ambient.intensity = 0.3;
+      this.fill.color.setHex(0xbfd0ff); this.fill.intensity = 0.32; // cool fill for arenas
       this.rim.color.setHex(0xbfe6ff); this.rim.intensity = 1.6;
-      this.renderer.toneMappingExposure = 0.98;
+      this.renderer.toneMappingExposure = 1.04;
       if (this._gradePass) { const u = this._gradePass.uniforms;
-        u.uContrast.value = 1.18; u.uSaturation.value = 1.04;
-        u.uShadowTint.value.set(0.82, 0.90, 1.10); u.uHighlightTint.value.set(1.04, 1.01, 0.95);
-        u.uTintStrength.value = 0.40; u.uVignette.value = 0.50; u.uVignetteSoft.value = 0.50;
-        u.uGrain.value = 0.018;
+        u.uContrast.value = 1.10; u.uSaturation.value = 1.16;
+        u.uShadowTint.value.set(0.90, 0.94, 1.06); u.uHighlightTint.value.set(1.04, 1.01, 0.96);
+        u.uTintStrength.value = 0.22; u.uVignette.value = 0.30; u.uVignetteSoft.value = 0.55;
+        u.uGrain.value = 0.010;
       }
     }
   }

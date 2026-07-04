@@ -91,8 +91,7 @@ export class Enemies {
     // Megabonk-style: FLAT-SHADED low-poly materials — every facet reads as a hard plane
     const bodyMat = new THREE.MeshStandardMaterial({ color: def.color, roughness: def.metalness ? 0.4 : 0.85, metalness: def.metalness || 0, emissive: def.emissive || 0x000000, emissiveIntensity: def.emissive ? 0.6 : 0, flatShading: true });
     const darkMat = new THREE.MeshStandardMaterial({ color: 0x2a2230, roughness: 0.7, flatShading: true });
-    const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf8f6ee, roughness: 0.45, flatShading: true });
-    const anim = { wings: null, cape: null, pupils: null };
+    const anim = { wings: null, cape: null };
 
     const fierce = !!(def.boss || def.emissive || type === 'vampire' || type === 'warden' || type === 'spider' || type === 'spiderqueen');
 
@@ -103,24 +102,11 @@ export class Enemies {
     body.castShadow = true;
     g.add(body);
 
-    // BIG googly eyes: bulging white spheres + wobbly pupils, one slightly bigger (derp)
-    const sclGeo = new THREE.SphereGeometry(0.2, 8, 6);
-    const pupGeo = new THREE.SphereGeometry(0.088, 6, 5);
-    const sL = new THREE.Mesh(sclGeo, whiteMat); sL.position.set(-0.21, 0.96, 0.46); sL.scale.setScalar(1.12);
-    const sR = new THREE.Mesh(sclGeo, whiteMat); sR.position.set(0.21, 0.94, 0.47);
-    const pL = new THREE.Mesh(pupGeo, darkMat); pL.position.set(-0.2, 0.96, 0.64);
-    const pR = new THREE.Mesh(pupGeo, darkMat); pR.position.set(0.22, 0.93, 0.63);
-    g.add(sL, sR, pL, pR);
-    anim.pupils = [{ m: pL, bx: pL.position.x, by: pL.position.y }, { m: pR, bx: pR.position.x, by: pR.position.y }];
-
-    // goofy raised brows (surprised, not scary) + a derpy open gob with a tongue and one buck tooth
-    const browGeo = new THREE.BoxGeometry(0.2, 0.055, 0.07);
-    const bL = new THREE.Mesh(browGeo, darkMat); bL.position.set(-0.24, 1.2, 0.4); bL.rotation.z = fierce ? -0.3 : 0.2;
-    const bR = new THREE.Mesh(browGeo, darkMat); bR.position.set(0.24, 1.2, 0.4); bR.rotation.z = fierce ? 0.3 : -0.2;
-    const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.6), darkMat); mouth.rotation.x = Math.PI; mouth.scale.set(1.1, 0.7, 0.5); mouth.position.set(0, 0.58, 0.5);
-    const tongue = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), new THREE.MeshStandardMaterial({ color: 0xff7a98, roughness: 0.6, flatShading: true })); tongue.scale.set(1, 0.5, 0.7); tongue.position.set(0.02, 0.52, 0.54);
-    const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.1, 0.04), new THREE.MeshStandardMaterial({ color: 0xfffaf0, roughness: 0.5 })); tooth.position.set(-0.08, 0.63, 0.55);
-    g.add(bL, bR, mouth, tongue, tooth);
+    // minimal face: just two small black dot eyes (a touch bigger + angrier tilt on fierce foes)
+    const eGeo = new THREE.SphereGeometry(fierce ? 0.105 : 0.09, 6, 5);
+    const eL = new THREE.Mesh(eGeo, darkMat); eL.position.set(-0.18, 0.95, 0.52);
+    const eR = new THREE.Mesh(eGeo, darkMat); eR.position.set(0.18, 0.95, 0.52);
+    g.add(eL, eR);
 
     // little feet (flyers/floaters have none)
     if (type !== 'bat' && type !== 'brutebat' && type !== 'wraith' && type !== 'drone') {
@@ -430,10 +416,6 @@ export class Enemies {
       e.mesh.position.y = hover;
       if (e.anim.wings) { const f = Math.sin(e.phase * 6); e.anim.wings[0].rotation.y = f * 0.7; e.anim.wings[1].rotation.y = Math.PI - f * 0.7; }
       if (e.anim.cape) e.anim.cape.rotation.x = Math.sin(e.phase * 1.5) * 0.12;
-      if (e.anim.pupils) { // googly-eye jiggle — the pupils rattle around as it bounces
-        const jx = Math.sin(e.phase * 6.6) * 0.032, jy = Math.cos(e.phase * 4.9) * 0.022;
-        for (const p of e.anim.pupils) { p.m.position.x = p.bx + jx; p.m.position.y = p.by + jy; }
-      }
       if (e.anim.aura) { e.anim.aura.material.opacity = 0.1 + Math.abs(Math.sin(e.phase * 1.4)) * 0.12; e.anim.aura.scale.setScalar(1 + Math.sin(e.phase) * 0.06); }
 
       if (e.flash > 0) {

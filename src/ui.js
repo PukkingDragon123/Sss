@@ -8,7 +8,6 @@ import { STAGES, STAGE_ORDER } from './story.js';
 import { ARTIFACTS, artifactById, UPGRADES, upgradeRarity } from './upgrades.js';
 import { MINIGAMES, setIconDrawer } from './minigames.js';
 import { CARDS, CARD_BY_ID, CARD_RARITY } from './cards.js';
-import { charImg } from './charmodels.js';
 import { spriteImg, gearImg, iconImg, iconCanvas, pixify, pixifyHtml } from './pixelicons.js';
 
 const $ = (id) => document.getElementById(id);
@@ -75,7 +74,7 @@ export class UI {
       killsWrap: $('kills-wrap'), sobrietyWrap: $('sobriety-wrap'), clockWrap: $('clock-wrap'),
       jobTracker: $('job-tracker'), jobDesc: $('job-desc'), jobFill: $('job-fill'),
       toastArea: $('toast-area'),
-      story: $('story'), storySpeaker: $('story-speaker'), storyText: $('story-text'), storyNext: $('story-next'), storyPortrait: $('story-portrait'),
+      story: $('story'), storySpeaker: $('story-speaker'), storyText: $('story-text'), storyNext: $('story-next'),
       levelup: $('levelup'), cards: $('upgrade-cards'),
       title: $('title'), btnStart: $('btn-start'), btnHow: $('btn-how'), howto: $('howto'), btnHowClose: $('btn-how-close'),
       btnSettings: $('btn-settings'), btnCredits: $('btn-credits'),
@@ -122,8 +121,6 @@ export class UI {
     this.game = game;
     // stamp every <i class="pix" data-pix="..."> in the static markup with its sprite
     document.querySelectorAll('i.pix[data-pix]').forEach(el => { el.innerHTML = iconImg(el.dataset.pix, {}, el.dataset.cls || ''); });
-    // the wisp bubble's face is a render of the actual wisp model
-    const wp = $('wisp-portrait'); if (wp) wp.innerHTML = charImg('wisp', 'wisp', '');
     // hand the minigames a way to stamp pixel sprites onto their canvas (keeps
     // minigames.js import-free for the node test suite)
     setIconDrawer((ctx, key, x, y, size) => {
@@ -484,7 +481,6 @@ export class UI {
     }
     el.innerHTML = `<div class="chat-bar top"></div>
       <div class="chat-box">
-        <div class="chat-portrait">${charImg(npc.model || 'patron', npc.name || npc.id, npc.icon)}</div>
         <div class="chat-main">
           <div class="chat-name">${npc.name || 'Patron'}</div>
           <div class="chat-line">"${npc.line || 'Well met, wizard.'}"</div>
@@ -1077,12 +1073,6 @@ export class UI {
     this._storyIdx = 0;
     this._storyCb = onDone || null;
     this.el.storySpeaker.textContent = speaker;
-    // the story box shows the REAL character's face, same as cutscenes & chats
-    if (this.el.storyPortrait) {
-      const kind = ({ 'Wobblesworth': 'wizard', 'Wisp': 'wisp', 'Patron': 'patron', 'Barkeep Tomas': 'barkeep' })[speaker];
-      this.el.storyPortrait.innerHTML = kind ? charImg(kind, speaker, '') : '';
-      this.el.storyPortrait.classList.toggle('hidden', !kind);
-    }
     this.el.storyText.textContent = this._storyLines[0] || '';
     this.el.story.classList.remove('hidden');
     this._typeInto(this.el.storyText);           // Stardew-style letter-by-letter reveal

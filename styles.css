@@ -1415,3 +1415,224 @@ body{color:var(--ink);}
 .tagline{color:#c8b48e;}
 .door-lurk{color:#a82a2a;text-shadow:none;}
 #minigame .levelup-sub{color:#dcc9a2;}
+
+/* ============================================================================
+   BALATRO THEME — deep felt table, charcoal slate panels, chunky flat-colour
+   buttons with one hard ledge, cream text with hard drop shadows.
+   No glows, no idle bobbing. Appended last so it wins the cascade.
+   ========================================================================== */
+:root{
+  --ink:#f0ece1;             /* cream text on slate */
+  --ink-dim:#9ba6ad;
+  --gold:#ffce56;
+  --gold-dk:#171c21;
+  --magic:#b97bff;
+  --hp:#f0483f; --mana:#2f9bf5; --xp:#3fae5a;
+  --go:#3fae5a;
+  --panel:#333b43;           /* charcoal slate face */
+  --panel-edge:#12161b;      /* near-black outline */
+  /* re-point the parchment-era tokens at the dark kit so old rules follow */
+  --sv-dark:#0d1114;
+  --sv-bevel:rgba(255,255,255,.07);
+  --sv-inset:#272e35;
+  --sv-head:#f4f0e6;
+  --sv-gold:#ffce56;
+}
+html,body{background:#0d1512;color:var(--ink);}
+.overlay{background:rgba(11,25,19,.88);}   /* deep felt scrim */
+#art-reveal{background:rgba(9,17,13,.94);}
+
+/* --- panels: slate face, near-black outline, one hard ledge --- */
+.story-box,.shop-box,.howto,.event-box,.slot-card,.rm-frame,.quest-box,.card,
+#world-detail,.stage-card,.path-door,.guide-card,.chat-box,.arch-card,
+#job-tracker,#tavern-hud,#quest-tracker,#build-preview,.end-stats,#cine-dialogue{
+  background:var(--panel);
+  border:3px solid var(--panel-edge);
+  border-radius:10px;
+  box-shadow:0 5px 0 #171c21, inset 0 2px 0 rgba(255,255,255,.06), 0 14px 30px rgba(0,0,0,.5);
+}
+#quest-panel{background:#2b323a;border-left:3px solid var(--panel-edge);
+  box-shadow:inset 2px 0 0 rgba(255,255,255,.05), -14px 0 36px rgba(0,0,0,.55);}
+.qp-head{color:var(--sv-head);border-bottom:2px solid rgba(255,255,255,.08);}
+.qp-close{background:var(--sv-inset);border:2px solid var(--panel-edge);color:var(--ink);}
+.qp-card{background:var(--sv-inset);border:2px solid var(--panel-edge);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.05);}
+
+/* --- chips & pills --- */
+.stat,.toast,#interact-prompt,#wisp-bubble,.spell-chip,#mission-hud,.inv-coin,.vil-stat,
+.eq-totals,.research-active,.unlock-chip,.loot-box{
+  background:#2b323a;border:2px solid var(--panel-edge);color:var(--ink);
+  box-shadow:0 3px 0 #171c21, inset 0 1px 0 rgba(255,255,255,.06);
+}
+.iconbtn{background:#2b323a;border:2px solid var(--panel-edge);color:var(--ink);
+  box-shadow:0 3px 0 #171c21, inset 0 1px 0 rgba(255,255,255,.06);}
+.toast{color:var(--gold);text-shadow:0 2px 0 rgba(0,0,0,.5);}
+.toast.crit{background:var(--gold);color:#3a2408;border-color:var(--panel-edge);text-shadow:none;}
+#gems{color:#6fb0ff;}
+.spell-chip .key{background:rgba(255,255,255,.08);color:var(--ink-dim);}
+.eq-totals{background:var(--sv-inset);}
+.eq-totals span{color:var(--ink-dim);}
+.eq-totals b{color:var(--ink);}
+.research-active b{color:#6fb0ff;}
+.unlock-chip.on{background:#2c5e3a;color:#b8f0c0;border-color:var(--panel-edge);}
+
+/* --- inner cards & slots --- */
+.shop-card,.card-cell,.build-item,.eq-slot-frame{
+  background:var(--sv-inset);border:2px solid var(--panel-edge);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.05), inset 0 -3px 0 rgba(0,0,0,.25);
+  border-radius:8px;
+}
+.shop-card.gear{background:var(--sv-inset);}
+.shop-card.art-card,.card-cell.has,.quest-box.main-quest,.abil.art{background:#3a3426;}
+.shop-card.art-card .shop-name{color:var(--gold) !important;}
+.card.card-unique{background:#3a3426;border-color:#8a6f2a;
+  box-shadow:0 5px 0 #171c21, 0 14px 30px rgba(0,0,0,.5);}
+.card.card-unique:hover{border-color:var(--gold);box-shadow:0 5px 0 #171c21, 0 18px 38px rgba(0,0,0,.55);}
+.card.card-unique .card-name{color:var(--gold);text-shadow:none;}
+.card.card-unique .card-icon{filter:drop-shadow(0 3px 0 rgba(0,0,0,.45));}
+.card:hover{border-color:var(--rc,var(--gold));box-shadow:0 5px 0 #171c21, 0 18px 38px rgba(0,0,0,.55);}
+.card .card-icon{filter:drop-shadow(0 3px 0 rgba(0,0,0,.45));}
+.card .card-name{color:var(--sv-head);}
+.card .card-desc{color:var(--ink);opacity:.92;}
+.card .card-tag{color:var(--magic);background:rgba(185,123,255,.12);border-color:rgba(185,123,255,.35);}
+.quest-box.main-quest{border-color:#8a6f2a;}
+.quest-box.main-quest .quest-title{color:var(--gold);}
+.shop-desc{color:var(--ink-dim);}
+.shop-name{color:var(--ink);}
+.eq-count{background:rgba(255,255,255,.08);color:var(--ink-dim);}
+
+/* --- headers: cream with a hard dark drop (no emboss, no glow) --- */
+.shop-head h2,.story-speaker,.qp-card h4,.quest-title,.chat-name,.event-title,
+.wmd-name,.slot-name,.rm-banner,.gear-name,.eq-section-head,.bp-label{
+  color:var(--sv-head);text-shadow:0 2px 0 rgba(0,0,0,.45);
+}
+.shop-sub b,.howto b,.qp-sub b,.howto h3,.credits-body b,.chat-ask{color:#f4f0e6;}
+
+/* --- chunky flat buttons: one colour, one darker ledge, white text --- */
+.btn,#btn-drink,#btn-interact,.cine-next,.bp-rotate,.rm-retreat{
+  background:#f38b23;color:#fff;border:2px solid #a85a0e;border-radius:8px;
+  box-shadow:0 4px 0 #a85a0e;text-shadow:0 2px 0 rgba(0,0,0,.35);
+}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.07);}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.5);filter:brightness(.96);}
+.shop-btn{background:#f38b23;color:#fff;border:2px solid #a85a0e;border-radius:8px;
+  box-shadow:0 3px 0 #a85a0e;text-shadow:0 2px 0 rgba(0,0,0,.35);}
+.shop-btn.gem{background:#2f9bf5;border-color:#1f66ad;box-shadow:0 3px 0 #1f66ad;color:#fff;}
+.shop-btn.on{background:#3fae5a;border-color:#27743c;box-shadow:0 3px 0 #27743c;color:#fff;}
+.shop-btn:disabled{background:#4a525a;color:#98a2aa;border-color:#343b41;box-shadow:none;text-shadow:none;}
+.shop-btn.ghost,.btn.ghost,.chat-no{background:#5a646d;border-color:#383f46;box-shadow:0 3px 0 #383f46;color:#e8ecef;}
+#btn-build,#btn-bar{background:#3fae5a;color:#fff;border:2px solid #27743c;box-shadow:0 4px 0 #27743c;}
+#btn-start{background:#2f9bf5;border-color:#1f66ad;box-shadow:0 4px 0 #1f66ad;color:#fff;}
+.chat-go{background:#2f9bf5;border-color:#1f66ad;box-shadow:0 4px 0 #1f66ad;color:#fff;}
+.event-opt .eo-label{color:#fff;}
+.event-opt .eo-tip{color:rgba(255,255,255,.85);}
+.vil-tab{background:#272e35;border:2px solid var(--panel-edge);border-bottom:none;color:var(--ink-dim);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.05);}
+.vil-tab.on{background:var(--panel);color:#f4f0e6;box-shadow:inset 0 2px 0 rgba(255,255,255,.06);}
+
+/* --- dialogue: dark name-tag chip, no portraits anywhere --- */
+.cine-portrait,.chat-portrait,.story-portrait,.wisp-portrait{display:none;animation:none;}
+.cine-speaker,.chat-name,.story-speaker{background:#12161b;border:2px solid #0a0d10;border-radius:6px;
+  color:#f4f0e6;text-shadow:none;box-shadow:0 2px 0 #000;}
+.cine-line,.chat-line,.story-text,.wisp-text{color:var(--ink);}
+
+/* --- kill every glowing text-shadow: hard drops only --- */
+.levelup-title,.world-title,#end-title,.story-speaker,.shop-title,#art-name,.banner .sb-name{
+  color:var(--gold);text-shadow:0 2px 0 rgba(0,0,0,.55);
+}
+.story-speaker{color:#f4f0e6;}
+.game-title{text-shadow:5px 6px 0 rgba(0,0,0,.55);animation:none;transform:rotate(-2deg);}
+.levelup-title{color:#f4f0e6;text-shadow:0 3px 0 rgba(0,0,0,.55);}
+.shop-head h2{text-shadow:0 2px 0 rgba(0,0,0,.45);}
+.end-title{color:var(--gold);text-shadow:0 4px 0 rgba(0,0,0,.55);}
+.event-title{color:var(--gold);text-shadow:0 2px 0 rgba(0,0,0,.45);}
+#banner{text-shadow:0 4px 0 rgba(0,0,0,.6);}
+#stage-banner .sb-name{text-shadow:0 4px 0 rgba(0,0,0,.6);}
+#stage-banner .sb-count{text-shadow:0 2px 0 rgba(0,0,0,.6);}
+#stage-banner .sb-ico{filter:drop-shadow(0 2px 0 rgba(0,0,0,.6));}
+.boss-bar-name{text-shadow:0 2px 0 rgba(0,0,0,.7);}
+.boss-bar-track{border-color:var(--panel-edge);box-shadow:inset 0 2px 6px rgba(0,0,0,.6);}
+.boss-bar-fill{box-shadow:none;}
+.cine-qte-prompt{text-shadow:0 3px 0 rgba(0,0,0,.6);}
+.cine-qte-track{border-color:var(--panel-edge);box-shadow:none;}
+#combo-hud .combo-n{text-shadow:0 3px 0 rgba(0,0,0,.6);}
+.floatnum.crit{text-shadow:2px 0 0 #1a0e04,-2px 0 0 #1a0e04,0 2px 0 #1a0e04,0 -2px 0 #1a0e04,0 4px 6px rgba(0,0,0,.6);}
+.art-label,.art-name{text-shadow:0 3px 0 rgba(0,0,0,.6);}
+.art-icon{filter:drop-shadow(0 4px 0 rgba(0,0,0,.5));}
+.event-icon{filter:drop-shadow(0 3px 0 rgba(0,0,0,.5));}
+.event-glyph{color:var(--gold);text-shadow:none;}
+.door-ico{filter:drop-shadow(0 2px 0 rgba(0,0,0,.55));}
+.door-lurk{color:#ff8a80;text-shadow:none;}
+.pb-art{color:var(--gold);text-shadow:none;}
+.end-artifact{color:var(--gold);text-shadow:none;}
+.end-artifact b{color:#fff3c0;}
+.path-door:hover{box-shadow:0 5px 0 #171c21, 0 18px 40px rgba(0,0,0,.6);}
+.wmd-name{text-shadow:0 2px 0 rgba(0,0,0,.45);}
+.world-title{text-shadow:0 2px 0 rgba(0,0,0,.6);}
+.loadscene-text{text-shadow:0 2px 0 rgba(0,0,0,.6);}
+.path-choice-tag{text-shadow:0 2px 0 rgba(0,0,0,.6);}
+.stage-name{text-shadow:0 2px 0 rgba(0,0,0,.6);}
+
+/* --- no idle bobbing: the UI sits still until you touch it --- */
+.pixgear{animation:none;}
+.card .card-icon .pixi.xl{animation:none;}
+
+/* --- run map: poker-chip nodes, static gold ring when reachable --- */
+.rm-node{background:#333b43;border-color:var(--panel-edge);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.08), 0 4px 0 #171c21;}
+.rm-node.vis{border-color:#2c3a2e;}
+.rm-node.reach{border-color:var(--gold);animation:none;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.1), 0 4px 0 #171c21;}
+.rm-node.cur{border-color:#f4f0e6;box-shadow:0 0 0 3px rgba(244,240,230,.35), 0 4px 0 #171c21;}
+.rm-node.rm-boss{background:#4a1a20;border-color:#a92e28;}
+.rm-node.rm-elite{background:#3a2028;}
+.rm-node.rm-treasure .rm-ico,.rm-node.rm-campfire .rm-ico{filter:drop-shadow(0 2px 0 rgba(0,0,0,.5));}
+.rm-edge{stroke:rgba(255,255,255,.15);}
+.rm-edge.open{filter:none;}
+.rm-scroll{border-block:2px solid rgba(255,255,255,.07);}
+.rm-tip{color:var(--ink-dim);}
+
+/* --- build mode: the placement grid becomes green table felt --- */
+.build-grid{background:#1e5038;border:3px solid var(--panel-edge);
+  box-shadow:0 5px 0 #171c21, inset 0 0 40px rgba(0,0,0,.35);}
+.build-cell{background:rgba(0,0,0,.22);border:2px dashed rgba(255,255,255,.25);border-radius:8px;}
+.build-cell:hover{border-color:var(--gold);background:rgba(0,0,0,.12);}
+.build-cell.filled{border-style:solid;border-color:var(--panel-edge);background:#2b323a;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.06), inset 0 -3px 0 rgba(0,0,0,.3);}
+.build-cell.is-station{border-color:#7a5ac0;background:#332a44;box-shadow:inset 0 0 10px rgba(122,58,194,.25);}
+.build-cell.can-place:hover{border-style:solid;border-color:#3fae5a;background:rgba(63,174,90,.18);}
+.build-item.is-station{background:#332a44;border-color:#7a5ac0;}
+.build-item.is-station .bi-name{color:#c9a2ff;}
+.bi-name{color:var(--ink);}
+.bi-cost{color:var(--gold);}
+.build-hint{color:#b9c4cb;}
+
+/* --- misc contrast on the dark felt --- */
+.levelup-sub,#minigame .levelup-sub{color:#b9c4cb;}
+.tagline{color:var(--ink-dim);}
+.loading-text{color:#c9d2d8;}
+.qp-reward{color:#6fb0ff;}
+.qp-task.done,.qp-claimed,.lvtag,.chat-reward,.wm-done-t,#quest-tracker .qt-step{color:#7fd87f;}
+.inv-row{border-bottom:1px solid rgba(255,255,255,.08);}
+.wmd-row{border-bottom:1px solid rgba(255,255,255,.08);}
+.guide-cv{background:rgba(255,255,255,.06);}
+#skill-canvas{background:rgba(0,0,0,.35);border-color:var(--panel-edge);}
+.door-reward{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1);}
+.door-name{color:var(--gold);}
+#interact-prompt b{color:var(--gold);}
+.shop-cur-item{background:var(--sv-inset);border:2px solid var(--panel-edge);color:var(--gold);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06);}
+#shop-gold,#shop-gems,#merch-gems{color:var(--gold);}
+.loot-row b,.loot-purse b,.end-stats b,.inv-coin b,.vil-stat b,.wm-open-t,
+#quest-tracker .qt-goal,.quest-reward,.tavern-obj{color:var(--gold);}
+.path-boss{background:#3a2028;border-color:#a92e28;}
+.path-boss b{color:#ff8a80;}
+.job-title{color:var(--magic);}
+.abil{background:var(--sv-inset);border:2px solid var(--panel-edge);box-shadow:inset 0 1px 0 rgba(255,255,255,.05);}
+.abil .abil-x{background:var(--hp);color:#fff;border-color:var(--panel-edge);}
+.abil.art{border-color:#8a6f2a;}
+#ability-tray{background:rgba(24,29,34,.92);border:2px solid var(--panel-edge);box-shadow:0 3px 0 #171c21;}
+.abil-label{color:var(--ink-dim);}
+.mg-hint{color:var(--ink-dim);}
+#cast-hint{background:rgba(10,14,17,.7);color:#c9d2d8;}
+#cast-hint b{color:var(--gold);}

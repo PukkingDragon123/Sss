@@ -7,10 +7,10 @@ import { CARDS, CARD_BY_ID, rollCard } from './cards.js';
 
 // the four elements every spell belongs to (shown in the Grimoire & Spell Table)
 export const ELEMENTS = {
-  fire:  { name: 'Fire',  icon: '🔥', color: '#d65a1f' },
-  water: { name: 'Water', icon: '💧', color: '#2f74c8' },
-  air:   { name: 'Air',   icon: '🌬️', color: '#4a8ea8' },
-  earth: { name: 'Earth', icon: '🪨', color: '#8a6432' },
+  fire:  { name: 'Fire',  icon: '🔥', color: '#ff7a3a' },
+  water: { name: 'Water', icon: '💧', color: '#5fb0ff' },
+  air:   { name: 'Air',   icon: '🌬️', color: '#a6dcef' },
+  earth: { name: 'Earth', icon: '🪨', color: '#c9a06a' },
 };
 export const ELEMENT_LIST = ['fire', 'water', 'air', 'earth'];
 
@@ -103,11 +103,11 @@ export const roomComfort = () => placedItems().reduce((s, p) => { const b = buil
 // ---- RPG equipment: looted instances with rarity + level ----
 export const GEAR_SLOTS = ['hat', 'robe', 'staff', 'charm'];
 export const RARITIES = {
-  // colors tuned to read on the parchment (Stardew-style) UI
-  common:    { name: 'Common',    mult: 1.0, color: '#7d7690', extra: 0, weight: 54 },
-  rare:      { name: 'Rare',      mult: 1.7, color: '#2f74c8', extra: 1, weight: 28 },
-  epic:      { name: 'Epic',      mult: 2.6, color: '#8a3ad0', extra: 1, weight: 13 },
-  legendary: { name: 'Legendary', mult: 3.8, color: '#b8741a', extra: 2, weight: 5 },
+  // bright hues tuned to read on the dark felt (Balatro-style) UI
+  common:    { name: 'Common',    mult: 1.0, color: '#cfcad6', extra: 0, weight: 54 },
+  rare:      { name: 'Rare',      mult: 1.7, color: '#6fb0ff', extra: 1, weight: 28 },
+  epic:      { name: 'Epic',      mult: 2.6, color: '#b97bff', extra: 1, weight: 13 },
+  legendary: { name: 'Legendary', mult: 3.8, color: '#ffcf5c', extra: 2, weight: 5 },
 };
 export const GEAR_RARITY_ORDER = ['common', 'rare', 'epic', 'legendary'];
 const SLOT_DEF = {

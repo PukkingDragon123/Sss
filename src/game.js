@@ -578,12 +578,12 @@ export class Game {
     this.floorMat.color.setHex(t.floor);
     this.rugMat.color.setHex(t.rug);
     this._buildScatter(t.scatter);
-    this.renderer.toneMappingExposure = 1.06; // bright, saturated, polished
-    if (this._gradePass) { const u = this._gradePass.uniforms; // clean punchy low-poly grade
-      u.uContrast.value = 1.10; u.uSaturation.value = 1.16;
-      u.uShadowTint.value.set(0.90, 0.94, 1.06); u.uHighlightTint.value.set(1.04, 1.01, 0.96);
-      u.uTintStrength.value = 0.22; u.uVignette.value = 0.30; u.uVignetteSoft.value = 0.55;
-      u.uGrain.value = 0.010;
+    this.renderer.toneMappingExposure = 1.04; // moody, saturated, Balatro-rich
+    if (this._gradePass) { const u = this._gradePass.uniforms; // deep felt low-poly grade
+      u.uContrast.value = 1.13; u.uSaturation.value = 1.19;
+      u.uShadowTint.value.set(0.88, 0.93, 1.08); u.uHighlightTint.value.set(1.05, 1.01, 0.95);
+      u.uTintStrength.value = 0.26; u.uVignette.value = 0.40; u.uVignetteSoft.value = 0.52;
+      u.uGrain.value = 0.012;
     }
   }
 
@@ -1106,10 +1106,10 @@ export class Game {
     this.rim.color.setHex(0xbfe0ff); this.rim.intensity = 1.0;
     if (this.heroLight) this.heroLight.intensity = 0;
     this.renderer.toneMappingExposure = 1.1;
-    if (this._gradePass) { const u = this._gradePass.uniforms; // bright, storybook grade for the map
-      u.uContrast.value = 1.08; u.uSaturation.value = 1.14;
-      u.uShadowTint.value.set(0.9, 0.95, 1.06); u.uHighlightTint.value.set(1.05, 1.02, 0.94);
-      u.uTintStrength.value = 0.28; u.uVignette.value = 0.3; u.uVignetteSoft.value = 0.62;
+    if (this._gradePass) { const u = this._gradePass.uniforms; // moody storybook grade for the map
+      u.uContrast.value = 1.11; u.uSaturation.value = 1.17;
+      u.uShadowTint.value.set(0.89, 0.94, 1.07); u.uHighlightTint.value.set(1.05, 1.02, 0.94);
+      u.uTintStrength.value = 0.28; u.uVignette.value = 0.38; u.uVignetteSoft.value = 0.58;
       u.uGrain.value = 0.014;
     }
     this._aimShadow(20, 40, 14, 40); // medium frustum for the world-map islands
@@ -1675,11 +1675,11 @@ export class Game {
       this.rim.color.setHex(0xffe2b0); this.rim.intensity = 1.15;
       if (this.heroLight) this.heroLight.intensity = 0; // arena-only
       this.renderer.toneMappingExposure = 1.04;
-      if (this._gradePass) { const u = this._gradePass.uniforms; // warm, cozy grade
-        u.uContrast.value = 1.06; u.uSaturation.value = 1.16;
-        u.uShadowTint.value.set(0.90, 0.95, 1.04); u.uHighlightTint.value.set(1.10, 1.02, 0.86);
-        u.uTintStrength.value = 0.28; u.uVignette.value = 0.34; u.uVignetteSoft.value = 0.60;
-        u.uGrain.value = 0.012;
+      if (this._gradePass) { const u = this._gradePass.uniforms; // warm, moody tavern grade
+        u.uContrast.value = 1.09; u.uSaturation.value = 1.19;
+        u.uShadowTint.value.set(0.88, 0.94, 1.05); u.uHighlightTint.value.set(1.11, 1.02, 0.85);
+        u.uTintStrength.value = 0.30; u.uVignette.value = 0.42; u.uVignetteSoft.value = 0.56;
+        u.uGrain.value = 0.013;
       }
     } else {
       this.scene.background.setHex(0x101a30);
@@ -1689,12 +1689,12 @@ export class Game {
       this.ambient.color.setHex(0x2c3a58); this.ambient.intensity = 0.3;
       this.fill.color.setHex(0xbfd0ff); this.fill.intensity = 0.32; // cool fill for arenas
       this.rim.color.setHex(0xbfe6ff); this.rim.intensity = 1.6;
-      this.renderer.toneMappingExposure = 1.04;
+      this.renderer.toneMappingExposure = 1.03;
       if (this._gradePass) { const u = this._gradePass.uniforms;
-        u.uContrast.value = 1.10; u.uSaturation.value = 1.16;
-        u.uShadowTint.value.set(0.90, 0.94, 1.06); u.uHighlightTint.value.set(1.04, 1.01, 0.96);
-        u.uTintStrength.value = 0.22; u.uVignette.value = 0.30; u.uVignetteSoft.value = 0.55;
-        u.uGrain.value = 0.010;
+        u.uContrast.value = 1.13; u.uSaturation.value = 1.19;
+        u.uShadowTint.value.set(0.88, 0.93, 1.08); u.uHighlightTint.value.set(1.05, 1.01, 0.95);
+        u.uTintStrength.value = 0.26; u.uVignette.value = 0.40; u.uVignetteSoft.value = 0.52;
+        u.uGrain.value = 0.012;
       }
     }
   }

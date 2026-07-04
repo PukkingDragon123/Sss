@@ -1,18 +1,12 @@
 // cinematics.js — a little cutscene director: keyframed camera moves, letterbox,
-// dialogue with portraits, posed real 3D models on dedicated, dressed sets, a smash
+// name-tagged dialogue, posed real 3D models on dedicated, dressed sets, a smash
 // QTE, a drunk-chug beat, a thrown-out-the-door beat, and the wisp's animated
 // entrance + draw-a-glyph lesson. Self-contained: it owns its sets, its actors, and
 // the #cinema DOM.
 import * as THREE from 'three';
-import { faceDataURL } from './faces.js';
-import { charPortrait } from './charmodels.js';
 
 const $ = (id) => document.getElementById(id);
 const V = (a) => new THREE.Vector3(a[0], a[1], a[2]);
-// cutscene speakers → their unique 3D pixel model (others fall back to a generic patron).
-// Every speaker — including the wisp — gets a portrait rendered from its REAL model,
-// so the face in the dialogue box always matches the character on screen.
-const SPEAKER_KIND = { 'Wobblesworth': 'wizard', 'Barkeep Tomas': 'barkeep', 'The Patrons': 'patron', 'Wisp': 'wisp' };
 
 // triangle stroke (Fireball glyph) the wisp traces during the draw lesson
 const DEMO_GLYPH = [[0, -1], [-0.92, 0.6], [0.92, 0.6], [0, -1]];
@@ -176,7 +170,7 @@ export class Cinematics {
   _bindDom() {
     this.el = {
       cinema: $('cinema'), dialogue: $('cine-dialogue'), speaker: $('cine-speaker'), line: $('cine-line'),
-      portrait: $('cine-portrait'), next: $('cine-next'), qte: $('cine-qte'), qtePrompt: $('cine-qte-prompt'),
+      next: $('cine-next'), qte: $('cine-qte'), qtePrompt: $('cine-qte-prompt'),
       qteFill: $('cine-qte-fill'), skip: $('cine-skip'),
     };
     if (this.el.next) this.el.next.addEventListener('click', () => this._click());
@@ -245,20 +239,7 @@ export class Cinematics {
       this.el.speaker.textContent = b.speaker || '';
       this._typer = { full: b.text, n: 0 };            // typewriter reveal (advanced in update)
       this.el.line.textContent = '';
-      if (this.el.portrait) this.el.portrait.classList.add('speaking');
-      // portrait = a render of the speaker's REAL 3D model, held constant across
-      // the whole conversation so the face always matches who's talking
-      const url = b.speaker ? (charPortrait(SPEAKER_KIND[b.speaker] || 'patron') || faceDataURL(b.speaker)) : '';
-      if (url) {
-        this.el.portrait.textContent = '';
-        this.el.portrait.style.backgroundImage = `url(${url})`;
-        this.el.portrait.classList.add('has-face');
-      } else {
-        this.el.portrait.style.backgroundImage = '';
-        this.el.portrait.classList.remove('has-face');
-        this.el.portrait.textContent = '';
-      }
-    } else { this._typer = null; if (this.el.portrait) this.el.portrait.classList.remove('speaking'); this.el.dialogue.classList.add('hidden'); }
+    } else { this._typer = null; this.el.dialogue.classList.add('hidden'); }
     // specials
     this.qte = null; this.el.qte.classList.add('hidden'); this._demo = null;
     if (b.special === 'rampage') this._startRampage();
@@ -283,7 +264,6 @@ export class Cinematics {
     if (b.special === 'throw' && this._throw && this._throw.t < 1.3) return;      // let him fly
     if (this._typer) { // first click finishes the typewriter; next click advances
       this.el.line.textContent = this._typer.full; this._typer = null;
-      if (this.el.portrait) this.el.portrait.classList.remove('speaking');
       this.game.audio.play('click'); return;
     }
     this.game.audio.play('click');
@@ -293,7 +273,6 @@ export class Cinematics {
   _finish() {
     if (!this.active) return;
     this.active = false; this.qte = null; this._typer = null;
-    if (this.el.portrait) this.el.portrait.classList.remove('speaking');
     window.removeEventListener('pointerdown', this._qteHandler);
     this.el.cinema.classList.add('hidden');
     this.bar.visible = false; this.forest.visible = false;
@@ -344,7 +323,7 @@ export class Cinematics {
     if (this._typer) {
       this._typer.n += dt * 46;
       const full = this._typer.full;
-      if (this._typer.n >= full.length) { this.el.line.textContent = full; this._typer = null; if (this.el.portrait) this.el.portrait.classList.remove('speaking'); }
+      if (this._typer.n >= full.length) { this.el.line.textContent = full; this._typer = null; }
       else this.el.line.textContent = full.slice(0, Math.floor(this._typer.n));
     }
 
@@ -473,7 +452,7 @@ export class Cinematics {
 }
 
 // ---------- the 5 cutscenes ----------
-// cam pos/look in world units; portrait = an emoji "face". Lines kept short + punchy.
+// cam pos/look in world units. Lines kept short + punchy.
 const SCRIPTS = {
   // 1) DRUNK — Wobblesworth drinks himself silly at the bar (no spirit — he's just plastered)
   drunk: [

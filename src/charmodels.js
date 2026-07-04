@@ -91,13 +91,11 @@ function _human(o) {
   const head = S(g, 0.5, skin, 0, hy, hunch, { sy: 0.95, seg: 12, seg2: 10 });
   if (o.hunch) head.rotation.x = 0.14;
 
-  // googly eyes: white sclera + pupil (glowing for spooky folk)
+  // simple face: two small dot eyes (glowing for spooky folk)
   const eC = o.eyeColor ?? 0x2a2230;
   const glow = o.glowEyes ? { emis: eC, emisI: 2.0 } : {};
-  S(g, 0.13, 0xf8f6ee, -0.17, hy + 0.05, 0.38 + hunch, { seg: 8, seg2: 6 });
-  S(g, 0.12, 0xf8f6ee, 0.18, hy + 0.03, 0.39 + hunch, { seg: 8, seg2: 6 });
-  S(g, 0.058, eC, -0.17, hy + 0.05, 0.5 + hunch, { seg: 6, seg2: 5, ...glow });
-  S(g, 0.055, eC, 0.18, hy + 0.03, 0.5 + hunch, { seg: 6, seg2: 5, ...glow });
+  S(g, 0.068, eC, -0.16, hy + 0.05, 0.45 + hunch, { seg: 6, seg2: 5, ...glow });
+  S(g, 0.068, eC, 0.16, hy + 0.05, 0.45 + hunch, { seg: 6, seg2: 5, ...glow });
   if (o.nose !== false) S(g, 0.09, o.noseColor ?? 0xd98a72, 0, hy - 0.1, 0.47 + hunch);
   if (o.cheeks) { S(g, 0.08, o.cheeks, -0.27, hy - 0.12, 0.36 + hunch, { sy: 0.7 }); S(g, 0.08, o.cheeks, 0.27, hy - 0.12, 0.36 + hunch, { sy: 0.7 }); }
   if (o.wideMouth) B(g, 0.3, 0.05, 0.05, 0x6a2a2a, 0, hy - 0.22, 0.42 + hunch);
@@ -225,9 +223,9 @@ const KINDS = {
   // Barkeep Tomas' portrait mirrors his cutscene set model (cinematics.js:61-68)
   barkeep: () => _human({ skin: 0xf0c89a, robe: 0x6a4d34, apron: 0xd8c39a, beard: 'mustache', beardColor: 0x6a4326, hair: 0x6a4326, wide: true }),
   wisp: () => _wisp(),
-  knight: () => _human({ skin: 0xeac49a, robe: 0x9aa3ad, robe2: 0x6f7780, metalBody: true, hat: 'helm', plume: 0xc83a3a }),
-  witch: () => _human({ skin: 0x9fc27a, robe: 0x5a3a7a, hat: 'wide', hatColor: 0x281a3a, hair: 0x2a2030, longHair: true, noseColor: 0x7faa5a }),
-  bard: () => _human({ skin: 0xeac49a, robe: 0x3a8a5a, hat: 'cap', hatColor: 0x2a6a44, feather: 0xffd24a, acc: 'lute', hair: 0x6b4423 }),
+  knight: () => _human({ skin: 0xeac49a, robe: 0x7f93b8, robe2: 0x55637e, metalBody: true, hat: 'helm', hatColor: 0x8a97ac, plume: 0xd8434d, belt: 0xd9a84a }),
+  witch: () => _human({ skin: 0x8fb868, robe: 0x46285e, robe2: 0x2e1a40, hat: 'wide', hatColor: 0x201432, hair: 0x231b2c, longHair: true, noseColor: 0x6f9a4e, belt: 0xc9a24a }),
+  bard: () => _human({ skin: 0xeac49a, robe: 0x2f8a8a, robe2: 0x1f5f60, hat: 'cap', hatColor: 0x22646a, feather: 0xffd24a, acc: 'lute', hair: 0x6b4423, belt: 0x8a5a2a }),
   goblin: () => _human({ skin: 0x6fb04a, robe: 0x6a5230, ears: true, tooth: true, scale: 0.82, noseColor: 0x5a9040, eyeColor: 0xffe08a }),
   dwarf: () => _human({ skin: 0xeac49a, robe: 0x7a4a2a, wide: true, scale: 0.92, beard: 'long', beardColor: 0xb5651d, hat: 'helm', hatColor: 0x8a8f96, horns: true }),
   frogfolk: () => _human({ skin: 0x6cae54, robe: 0x3a6a8a, topEyes: true, wideMouth: true, noseColor: 0x5a9040, nose: false }),
@@ -235,11 +233,11 @@ const KINDS = {
   catfolk: () => _human({ skin: 0xb89a6a, robe: 0x7a6fb0, catEars: true, tail: true, whiskers: true, hair: 0x8a7050, noseColor: 0xd98a72 }),
   ghost: () => _human({ skin: 0xeaf2ff, robe: 0xdfeaff, float: true, opacity: 0.72, glowEyes: true, eyeColor: 0x9fd8ff, nose: false, noShadow: true }),
   golem: () => _human({ skin: 0x8a8f86, robe: 0x6f746c, robe2: 0x565a54, wide: true, scale: 1.12, glowEyes: true, eyeColor: 0xffa23a, cracks: true, nose: false }),
-  noble: () => _human({ skin: 0xf0d6b8, robe: 0xb83a5a, robe2: 0x8a2a44, hat: 'crown', hatColor: 0xffcf4a, hair: 0x3a2a1a, longHair: true, gown: true }),
-  rogue: () => _human({ skin: 0x3a3030, robe: 0x3a4250, robe2: 0x2a3038, hat: 'hood', hatColor: 0x2a3038, glowEyes: true, eyeColor: 0xbfe0ff, acc: 'dagger', nose: false }),
+  noble: () => _human({ skin: 0xf0d6b8, robe: 0xa62a4e, robe2: 0x741a36, hat: 'crown', hatColor: 0xffcf4a, hair: 0x2c1f14, longHair: true, gown: true, belt: 0xffcf4a, cheeks: 0xe89a8a }),
+  rogue: () => _human({ skin: 0x2e2828, robe: 0x272e3a, robe2: 0x1a2029, hat: 'hood', hatColor: 0x1e242e, glowEyes: true, eyeColor: 0x7fe8d0, acc: 'dagger', nose: false, belt: 0x4a5568 }),
   granny: () => _human({ skin: 0xe8c8a8, robe: 0x8a6f9a, hat: 'scarf', hatColor: 0xb06fa0, hunch: true, scale: 0.86, acc: 'cane' }),
   elder: () => _human({ skin: 0xe8c8a8, robe: 0x9a7a4a, beard: 'long', beardColor: 0xc8c8c8, hair: 0xc8c8c8, acc: 'cane', hunch: true }),
-  merchant: () => _human({ skin: 0xeac49a, robe: 0x6a8a4a, hat: 'wide', hatColor: 0x8a6a3a, beard: 'short', acc: 'coin' }),
+  merchant: () => _human({ skin: 0xeac49a, robe: 0x5d8038, robe2: 0x415c24, hat: 'wide', hatColor: 0x7a5a30, beard: 'short', acc: 'coin', belt: 0xd9a84a, wide: true }),
   barmaid: () => _human({ skin: 0xf0d6b8, robe: 0xcf6f8a, apron: 0xead6c0, hair: 0xb5651d, longHair: true, hairBun: true, acc: 'tray' }),
   // matches the tavern/cutscene patrons: hatless, beardless, periwinkle robe
   patron: () => _human({ skin: 0xf0d6b8, robe: 0x7a8bd0, noseColor: 0xd98a72 }),

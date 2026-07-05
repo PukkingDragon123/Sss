@@ -180,7 +180,7 @@ export class UI {
     if (this.el.camReset) this.el.camReset.addEventListener('click', () => { game.resetCamera(); game.audio.play('click'); });
     if (this.el.btnBuild) this.el.btnBuild.addEventListener('click', () => game.openBuild());
     this.el.shopClose.addEventListener('click', () => { game.audio.play('click'); game.closeShop(); });
-    if (this.el.bpRotate) this.el.bpRotate.addEventListener('click', () => { game.audio.play('click'); this._buildRot = ((this._buildRot || 0) + Math.PI / 2) % (Math.PI * 2); this.burstFX(this.el.bpRotate, 'sparkle', 5); if (game._inBuild && game._inBuild()) game.buildHover(this._lastBuildX || 0, this._lastBuildY || 0); });
+    if (this.el.bpRotate) this.el.bpRotate.addEventListener('click', () => { this.burstFX(this.el.bpRotate, 'sparkle', 5); if (game.rotateBuild) { game.rotateBuild(); if (!this._buildPending && game._inBuild && game._inBuild()) game.buildHover(this._lastBuildX || 0, this._lastBuildY || 0); } });
     // the room itself is the build grid: hover the floor to preview a hologram, click to place
     if (this.el.buildPlace) {
       this.el.buildPlace.addEventListener('pointermove', (e) => { this._lastBuildX = e.clientX; this._lastBuildY = e.clientY; if (game.buildHover) game.buildHover(e.clientX, e.clientY); });
@@ -833,6 +833,43 @@ export class UI {
     if (this.game && this.game.audio) this.game.audio.play('win');
   }
 
+  // treasure-chest reward reveal — a magical burst card, not a boring toast.
+  // built on the fly + appended to <body> so no fixed-position parent can squash it.
+  showChestReward(reward, onDone) {
+    let done = false;
+    const finish = () => { if (done) return; done = true; ov.classList.remove('show'); setTimeout(() => ov.remove(), 340); if (onDone) onDone(); };
+    const RC = meta.RARITIES || {};
+    const tier = reward.tier || 'common';
+    const col = (RC[tier] && RC[tier].color) || '#f0a92e';
+    let iconHtml = '✦', title = 'Treasure', sub = '';
+    if (reward.kind === 'gear' && reward.inst) {
+      const rc = RC[reward.inst.rarity] || {};
+      iconHtml = gearImg(reward.inst, 'xl'); title = reward.inst.name; sub = `${rc.name || ''} ${reward.inst.slot || ''}`.trim();
+    } else if (reward.kind === 'gems') {
+      iconHtml = iconImg('💎', {}, 'xl'); title = `+${reward.amount} Gems`; sub = tier === 'rare' ? 'A glittering haul!' : 'Arcane gemstones';
+    } else if (reward.kind === 'heart') {
+      iconHtml = iconImg('❤️', {}, 'xl'); title = '+25 Max HP'; sub = 'A heartier vessel — fully restored';
+    } else if (reward.kind === 'brew') {
+      iconHtml = iconImg('🍺', {}, 'xl'); title = 'Brewfont'; sub = 'Bigger mug · heartier brew';
+    }
+    if (reward.bonusGems) sub += ` · +${reward.bonusGems} 💎`;
+    const rare = (tier === 'legendary' || tier === 'epic');
+    const ov = document.createElement('div');
+    ov.className = 'chest-reward-overlay' + (rare ? ' cr-rare' : '');
+    ov.style.setProperty('--rc', col);
+    ov.innerHTML = `<div class="cr-rays"></div><div class="cr-card">
+      <div class="cr-banner">${tier === 'legendary' ? 'JACKPOT!' : 'Treasure!'}</div>
+      <div class="cr-icon">${iconHtml}</div>
+      <div class="cr-title">${pixifyHtml(title)}</div>
+      <div class="cr-sub">${pixify(sub)}</div>
+      <div class="cr-tap">tap to claim</div></div>`;
+    document.body.appendChild(ov);
+    void ov.offsetWidth; ov.classList.add('show');
+    ov.addEventListener('click', finish);
+    if (this.game && this.game.audio) this.game.audio.play(tier === 'legendary' ? 'win' : 'jobDone');
+    this._chestRewardT = setTimeout(finish, tier === 'legendary' ? 4200 : 3000);
+  }
+
   // hub prompt: show what the wizard can interact with
   updatePrompt(station, isTouch) {
     if (station) {
@@ -1114,8 +1151,9 @@ export class UI {
     const t = this.el.questTracker; if (!t || t.classList.contains('hidden')) return;
     const debt = meta.debt(), total = meta.DEBT_TOTAL || 1;
     const q = meta.currentQuest(), done = meta.questDone();
+    const accepted = meta.acceptedQuests ? meta.acceptedQuests() : []; // only quests you've taken on
     const featSig = (meta.FEATURE_ORDER || []).map(f => meta.featureUnlocked(f) ? 1 : 0).join('');
-    const sig = `${debt}|${done ? 1 : 0}|${q ? q.id : '-'}|${meta.gold()}|${featSig}`;
+    const sig = `${debt}|${done ? 1 : 0}|${q ? q.id : '-'}|${meta.gold()}|${featSig}|${accepted.map(a => a.id + (meta.customerQuestReady(a) ? 'R' : '')).join(',')}`;
     if (sig === this._qtSig) return; this._qtSig = sig;
     this.el.qtGoalText.textContent = debt > 0 ? 'Pay off the Tavern Debt' : 'The Toad is yours — adventure on!';
     this.el.qtFill.style.width = (100 * Math.max(0, total - debt) / total) + '%';
@@ -1131,7 +1169,9 @@ export class UI {
     else if (debt > 0) step = 'Pay it down in the 📜 quest log';
     else step = 'Venture out and grow stronger';
     this.el.qtStep.innerHTML = '➤ ' + pixify(step, 'sm');
-    this.el.qtBounty.innerHTML = q ? pixify(`Bounty: ${q.text} (+${q.reward}🪙)${done ? ' ✓' : ''}`, 'sm') : '';
+    let bounty = q ? pixify(`Bounty: ${q.text} (+${q.reward}🪙)${done ? ' ✓' : ''}`, 'sm') : '';
+    for (const a of accepted.slice(0, 3)) { const ready = meta.customerQuestReady(a); bounty += `<div class="qt-quest ${ready ? 'ready' : ''}">${ready ? '✓' : '➤'} ${pixify(a.ask, 'sm')}${ready ? ' <b>(ready!)</b>' : ''}</div>`; }
+    this.el.qtBounty.innerHTML = bounty;
   }
 
   // playstyle picker shown before a venture; cb(id) proceeds with the chosen archetype
@@ -1351,13 +1391,19 @@ export class UI {
     this.setGold(meta.gold());
     this._renderShop();
     this.el.shop.classList.toggle('build-mode', kind === 'build');
+    // per-station enchantment theme: each workbench gets its own accent + arcane backdrop
+    if (this._shopKindClass) this.el.shop.classList.remove(this._shopKindClass);
+    this._shopKindClass = 'shop-' + kind;
+    this.el.shop.classList.add('magic-shop', this._shopKindClass);
     this.el.shop.classList.remove('hidden');
-    if (kind === 'build') { if (this._buildRot === undefined) this._buildRot = 0; if (this.el.buildPreview) this.el.buildPreview.classList.remove('hidden'); if (this.el.buildPlace) this.el.buildPlace.classList.remove('hidden'); this._setPreviewItem(this._buildSel); this._startPreview(); }
+    if (kind === 'build') { this._buildPending = null; if (this._buildRot === undefined) this._buildRot = 0; if (this.el.buildPreview) this.el.buildPreview.classList.remove('hidden'); if (this.el.buildPlace) this.el.buildPlace.classList.remove('hidden'); this._setPreviewItem(this._buildSel); this._startPreview(); }
   }
   closeShop() {
-    this.el.shop.classList.add('hidden'); this.el.shop.classList.remove('build-mode');
+    this.el.shop.classList.add('hidden'); this.el.shop.classList.remove('build-mode', 'magic-shop');
+    if (this._shopKindClass) { this.el.shop.classList.remove(this._shopKindClass); this._shopKindClass = null; }
     if (this.el.buildPreview) this.el.buildPreview.classList.add('hidden');
     if (this.el.buildPlace) this.el.buildPlace.classList.add('hidden');
+    this._buildPending = null;
     if (this.game && this.game.tavern) { this.game.tavern.hideGhost(); if (this.game.tavern._disposeGhost) this.game.tavern._disposeGhost(); }
     this._stopPreview();
   }
@@ -1430,9 +1476,12 @@ export class UI {
   _shopAction(act, id, slot) {
     const g = this._shopGame;
     if (act === 'startrun') { g.startRun(id); return; }
-    if (act === 'buildtab') { this._buildTab = id; this._buildSel = null; if (g) g.audio.play('click'); this._renderShop(); return; }
+    if (act === 'buildtab') { this._buildTab = id; this._buildSel = null; this._buildPending = null; if (g) { g.audio.play('click'); if (g.tavern) g.tavern.hideGhost(); } this._renderShop(); return; }
     if (act === 'chartab') { this._charTab = id; if (g) g.audio.play('click'); this._renderShop(); return; }
-    if (act === 'selbuild') { this._buildSel = (this._buildSel === id ? null : id); this._pvAngle = this._buildRot || 0; this._setPreviewItem(this._buildSel); if (g) g.audio.play('click'); this._renderShop(); return; }
+    if (act === 'selbuild') { this._buildSel = (this._buildSel === id ? null : id); this._buildPending = null; this._pvAngle = this._buildRot || 0; this._setPreviewItem(this._buildSel); if (g) { g.audio.play('click'); if (g.tavern) g.tavern.hideGhost(); } this._renderShop(); return; }
+    if (act === 'confirmbuild') { if (g && g.confirmBuild) g.confirmBuild(); return; }
+    if (act === 'cancelbuild') { if (g && g.cancelBuildPlacement) g.cancelBuildPlacement(); return; }
+    if (act === 'rotbuild') { if (g && g.rotateBuild) g.rotateBuild(); return; }
     if (act === 'place') {
       const [gx, gy] = id.split('_').map(Number);
       let ok, placedStation = null, builtB = null;
@@ -1810,7 +1859,20 @@ export class UI {
     const stationsTotal = meta.BUILDABLES.filter(b => b.station).length;
     const stationsBuilt = meta.BUILDABLES.filter(b => b.station && meta.stationBuilt(b.id)).length;
     const selB = this._buildSel ? meta.buildableById(this._buildSel) : null;
-    let h = `<p class="shop-sub">${selB ? `Placing <b>${iconImg(selB.icon, {}, 'sm')} ${selB.name}</b> — move over the <b>room floor</b> to preview the hologram, <b>click a spot</b> to build (<b>⟳ Rotate</b> to spin it). Click a built piece to sell it back at half.` : 'Pick a piece below, then place it right in your room — hover the floor for a hologram, click to build.'}</p>`;
+    const pend = this._buildPending;
+    // ---- CONFIRM step: a piece is parked on the floor, awaiting your yes/no ----
+    if (pend && selB) {
+      return `<div class="build-confirm">
+        <div class="bc-head">${iconImg(selB.icon, {}, 'lg')}<div class="bc-info"><div class="bc-name">${selB.name}</div>
+          <div class="bc-meta">${selB.cost === 0 ? 'Free' : `${selB.cost} ${iconImg('coin', {}, 'sm')}`} · ${iconImg('clock', {}, 'sm')} ${meta.buildTimeOf(selB)}s to raise</div></div></div>
+        <p class="bc-hint">Placed on the floor. Nudge it to another tile, spin it, then <b>raise it</b>.</p>
+        <div class="bc-acts">
+          <button class="shop-btn big on" data-act="confirmbuild">✓ Raise it!</button>
+          <button class="shop-btn" data-act="cancelbuild">✗ Cancel</button>
+          <button class="shop-btn" data-act="rotbuild">⟳ Rotate</button>
+        </div></div>`;
+    }
+    let h = `<p class="shop-sub">${selB ? `Placing <b>${iconImg(selB.icon, {}, 'sm')} ${selB.name}</b> — move over the <b>room floor</b> to aim the hologram, <b>click a tile</b> to set it down, then <b>Confirm</b> to raise it (<b>⟳ Rotate</b> to spin). Click a built piece to sell it back at half.` : 'Pick a piece below, then place it right in your room — hover the floor for a hologram, click a tile, and confirm.'}</p>`;
     h += `<div class="vil-tabs">
       <button class="vil-tab ${tab === 'station' ? 'on' : ''}" data-act="buildtab" data-id="station">${iconImg('hammer', {}, 'sm')} Stations</button>
       <button class="vil-tab ${tab === 'comfort' ? 'on' : ''}" data-act="buildtab" data-id="comfort">${iconImg('chair', {}, 'sm')} Comforts</button>

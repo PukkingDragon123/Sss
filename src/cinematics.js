@@ -61,9 +61,8 @@ export class Cinematics {
     const tHair = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.07, 6, 14), M(0x6a4326)); tHair.position.set(0, 1.86, 0); tHair.rotation.x = Math.PI / 2; tomas.add(tHair);
     // a clear, readable face that PROTRUDES from the head so the close-up reads: big googly
     // eyes (bulging past the skull), a ruddy nose, a bushy moustache. His +Z front faces the room.
-    for (const sx of [-0.14, 0.14]) {
-      const e = new THREE.Mesh(new THREE.SphereGeometry(0.12, 7, 6), M(0xf4efe2, 0.6)); e.position.set(sx, 1.79, 0.3); e.scale.set(1, 1.1, 0.85); tomas.add(e);
-      const p = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), M(0x141018, 0.6)); p.position.set(sx, 1.78, 0.4); p.userData.noOutline = true; tomas.add(p);
+    for (const sx of [-0.13, 0.13]) {
+      const e = new THREE.Mesh(new THREE.SphereGeometry(0.085, 7, 6), M(0x0a0a12, 0.5)); e.position.set(sx, 1.78, 0.36); e.userData.noOutline = true; tomas.add(e);
     }
     const tNose = new THREE.Mesh(new THREE.SphereGeometry(0.11, 7, 5), M(0xd98a6a, 0.75)); tNose.position.set(0, 1.66, 0.4); tomas.add(tNose);
     const tMous = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.12, 0.14), M(0x5a3820)); tMous.position.set(0, 1.55, 0.34); tomas.add(tMous);

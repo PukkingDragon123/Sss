@@ -100,10 +100,9 @@ function _human(o) {
     const eC = o.eyeColor ?? 0x9fd8ff;
     for (const sx of [-0.17, 0.17]) { const e = S(g, 0.09, eC, sx, hy + 0.05, 0.46 + hunch, { seg: 7, seg2: 6, emis: eC, emisI: 2.2 }); e.userData.noTex = true; }
   } else {
-    const scl = o.sclera ?? 0xf4efe2;
-    for (const sx of [-0.16, 0.16]) {
-      const sc = S(g, 0.1, scl, sx, hy + 0.05, 0.46 + hunch, { seg: 7, seg2: 6, sz: 0.72 }); sc.userData.noTex = true;
-      const pu = S(g, 0.05, 0x141018, sx, hy + 0.04, 0.55 + hunch, { seg: 6, seg2: 5 }); pu.userData.noOutline = true; pu.userData.noTex = true;
+    // simple black dot eyes (no white googly sclera)
+    for (const sx of [-0.15, 0.15]) {
+      const e = S(g, 0.078, 0x0a0a12, sx, hy + 0.04, 0.49 + hunch, { seg: 7, seg2: 6 }); e.userData.noTex = true; e.userData.noOutline = true;
     }
   }
   if (o.nose !== false) S(g, 0.09, o.noseColor ?? 0xd98a72, 0, hy - 0.1, 0.47 + hunch);

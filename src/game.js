@@ -1205,6 +1205,7 @@ export class Game {
   }
   buildHover(cx, cy) {
     if (!this._inBuild()) return;
+    if (this.ui._buildPending) return; // a piece is parked awaiting Confirm — it stays put
     const sel = this.ui._buildSel;
     if (!sel) { this.tavern.hideGhost(); return; }
     const c = this._buildCellAt(cx, cy);
@@ -1213,14 +1214,44 @@ export class Game {
     const valid = !!b && !meta.cellOccupied(c.gx, c.gy) && meta.canAfford(b.cost);
     this.tavern.showGhost(sel, c.gx, c.gy, this.ui._buildRot || 0, valid);
   }
+  // clicking the floor now PARKS the piece (awaiting Confirm) instead of building instantly.
+  // clicking a built piece still sells it immediately; clicking a new tile re-parks (move it).
   buildPlaceAt(cx, cy) {
     if (!this._inBuild()) return;
     const c = this._buildCellAt(cx, cy);
     if (!c) return;
-    if (this.ui._buildSel || meta.cellOccupied(c.gx, c.gy)) this.ui._shopAction('place', c.gx + '_' + c.gy); // reuse place/sell
+    if (meta.cellOccupied(c.gx, c.gy)) { this.ui._buildPending = null; this.ui._shopAction('place', c.gx + '_' + c.gy); return; } // sell back
+    const sel = this.ui._buildSel; if (!sel) return;
+    const b = meta.buildableById(sel);
+    if (!b || !meta.canAfford(b.cost)) { this.audio.play('hiccup'); return; }
+    // park the hologram here, lit as "ready", and surface the Confirm / Cancel bar
+    this.ui._buildPending = { gx: c.gx, gy: c.gy };
+    this.tavern.showGhost(sel, c.gx, c.gy, this.ui._buildRot || 0, true);
+    this.audio.play('click');
+    this.particles && null; // (no arena particles in room scene)
+    this.ui._renderShop();
+  }
+  // COMMIT the parked piece: it raises inside a magic hologram over its build timer
+  confirmBuild() {
+    if (!this._inBuild()) return;
+    const p = this.ui._buildPending; if (!p) return;
+    this.ui._buildPending = null;
+    this.ui._shopAction('place', p.gx + '_' + p.gy); // places + beginConstruct (hologram + timer)
     this.tavern.hideGhost();
   }
-  rotateBuild() { this.ui._buildRot = (((this.ui._buildRot || 0) + Math.PI / 2) % (Math.PI * 2)); if (this.audio) this.audio.play('click'); }
+  cancelBuildPlacement() {
+    if (!this.ui._buildPending) return;
+    this.ui._buildPending = null;
+    this.tavern.hideGhost();
+    if (this.audio) this.audio.play('click');
+    this.ui._renderShop();
+  }
+  rotateBuild() {
+    this.ui._buildRot = (((this.ui._buildRot || 0) + Math.PI / 2) % (Math.PI * 2));
+    if (this.audio) this.audio.play('click');
+    const p = this.ui._buildPending; // spin the parked hologram in place
+    if (p && this.ui._buildSel) this.tavern.showGhost(this.ui._buildSel, p.gx, p.gy, this.ui._buildRot, true);
+  }
   restAtBed() { if (meta.rest()) this.ui.toast('🛏 Rested — you\'ll wake with +HP for the next run'); else this.ui.wispSay('🛏 You\'re already well-rested.', { tone: 'warn' }); }
 
   // ---- stairs: a quick loading transition between the bar and your room ----
@@ -1361,7 +1392,7 @@ export class Game {
     this.ui.setAbilities([...this.runAbilities.values()], this.runArtifacts);
     this._runGemStart = meta.gems(); this.bossKilled = false;
     this.bossActive = false; this.bossCine = 0; this._endState = null; this._exiting = false; this._lastCast = null;
-    this.enemies.clear(); this.spells.reset(); this._clearPickups(); this.director.reset();
+    this.enemies.clear(); this.spells.reset(); this._clearPickups(); this.director.reset(); this._disposeLootChest();
     this.world.show(false); this.tavern.show(false); this.tavern.showRoom(false); this.arenaGroup.visible = true;
     this.wizard.setVisible(true);
     this.wizard.reset(this.stats); this.wizard.pos.set(0, 0, 0);
@@ -1500,13 +1531,16 @@ export class Game {
     return stars;
   }
 
-  // a combat room cleared -> pay out its promised reward, then offer the next fork
+  // a combat room cleared -> a TREASURE CHEST rises; smash it for an RNG reward, THEN move on
   onEncounterCleared() {
     if (this._introRun) { this._finishIntroRun(); return; } // the guided first fight is over
     this._evalMission(); // judge this stage's optional mission, pay the bonus
     this._awardStageStars(Math.min(STAGES_PER_REGION, (this._forksDone || 0) + 1)); // ⭐ rate this level
-    if (this._pendingReward) { this._grantReward(this._pendingReward); this._pendingReward = null; }
-    this._nextFork();
+    // the loot no longer just teleports into your bag — a chest appears and you break it open
+    this._spawnLootChest(() => {
+      if (this._pendingReward) { this._grantReward(this._pendingReward); this._pendingReward = null; } // the node's promised prize, folded in
+      this._nextFork();
+    });
   }
 
   // a short travelling beat between nodes (a little cutscene)
@@ -1519,7 +1553,7 @@ export class Game {
 
   _nextFork() {
     this._roomsCleared = this._forksDone;
-    this.enemies.clear(); this._clearPickups(); // a calm clearing to choose your path in
+    this.enemies.clear(); this._clearPickups(); this._disposeLootChest(); // a calm clearing to choose your path in
     // a wandering merchant drops by every 3 rooms cleared, before the next fork
     if (this._forksDone > 0 && this._forksDone % 3 === 0 && this._lastMerchantFork !== this._forksDone) {
       this._lastMerchantFork = this._forksDone;
@@ -1961,6 +1995,7 @@ export class Game {
       // a short trail from the hand toward the aim point sells the cast direction
       this.particles.streak(hp, new THREE.Vector3(this.aimPoint.x, 1.0, this.aimPoint.z), { color: col, count: 5, life: 0.3, size: 0.16 });
       if (crit) this.shake(0.4);
+      if (this.lootChest) this._strikeLootChest(false); // a blast can crack the end-of-stage chest
     }
   }
 
@@ -2300,6 +2335,7 @@ export class Game {
     if (this.stats.hpRegen > 0 && this.wizard.alive) this.wizard.heal(this.stats.hpRegen * sdt);
 
     this._updateShrine(sdt);
+    this._updateLootChest(sdt); // the end-of-stage treasure coffer
     this._updateDrink(sdt);
     this._updateWisp(sdt);
 
@@ -2368,6 +2404,167 @@ export class Game {
     this.ui.toast('✦ The runes answer — gain an ability!');
     this.offerUpgrade(() => { this.state = 'play'; });
     return true;
+  }
+
+  // ============================================================================
+  //  END-OF-STAGE LOOT CHEST — a banded arcane coffer rises where you cleared the
+  //  field. Blast it (or ram it) to crack it open, then a jackpot reward bursts out.
+  // ============================================================================
+  _spawnLootChest(onDone) {
+    this._disposeLootChest();
+    // drop it a few paces "up-screen" of the wizard so it's centred and reachable
+    const wx = this.wizard.pos.x, wz = this.wizard.pos.z;
+    const cx = Math.max(-16, Math.min(16, wx));
+    const cz = Math.max(-16, Math.min(16, wz - 5.5));
+    const mesh = this._buildChestModel();
+    mesh.position.set(cx, 0, cz);
+    mesh.scale.setScalar(0.01); // pops in with a bouncy rise
+    this.arenaGroup.add(mesh);
+    this.lootChest = { mesh, x: cx, z: cz, baseY: 0, hits: 0, maxHits: 3, broken: false, onDone, t: 0, rise: 0, shakeT: 0, touchCd: 0, near: false, hinted: false, revealT: 0, revealShown: false, lidVel: 0, lidSpin: 0 };
+    this.audio.play('jobDone');
+    // a herald ring + rune sparks announce the prize
+    this.particles.ring({ pos: new THREE.Vector3(cx, 0.12, cz), color: 0xffd36b, r0: 0.3, r1: 4.5, life: 0.7 });
+    this.particles.burst({ pos: new THREE.Vector3(cx, 0.9, cz), color: 0xffe08a, count: 18, speed: 4, size: 0.22, life: 1.0, up: 3, blend: 'add' });
+    if (this.ui.wispSay) this.ui.wispSay('✦ A loot chest! Blast it open to claim your reward!', { big: true, ms: 4200 });
+  }
+
+  _buildChestModel() {
+    const g = new THREE.Group();
+    g.userData.glow = [];
+    const wood = new THREE.MeshStandardMaterial({ color: 0x6a3f1f, roughness: 0.9, metalness: 0.05, flatShading: true });
+    pxMap(wood, 'wood', 3);
+    const gold = new THREE.MeshStandardMaterial({ color: 0xe8b23a, roughness: 0.35, metalness: 0.85, flatShading: true });
+    pxMap(gold, 'metal', 3);
+    // ---- body ----
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.9, 1.0), wood);
+    body.position.y = 0.55; body.castShadow = body.receiveShadow = true; g.add(body);
+    // ---- domed lid (half-cylinder laid along the width) ----
+    const lid = new THREE.Group();
+    const dome = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 1.5, 16, 1, false, 0, Math.PI), wood);
+    dome.rotation.z = Math.PI / 2; dome.castShadow = true; lid.add(dome);
+    // lid trim bands
+    for (const bx of [-0.55, 0, 0.55]) { const band = new THREE.Mesh(new THREE.TorusGeometry(0.53, 0.055, 6, 14, Math.PI), gold); band.rotation.y = Math.PI / 2; band.position.x = bx; lid.add(band); }
+    lid.position.set(0, 1.0, 0); g.add(lid); g.userData.lid = lid; g.userData.body = body;
+    // ---- corner + front metal banding ----
+    for (const sx of [-0.72, 0.72]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.94, 1.04), gold); b.position.set(sx, 0.55, 0); g.add(b); }
+    const rim = new THREE.Mesh(new THREE.BoxGeometry(1.54, 0.1, 1.04), gold); rim.position.y = 1.0; g.add(rim);
+    // ---- lock plate with a glowing arcane keyhole ----
+    const lock = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.4, 0.1), gold); lock.position.set(0, 0.9, 0.53); g.add(lock);
+    const keyhole = new THREE.Mesh(new THREE.CircleGeometry(0.08, 12), new THREE.MeshBasicMaterial({ color: 0x9be6ff, transparent: true, opacity: 0.95 }));
+    keyhole.position.set(0, 0.9, 0.59); keyhole.userData.noOutline = true; g.add(keyhole); g.userData.glow.push(keyhole);
+    // ---- magic seam of light between lid & body ----
+    const seam = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.06, 1.02), new THREE.MeshBasicMaterial({ color: 0xffe58a, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
+    seam.position.y = 1.0; seam.userData.noOutline = true; g.add(seam); g.userData.glow.push(seam);
+    // ---- floating rune orb + rising light beam above the lid ----
+    const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.2, 0), new THREE.MeshBasicMaterial({ color: 0xffe58a, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
+    orb.position.set(0, 1.9, 0); orb.userData.noOutline = true; g.add(orb); g.userData.orb = orb; g.userData.glow.push(orb);
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.55, 4, 14, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd36b, transparent: true, opacity: 0.16, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+    beam.position.y = 2.6; beam.userData.noOutline = true; g.add(beam); g.userData.beam = beam; g.userData.glow.push(beam);
+    return g;
+  }
+
+  _updateLootChest(sdt) {
+    const lc = this.lootChest; if (!lc) return;
+    lc.t += sdt;
+    const ud = lc.mesh.userData;
+    // bouncy pop-in
+    if (lc.rise < 1) { lc.rise = Math.min(1, lc.rise + sdt * 3.2); const s = lc.rise < 1 ? 1 + Math.sin(lc.rise * Math.PI) * 0.18 : 1; lc.mesh.scale.setScalar(s * lc.rise); }
+    // idle life — orb bob, glow pulse, gentle sway
+    const pulse = 0.6 + Math.sin(lc.t * 4) * 0.4;
+    if (ud.orb) { ud.orb.position.y = 1.9 + Math.sin(lc.t * 2.4) * 0.14; ud.orb.rotation.y += sdt * 1.6; ud.orb.rotation.x += sdt * 0.9; ud.orb.material.opacity = 0.7 + pulse * 0.3; }
+    if (ud.beam) ud.beam.material.opacity = 0.12 + pulse * 0.12;
+    if (ud.glow) for (const gp of ud.glow) if (gp.material && gp !== ud.orb && gp !== ud.beam) gp.material.opacity = 0.6 + pulse * 0.35;
+
+    // ---- BREAK animation: lid tumbles off, beam blooms, then the reward reveal ----
+    if (lc.broken) {
+      lc.revealT -= sdt;
+      if (ud.lid) { lc.lidVel -= sdt * 12; ud.lid.position.y += lc.lidVel * sdt; ud.lid.position.z -= sdt * 1.3; ud.lid.rotation.x += lc.lidSpin * sdt; ud.lid.rotation.z += lc.lidSpin * 0.6 * sdt; } // lid pops up & tumbles off
+      if (ud.beam) { ud.beam.scale.x = ud.beam.scale.z = 1 + (0.8 - Math.max(0, lc.revealT)) * 1.5; ud.beam.material.opacity = Math.min(0.6, ud.beam.material.opacity + sdt * 1.2); }
+      if (ud.orb) { ud.orb.position.y += sdt * 3; ud.orb.scale.setScalar(1 + (0.8 - Math.max(0, lc.revealT)) * 2); }
+      if (Math.random() < sdt * 30) this.particles.burst({ pos: new THREE.Vector3(lc.x, 1.4, lc.z), color: 0xffe58a, count: 3, speed: 5, size: 0.2, life: 0.7, up: 5, blend: 'add' });
+      if (lc.revealT <= 0 && !lc.revealShown) { lc.revealShown = true; this._openLootChestReward(); }
+      return;
+    }
+
+    // ---- hit reaction shake ----
+    if (lc.shakeT > 0) { lc.shakeT = Math.max(0, lc.shakeT - sdt); const j = lc.shakeT * 3; lc.mesh.rotation.z = Math.sin(lc.t * 60) * 0.06 * j; lc.mesh.position.y = lc.baseY + Math.abs(Math.sin(lc.t * 40)) * 0.12 * j; }
+    else { lc.mesh.rotation.z *= 0.85; lc.mesh.position.y = lc.baseY; }
+
+    // ---- proximity: prompt + body-slam fallback so you can never soft-lock ----
+    const w = this.wizard.pos, dx = w.x - lc.x, dz = w.z - lc.z, d2 = dx * dx + dz * dz;
+    lc.near = d2 < 4 * 4;
+    if (lc.near && !lc.hinted) { lc.hinted = true; }
+    if (!lc.near) lc.hinted = false;
+    if (lc.touchCd > 0) lc.touchCd -= sdt;
+    if (d2 < 1.5 * 1.5 && lc.touchCd <= 0) { lc.touchCd = 0.45; this._strikeLootChest(true); } // ram it
+  }
+
+  // a cast (or a body-slam) lands on the chest — 3 good hits crack it wide open
+  _strikeLootChest(touch) {
+    const lc = this.lootChest; if (!lc || lc.broken) return false;
+    if (!touch) { // a spell counts if you're near the coffer OR your aim lands on it
+      const w = this.wizard.pos, dw2 = (w.x - lc.x) ** 2 + (w.z - lc.z) ** 2;
+      const a = this.aimPoint, da2 = a ? (a.x - lc.x) ** 2 + (a.z - lc.z) ** 2 : 999;
+      if (dw2 > 7 * 7 && da2 > 3.5 * 3.5) return false;
+    }
+    lc.hits++;
+    lc.shakeT = 0.3;
+    this.audio.play('hit');
+    this.shake(0.4);
+    // wood chips + gold sparks fly off
+    this.particles.burst({ pos: new THREE.Vector3(lc.x, 1.0, lc.z), color: 0x8a5a2f, count: 8, speed: 5, size: 0.16, life: 0.6, up: 2 });
+    this.particles.burst({ pos: new THREE.Vector3(lc.x, 1.1, lc.z), color: 0xffe08a, count: 6, speed: 4, size: 0.14, life: 0.5, up: 3, blend: 'add' });
+    // the lid creaks further open with each strike
+    if (lc.mesh.userData.lid) lc.mesh.userData.lid.rotation.x = -0.12 * lc.hits;
+    if (lc.hits >= lc.maxHits) this._breakLootChest();
+    else if (this.ui.wispSay && lc.hits === 1) this.ui.wispSay('✦ Keep hitting it — it\'s about to burst!', { ms: 2200 });
+    return true;
+  }
+
+  _breakLootChest() {
+    const lc = this.lootChest; if (!lc || lc.broken) return;
+    lc.broken = true; lc.revealT = 0.8; lc.lidVel = 6; lc.lidSpin = 7 + Math.random() * 4;
+    this.audio.play('explosion');
+    this.shake(1.4);
+    this._hitstop(0.1);
+    const p = new THREE.Vector3(lc.x, 1.2, lc.z);
+    this.particles.ring({ pos: p.clone().setY(0.12), color: 0xffd36b, r0: 0.4, r1: 9, life: 0.7 });
+    this.particles.ring({ pos: p.clone().setY(0.12), color: 0xffffff, r0: 0.2, r1: 5, life: 0.5 });
+    this.particles.burst({ pos: p.clone(), color: 0xffe58a, count: 40, speed: 10, size: 0.3, life: 1.1, up: 6, blend: 'add' });
+    this.particles.burst({ pos: p.clone(), color: 0xffd36b, count: 24, speed: 6, size: 0.24, life: 1.4, up: 8, grav: -3, blend: 'add' });
+  }
+
+  // roll the RNG prize, grant it, and show the treasure reveal; on dismiss, carry on
+  _openLootChestReward() {
+    const lc = this.lootChest; const onDone = lc ? lc.onDone : null;
+    const reward = this._rollChestReward();
+    this._grantReward(reward);
+    if (reward.bonusGems) { meta.addGems(reward.bonusGems); }
+    this._disposeLootChest();
+    this.state = 'reveal'; // freeze the field behind the reveal card
+    const finish = () => { if (this.state === 'reveal') this.state = 'play'; if (onDone) onDone(); };
+    if (this.ui.showChestReward) this.ui.showChestReward(reward, finish);
+    else finish();
+  }
+
+  // weighted loot table — usually gems, often gear, rarely a jackpot legendary
+  _rollChestReward() {
+    const lvl = Math.max(1, this.level || 1);
+    const depth = (this._forksDone || 0) + 1;
+    const r = Math.random();
+    if (r < 0.40) return { kind: 'gems', amount: 8 + Math.floor(Math.random() * 8) + depth * 2, tier: 'common' };
+    if (r < 0.68) return { kind: 'gear', inst: meta.genGear(null, 'common', lvl), tier: 'common' };
+    if (r < 0.83) return { kind: 'gems', amount: 26 + Math.floor(Math.random() * 20) + depth * 3, tier: 'rare' };
+    if (r < 0.93) return { kind: 'gear', inst: meta.genGear(null, Math.random() < 0.55 ? 'rare' : 'epic', lvl), tier: 'epic' };
+    if (r < 0.98) { const which = Math.random() < 0.5 ? 'heart' : 'brew'; return { kind: which, tier: 'epic' }; }
+    // 2% JACKPOT — a legendary piece and a fistful of gems
+    return { kind: 'gear', inst: meta.genGear(null, 'legendary', lvl), tier: 'legendary', bonusGems: 30 };
+  }
+
+  _disposeLootChest() {
+    const lc = this.lootChest; if (!lc) return;
+    if (lc.mesh) { lc.mesh.traverse(o => { if (o.isMesh) { o.geometry.dispose(); if (o.material && o.material.dispose && !(o.material.userData && o.material.userData.keep)) o.material.dispose(); } }); if (lc.mesh.parent) lc.mesh.parent.remove(lc.mesh); }
+    this.lootChest = null;
   }
 
   _updateTavern(sdt) {

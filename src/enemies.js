@@ -109,16 +109,12 @@ export class Enemies {
     body.castShadow = true;
     g.add(body);
 
-    // googly eyes: pale eyeball (ink hull rings it -> crisp outline) + dark pupil dot (opted
-    // out of the hull); bigger + red-tinted with angry brows on fierce foes. Untextured mats.
-    const scleraMat = new THREE.MeshStandardMaterial({ color: fierce ? 0xffdccf : 0xf2ece0, roughness: 0.6, flatShading: true });
+    // simple black dot eyes (no white googly sclera); a touch bigger + angry brows on fierce foes
     const pupilMat = new THREE.MeshStandardMaterial({ color: 0x0a0a12, roughness: 0.5, flatShading: true });
-    const er0 = fierce ? 0.13 : 0.11;
+    const er0 = fierce ? 0.1 : 0.085;
     const eGeo = new THREE.SphereGeometry(er0, 7, 6);
-    const pGeo = new THREE.SphereGeometry(er0 * 0.5, 6, 5);
     for (const sx of [-1, 1]) {
-      const sc = new THREE.Mesh(eGeo, scleraMat); sc.position.set(sx * 0.2, 0.95, 0.52); sc.scale.set(1, 1.08, 0.72); g.add(sc);
-      const pu = new THREE.Mesh(pGeo, pupilMat); pu.position.set(sx * 0.2, 0.95, 0.6); pu.userData.noOutline = true; g.add(pu);
+      const e = new THREE.Mesh(eGeo, pupilMat); e.position.set(sx * 0.2, 0.95, 0.56); e.userData.noOutline = true; e.userData.noTex = true; g.add(e);
       if (fierce) { const brow = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.06, 0.08), pupilMat); brow.position.set(sx * 0.2, 1.13, 0.5); brow.rotation.z = sx * 0.5; g.add(brow); }
     }
 

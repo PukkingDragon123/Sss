@@ -150,10 +150,9 @@ export class Tavern {
     const torso = new THREE.Mesh(new THREE.SphereGeometry(0.4, 9, 7), robe); torso.position.y = 1.48; torso.scale.set(1, 1.05, 0.92); torso.castShadow = true;
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.33, 9, 7), skin); head.position.y = 2.04; head.castShadow = true;
     person.add(legL, legR, skirt, torso, head);
-    // googly eyes: a light eyeball the ink hull rings + a dark pupil dot (opted out)
-    for (const sx of [-0.13, 0.13]) {
-      const e = new THREE.Mesh(new THREE.SphereGeometry(0.09, 7, 6), sclera); e.position.set(sx, 2.08, 0.25); e.scale.z = 0.7; e.userData.noTex = true; person.add(e);
-      const p = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 5), dark); p.position.set(sx, 2.07, 0.33); p.userData.noOutline = true; p.userData.noTex = true; person.add(p);
+    // simple black dot eyes (no white googly sclera)
+    for (const sx of [-0.12, 0.12]) {
+      const e = new THREE.Mesh(new THREE.SphereGeometry(0.062, 7, 6), dark); e.position.set(sx, 2.07, 0.3); e.userData.noOutline = true; e.userData.noTex = true; person.add(e);
     }
     const nose = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshStandardMaterial({ flatShading: true, color: 0xd98a72, roughness: 0.75 })); nose.position.set(0, 1.98, 0.35); person.add(nose);
     const armGeo = new THREE.CapsuleGeometry(0.1, 0.44, 3, 7);

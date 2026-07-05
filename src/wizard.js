@@ -125,15 +125,11 @@ export class Wizard {
     const cl = new THREE.Mesh(cheekGeo, cheekMat); cl.position.set(-0.27, -0.05, 0.31);
     const cr = new THREE.Mesh(cheekGeo, cheekMat); cr.position.set(0.27, -0.05, 0.31);
     head.add(cl, cr);
-    // googly eyes: a light eyeball (the ink hull rings it -> a crisp black outline) with a
-    // dark pupil dot opted OUT of the hull so it stays a clean dot. Untextured = pure read.
-    const scleraMat = new THREE.MeshStandardMaterial({ color: 0xf4efe2, roughness: 0.55, flatShading: true });
-    const pupilMat = new THREE.MeshStandardMaterial({ color: 0x0a0a12, roughness: 0.5, flatShading: true });
-    const scleraGeo = new THREE.SphereGeometry(0.1, 7, 6);
-    const pupilGeo = new THREE.SphereGeometry(0.05, 6, 5);
-    for (const sx of [-0.16, 0.16]) {
-      const sc = new THREE.Mesh(scleraGeo, scleraMat); sc.position.set(sx, 0.06, 0.4); sc.scale.set(0.95, 1.0, 0.72); head.add(sc);
-      const pu = new THREE.Mesh(pupilGeo, pupilMat); pu.position.set(sx, 0.05, 0.48); pu.userData.noOutline = true; head.add(pu);
+    // simple black dot eyes (no white googly sclera)
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x0a0a12, roughness: 0.5, flatShading: true });
+    const eyeGeo = new THREE.SphereGeometry(0.078, 7, 6);
+    for (const sx of [-0.15, 0.15]) {
+      const e = new THREE.Mesh(eyeGeo, eyeMat); e.position.set(sx, 0.05, 0.44); e.userData.noOutline = true; e.userData.noTex = true; head.add(e);
     }
     const nose = new THREE.Mesh(new THREE.SphereGeometry(0.1, 7, 5), new THREE.MeshStandardMaterial({ color: 0xe06a55, roughness: 0.7, flatShading: true }));
     nose.position.set(0, -0.04, 0.45);

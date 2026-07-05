@@ -1587,10 +1587,10 @@ export class Game {
     this._enterLevelMap();
   }
   _buildRunMap() {
-    // a single winding candy-crush level path (linear chain of levels), not a branch graph
+    // a single winding trail (linear chain of levels), not a branch graph
     return generateRunMap(Math.random, { rows: STAGES_PER_REGION, cols: 1, paths: 1 });
   }
-  // ----- region LEVEL MAP: a real 3D candy-crush scene you orbit, zoom & tap into -----
+  // ----- region LEVEL MAP: a real 3D biome diorama you orbit, zoom & tap into -----
   openRegionMap(id) {
     this._worldSel = id; this._runRegion = id;
     this._runMap = this._buildRunMap();
@@ -1603,22 +1603,23 @@ export class Game {
   _enterLevelMap() {
     this.phase = 'levelmap'; this.state = 'levelmap';
     this._worldDive = false; this._setPixel('menu');
-    this.levelMap.build(this._runMap, this.world.regionTone ? this.world.regionTone(this._runRegion) : 0x6a5ac0);
+    this.levelMap.build(this._runMap, this._runRegion, this.world.regionTone ? this.world.regionTone(this._runRegion) : 0x6a5ac0);
     this.levelMap.refresh(this);
     this.tavern.show(false); this.tavern.showRoom(false); this.arenaGroup.visible = false;
     this.world.show(false); this.wizard.setVisible(false); this.levelMap.show(true);
     this.input.pointMode = true;
     this._mapYaw = 0; this._mapPitch = 1; this._mapZoom = 1;
-    // dreamy candy-night lighting so the isle reads at a glance
+    // moody biome-night lighting keyed to the region so each diorama reads distinctly
+    const B = this.levelMap.biome || {};
     this._aimShadow(24, 44, 16, 44);
-    this.scene.background.setHex(0x1a1230); this.scene.fog.color.setHex(0x201540); this.scene.fog.density = 0.006;
-    this.hemi.color.setHex(0xe0d0ff); this.hemi.groundColor.setHex(0x2c2448); this.hemi.intensity = 1.15;
-    this.dir.color.setHex(0xffffff); this.dir.intensity = 1.4; this.ambient.color.setHex(0x4a4066); this.ambient.intensity = 0.72;
-    this.fill.color.setHex(0xcbb8ff); this.fill.intensity = 0.4;
-    this.rim.color.setHex(0xd8c0ff); this.rim.intensity = 1.0;
+    this.scene.background.setHex(B.sky != null ? B.sky : 0x0c1a12); this.scene.fog.color.setHex(B.fog != null ? B.fog : 0x10221a); this.scene.fog.density = 0.0055;
+    this.hemi.color.setHex(B.hemi != null ? B.hemi : 0xbfe0c0); this.hemi.groundColor.setHex(B.hemiG != null ? B.hemiG : 0x1e3a24); this.hemi.intensity = 1.05;
+    this.dir.color.setHex(0xfff2d8); this.dir.intensity = 1.35; this.ambient.color.setHex(0x3a4a3e); this.ambient.intensity = 0.6;
+    this.fill.color.setHex(0xbfd0e8); this.fill.intensity = 0.34;
+    this.rim.color.setHex(B.accent != null ? B.accent : 0x9bff9b); this.rim.intensity = 1.05;
     if (this.heroLight) this.heroLight.intensity = 0;
-    this.renderer.toneMappingExposure = 1.1;
-    if (this._gradePass) { const u = this._gradePass.uniforms; u.uContrast.value = 1.1; u.uSaturation.value = 1.22; u.uTintStrength.value = 0.24; u.uVignette.value = 0.4; u.uVignetteSoft.value = 0.6; u.uGrain.value = 0.014; }
+    this.renderer.toneMappingExposure = 1.08;
+    if (this._gradePass) { const u = this._gradePass.uniforms; u.uContrast.value = 1.12; u.uSaturation.value = 1.18; u.uTintStrength.value = 0.2; u.uVignette.value = 0.44; u.uVignetteSoft.value = 0.6; u.uGrain.value = 0.016; }
     if (this.ui.hideRunMap) this.ui.hideRunMap();
     if (this.ui.hideWorldHud) this.ui.hideWorldHud();
     this.ui.setScreen('play'); this.ui.setPhase('world', this.input.isTouch);

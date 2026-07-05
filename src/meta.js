@@ -70,7 +70,7 @@ export const BUILDABLES = [
   // feature-gated stations — unlocked by completing quests
   { id: 'wardrobe',   name: 'Character Hall', icon: '🧙', cost: 70,  comfort: 0, station: 'character',  feature: 'gear' },
   { id: 'cauldron',   name: 'Cauldron',     icon: '🜲', cost: 80,  comfort: 0, station: 'cauldron',   feature: 'combos' },
-  { id: 'anvil',      name: 'Anvil',        icon: '🔨', cost: 90,  comfort: 0, station: 'blacksmith', feature: 'forge' },
+  { id: 'anvil',      name: 'TGC Terminal', icon: '🃏', cost: 90,  comfort: 0, station: 'blacksmith', feature: 'forge' },
   // comforts — raise your rest bonus
   { id: 'rug',     name: 'Woven Rug',       icon: '🟫', cost: 55,  comfort: 1 },
   { id: 'chair',   name: 'Armchair',        icon: '🪑', cost: 60,  comfort: 1 },
@@ -80,6 +80,15 @@ export const BUILDABLES = [
   { id: 'shelf',   name: 'Bookshelf',       icon: '📚', cost: 120, comfort: 2 },
   { id: 'trophy',  name: 'Trophy Plinth',   icon: '🏆', cost: 160, comfort: 3 },
   { id: 'chest',   name: 'Treasure Chest',  icon: '🧰', cost: 180, comfort: 3 },
+  // ---- 🪑 furniture: decorate your den (each with its own pixel sprite) ----
+  { id: 'sofa',       name: 'Plush Sofa',        icon: 'furn_sofa',       cost: 90,  comfort: 2, cat: 'furniture' },
+  { id: 'bookcase',   name: 'Grand Bookcase',    icon: 'furn_bookcase',   cost: 130, comfort: 2, cat: 'furniture' },
+  { id: 'clock',      name: 'Grandfather Clock', icon: 'furn_clock',      cost: 110, comfort: 2, cat: 'furniture' },
+  { id: 'aquarium',   name: 'Aquarium',          icon: 'furn_aquarium',   cost: 160, comfort: 3, cat: 'furniture' },
+  { id: 'fountain',   name: 'Fountain',          icon: 'furn_fountain',   cost: 180, comfort: 3, cat: 'furniture' },
+  { id: 'piano',      name: 'Grand Piano',       icon: 'furn_piano',      cost: 200, comfort: 3, cat: 'furniture' },
+  { id: 'chandelier', name: 'Candelabra',        icon: 'furn_chandelier', cost: 220, comfort: 4, cat: 'furniture' },
+  { id: 'throne',     name: 'Throne',            icon: 'furn_throne',     cost: 300, comfort: 5, cat: 'furniture' },
 ];
 export const buildableById = (id) => BUILDABLES.find(b => b.id === id);
 export const placedItems = () => (state.room.placed || (state.room.placed = []));
@@ -227,6 +236,43 @@ export function toggleArtifactEquip(id) {
   save(); return true;
 }
 
+// ---- 🐾 creatures / pets: adopt a companion at the Menagerie; ONE follows you into a
+// run (a little floating sprite beside the wizard) and grants a passive boost. Some tick
+// automatically each second ("auto-XP", auto-mana, auto-heal); others are flat stat boons
+// or a gem-find bonus. Owned pets persist; you carry one at a time. ----
+export const PETS = [
+  { id: 'wisp',  name: 'XP Wisp',      cost: 12, kind: 'autoxp',   val: 3,   desc: 'Auto-gains +3 XP every second in battle.' },
+  { id: 'fairy', name: 'Mana Fairy',   cost: 12, kind: 'automana', val: 4,   desc: 'Trickles +4 mana every second.' },
+  { id: 'bat',   name: 'Vampat',       cost: 14, kind: 'autoheal', val: 1.5, desc: 'Siphons +1.5 HP every second.' },
+  { id: 'owl',   name: 'Wise Owl',     cost: 14, kind: 'stat', mods: { xpMult: 0.25 },      desc: '+25% XP gained.' },
+  { id: 'cat',   name: 'Coin Cat',     cost: 12, kind: 'stat', mods: { pickupRadius: 2.5 }, desc: '+2.5 pickup range (auto-vacuum).' },
+  { id: 'drake', name: 'Drakeling',    cost: 18, kind: 'stat', mods: { damageMult: 0.15 },  desc: '+15% spell damage.' },
+  { id: 'golem', name: 'Pebble Golem', cost: 16, kind: 'stat', mods: { hpMax: 30 },         desc: '+30 max health.' },
+  { id: 'slime', name: 'Gem Slime',    cost: 20, kind: 'gem',  val: 0.25,   desc: '+25% gems from every venture.' },
+];
+export const petById = (id) => PETS.find(p => p.id === id);
+export const ownedPets = () => state.pets || [];
+export const hasPet = (id) => (state.pets || []).includes(id);
+export const equippedPetId = () => state.equippedPet || null;
+export const equippedPet = () => petById(state.equippedPet);
+export function adoptPet(id) {
+  const p = petById(id); if (!p || hasPet(id)) return false;
+  if (!spendGems(p.cost)) return false;
+  if (!state.pets) state.pets = []; state.pets.push(id);
+  if (!state.equippedPet) state.equippedPet = id; // your first adopted pet is carried automatically
+  save(); return true;
+}
+export function equipPet(id) {
+  if (id && !hasPet(id)) return false;
+  state.equippedPet = (state.equippedPet === id) ? null : id; save(); return true;
+}
+// flat stat boons from the carried pet (folded into a run like gear mods)
+export function petMods() { const p = equippedPet(); return (p && p.kind === 'stat' && p.mods) ? p.mods : {}; }
+// gem-find multiplier from the carried pet (applied to venture rewards)
+export function petGemMult() { const p = equippedPet(); return (p && p.kind === 'gem') ? 1 + p.val : 1; }
+// the carried pet's per-second auto effect for the arena loop (or null)
+export function petAuto() { const p = equippedPet(); return (p && /^auto/.test(p.kind)) ? { kind: p.kind, val: p.val } : null; }
+
 // ---- deck-building: which abilities are allowed to appear on level-up ----
 export const isDeckOff = (id) => !!(state.deckOff && state.deckOff[id]);
 export const deckOffIds = () => Object.keys(state.deckOff || {});
@@ -254,7 +300,7 @@ export function setArchetype(id) { state.archetype = id || null; save(); }
 
 // ---- quest-unlocked features (each claimed bounty opens the next) ----
 export const FEATURE_ORDER = ['gear', 'combos', 'forge'];
-export const FEATURE_LABELS = { gear: 'Character Hall', combos: 'Cauldron (combos)', forge: 'Anvil (forge)' };
+export const FEATURE_LABELS = { gear: 'Character Hall', combos: 'Cauldron (combos)', forge: 'TGC.com Terminal' };
 export const featureUnlocked = (id) => !!(state.features && state.features[id]);
 export function unlockFeature(id) { if (!state.features) state.features = {}; if (!state.features[id]) { state.features[id] = 1; save(); return true; } return false; }
 export function unlockNextFeature() { const next = FEATURE_ORDER.find(f => !featureUnlocked(f)); if (next) { unlockFeature(next); return next; } return null; }
@@ -292,6 +338,8 @@ function defaultSave() {
     research: { activeId: null, daysLeft: 0, done: {} },
     artifacts: [],          // ✦ artifacts collected from bosses (persistent)
     equippedArtifacts: [],  // which ones you carry into a run (max 3)
+    pets: [],               // 🐾 adopted creatures (persistent)
+    equippedPet: null,      // the one companion you carry into a run
     deckOff: {},            // ability ids the player has removed from their level-up deck
     unlockedUpgrades: { maxhp: 1, damage: 1, haste: 1, mana: 1, cdr: 1 }, // 5 base boons; earn the rest
     archetype: null,        // chosen playstyle for the next run (null = none yet)
@@ -367,6 +415,8 @@ export function load() {
       state.research.done = state.research.done || {};
       state.artifacts = Array.isArray(state.artifacts) ? state.artifacts : [];
       state.equippedArtifacts = Array.isArray(state.equippedArtifacts) ? state.equippedArtifacts.slice(0, 3) : [];
+      state.pets = Array.isArray(state.pets) ? state.pets : [];
+      state.equippedPet = (state.equippedPet && state.pets.includes(state.equippedPet)) ? state.equippedPet : null;
       state.deckOff = state.deckOff || {};
       state.unlockedUpgrades = Object.assign({ maxhp: 1, damage: 1, haste: 1, mana: 1, cdr: 1 }, state.unlockedUpgrades || {});
       state.features = state.features || {};
@@ -736,6 +786,28 @@ export function forgeGear(id) {
   const inst = genGear(null, rollWeighted(t.w), lvl);
   state.gear.push(inst); markSeen('forge'); save(); return inst;
 }
+
+// ---- TGC.com booster packs: buy a pack, watch it open, then CHOOSE one of the
+// revealed pieces to keep (the rest are discarded). Same rarity odds as the forge tiers,
+// reframed as a card-pack shop. buyPack spends the cost and returns the revealed options;
+// nothing enters your inventory until you keepGear() the one you pick. ----
+export const PACKS = [
+  { id: 'starter', name: 'Starter Booster', icon: '🎴', gold: 40,  gems: 2,  picks: 3, w: { common: 60, rare: 30, epic: 9,  legendary: 1 } },
+  { id: 'prime',   name: 'Prime Booster',   icon: '🎴', gold: 95,  gems: 5,  picks: 3, w: { common: 22, rare: 46, epic: 26, legendary: 6 } },
+  { id: 'legend',  name: 'Legend Booster',  icon: '🎴', gold: 180, gems: 12, picks: 3, w: { common: 4,  rare: 28, epic: 46, legendary: 22 } },
+];
+export const packById = (id) => PACKS.find(p => p.id === id);
+export const canBuyPack = (id) => { const p = packById(id); return !!p && state.gold >= p.gold && (state.gems || 0) >= p.gems; };
+// spend the cost and roll the pack's revealed options (NOT yet owned — caller picks one)
+export function buyPack(id) {
+  const p = packById(id); if (!p || !canBuyPack(id)) return null;
+  state.gold -= p.gold; state.gems -= p.gems; save();
+  const lvl = 1 + ((state.cleared || []).length) + PACKS.indexOf(p);
+  const opts = []; for (let i = 0; i < (p.picks || 3); i++) opts.push(genGear(null, rollWeighted(p.w), lvl));
+  return opts;
+}
+// keep a chosen revealed piece (adds it to the inventory)
+export function keepGear(inst) { if (!inst) return false; state.gear.push(inst); markSeen('forge'); save(); return true; }
 export function equipGear(id) {
   const inst = gearById(id); if (!inst) return false;
   state.equippedGear[inst.slot] = (state.equippedGear[inst.slot] === id) ? null : id; save(); return true;

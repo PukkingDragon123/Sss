@@ -589,6 +589,80 @@ export class Tavern {
         const glow = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), GLOW(0xffe08a, 0.7)); glow.position.set(0, 0.46, 0.18); g.add(glow);
         break;
       }
+      // ---- furniture (decorate your den) ----
+      case 'sofa': {
+        const body = add(new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.4, 0.7), cloth)); body.position.y = 0.42;
+        const back = add(new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.5, 0.18), cloth)); back.position.set(0, 0.72, -0.26);
+        for (const sx of [-1, 1]) { const arm = add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.42, 0.7), cloth)); arm.position.set(sx * 0.75, 0.63, 0); }
+        for (const sx of [-0.4, 0.4]) { const cush = add(new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.16, 0.58), M(0xa8536a, 0.95))); cush.position.set(sx, 0.64, 0.02); }
+        legs(0.66, 0.22, woodDk);
+        break;
+      }
+      case 'bookcase': {
+        const frame = add(new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.9, 0.46), M(0x5a3f28))); frame.position.y = 0.95;
+        const cornice = add(new THREE.Mesh(new THREE.BoxGeometry(1.44, 0.16, 0.56), woodDk)); cornice.position.y = 1.98;
+        for (const sy of [0.4, 0.92, 1.44]) { const b = add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.06, 0.42), woodDk)); b.position.set(0, sy, 0); }
+        const cols = [0xb04a4a, 0x4a7ab0, 0x6fb08a, 0xc9a24a, 0x8a5ad0, 0xd86a3a, 0x6f5fc4];
+        for (let i = 0; i < 15; i++) { const bh = 0.4 + (i % 3) * 0.06; const b = add(new THREE.Mesh(new THREE.BoxGeometry(0.12, bh, 0.34), M(cols[i % 7]))); b.position.set(-0.5 + (i % 5) * 0.25, [0.66, 1.18, 1.7][Math.floor(i / 5)] + bh / 2 - 0.22, 0.02); b.rotation.z = ((i * 37) % 10 - 5) * 0.02; }
+        break;
+      }
+      case 'clock': {
+        const body = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.9, 0.36), M(0x5a3a20, 0.9))); body.position.y = 0.95;
+        const crown = add(new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.2, 0.44), woodDk)); crown.position.y = 1.96;
+        add(new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.06, 16), M(0xf2efe0, 0.6))).position.set(0, 1.55, 0.2); g.children[g.children.length - 1].rotation.x = Math.PI / 2;
+        const ring = add(new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.03, 6, 20), gold)); ring.position.set(0, 1.55, 0.22);
+        for (const [a, l] of [[0.6, 0.13], [2.4, 0.1]]) { const hand = add(new THREE.Mesh(new THREE.BoxGeometry(0.02, l, 0.02), iron)); hand.position.set(Math.sin(a) * l / 2, 1.55 + Math.cos(a) * l / 2, 0.24); hand.rotation.z = -a; }
+        const pend = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.04, 14), gold); pend.rotation.x = Math.PI / 2; pend.position.set(0, 0.7, 0.19); g.add(pend);
+        break;
+      }
+      case 'piano': {
+        const body = add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.0, 0.5), M(0x1a1620, 0.5, 0.2))); body.position.y = 0.6;
+        const top = add(new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.1, 0.62), M(0x0e0b12, 0.4, 0.3))); top.position.y = 1.14;
+        const keys = add(new THREE.Mesh(new THREE.BoxGeometry(1.24, 0.1, 0.22), M(0xf4efe4, 0.5))); keys.position.set(0, 0.86, 0.32);
+        for (let i = 0; i < 9; i++) { const bk = add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.12), M(0x14121a, 0.4))); bk.position.set(-0.55 + i * 0.14, 0.92, 0.28); }
+        legs(0.58, 0.32, woodDk);
+        const stool = add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.3), M(0x7a3a52, 0.9))); stool.position.set(0, 0.44, 0.75);
+        break;
+      }
+      case 'fountain': {
+        const base = add(new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.78, 0.24, 20), M(0x8a8f9a, 0.9)), true); base.position.y = 0.12;
+        const rim = add(new THREE.Mesh(new THREE.TorusGeometry(0.68, 0.06, 8, 22), M(0xb0b6c0, 0.85))); rim.rotation.x = Math.PI / 2; rim.position.y = 0.24;
+        const water = new THREE.Mesh(new THREE.CylinderGeometry(0.64, 0.64, 0.05, 20), GLOW(0x4aa0e0, 0.75)); water.position.y = 0.24; g.add(water);
+        const col = add(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.5, 12), M(0xb0b6c0, 0.85))); col.position.y = 0.5;
+        const bowl = add(new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.28, 0.1, 16), M(0xb0b6c0, 0.85))); bowl.position.y = 0.78;
+        const top2 = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.04, 16), GLOW(0x6ac0ff, 0.8)); top2.position.y = 0.83; g.add(top2);
+        for (let i = 0; i < 4; i++) { const d = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), GLOW(0x9ad8ff, 0.85)); d.position.set(Math.cos(i * 1.57) * 0.3, 0.66 + (i % 2) * 0.12, Math.sin(i * 1.57) * 0.3); g.add(d); }
+        break;
+      }
+      case 'aquarium': {
+        const stand = add(new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.5, 0.5), woodDk)); stand.position.y = 0.25;
+        const glass = add(new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.6, 0.44), new THREE.MeshStandardMaterial({ color: 0x9fd8ff, transparent: true, opacity: 0.3, roughness: 0.1, metalness: 0.1, flatShading: true }))); glass.position.y = 0.82;
+        const water = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.5, 0.4), GLOW(0x2f8ad0, 0.4)); water.position.y = 0.8; g.add(water);
+        const gravel = add(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.08, 0.4), M(0x6a5a3a, 0.95))); gravel.position.y = 0.56;
+        const fish = add(new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), E(0xff8a3a, 0.5, 0xffb060))); fish.scale.set(1.4, 0.8, 0.6); fish.position.set(0.1, 0.86, 0.05);
+        const fish2 = add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), E(0x5fd0a0, 0.5, 0x8ff0c0))); fish2.scale.set(1.4, 0.8, 0.6); fish2.position.set(-0.2, 0.76, -0.05);
+        break;
+      }
+      case 'chandelier': {
+        const foot = add(new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.3, 0.1, 12), iron)); foot.position.y = 0.05;
+        const pole = add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.5, 8), iron)); pole.position.y = 0.8;
+        const ring = add(new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.04, 6, 18), gold)); ring.rotation.x = Math.PI / 2; ring.position.y = 1.5;
+        for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28, cx = Math.cos(a) * 0.4, cz = Math.sin(a) * 0.4;
+          const candle = add(new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.16, 8), M(0xede2c0, 0.8))); candle.position.set(cx, 1.6, cz);
+          const flame = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.16, 7), GLOW(0xffb35c, 0.95)); flame.position.set(cx, 1.76, cz); g.add(flame); }
+        const li = new THREE.PointLight(0xffcf8a, 0.8, 7); li.position.y = 1.7; li.castShadow = false; g.add(li);
+        break;
+      }
+      case 'throne': {
+        const seat = add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.16, 0.7), M(0x6a4a8a, 0.8))); seat.position.y = 0.6;
+        const cushion = add(new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.14, 0.6), cloth)); cushion.position.y = 0.7;
+        const back = add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.3, 0.16), M(0x5a3f7a, 0.8))); back.position.set(0, 1.2, -0.32);
+        const crown = add(new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.3, 6), gold)); crown.position.set(0, 1.96, -0.32);
+        for (const sx of [-1, 1]) { const arm = add(new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.5, 0.6), M(0x5a3f7a, 0.8))); arm.position.set(sx * 0.42, 0.8, 0); const knob = add(new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), gold)); knob.position.set(sx * 0.42, 1.06, 0.24); }
+        for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const l = add(new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.6, 8), gold)); l.position.set(sx * 0.34, 0.3, sz * 0.3); }
+        const trim = add(new THREE.Mesh(new THREE.BoxGeometry(0.84, 0.08, 0.74), gold)); trim.position.y = 0.68;
+        break;
+      }
       default: return null;
     }
     return g;

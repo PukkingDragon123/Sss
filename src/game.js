@@ -21,6 +21,7 @@ import { rollUpgrades, rollArtifact, artifactById, ARCHETYPES, archetypeById } f
 import * as meta from './meta.js';
 import { COMBO_META } from './meta.js';
 import { pxMap } from './pixeltex.js';
+import { iconCanvas, PET_SPRITE } from './pixelicons.js';
 
 // Cinematic color grade — runs LAST (after OutputPass), so it operates on sRGB display
 // values in [0,1]: contrast/saturation/split-tone, a radial vignette for darkness/mood,
@@ -149,6 +150,8 @@ export class Game {
     this.camOffset = new THREE.Vector3(0, 27, 22);
     this.camTarget = new THREE.Vector3();
     this.camZoom = 1; // player zoom (wheel / pinch), multiplies the camera offset
+    this.camYaw = 0;    // player camera turn (orbit around the wizard) — middle-drag / [ ] / on-screen buttons
+    this.camPitch = 1;  // player camera pitch multiplier (1 = default top-down-ish; lower = more 3D angle)
 
     this._buildWorld();
     this.scene.environment = this._makeEnvMap(); // soft image-based lighting: metals/gems read as real material
@@ -970,7 +973,7 @@ export class Game {
     const waveBonus = Math.pow(1.07, Math.max(0, depth - 1));
     const comboBonus = 1 + Math.min(0.5, (this.comboBest || 0) * 0.01);
     const cardGemMult = (this.cardPerks && this.cardPerks.gemMult) || 1; // collectible-card bonus
-    const gemReward = Math.max(1, Math.round((2 + depth * 1.2 + this.kills * 0.05 + (win ? 5 : 0)) * meta.gemBonusMult() * waveBonus * comboBonus * cardGemMult));
+    const gemReward = Math.max(1, Math.round((2 + depth * 1.2 + this.kills * 0.05 + (win ? 5 : 0)) * meta.gemBonusMult() * waveBonus * comboBonus * cardGemMult * meta.petGemMult()));
     meta.addGems(gemReward);
     if (win) meta.addGear(meta.dropGear(this.level + 3, true));
     const earnedGems = Math.max(0, meta.gems() - (this._runGemStart || 0));
@@ -1057,7 +1060,7 @@ export class Game {
     this.wizard.setVisible(true);
     this.wizard.pos.copy(this.tavern.start);
     this.aimPoint.set(this.tavern.door.x, 0, this.tavern.door.z);
-    this.camOffset.set(0, 18, 16);
+    this.camOffset.set(0, 18, 16); this.resetCamera();
     this._setMood('tavern');
     this._aimShadow(14, 24, 10, 16); // tight frustum so the bar casts crisp contact shadows
     this.ui.setPhase('tavern', this.input.isTouch);
@@ -1220,7 +1223,7 @@ export class Game {
     this.wizard.setEquipment(meta.equippedGearSummary());
     this.wizard.pos.copy(this.tavern.roomStart);
     this.aimPoint.set(this.tavern.roomStart.x, 0, this.tavern.roomStart.z - 3);
-    this.camOffset.set(0, 13, 13);
+    this.camOffset.set(0, 13, 13); this.resetCamera();
     this._setMood('tavern');
     this._aimShadow(8, 16, 6, 10); // tight frustum for the small room scene
     this.ui.setPhase('room', this.input.isTouch);
@@ -1287,6 +1290,7 @@ export class Game {
     this.stats = DEFAULT_STATS();
     if (meta.consumeRest()) this.stats.hpMax += meta.REST_BONUS + meta.roomComfort() * 4; // a good night's rest, comfier room = more
     this._applyEquipment();
+    this._spawnPetCompanion(); // 🐾 the carried creature joins the fight
     meta.applyResearch(this.stats); // completed research bonuses
     meta.applyBrews(this.stats);    // brewed-potion boons (permanent)
     // collectible-card passives (tiny): folded once per run
@@ -1335,7 +1339,7 @@ export class Game {
     this.wizard.setVisible(true);
     this.wizard.reset(this.stats); this.wizard.pos.set(0, 0, 0);
     this.input.pointMode = false;
-    this.camOffset.set(0, 27, 22);
+    this.camOffset.set(0, 27, 22); this.resetCamera();
     this._applyStageTheme(stage);
     this._spawnShrine();         // a rune shrine: draw a glyph at it to channel a relic
     this._spawnWisp();           // your glowing wisp guide-pet drifts along
@@ -1719,6 +1723,7 @@ export class Game {
   _applyEquipment() {
     this.wizard.setEquipment(meta.equippedGearSummary()); // worn gear shows on the model
     const m = meta.equipMods();
+    const pm = meta.petMods(); for (const k in pm) m[k] = (m[k] || 0) + pm[k]; // fold in the carried pet's boons
     const s = this.stats;
     if (m.hpMax) s.hpMax += m.hpMax;
     if (m.manaMax) s.manaMax += m.manaMax;
@@ -1936,7 +1941,7 @@ export class Game {
     this.reticle.visible = (this.state === 'play' && this.phase === 'arena');
     if (this.phase === 'tavern') {
       // the wizard faces the way he's staggering
-      const mv = this.input.moveVector();
+      const mv = this.moveVector();
       if (Math.hypot(mv.x, mv.z) > 0.1) this.aimPoint.set(this.wizard.pos.x + mv.x * 5, 0, this.wizard.pos.z + mv.z * 5);
       return;
     }
@@ -2013,6 +2018,65 @@ export class Game {
   }
 
   // ---------- camera ----------
+  // camera-relative movement: rotate the raw WASD / joystick vector by the camera yaw so
+  // "up" always means "away from the camera", however the player has turned it.
+  moveVector() {
+    const mv = this.input.moveVector();
+    const y = this.camYaw || 0;
+    if (!y) return mv;
+    const c = Math.cos(y), s = Math.sin(y);
+    return { x: mv.x * c + mv.z * s, z: -mv.x * s + mv.z * c };
+  }
+
+  // per-frame camera turn/pitch from middle-drag and the [ ] keys (on-screen buttons snap
+  // via turnCamera). Only active while you control the wizard, never in the fixed build cam.
+  _updateCameraControls(dt) {
+    if (this.state !== 'play') return;
+    if (this.phase === 'room' && this.ui && this.ui._shopKind === 'build') return;
+    const o = this.input.consumeOrbit();
+    if (o.dx) this.camYaw += o.dx * 0.006;
+    if (o.dy) this.camPitch = Math.max(0.55, Math.min(1.5, this.camPitch - o.dy * 0.004));
+    const t = this.input.turnInput();
+    if (t) this.camYaw += t * dt * 1.7;
+  }
+
+  // on-screen / tap camera turn: dir -1 (left) / +1 (right) — a smooth 30° snap
+  turnCamera(dir) { if (this.state === 'play') this.camYaw += dir * Math.PI / 6; }
+  resetCamera() { this.camYaw = 0; this.camPitch = 1; }
+
+  // 🐾 the carried pet: a little billboarded pixel sprite floating beside the wizard in a
+  // run (also gives the 2D-sprite-in-3D "Megabonk" flavour). Rebuilt when the pet changes.
+  _spawnPetCompanion() {
+    const id = meta.equippedPetId ? meta.equippedPetId() : null;
+    if (this._petSprite && this._petSpriteId === id) return; // unchanged — keep it
+    if (this._petSprite) { this.scene.remove(this._petSprite); if (this._petSprite.material.map) this._petSprite.material.map.dispose(); this._petSprite.material.dispose(); this._petSprite = null; }
+    this._petSpriteId = id; this._petXpAcc = 0;
+    const recipe = id ? PET_SPRITE[id] : null; if (!recipe) return;
+    const cv = iconCanvas(recipe, { scale: 8 }); if (!cv) return;
+    const tex = new THREE.CanvasTexture(cv); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter;
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    spr.scale.set(1.6, 1.6, 1.6); spr.userData.noOutline = true; spr.userData.noTex = true; spr.visible = false;
+    this.scene.add(spr); this._petSprite = spr;
+  }
+  _updatePetCompanion(dt) {
+    const spr = this._petSprite; if (!spr) return;
+    const show = this.phase === 'arena' && this.wizard.alive && this.state !== 'gameover';
+    spr.visible = show; if (!show) return;
+    this._petT = (this._petT || 0) + dt;
+    const w = this.wizard.pos;
+    const tx = w.x - 1.8, tz = w.z + 0.7;
+    spr.position.x += (tx - spr.position.x) * Math.min(1, dt * 5);
+    spr.position.z += (tz - spr.position.z) * Math.min(1, dt * 5);
+    spr.position.y = 1.9 + Math.sin(this._petT * 3) * 0.28;
+  }
+  // per-second auto boons from the carried pet (auto-XP / auto-mana / auto-heal)
+  _tickPetAuto(sdt) {
+    const pa = meta.petAuto ? meta.petAuto() : null; if (!pa || !this.wizard.alive) return;
+    if (pa.kind === 'autoxp') { this._petXpAcc = (this._petXpAcc || 0) + pa.val * sdt; const whole = Math.floor(this._petXpAcc); if (whole >= 1) { this._petXpAcc -= whole; this.gainXP(whole); } }
+    else if (pa.kind === 'automana') this.wizard.mana = Math.min(this.stats.manaMax, this.wizard.mana + pa.val * sdt);
+    else if (pa.kind === 'autoheal') this.wizard.hp = Math.min(this.stats.hpMax, (this.wizard.hp || 0) + pa.val * sdt);
+  }
+
   _updateCamera(dt) {
     // opening cinematic: an intimate orbit as the spirit pours into the wizard
     if (this._openingCine) {
@@ -2073,7 +2137,12 @@ export class Game {
     const bx = this.state === 'title' ? -9 : 0;
     const focus = this.camTarget.clone(); focus.x += bx;
     if (this.phase === 'tavern') focus.y += (this.wizard.floorY || 0); // rise with him onto the upper deck
-    const desired = focus.clone().add(this.camOffset.clone().multiplyScalar(this.camZoom));
+    // build the follow offset from the player's yaw + pitch so they can turn the camera
+    // around the wizard and tilt to a more 3D angle (zoom multiplies the whole thing)
+    const horiz = Math.hypot(this.camOffset.x, this.camOffset.z) || 22;
+    const yaw = this.camYaw || 0;
+    const off = new THREE.Vector3(Math.sin(yaw) * horiz, this.camOffset.y * (this.camPitch || 1), Math.cos(yaw) * horiz).multiplyScalar(this.camZoom);
+    const desired = focus.clone().add(off);
     this.camera.position.lerp(desired, Math.min(1, dt * 6));
     if (this.shakeAmt > 0) {
       this.shakeAmt = Math.max(0, this.shakeAmt - dt * 4);
@@ -2134,6 +2203,8 @@ export class Game {
     }
 
     this.ui.updateHUD(this);
+    this._updateCameraControls(dt);
+    this._updatePetCompanion(dt);
     this._updateCamera(dt);
     if (this._gradePass) this._gradePass.uniforms.uTime.value = this.clock.getElapsedTime();
     this.present();
@@ -2169,6 +2240,7 @@ export class Game {
 
   _updateArena(sdt) {
     this.elapsed += sdt;
+    this._tickPetAuto(sdt); // 🐾 auto-XP / auto-mana / auto-heal from the carried pet
     this.wizard._hitThisFrame = false;   // any hit taken this frame will break the kill-combo
     // you slowly sober up between gulps; the post-gulp lurch fades fast
     this.drunkenness = Math.max(0, this.drunkenness - sdt * 0.05);

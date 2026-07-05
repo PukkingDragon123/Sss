@@ -8,7 +8,7 @@ import { STAGES, STAGE_ORDER } from './story.js';
 import { ARTIFACTS, artifactById, UPGRADES, upgradeRarity } from './upgrades.js';
 import { MINIGAMES, setIconDrawer } from './minigames.js';
 import { CARDS, CARD_BY_ID, CARD_RARITY } from './cards.js';
-import { spriteImg, gearImg, iconImg, iconCanvas, pixify, pixifyHtml, SPELL_SPRITE, COMBO_SPRITE } from './pixelicons.js';
+import { spriteImg, gearImg, iconImg, iconCanvas, pixify, pixifyHtml, SPELL_SPRITE, COMBO_SPRITE, PET_SPRITE } from './pixelicons.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -89,6 +89,7 @@ export class UI {
       loading: $('loading'),
       bars: document.querySelector('.bars'), spellbook: $('spellbook'), castHint: $('cast-hint'),
       gold: $('gold'), gems: $('gems'), clock: $('clock'), wave: $('wave'), banner: $('banner'), interactPrompt: $('interact-prompt'), btnInteract: $('btn-interact'), btnInteractLabel: $('btn-interact-label'),
+      camControls: $('cam-controls'), camLeft: $('cam-left'), camReset: $('cam-reset'), camRight: $('cam-right'),
       stageBanner: $('stage-banner'), stageTint: $('stage-tint'), missionHud: $('mission-hud'),
       shop: $('shop'), shopTitle: $('shop-title'), shopGold: $('shop-gold'), shopGems: $('shop-gems'), shopBody: $('shop-body'), shopClose: $('shop-close'),
       tavernHud: $('tavern-hud'), ruckusCount: $('ruckus-count'),
@@ -173,6 +174,10 @@ export class UI {
     this.el.btnGuideClose.addEventListener('click', () => { game.audio.play('click'); game.toggleGuide(); });
     this.el.btnInteract.addEventListener('click', () => game.interact());
     if (this.el.btnDrink) this.el.btnDrink.addEventListener('click', () => game.drink());
+    // camera turn controls (snap ±30°; middle-drag & [ ] keys also turn)
+    if (this.el.camLeft) this.el.camLeft.addEventListener('click', () => { game.turnCamera(-1); game.audio.play('click'); });
+    if (this.el.camRight) this.el.camRight.addEventListener('click', () => { game.turnCamera(1); game.audio.play('click'); });
+    if (this.el.camReset) this.el.camReset.addEventListener('click', () => { game.resetCamera(); game.audio.play('click'); });
     if (this.el.btnBuild) this.el.btnBuild.addEventListener('click', () => game.openBuild());
     this.el.shopClose.addEventListener('click', () => { game.audio.play('click'); game.closeShop(); });
     if (this.el.bpRotate) this.el.bpRotate.addEventListener('click', () => { game.audio.play('click'); this._buildRot = ((this._buildRot || 0) + Math.PI / 2) % (Math.PI * 2); this.burstFX(this.el.bpRotate, 'sparkle', 5); });
@@ -383,6 +388,7 @@ export class UI {
     if (!arena) this.hideCombo();   // never let the combo counter linger outside a fight
     if (this.el.questTracker) { this.el.questTracker.classList.toggle('hidden', !(tavern || room)); this._qtSig = null; } // main-quest tracker in the hub
     if (!world) this.hideWorldHud();
+    if (this.el.camControls) this.el.camControls.classList.toggle('hidden', !(arena || tavern || room)); // turn the camera in any 3D scene
     if (!arena && !world) { this.el.interactPrompt.classList.add('hidden'); this.el.btnInteract.classList.add('hidden'); }
     if (tavern) this.el.castHint.innerHTML = pixifyHtml(isTouch ? 'Wander to a <b>table</b> for an order, pour at the <b>bar</b>, carry it back · 🪜 room · 🚪 venture' : 'Take an order at a <b>table</b>, pour at the <b>bar</b>, carry it back to <b>serve</b> for tips · <b>🚪</b> venture · <b>🪜</b> room · press <b>E</b>', 'sm');
     else if (room) this.el.castHint.innerHTML = pixifyHtml(isTouch ? 'Tap <b>🔨 Build</b> to place stations & furniture · tap a station to use it' : 'Press <b>🔨 Build</b> to craft & place stations · walk to one and press <b>E</b> to use it · stairs to go down', 'sm');
@@ -1323,6 +1329,7 @@ export class UI {
   openShop(kind, game) {
     this._shopKind = kind;
     this._shopGame = game;
+    if (kind === 'blacksmith') { this._tgcPhase = 'shop'; this._tgcOptions = null; } // always open TGC.com at the storefront
     this.setGold(meta.gold());
     this._renderShop();
     this.el.shop.classList.toggle('build-mode', kind === 'build');
@@ -1409,6 +1416,23 @@ export class UI {
       this._renderShop();
       return;
     }
+    // ---- TGC.com pack flow: buy -> opening animation -> choose one revealed piece ----
+    if (act === 'buypack') {
+      const opts = meta.buyPack(id);
+      if (!opts) { if (g) g.audio.play('hiccup'); return; }
+      if (g) g.audio.play('levelup');
+      this._tgcOptions = opts; this._tgcPhase = 'opening';
+      this.setGold(meta.gold()); this._renderShop();
+      clearTimeout(this._tgcT);
+      this._tgcT = setTimeout(() => { this._tgcPhase = 'reveal'; if (this._shopKind === 'blacksmith') this._renderShop(); if (g) { g.audio.play('win'); this.burstFX({ x: window.innerWidth / 2, y: window.innerHeight * 0.4 }, 'gem', 16); } }, 1500);
+      return;
+    }
+    if (act === 'keepgear') {
+      const inst = this._tgcOptions && this._tgcOptions[+id];
+      if (inst) { meta.keepGear(inst); this.lootToast(inst); if (g) g.audio.play('levelup'); }
+      this._tgcOptions = null; this._tgcPhase = 'shop'; this._renderShop();
+      return;
+    }
     let ok = false;
     if (act === 'unlock') { ok = meta.unlockSpell(id); if (ok) this._earnUpgrade(g, 'mastering new magic'); }
     else if (act === 'upgrade') ok = meta.upgradeSpell(id);
@@ -1426,6 +1450,8 @@ export class UI {
     else if (act === 'upgradegear') ok = meta.upgradeGear(id);
     else if (act === 'forge') { const inst = meta.forgeGear(id); ok = !!inst; if (ok) { g.ui.lootToast(inst); g.audio.play('levelup'); } }
     else if (act === 'artieq') { ok = meta.toggleArtifactEquip(id); if (!ok) g.ui.wispSay(`✦ You can only carry ${meta.MAX_ARTIFACTS} artifacts into a run.`, { tone: 'warn' }); }
+    else if (act === 'adoptpet') { ok = meta.adoptPet(id); if (ok) { const p = meta.petById(id); g.ui.wispSay(`🐾 Adopted the ${p.name}! Carry it into a run for its boon.`); this.setGems(meta.gems()); } }
+    else if (act === 'equippet') { ok = meta.equipPet(id); if (ok && g && g._spawnPetCompanion) g._spawnPetCompanion(); }
     else if (act === 'paydebt') { const p = meta.payDebt(meta.gold()); ok = p > 0; if (ok) { g.ui.toast(`💰 Paid ${p}🪙 off the debt`); if (meta.debt() <= 0) g.onDebtCleared(); } }
     else if (act === 'claim') { const res = meta.claimQuest(); ok = !!(res && res.reward > 0); if (ok) { g.ui.toast(`Quest reward: +${res.reward}🪙`); if (res.unlocked) g.ui.wispSay(`🔓 Unlocked the ${meta.FEATURE_LABELS[res.unlocked]}. Build it up in your room!`, { big: true, ms: 4200 }); this._earnUpgrade(g, 'finishing a bounty'); } }
     if (g) g.audio.play(ok ? 'click' : 'hiccup');
@@ -1435,7 +1461,7 @@ export class UI {
 
   _renderShop() {
     const kind = this._shopKind;
-    const titles = { skilltree: `✦ Spell Table`, character: `${iconImg('wizard', {}, 'sm')} Character`, cauldron: `${iconImg('cauldron', {}, 'sm')} Cauldron`, build: `${iconImg('hammer', {}, 'sm')} Build Your Den`, manager: `${iconImg('scroll', {}, 'sm')} Quest Board`, ledger: `${iconImg('ledger', {}, 'sm')} Tavern Ledger`, blacksmith: `${iconImg('anvil', {}, 'sm')} Anvil`, library: `${iconImg('book', {}, 'sm')} Arcane Library` };
+    const titles = { skilltree: `✦ Spell Table`, character: `${iconImg('wizard', {}, 'sm')} Character`, cauldron: `${iconImg('cauldron', {}, 'sm')} Cauldron`, build: `${iconImg('hammer', {}, 'sm')} Build Your Den`, manager: `${iconImg('scroll', {}, 'sm')} Quest Board`, ledger: `${iconImg('ledger', {}, 'sm')} Tavern Ledger`, blacksmith: `${iconImg('cardpack', {}, 'sm')} TGC.com`, library: `${iconImg('book', {}, 'sm')} Arcane Library` };
     this.el.shopTitle.innerHTML = titles[kind] || 'Tavern';
     let html = '';
     if (kind === 'skilltree') html = this._renderSkillTree();
@@ -1511,10 +1537,30 @@ export class UI {
     let h = `<div class="vil-tabs">
       <button class="vil-tab ${tab === 'gear' ? 'on' : ''}" data-act="chartab" data-id="gear">${iconImg('robe', {}, 'sm')} Gear</button>
       <button class="vil-tab ${tab === 'spells' ? 'on' : ''}" data-act="chartab" data-id="spells">✦ Spells</button>
+      <button class="vil-tab ${tab === 'pets' ? 'on' : ''}" data-act="chartab" data-id="pets">${iconImg('cat', {}, 'sm')} Pets</button>
       <button class="vil-tab ${tab === 'satchel' ? 'on' : ''}" data-act="chartab" data-id="satchel">${iconImg('bag', {}, 'sm')} Satchel</button></div>`;
     if (tab === 'gear') h += this._renderWardrobe();
     else if (tab === 'spells') h += this._renderCharSpells();
+    else if (tab === 'pets') h += this._renderPets();
     else h += this._renderInventory();
+    return h;
+  }
+  // 🐾 Menagerie: adopt creatures with gems, then carry ONE for a passive boost
+  _renderPets() {
+    const eqid = meta.equippedPetId();
+    let h = `<p class="shop-sub">${iconImg('cat', {}, 'sm')} Adopt a <b>creature</b> with ${iconImg('💎', {}, 'sm')} gems, then carry <b>one</b> into a run for a passive boost (auto-XP, auto-heal, +damage…). It floats beside you in battle.</p><div class="shop-grid">`;
+    for (const p of meta.PETS) {
+      const owned = meta.hasPet(p.id), on = eqid === p.id;
+      let action;
+      if (!owned) action = `<button class="shop-btn gem" data-act="adoptpet" data-id="${p.id}" ${meta.canAffordGems(p.cost) ? '' : 'disabled'}>Adopt ${iconImg('💎', {}, 'sm')}${p.cost}</button>`;
+      else action = `<button class="shop-btn ${on ? 'on' : ''}" data-act="equippet" data-id="${p.id}">${on ? '✓ Carrying' : 'Carry'}</button>`;
+      h += `<div class="shop-card pet-card ${owned ? '' : 'locked'} ${on ? 'on' : ''}">
+        <div class="shop-glyph">${spriteImg(PET_SPRITE[p.id], { rarity: on ? 'legendary' : 'rare' }, 'lg', '🐾')}</div>
+        <div class="shop-name">${p.name}</div>
+        <div class="shop-desc">${p.desc}</div>
+        <div class="shop-acts">${action}</div></div>`;
+    }
+    h += '</div>';
     return h;
   }
   _renderCharSpells() {
@@ -1571,20 +1617,46 @@ export class UI {
     return h;
   }
   _renderBlacksmith() {
-    let h = `<p class="shop-sub">${iconImg('anvil', {}, 'sm')} The forge-gacha: spend ${iconImg('coin', {}, 'sm')} gold &amp; ${iconImg('💎', {}, 'sm')} gems to <b>cast a random piece of gear</b>. Richer ingredients tilt the odds toward the good stuff.</p><div class="shop-grid">`;
-    for (const t of meta.FORGE_TIERS) {
-      const odds = meta.GEAR_RARITY_ORDER.filter(r => t.w[r]).map(r => `<span style="color:${meta.RARITIES[r].color}">${t.w[r]}%</span>`).join(' / ');
-      const can = meta.canForge(t.id);
-      h += `<div class="shop-card forge-card">
-        <div class="shop-glyph">${spriteImg('hammer', { rarity: ['common', 'rare', 'epic'][meta.FORGE_TIERS.indexOf(t)] || 'epic' }, 'md', t.icon)}</div>
-        <div class="shop-name">${t.name}</div>
-        <div class="shop-desc">Cast a random piece.<br><span style="font-size:11px">${odds}</span></div>
-        <div class="shop-acts"><button class="shop-btn gem" data-act="forge" data-id="${t.id}" ${can ? '' : 'disabled'}>${iconImg('coin', {}, 'sm')}${t.gold} · ${iconImg('💎', {}, 'sm')}${t.gems}</button></div></div>`;
+    const phase = this._tgcPhase || 'shop';
+    // --- pack-opening animation (auto-advances to the reveal after ~1.5s) ---
+    if (phase === 'opening') {
+      return `<div class="tgc-open">
+        <div class="tgc-site">TGC<span>.com</span></div>
+        <div class="tgc-pack-anim">${spriteImg('cardpack', { rarity: 'legendary' }, 'lg', '🎴')}</div>
+        <div class="tgc-open-lbl">Ripping the booster open…</div></div>`;
+    }
+    // --- reveal: choose ONE of the pulled pieces ---
+    if (phase === 'reveal') {
+      const opts = this._tgcOptions || [];
+      let cards = '';
+      opts.forEach((inst, i) => {
+        const rc = meta.RARITIES[inst.rarity];
+        const stats = Object.entries(inst.mods).map(([k, v]) => meta.statLabel(k, v)).join(' · ');
+        cards += `<button class="tgc-card" data-act="keepgear" data-id="${i}" style="--rc:${rc.color};animation-delay:${i * 0.14}s">
+          <div class="tgc-card-ico">${gearImg(inst, 'lg')}</div>
+          <div class="tgc-card-rar" style="color:${rc.color}">${rc.name}</div>
+          <div class="tgc-card-name">${inst.name}</div>
+          <div class="tgc-card-stats">${stats}</div>
+          <div class="tgc-card-keep">✓ Keep this</div></button>`;
+      });
+      return `<div class="tgc-reveal"><p class="shop-sub">Booster opened — <b>choose one</b> card to keep. The rest go back in the box.</p>
+        <div class="tgc-card-row">${cards}</div></div>`;
+    }
+    // --- storefront: buy a pack ---
+    let h = `<p class="shop-sub">${iconImg('cardpack', {}, 'sm')} <b>TGC.com</b> — order a booster pack of gear, tear it open, then <b>choose one</b> piece to keep. Pricier packs pull rarer loot.</p><div class="shop-grid">`;
+    for (const p of meta.PACKS) {
+      const odds = meta.GEAR_RARITY_ORDER.filter(r => p.w[r]).map(r => `<span style="color:${meta.RARITIES[r].color}">${p.w[r]}%</span>`).join(' / ');
+      const can = meta.canBuyPack(p.id);
+      h += `<div class="shop-card forge-card tgc-pack-card">
+        <div class="shop-glyph">${spriteImg('cardpack', { rarity: ['common', 'rare', 'epic'][meta.PACKS.indexOf(p)] || 'epic' }, 'lg', p.icon)}</div>
+        <div class="shop-name">${p.name}</div>
+        <div class="shop-desc">Open &amp; pick 1 of ${p.picks}.<br><span style="font-size:11px">${odds}</span></div>
+        <div class="shop-acts"><button class="shop-btn gem" data-act="buypack" data-id="${p.id}" ${can ? '' : 'disabled'}>${iconImg('coin', {}, 'sm')}${p.gold} · ${iconImg('💎', {}, 'sm')}${p.gems}</button></div></div>`;
     }
     h += '</div>';
     const items = meta.gearList().slice().sort((a, b) => meta.RARITIES[b.rarity].mult * b.level - meta.RARITIES[a.rarity].mult * a.level);
-    h += `<div class="eq-section-head" style="margin-top:14px">Your gear — forge up or salvage <span class="eq-count">${items.length}</span></div><div class="shop-grid eq-grid">`;
-    if (!items.length) h += '<div class="eq-empty">No gear yet — cast some above, or loot it on a venture!</div>';
+    h += `<div class="eq-section-head" style="margin-top:14px">Your collection — level up or scrap <span class="eq-count">${items.length}</span></div><div class="shop-grid eq-grid">`;
+    if (!items.length) h += '<div class="eq-empty">No gear yet — rip a pack above, or loot it on a venture!</div>';
     for (const g of items) {
       const cost = meta.upgradeGearCost(g), max = g.level >= 10;
       const acts = `${max ? '<button class="shop-btn" disabled>MAX</button>' : `<button class="shop-btn" data-act="upgradegear" data-id="${g.id}" ${meta.canAfford(cost) ? '' : 'disabled'}>+Lv ${cost} ${iconImg('coin', {}, 'sm')}</button>`}<button class="shop-btn ghost" data-act="salvage" data-id="${g.id}">Scrap ${meta.gearValue(g)} ${iconImg('coin', {}, 'sm')}</button>`;
@@ -1725,10 +1797,12 @@ export class UI {
     h += '</div>';
     h += `<div class="vil-tabs">
       <button class="vil-tab ${tab === 'station' ? 'on' : ''}" data-act="buildtab" data-id="station">${iconImg('hammer', {}, 'sm')} Stations</button>
-      <button class="vil-tab ${tab === 'comfort' ? 'on' : ''}" data-act="buildtab" data-id="comfort">${iconImg('chair', {}, 'sm')} Comforts</button></div>`;
+      <button class="vil-tab ${tab === 'comfort' ? 'on' : ''}" data-act="buildtab" data-id="comfort">${iconImg('chair', {}, 'sm')} Comforts</button>
+      <button class="vil-tab ${tab === 'furniture' ? 'on' : ''}" data-act="buildtab" data-id="furniture">${iconImg('furn_sofa', {}, 'sm')} Furniture</button></div>`;
+    const catOf = (b) => b.station ? 'station' : (b.cat === 'furniture' ? 'furniture' : 'comfort');
     h += '<div class="build-cat">';
     for (const b of meta.BUILDABLES) {
-      if ((tab === 'station') !== !!b.station) continue;
+      if (catOf(b) !== tab) continue;
       const locked = b.feature && !meta.featureUnlocked(b.feature);
       const sel = this._buildSel === b.id;
       const built = b.station && meta.stationBuilt(b.id);

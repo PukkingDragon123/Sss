@@ -116,7 +116,13 @@
     <div id="wisp-bubble" class="hidden"><div class="wisp-text" id="wisp-text"></div></div>
     <div id="interact-prompt" class="hidden"></div>
     <button id="btn-interact" class="hidden"><i class="pix" data-pix="hand"></i> <span id="btn-interact-label">Interact</span></button>
-    <div id="cast-hint">Hold <b>Right-Mouse</b> and draw a glyph to cast · <b>WASD</b> to stagger · <b>Q</b> to drink (refills mana, makes you woozy)</div>
+    <!-- camera turn controls (also: drag MIDDLE-mouse, or the [ ] keys) -->
+    <div id="cam-controls" class="hidden">
+      <button id="cam-left" title="Turn camera left ( [ )">↺</button>
+      <button id="cam-reset" title="Reset camera">◎</button>
+      <button id="cam-right" title="Turn camera right ( ] )">↻</button>
+    </div>
+    <div id="cast-hint">Hold <b>Right-Mouse</b> and draw a glyph to cast · <b>WASD</b> to stagger · <b>Q</b> to drink · drag <b>Middle-Mouse</b> or <b>[ ]</b> to turn the camera</div>
   </div>
 
   <!-- ===== Quest log: a slide-in side panel tracking the debt, bounties &amp; every mechanic ===== -->

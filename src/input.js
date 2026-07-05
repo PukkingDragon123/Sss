@@ -21,6 +21,10 @@ export class Input {
     this.isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     this.joy = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, dx: 0, dz: 0 };
 
+    // camera orbit: middle-mouse drag accumulates yaw/pitch deltas the game polls
+    this.orbit = { dx: 0, dy: 0 };
+    this._orbiting = false; this._orbitId = null; this._orbitLast = { x: 0, y: 0 };
+
     this._bind();
   }
 
@@ -72,6 +76,11 @@ export class Input {
           this._startDraw(e);
         }
         e.preventDefault();
+      } else if (e.button === 1) {
+        // middle-drag orbits the camera around the wizard
+        this._orbiting = true; this._orbitId = e.pointerId; this._orbitLast = { x: e.clientX, y: e.clientY };
+        try { this.el.setPointerCapture(e.pointerId); } catch (_) {}
+        e.preventDefault();
       } else if (e.button === 2 || (e.button === 0 && e.shiftKey)) {
         this._startDraw(e);
       } else if (e.button === 0) {
@@ -81,6 +90,11 @@ export class Input {
 
     this.el.addEventListener('pointermove', (e) => {
       setPointer(e);
+      if (this._orbiting && e.pointerId === this._orbitId) {
+        this.orbit.dx += e.clientX - this._orbitLast.x; this.orbit.dy += e.clientY - this._orbitLast.y;
+        this._orbitLast = { x: e.clientX, y: e.clientY };
+        e.preventDefault(); return;
+      }
       if (this.joy.active && e.pointerId === this.joy.id) {
         let dx = e.clientX - this.joy.ox, dy = e.clientY - this.joy.oy;
         const len = Math.hypot(dx, dy);
@@ -95,6 +109,7 @@ export class Input {
     });
 
     const up = (e) => {
+      if (this._orbiting && e.pointerId === this._orbitId) { this._orbiting = false; this._orbitId = null; return; }
       if (this.joy.active && e.pointerId === this.joy.id) {
         this.joy.active = false; this.joy.id = null; this.joy.dx = 0; this.joy.dz = 0;
         return;
@@ -108,7 +123,7 @@ export class Input {
     this.el.addEventListener('pointerup', up);
     this.el.addEventListener('pointercancel', up);
 
-    window.addEventListener('blur', () => { this.keys.clear(); this.drawing = false; this.joy.active = false; this.points = []; });
+    window.addEventListener('blur', () => { this.keys.clear(); this.drawing = false; this.joy.active = false; this.points = []; this._orbiting = false; this._orbitId = null; });
   }
 
   _startDraw(e) {
@@ -134,6 +149,11 @@ export class Input {
     if (len > 0) { x /= len; z /= len; }
     return { x, z };
   }
+
+  // camera orbit delta since last poll (pixels), then reset
+  consumeOrbit() { const o = this.orbit; this.orbit = { dx: 0, dy: 0 }; return o; }
+  // keyboard camera turn: [ turns left, ] turns right  (-1 / 0 / +1)
+  turnInput() { return (this.keys.has(']') ? 1 : 0) - (this.keys.has('[') ? 1 : 0); }
 
   drain() { const e = this.events; this.events = []; return e; }
 }

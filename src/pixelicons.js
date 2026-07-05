@@ -457,6 +457,342 @@ const RECIPES = {
     if (tier >= 3) sparkle(g, 4, 12);
   },
 
+  // ===== MORE gear variants (batch 2) — same rules: own subject + rarity `col` highlight
+  //  -- hats --
+  g_jester(g, tier, col) {
+    const a = '#c23a5a', b = '#3a6ac2';
+    tri(g, 3, 4, 9, 2.2, a); tri(g, 8, 2, 9, 2.4, b); tri(g, 13, 4, 9, 2.2, a); // three motley cones
+    rect(g, 2, 9, 12, 2, b);                                        // cap band
+    rect(g, 2, 9, 12, 1, a);
+    put(g, 3, 3, col); put(g, 8, 1, col); put(g, 13, 3, col);       // bells = rarity
+    shade(g, a); shade(g, b);
+    if (tier >= 1) sparkle(g, 8, 5);
+    if (tier >= 3) { put(g, 3, 3, lighten(col, 0.5)); put(g, 13, 3, lighten(col, 0.5)); }
+  },
+  g_halo(g, tier, col) {
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const dx = (x - 8) / 6, dy = (y - 6) / 2.6, d = dx * dx + dy * dy;
+      if (d <= 1 && d >= 0.34) put(g, x, y, GOLD);                  // flattened ring (perspective halo)
+    }
+    shade(g, GOLD);
+    put(g, 3, 6, col); put(g, 13, 6, col);                         // rarity glow at ring ends
+    if (tier >= 1) sparkle(g, 8, 3);
+    if (tier >= 3) { put(g, 2, 6, lighten(col, 0.4)); put(g, 14, 6, lighten(col, 0.4)); sparkle(g, 11, 4); }
+  },
+  g_antlers(g, tier, col) {
+    const horn = '#c9a86a', cap = '#5a4030';
+    disc(g, 8, 11, 3.2, cap); rect(g, 5, 10, 6, 3, cap);           // fur cap
+    line(g, 6, 10, 4, 3, 1, horn); line(g, 4, 6, 2, 4, 1, horn); line(g, 4, 5, 5, 2, 1, horn);
+    line(g, 10, 10, 12, 3, 1, horn); line(g, 12, 6, 14, 4, 1, horn); line(g, 12, 5, 11, 2, 1, horn);
+    disc(g, 8, 10, 1.3, col);                                       // brow gem = rarity
+    shade(g, horn); shade(g, cap);
+    if (tier >= 1) sparkle(g, 8, 8);
+    if (tier >= 3) { put(g, 2, 4, lighten(col, 0.4)); put(g, 14, 4, lighten(col, 0.4)); }
+  },
+  g_tophat(g, tier, col) {
+    const blk = '#2a2536';
+    rect(g, 4, 1, 8, 9, blk);                                       // tall crown
+    rect(g, 2, 10, 12, 2, blk);                                     // brim
+    rect(g, 4, 8, 8, 1, col);                                       // hatband = rarity
+    shade(g, blk);
+    put(g, 5, 2, lighten(blk, 0.5));                                // sheen
+    if (tier >= 1) sparkle(g, 10, 3);
+    if (tier >= 3) { put(g, 5, 8, lighten(col, 0.5)); sparkle(g, 6, 5); }
+  },
+  g_bandana(g, tier, col) {
+    const cloth = '#c23a4a';
+    rect(g, 3, 5, 10, 4, cloth);                                    // wrap
+    rect(g, 2, 6, 2, 2, cloth);                                     // side knot
+    line(g, 2, 8, 1, 12, 1, cloth); line(g, 4, 8, 2, 13, 1, cloth); // trailing tails
+    put(g, 6, 6, col); put(g, 9, 6, col); put(g, 11, 7, col);       // dots = rarity
+    shade(g, cloth);
+    if (tier >= 1) sparkle(g, 8, 5);
+    if (tier >= 3) sparkle(g, 5, 8);
+  },
+  g_mitre(g, tier, col) {
+    const cloth = '#f0ead8';
+    tri(g, 6, 2, 11, 3, cloth); tri(g, 10, 2, 11, 3, cloth);        // two peaks
+    rect(g, 4, 8, 8, 4, cloth);
+    put(g, 8, 2, null); put(g, 8, 3, null);                        // cleft
+    rect(g, 4, 10, 8, 1, GOLD);                                     // trim
+    rect(g, 7, 4, 2, 4, col); rect(g, 6, 5, 4, 2, col);            // cross = rarity
+    shade(g, cloth);
+    if (tier >= 1) sparkle(g, 11, 4);
+    if (tier >= 3) sparkle(g, 4, 4);
+  },
+  g_visor(g, tier, col) {
+    const frame = '#3a4048';
+    rect(g, 2, 4, 12, 2, frame);                                    // brow frame
+    rect(g, 2, 6, 12, 3, col);                                      // tinted lens = rarity
+    rect(g, 2, 9, 12, 1, frame);                                    // lower frame
+    rect(g, 3, 11, 10, 1, frame);                                   // brim shadow
+    put(g, 4, 7, lighten(col, 0.6)); put(g, 6, 7, lighten(col, 0.45)); // reflections
+    shade(g, frame);
+    if (tier >= 1) sparkle(g, 11, 5);
+    if (tier >= 3) sparkle(g, 4, 5);
+  },
+  g_flowercrown(g, tier, col) {
+    for (let x = 2; x <= 13; x++) { const y = 9 + Math.round(Math.sin((x - 2) / 11 * Math.PI) * -2); put(g, x, y, '#4fa050'); put(g, x, y + 1, '#3f8f3f'); } // vine
+    disc(g, 4, 8, 1.4, col); disc(g, 8, 5, 1.6, col); disc(g, 12, 8, 1.4, col); // petals = rarity
+    put(g, 4, 8, GOLD); put(g, 8, 5, GOLD); put(g, 12, 8, GOLD);   // flower centres
+    put(g, 6, 7, '#ff9ad0'); put(g, 10, 7, '#ff9ad0');            // small blooms
+    shade(g, col); shade(g, '#4fa050');
+    if (tier >= 1) sparkle(g, 8, 3);
+    if (tier >= 3) { sparkle(g, 3, 6); sparkle(g, 13, 6); }
+  },
+  //  -- robes --
+  g_poncho(g, tier, col) {
+    const cloth = '#c86a3a';
+    taper(g, 8, 3, 12, 3, 6.5, cloth);                             // wide flare
+    rect(g, 7, 2, 2, 2, DARK);                                      // neck hole
+    rect(g, 2, 6, 12, 1, darken(cloth, 0.2));                       // weave line
+    rect(g, 2, 8, 12, 1, col);                                      // stripe = rarity
+    for (let x = 2; x <= 14; x += 2) put(g, x, 13, cloth);          // fringe
+    shade(g, cloth);
+    if (tier >= 1) sparkle(g, 5, 6);
+    if (tier >= 3) sparkle(g, 11, 10);
+  },
+  g_kimono(g, tier, col) {
+    const cloth = '#b03a5a';
+    rect(g, 4, 3, 8, 10, cloth);
+    rect(g, 2, 4, 3, 5, cloth); rect(g, 11, 4, 3, 5, cloth);        // wide sleeves
+    line(g, 8, 3, 5, 8, 1, '#f0ead8'); line(g, 8, 3, 11, 8, 1, '#f0ead8'); // crossed collar
+    rect(g, 4, 9, 8, 2, col);                                       // obi sash = rarity
+    put(g, 6, 6, GOLD); put(g, 10, 7, GOLD);                        // motifs
+    shade(g, cloth);
+    if (tier >= 1) sparkle(g, 12, 4);
+    if (tier >= 3) sparkle(g, 4, 11);
+  },
+  g_labcoat(g, tier, col) {
+    const cloth = '#eef2f6';
+    rect(g, 4, 3, 8, 10, cloth);
+    rect(g, 2, 4, 3, 4, cloth); rect(g, 11, 4, 3, 4, cloth);        // arms
+    line(g, 8, 3, 6, 7, 1, darken(cloth, 0.2)); line(g, 8, 3, 10, 7, 1, darken(cloth, 0.2)); // lapels
+    rect(g, 8, 4, 1, 9, darken(cloth, 0.1));                        // placket
+    put(g, 8, 6, DARK); put(g, 8, 9, DARK);                         // buttons
+    rect(g, 9, 9, 3, 2, cloth); put(g, 10, 10, col);               // pocket + pen = rarity
+    shade(g, cloth);
+    if (tier >= 1) sparkle(g, 12, 3);
+    if (tier >= 3) sparkle(g, 4, 11);
+  },
+  g_battlerobe(g, tier, col) {
+    const cloth = '#5a3a6a';
+    disc(g, 4, 5, 2.2, IRON); disc(g, 12, 5, 2.2, IRON);           // pauldrons
+    rect(g, 5, 4, 6, 9, cloth);
+    taper(g, 8, 12, 14, 3.5, 5, cloth);                            // battle skirt
+    rect(g, 5, 8, 6, 1, GOLD);                                      // belt
+    rect(g, 7, 10, 2, 4, darken(cloth, 0.25));                      // tasset split
+    disc(g, 8, 6, 1.4, col);                                        // emblem = rarity
+    shade(g, cloth); shade(g, IRON);
+    if (tier >= 1) sparkle(g, 12, 3);
+    if (tier >= 3) sparkle(g, 4, 12);
+  },
+  g_vestments(g, tier, col) {
+    const cloth = '#f2ead6';
+    rect(g, 5, 2, 6, 2, cloth);
+    taper(g, 8, 3, 13, 3, 5.5, cloth);
+    rect(g, 2, 3, 2, 4, cloth); rect(g, 12, 3, 2, 4, cloth);        // sleeves
+    rect(g, 6, 3, 1, 10, col); rect(g, 9, 3, 1, 10, col);          // stole = rarity
+    rect(g, 7, 5, 2, 4, GOLD); rect(g, 6, 6, 4, 2, GOLD);          // cross
+    shade(g, cloth);
+    if (tier >= 1) sparkle(g, 11, 5);
+    if (tier >= 3) sparkle(g, 4, 10);
+  },
+  g_shroud(g, tier, col) {
+    const cloth = '#3a3550';
+    disc(g, 8, 5, 3.2, cloth);                                      // hood
+    disc(g, 8, 6, 1.8, '#120e20');                                 // face void
+    taper(g, 8, 6, 13, 3, 5, cloth);                               // drape
+    put(g, 3, 13, null); put(g, 5, 14, null); put(g, 8, 14, null); put(g, 11, 14, null); put(g, 13, 13, null); // ragged hem
+    put(g, 7, 6, col); put(g, 9, 6, col);                          // eyes = rarity
+    disc(g, 8, 10, 1.2, col);                                       // heart glow = rarity
+    shade(g, cloth);
+    if (tier >= 1) sparkle(g, 12, 4);
+    if (tier >= 3) sparkle(g, 4, 5);
+  },
+  g_harlequin(g, tier, col) {
+    const a = '#c23a5a', b = '#3a6ac2';
+    rect(g, 5, 3, 6, 10, a);
+    rect(g, 2, 4, 3, 4, a); rect(g, 11, 4, 3, 4, a);               // sleeves
+    taper(g, 8, 12, 14, 3, 4, a);                                  // skirt
+    for (let y = 3; y <= 13; y++) for (let x = 2; x <= 13; x++) if (at(g, x, y) === a && ((x + y) % 4 < 2)) put(g, x, y, b); // diamond motley
+    rect(g, 5, 2, 6, 1, '#f0ead8');                                // ruff collar
+    put(g, 8, 6, col); put(g, 8, 9, col);                          // buttons = rarity
+    shade(g, a); shade(g, b);
+    if (tier >= 1) sparkle(g, 12, 3);
+    if (tier >= 3) sparkle(g, 4, 11);
+  },
+  //  -- staves --
+  g_gnarlstaff(g, tier, col) {
+    const wd = '#5a4028';
+    line(g, 5, 15, 8, 6, 2, wd);                                    // twisting shaft
+    put(g, 6, 12, darken(wd, 0.3)); put(g, 7, 9, darken(wd, 0.3));  // knots
+    line(g, 8, 6, 5, 3, 1, wd); line(g, 8, 6, 11, 3, 1, wd);        // cradle branches
+    put(g, 5, 3, wd); put(g, 11, 3, wd);
+    disc(g, 8, 4, 2, col);                                          // cradled orb = rarity
+    put(g, 7, 3, lighten(col, 0.6));
+    shade(g, wd); shade(g, col);
+    if (tier >= 1) sparkle(g, 11, 2);
+    if (tier >= 3) sparkle(g, 5, 2);
+  },
+  g_starrod(g, tier, col) {
+    line(g, 5, 15, 9, 7, 2, '#d8b96a');                            // golden rod
+    taper(g, 9, 1, 5, 0.3, 2, col); taper(g, 9, 5, 8, 2, 0.3, col); // star spindle
+    rect(g, 6, 4, 7, 1, col); put(g, 6, 3, col); put(g, 12, 3, col); put(g, 7, 6, col); put(g, 11, 6, col); // star arms = rarity
+    put(g, 9, 4, SPARK);
+    shade(g, col); shade(g, '#d8b96a');
+    if (tier >= 1) sparkle(g, 13, 2);
+    if (tier >= 3) sparkle(g, 5, 3);
+  },
+  g_scepter(g, tier, col) {
+    line(g, 7, 15, 8, 6, 2, GOLD);                                 // golden shaft
+    disc(g, 8, 4, 2.4, GOLD);                                      // ornate head
+    put(g, 8, 1, GOLD); put(g, 5, 3, GOLD); put(g, 11, 3, GOLD);   // fleur points
+    disc(g, 8, 4, 1.2, col);                                        // head gem = rarity
+    rect(g, 6, 7, 4, 1, GOLD);                                      // collar
+    put(g, 6, 9, col); put(g, 10, 9, col);                          // shaft jewels = rarity
+    shade(g, GOLD); shade(g, col);
+    if (tier >= 1) sparkle(g, 11, 2);
+    if (tier >= 3) sparkle(g, 5, 5);
+  },
+  g_warhammer(g, tier, col) {
+    const hd = '#7a8088';
+    rect(g, 3, 2, 10, 5, hd);                                       // head block
+    rect(g, 3, 2, 10, 1, lighten(hd, 0.4));
+    rect(g, 3, 6, 10, 1, darken(hd, 0.3));
+    rect(g, 4, 3, 1, 3, darken(hd, 0.2)); rect(g, 11, 3, 1, 3, darken(hd, 0.2)); // face bands
+    disc(g, 8, 4, 1.2, col);                                        // core inlay = rarity
+    line(g, 8, 7, 8, 15, 2, WOOD);                                  // haft
+    rect(g, 6, 13, 5, 1, GOLD);                                     // grip wrap
+    shade(g, hd);
+    if (tier >= 1) sparkle(g, 12, 2);
+    if (tier >= 3) sparkle(g, 4, 2);
+  },
+  g_spear(g, tier, col) {
+    line(g, 8, 15, 8, 5, 2, '#6a4a2a');                            // shaft
+    tri(g, 8, 1, 5, 2, IRON);                                       // blade
+    taper(g, 8, 5, 7, 2, 0.3, IRON);
+    rect(g, 7, 5, 2, 1, GOLD);                                      // ferrule
+    put(g, 7, 6, col); put(g, 9, 6, col); put(g, 8, 7, col);        // tassel = rarity
+    shade(g, IRON); shade(g, '#6a4a2a');
+    put(g, 7, 3, lighten(IRON, 0.5));
+    if (tier >= 1) sparkle(g, 11, 3);
+    if (tier >= 3) sparkle(g, 5, 9);
+  },
+  g_flail(g, tier, col) {
+    const bl = '#6a6a76';
+    line(g, 4, 15, 6, 9, 2, WOOD);                                  // handle
+    put(g, 7, 8, IRON); put(g, 8, 7, IRON); put(g, 9, 6, IRON);     // chain
+    disc(g, 11, 5, 2.6, bl);                                        // spiked ball
+    put(g, 11, 1, bl); put(g, 14, 5, bl); put(g, 11, 8, bl); put(g, 8, 4, bl); put(g, 13, 2, bl); put(g, 13, 8, bl); // spikes
+    disc(g, 11, 5, 1, col);                                         // core = rarity
+    shade(g, bl); shade(g, WOOD);
+    if (tier >= 1) sparkle(g, 13, 3);
+    if (tier >= 3) sparkle(g, 4, 13);
+  },
+  g_warfan(g, tier, col) {
+    const paper = '#f0e8d0';
+    for (let a = -1.15; a <= 1.15; a += 0.13) { const x = 8 + Math.sin(a) * 6.5, y = 12 - Math.cos(a) * 8; line(g, 8, 12, x, y, 1, paper); } // fan blades
+    line(g, 8, 12, 8 + Math.sin(-1.15) * 6.8, 12 - Math.cos(-1.15) * 8.3, 1, DARK); // outer ribs
+    line(g, 8, 12, 8 + Math.sin(1.15) * 6.8, 12 - Math.cos(1.15) * 8.3, 1, DARK);
+    for (let a = -1.0; a <= 1.0; a += 0.16) put(g, 8 + Math.sin(a) * 6, 12 - Math.cos(a) * 7.4, col); // rim band = rarity
+    disc(g, 8, 12, 1, GOLD);                                        // pivot
+    shade(g, paper);
+    if (tier >= 1) sparkle(g, 12, 4);
+    if (tier >= 3) sparkle(g, 4, 4);
+  },
+  g_lanternstaff(g, tier, col) {
+    line(g, 6, 15, 9, 6, 2, '#4a3a2a');                            // shaft
+    put(g, 9, 5, IRON); put(g, 10, 4, IRON); put(g, 10, 3, IRON);   // hook
+    rect(g, 8, 5, 5, 6, IRON);                                      // lantern frame
+    rect(g, 9, 6, 3, 4, col);                                       // glowing glass = rarity
+    put(g, 10, 7, lighten(col, 0.6));
+    rect(g, 8, 5, 5, 1, GOLD); rect(g, 8, 10, 5, 1, GOLD);         // caps
+    shade(g, IRON); shade(g, col);
+    if (tier >= 1) sparkle(g, 13, 4);
+    if (tier >= 3) sparkle(g, 5, 9);
+  },
+  //  -- charms --
+  g_locket(g, tier, col) {
+    for (let a = -2.3; a <= -0.8; a += 0.22) put(g, 8 + Math.cos(a) * 5, 7 + Math.sin(a) * 6, GOLD);
+    for (let a = Math.PI + 0.8; a <= Math.PI + 2.3; a += 0.22) put(g, 8 + Math.cos(a) * 5, 7 + Math.sin(a) * 6, GOLD); // chain
+    disc(g, 6.2, 9, 2.2, GOLD); disc(g, 9.8, 9, 2.2, GOLD);        // heart lobes
+    taper(g, 8, 10, 14, 4.4, 0.4, GOLD);                            // heart point
+    put(g, 8, 6, GOLD);                                             // bail
+    disc(g, 8, 9, 1.3, col);                                        // inset gem = rarity
+    shade(g, GOLD);
+    put(g, 6, 8, lighten(GOLD, 0.4));
+    if (tier >= 1) sparkle(g, 12, 4);
+    if (tier >= 3) sparkle(g, 4, 5);
+  },
+  g_talisman(g, tier, col) {
+    const paper = '#e8c86a';
+    put(g, 8, 2, GOLD); put(g, 8, 3, GOLD);                         // cord
+    rect(g, 5, 4, 6, 10, paper);                                    // hanging tag
+    put(g, 5, 4, null); put(g, 10, 4, null);                        // clipped corners
+    line(g, 8, 5, 8, 12, 1, col); line(g, 8, 7, 6, 9, 1, col); line(g, 8, 7, 10, 9, 1, col); put(g, 8, 12, col); // glyph = rarity
+    shade(g, paper);
+    if (tier >= 1) sparkle(g, 6, 6);
+    if (tier >= 3) sparkle(g, 10, 11);
+  },
+  g_horseshoe(g, tier, col) {
+    const sh = '#b0b6be';
+    for (let a = 0.15; a <= Math.PI - 0.15; a += 0.1) { const x = 8 - Math.cos(a) * 5, y = 4 + Math.sin(a) * 7; put(g, x, y, sh); put(g, x, y + 1, sh); } // U band
+    put(g, 6, 5, DARK); put(g, 10, 5, DARK); put(g, 4, 8, DARK); put(g, 12, 8, DARK); // nail holes
+    disc(g, 8, 9, 1.3, col);                                        // lucky gem = rarity
+    shade(g, sh);
+    if (tier >= 1) sparkle(g, 8, 13);
+    if (tier >= 3) { sparkle(g, 3, 6); sparkle(g, 13, 6); }
+  },
+  g_dreamcatcher(g, tier, col) {
+    const ring = '#a06a3a';
+    disc(g, 8, 6, 5, ring); disc(g, 8, 6, 3.6, null);              // hoop
+    line(g, 5, 4, 11, 8, 1, col); line(g, 11, 4, 5, 8, 1, col); line(g, 8, 3, 8, 9, 1, col); // web = rarity
+    put(g, 8, 6, col);                                              // bead = rarity
+    line(g, 6, 11, 5, 15, 1, ring); line(g, 8, 11, 8, 15, 1, ring); line(g, 10, 11, 11, 15, 1, ring); // feather strings
+    put(g, 5, 15, col); put(g, 8, 15, col); put(g, 11, 15, col);   // feather tips = rarity
+    shade(g, ring);
+    if (tier >= 1) sparkle(g, 12, 3);
+    if (tier >= 3) sparkle(g, 4, 3);
+  },
+  g_compass(g, tier, col) {
+    const body = '#c9a24a';
+    disc(g, 8, 8, 5.4, body);                                       // brass case
+    disc(g, 8, 8, 4, '#f2ead6');                                    // dial
+    put(g, 8, 4, DARK); put(g, 8, 12, DARK); put(g, 4, 8, DARK); put(g, 12, 8, DARK); // ticks
+    line(g, 8, 8, 11, 5, 1, col); line(g, 8, 8, 5, 11, 1, '#e8e8f0'); // needle = rarity
+    put(g, 8, 8, DARK);
+    rect(g, 7, 1, 2, 2, body);                                      // hinge
+    shade(g, body);
+    if (tier >= 1) sparkle(g, 11, 4);
+    if (tier >= 3) sparkle(g, 4, 12);
+  },
+  g_luckydie(g, tier, col) {
+    const top = '#f6efdc', lf = '#e2d8bf', rf = '#cabfa0';
+    for (let y = 1; y <= 7; y++) { const half = 3.5 - Math.abs(y - 4); if (half >= 0) rect(g, Math.round(8 - half), y, Math.max(1, Math.round(half * 2)), 1, top); } // top diamond
+    rect(g, 4, 7, 4, 6, lf); rect(g, 8, 7, 4, 6, rf);              // side faces
+    put(g, 4, 12, null); put(g, 11, 12, null);                     // iso corners
+    put(g, 8, 3, DARK);                                            // top pip
+    put(g, 5, 9, DARK); put(g, 6, 11, DARK);                        // left pips
+    put(g, 9, 9, col); put(g, 11, 9, col); put(g, 10, 10, col); put(g, 9, 11, col); put(g, 11, 11, col); // right face = rarity
+    shade(g, top); shade(g, lf); shade(g, rf);
+    if (tier >= 1) sparkle(g, 12, 3);
+    if (tier >= 3) sparkle(g, 3, 4);
+  },
+  g_scarab(g, tier, col) {
+    const body = '#2fa06a';
+    disc(g, 8, 9, 4, body);                                         // carapace
+    disc(g, 8, 4.5, 2, body);                                       // head
+    rect(g, 7, 6, 2, 7, darken(body, 0.3));                         // wing split
+    line(g, 5, 7, 5, 11, 1, darken(body, 0.2)); line(g, 11, 7, 11, 11, 1, darken(body, 0.2)); // wing seams
+    put(g, 3, 8, DARK); put(g, 13, 8, DARK); put(g, 3, 11, DARK); put(g, 13, 11, DARK); put(g, 2, 7, DARK); put(g, 14, 7, DARK); // legs
+    disc(g, 8, 9, 1.3, col);                                        // gem inlay = rarity
+    put(g, 8, 4, col);                                              // head jewel = rarity
+    shade(g, body);
+    if (tier >= 1) sparkle(g, 12, 4);
+    if (tier >= 3) sparkle(g, 4, 4);
+  },
+
   // ===== spell icons — tinted by the spell's element colour; see SPELL_SPRITE =====
   spell_fireball(g, tier, col) {
     const c = col === RARITY_HEX.common ? '#ff7a3a' : col;
@@ -1416,6 +1752,205 @@ const RECIPES = {
     for (let x = 4; x <= 12; x++) { const half = (x - 4) * 0.62; rect(g, x, Math.round(8 - half), 1, Math.max(1, Math.round(half * 2 + 1)), c); }
     shade(g, c);
   },
+
+  // ===== creature / pet sprites — chunky friendly critters; `col` = eyes/glow/collar. see PET_SPRITE
+  pet_wisp(g, tier, col) {
+    disc(g, 8, 7, 4, '#eaf6ff');                                    // fluffy body
+    put(g, 7, 12, '#cfeaff'); put(g, 8, 13, '#cfeaff'); put(g, 9, 12, '#bfe0f5'); // wispy tail
+    put(g, 6, 7, DARK); put(g, 10, 7, DARK);                        // eyes
+    put(g, 8, 9, '#ff9ad0');                                        // blush
+    put(g, 3, 5, col); put(g, 13, 5, col); put(g, 8, 2, col); put(g, 3, 10, col); put(g, 13, 10, col); // glow motes = rarity
+    shade(g, '#eaf6ff');
+    put(g, 5, 5, SPARK);
+    if (tier >= 1) sparkle(g, 12, 3);
+  },
+  pet_slime(g, tier, col) {
+    const body = '#5fd08a';
+    disc(g, 8, 10, 5, body); rect(g, 3, 10, 11, 3, body);          // blob
+    put(g, 5, 6, body); put(g, 11, 7, body);                        // wobble bumps
+    put(g, 6, 9, DARK); put(g, 10, 9, DARK);                        // eyes
+    put(g, 6, 8, SPARK); put(g, 10, 8, SPARK);                      // eye shine
+    put(g, 7, 11, darken(body, 0.25)); put(g, 8, 12, darken(body, 0.25)); put(g, 9, 11, darken(body, 0.25)); // smile
+    disc(g, 8, 10, 1.2, col);                                       // core = rarity
+    shade(g, body);
+    put(g, 5, 8, lighten(body, 0.4));
+    if (tier >= 1) sparkle(g, 12, 5);
+  },
+  pet_bat(g, tier, col) {
+    const body = '#6a5a8c', web = '#584a78';
+    disc(g, 8, 8, 3, body);                                         // round body
+    tri(g, 6, 4, 6, 1, body); tri(g, 10, 4, 6, 1, body);           // ears
+    taper(g, 3.5, 6, 11, 0.4, 2.6, web); put(g, 2, 7, web); put(g, 1, 8, web); // left wing
+    taper(g, 12.5, 6, 11, 0.4, 2.6, web); put(g, 14, 7, web); put(g, 15, 8, web); // right wing
+    put(g, 2, 11, null); put(g, 4, 11, null); put(g, 12, 11, null); put(g, 14, 11, null); // scallops
+    put(g, 7, 7, col); put(g, 9, 7, col);                          // eyes = rarity
+    put(g, 7, 10, SPARK); put(g, 9, 10, SPARK);                    // fangs
+    shade(g, body); shade(g, web);
+    if (tier >= 1) sparkle(g, 8, 4);
+  },
+  pet_golem(g, tier, col) {
+    const st = '#8a8478';
+    rect(g, 4, 5, 8, 7, st);                                        // body
+    rect(g, 3, 6, 1, 4, st); rect(g, 12, 6, 1, 4, st);            // arms
+    rect(g, 5, 12, 2, 2, st); rect(g, 9, 12, 2, 2, st);           // legs
+    line(g, 6, 5, 7, 8, 1, darken(st, 0.25));                       // crack
+    put(g, 4, 5, GREEN); put(g, 11, 5, GREEN);                     // moss
+    put(g, 6, 7, col); put(g, 9, 7, col);                          // eyes = rarity
+    disc(g, 8, 9, 1.3, col);                                        // core gem = rarity
+    shade(g, st);
+    put(g, 5, 6, lighten(st, 0.4));
+    if (tier >= 1) sparkle(g, 12, 4);
+  },
+  pet_fairy(g, tier, col) {
+    disc(g, 5, 6, 2.2, col); disc(g, 11, 6, 2.2, col);            // upper wings = rarity
+    disc(g, 5.5, 10, 1.6, col); disc(g, 10.5, 10, 1.6, col);      // lower wings = rarity
+    disc(g, 8, 6, 1.6, SKIN);                                       // head
+    put(g, 7, 6, DARK); put(g, 9, 6, DARK);                        // eyes
+    put(g, 6, 4, '#c98a3a'); put(g, 10, 4, '#c98a3a'); put(g, 8, 3, '#c98a3a'); // hair
+    taper(g, 8, 8, 12, 1, 2.2, '#ffd23a');                          // dress
+    shade(g, col); shade(g, '#ffd23a');
+    put(g, 3, 5, SPARK); put(g, 13, 5, SPARK);
+    if (tier >= 1) sparkle(g, 8, 13);
+  },
+  pet_drake(g, tier, col) {
+    const body = '#4a9a6a';
+    tri(g, 4, 3, 8, 2.2, col); tri(g, 12, 3, 8, 2.2, col);        // wings = rarity
+    disc(g, 8, 9, 3.2, body);                                      // body
+    disc(g, 8, 5, 2, body);                                        // head
+    put(g, 6, 3, CREAM); put(g, 10, 3, CREAM);                    // horns
+    rect(g, 7, 9, 2, 3, '#e8d8a0');                                // belly
+    put(g, 7, 5, DARK); put(g, 9, 5, DARK);                        // eyes
+    put(g, 12, 10, body); put(g, 13, 11, body);                    // tail
+    put(g, 11, 5, '#ff9a3a');                                      // fire spark
+    shade(g, body); shade(g, col);
+    if (tier >= 1) sparkle(g, 3, 6);
+    if (tier >= 3) sparkle(g, 13, 6);
+  },
+  pet_cat(g, tier, col) {
+    const fur = '#e0a84a';
+    disc(g, 8, 8, 3, fur);                                          // head
+    tri(g, 5, 4, 7, 1.4, fur); tri(g, 11, 4, 7, 1.4, fur);        // ears
+    rect(g, 5, 10, 6, 4, fur);                                     // sitting body
+    line(g, 11, 12, 14, 10, 1, fur); put(g, 14, 9, fur);          // curling tail
+    put(g, 6, 8, GREEN); put(g, 10, 8, GREEN);                    // eyes
+    put(g, 8, 9, '#e08aa0');                                       // nose
+    line(g, 2, 9, 4, 9, 1, '#fdfdfd'); line(g, 12, 9, 14, 9, 1, '#fdfdfd'); // whiskers
+    rect(g, 5, 11, 6, 1, col);                                     // collar = rarity
+    put(g, 8, 12, GOLD);                                           // bell
+    shade(g, fur);
+    if (tier >= 1) sparkle(g, 13, 3);
+  },
+  pet_owl(g, tier, col) {
+    const body = '#9a7a4a';
+    disc(g, 8, 8, 4.4, body);                                      // round body
+    put(g, 4, 3, body); put(g, 5, 4, body); put(g, 12, 3, body); put(g, 11, 4, body); // ear tufts
+    disc(g, 6, 7, 1.8, '#f6f0e0'); disc(g, 10, 7, 1.8, '#f6f0e0'); // eye discs
+    put(g, 6, 7, col); put(g, 10, 7, col);                        // eyes = rarity
+    put(g, 8, 9, AMBER); put(g, 8, 10, '#c9812f');                // beak
+    disc(g, 8, 11, 2, lighten(body, 0.3));                         // belly
+    put(g, 4, 9, darken(body, 0.2)); put(g, 12, 9, darken(body, 0.2)); // wing edges
+    put(g, 6, 13, AMBER); put(g, 10, 13, AMBER);                  // feet
+    shade(g, body);
+    if (tier >= 1) sparkle(g, 12, 3);
+  },
+
+  // ===== furniture sprites — little readable pieces; `col` = accent trim/gem. see FURNITURE_SPRITE
+  furn_sofa(g, tier, col) {
+    const uph = '#7a5aa0';
+    rect(g, 2, 6, 12, 4, uph);                                     // backrest
+    rect(g, 2, 9, 12, 3, uph);                                     // seat
+    rect(g, 2, 7, 2, 5, uph); rect(g, 12, 7, 2, 5, uph);          // armrests
+    rect(g, 5, 9, 3, 2, col);                                      // cushion = rarity
+    rect(g, 8, 9, 3, 2, lighten(uph, 0.2));                        // cushion
+    put(g, 3, 12, WOOD); put(g, 12, 12, WOOD);                     // feet
+    shade(g, uph);
+    if (tier >= 1) sparkle(g, 12, 5);
+  },
+  furn_bookcase(g, tier, col) {
+    const wd = '#7a4a2a';
+    rect(g, 3, 2, 10, 12, wd);                                     // frame
+    rect(g, 4, 3, 8, 10, darken(wd, 0.3));                         // interior
+    rect(g, 4, 6, 8, 1, wd); rect(g, 4, 9, 8, 1, wd);            // shelves
+    rect(g, 4, 3, 1, 3, RED); rect(g, 5, 3, 1, 3, BLUE); rect(g, 6, 3, 1, 3, GREEN); rect(g, 7, 3, 1, 3, col); rect(g, 8, 4, 1, 2, GOLD); rect(g, 10, 3, 1, 3, PURPLE); // row 1
+    rect(g, 4, 7, 1, 2, BLUE); rect(g, 5, 7, 1, 2, col); rect(g, 7, 7, 1, 2, RED); rect(g, 9, 7, 1, 2, GREEN); // row 2
+    rect(g, 4, 10, 1, 3, GREEN); rect(g, 6, 10, 1, 3, GOLD); rect(g, 8, 10, 1, 3, col); rect(g, 10, 11, 1, 2, RED); // row 3
+    shade(g, wd);
+    if (tier >= 1) sparkle(g, 11, 3);
+  },
+  furn_clock(g, tier, col) {
+    const wd = '#6a4326';
+    rect(g, 4, 1, 8, 14, wd);                                      // tall case
+    rect(g, 5, 11, 6, 3, darken(wd, 0.3));                         // pendulum box
+    disc(g, 8, 5, 3, '#f2ead6');                                   // face
+    put(g, 8, 3, DARK); put(g, 8, 7, DARK); put(g, 6, 5, DARK); put(g, 10, 5, DARK); // ticks
+    line(g, 8, 5, 8, 3, 1, col); line(g, 8, 5, 10, 6, 1, col);    // hands = rarity
+    put(g, 8, 8, GOLD);
+    disc(g, 8, 12, 1.2, col);                                      // pendulum bob = rarity
+    shade(g, wd);
+    if (tier >= 1) sparkle(g, 11, 2);
+  },
+  furn_piano(g, tier, col) {
+    const wd = '#2a2530';
+    rect(g, 2, 2, 12, 7, wd);                                      // body
+    rect(g, 3, 3, 10, 3, darken(wd, 0.2));                         // upper panel
+    rect(g, 2, 8, 12, 1, col);                                     // fallboard trim = rarity
+    rect(g, 2, 9, 12, 2, '#f2ead6');                              // white keys
+    for (let x = 3; x <= 12; x += 2) put(g, x, 9, DARK);          // black keys
+    rect(g, 3, 11, 1, 3, wd); rect(g, 12, 11, 1, 3, wd);         // legs
+    put(g, 8, 12, GOLD);                                          // pedal
+    shade(g, wd);
+    if (tier >= 1) sparkle(g, 5, 4);
+  },
+  furn_fountain(g, tier, col) {
+    const st = '#a0a6b0';
+    rect(g, 2, 11, 12, 2, st); taper(g, 8, 13, 14, 6, 4, st);     // lower basin
+    rect(g, 3, 11, 10, 1, BLUE);                                   // pool
+    rect(g, 7, 7, 2, 4, st);                                       // pedestal
+    rect(g, 5, 7, 6, 1, st);                                       // upper basin
+    put(g, 8, 3, col); put(g, 8, 4, col); put(g, 8, 5, col); put(g, 6, 5, col); put(g, 10, 5, col); put(g, 5, 6, col); put(g, 11, 6, col); // water jets = rarity
+    disc(g, 8, 2, 1, lighten(col, 0.5));
+    shade(g, st);
+    if (tier >= 1) sparkle(g, 12, 9);
+  },
+  furn_aquarium(g, tier, col) {
+    const glass = '#bfe6f0';
+    rect(g, 2, 3, 12, 10, '#4a4a56');                             // frame
+    rect(g, 3, 4, 10, 8, glass);                                  // water
+    rect(g, 3, 10, 10, 2, '#c9a86a');                            // gravel
+    line(g, 5, 11, 5, 7, 1, GREEN); line(g, 7, 11, 8, 8, 1, GREEN); // plants
+    disc(g, 8, 7, 1.4, col);                                      // fish body = rarity
+    put(g, 10, 6, col); put(g, 10, 7, col); put(g, 10, 8, col);  // tail
+    put(g, 7, 7, DARK);                                           // eye
+    put(g, 5, 5, '#eaffff'); put(g, 11, 5, SPARK); put(g, 6, 9, '#eaffff'); // bubbles
+    shade(g, glass);
+    if (tier >= 1) sparkle(g, 12, 4);
+  },
+  furn_chandelier(g, tier, col) {
+    put(g, 8, 1, IRON); put(g, 8, 2, IRON);                       // chain
+    rect(g, 4, 5, 8, 1, GOLD);                                    // frame bar
+    rect(g, 3, 6, 1, 2, GOLD); rect(g, 12, 6, 1, 2, GOLD);       // arm drops
+    disc(g, 8, 5, 1, GOLD);
+    put(g, 3, 5, GOLD); put(g, 12, 5, GOLD);
+    put(g, 3, 4, '#fff6e0'); put(g, 8, 3, '#fff6e0'); put(g, 12, 4, '#fff6e0'); // candle flames
+    put(g, 5, 7, col); put(g, 8, 8, col); put(g, 11, 7, col);    // crystals = rarity
+    put(g, 5, 8, lighten(col, 0.4)); put(g, 8, 9, lighten(col, 0.4)); put(g, 11, 8, lighten(col, 0.4));
+    shade(g, GOLD);
+    if (tier >= 1) sparkle(g, 8, 3);
+    if (tier >= 3) { sparkle(g, 4, 4); sparkle(g, 12, 4); }
+  },
+  furn_throne(g, tier, col) {
+    const gld = '#c9a24a';
+    rect(g, 4, 1, 8, 9, gld);                                     // tall back
+    put(g, 4, 0, gld); put(g, 11, 0, gld); put(g, 8, 0, col);    // finials + top gem
+    rect(g, 5, 3, 6, 6, '#a03a4a');                              // velvet cushion
+    disc(g, 8, 6, 1.4, col);                                      // back gem = rarity
+    rect(g, 3, 9, 10, 3, gld);                                    // seat
+    rect(g, 5, 10, 6, 1, col);                                    // seat cushion = rarity
+    rect(g, 3, 9, 1, 5, gld); rect(g, 12, 9, 1, 5, gld);        // arms/legs
+    shade(g, gld);
+    if (tier >= 1) sparkle(g, 11, 2);
+    if (tier >= 3) sparkle(g, 4, 2);
+  },
 };
 
 const TIER = { common: 0, rare: 1, epic: 2, legendary: 3 };
@@ -1492,6 +2027,14 @@ export const GEAR_VARIANTS = {
     { sprite: 'g_tricorne', name: 'Tricorne' },
     { sprite: 'g_strawhat', name: 'Straw Hat' },
     { sprite: 'g_horns', name: 'Horned Helm' },
+    { sprite: 'g_jester', name: 'Jester Cap' },
+    { sprite: 'g_halo', name: 'Halo' },
+    { sprite: 'g_antlers', name: 'Antlers' },
+    { sprite: 'g_tophat', name: 'Top Hat' },
+    { sprite: 'g_bandana', name: 'Bandana' },
+    { sprite: 'g_mitre', name: 'Mitre' },
+    { sprite: 'g_visor', name: 'Visor' },
+    { sprite: 'g_flowercrown', name: 'Flower Crown' },
   ],
   robe: [
     { sprite: 'g_cloak', name: 'Cloak' },
@@ -1501,6 +2044,13 @@ export const GEAR_VARIANTS = {
     { sprite: 'g_ragrobe', name: 'Rag Robe' },
     { sprite: 'g_royalrobe', name: 'Royal Robe' },
     { sprite: 'g_furcoat', name: 'Fur Coat' },
+    { sprite: 'g_poncho', name: 'Poncho' },
+    { sprite: 'g_kimono', name: 'Kimono' },
+    { sprite: 'g_labcoat', name: 'Lab Coat' },
+    { sprite: 'g_battlerobe', name: 'Battle Robe' },
+    { sprite: 'g_vestments', name: 'Vestments' },
+    { sprite: 'g_shroud', name: 'Shroud' },
+    { sprite: 'g_harlequin', name: 'Harlequin Suit' },
   ],
   staff: [
     { sprite: 'g_oakstaff', name: 'Oak Staff' },
@@ -1511,6 +2061,14 @@ export const GEAR_VARIANTS = {
     { sprite: 'g_bonestaff', name: 'Bone Staff' },
     { sprite: 'g_torchstaff', name: 'Torch Staff' },
     { sprite: 'g_skullstaff', name: 'Skull Staff' },
+    { sprite: 'g_gnarlstaff', name: 'Gnarled Staff' },
+    { sprite: 'g_starrod', name: 'Star Rod' },
+    { sprite: 'g_scepter', name: 'Scepter' },
+    { sprite: 'g_warhammer', name: 'War Hammer' },
+    { sprite: 'g_spear', name: 'Spear' },
+    { sprite: 'g_flail', name: 'Flail' },
+    { sprite: 'g_warfan', name: 'War Fan' },
+    { sprite: 'g_lanternstaff', name: 'Lantern Staff' },
   ],
   charm: [
     { sprite: 'g_amulet', name: 'Amulet' },
@@ -1520,10 +2078,23 @@ export const GEAR_VARIANTS = {
     { sprite: 'g_feather', name: 'Feather' },
     { sprite: 'g_hourglass', name: 'Hourglass' },
     { sprite: 'g_eyecharm', name: 'Eye Charm' },
+    { sprite: 'g_locket', name: 'Locket' },
+    { sprite: 'g_talisman', name: 'Talisman' },
+    { sprite: 'g_horseshoe', name: 'Horseshoe' },
+    { sprite: 'g_dreamcatcher', name: 'Dreamcatcher' },
+    { sprite: 'g_compass', name: 'Compass' },
+    { sprite: 'g_luckydie', name: 'Lucky Die' },
+    { sprite: 'g_scarab', name: 'Scarab' },
   ],
 };
 // pick a random variant for a slot (returns { sprite, name } or null)
 export function pickGearVariant(slot) { const a = GEAR_VARIANTS[slot] || []; return a.length ? a[Math.floor(Math.random() * a.length)] : null; }
+
+// ===== pet id -> sprite recipe (cute companion critters) =====
+export const PET_SPRITE = { wisp: 'pet_wisp', slime: 'pet_slime', bat: 'pet_bat', golem: 'pet_golem', fairy: 'pet_fairy', drake: 'pet_drake', cat: 'pet_cat', owl: 'pet_owl' };
+
+// ===== furniture id -> sprite recipe (little decorative pieces) =====
+export const FURNITURE_SPRITE = { sofa: 'furn_sofa', bookcase: 'furn_bookcase', clock: 'furn_clock', piano: 'furn_piano', fountain: 'furn_fountain', aquarium: 'furn_aquarium', chandelier: 'furn_chandelier', throne: 'furn_throne' };
 
 // ===== spell id -> sprite recipe (icons tinted by each spell's element) =====
 export const SPELL_SPRITE = {

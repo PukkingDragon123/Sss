@@ -385,7 +385,7 @@ export class Wizard {
     this._maxHp = s.hpMax;
 
     // ---- movement with drunk overshoot ----
-    const mv = game.input ? game.input.moveVector() : { x: 0, z: 0 };
+    const mv = game.moveVector ? game.moveVector() : (game.input ? game.input.moveVector() : { x: 0, z: 0 });
     const accel = 60;
     const maxSpeed = s.moveSpeed;
     if (this.alive) { this.vel.x += mv.x * accel * dt; this.vel.z += mv.z * accel * dt; }

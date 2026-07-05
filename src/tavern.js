@@ -52,10 +52,11 @@ export class Tavern {
       const m = o.material; if (m.map || m.transparent || (m.emissiveIntensity || 0) >= 0.4) return;
       const c = m.color;
       const tk = m.metalness > 0.35 ? 'metal'
+        : (c.g > c.r && c.g > c.b) ? 'leaf'   // greenery (potted plants, foliage) reads as leaves
         : (c.r > 0.32 && c.b < c.r * 0.85) ? 'wood'
         : (Math.abs(c.r - c.g) < 0.09 && Math.abs(c.g - c.b) < 0.09) ? 'stone'
         : 'cloth';
-      pxMap(m, tk, 2);
+      pxMap(m, tk, tk === 'leaf' ? 3 : 2);
     });
   }
 
@@ -443,7 +444,7 @@ export class Tavern {
       const b = meta.buildableById(p.id);
       const m = this._buildPlaced(p.id); if (!m) continue;
       const x = G.ox + p.gx * G.cell, z = G.oz + p.gy * G.cell;
-      m.position.set(x, 0, z); m.rotation.y = (p.rot !== undefined) ? p.rot : ((p.gx * 1.7 + p.gy) % 6.28); grp.add(m);
+      m.position.set(x, 0, z); m.rotation.y = (p.rot !== undefined) ? p.rot : ((p.gx * 1.7 + p.gy) % 6.28); m.userData.cell = p.gx + '_' + p.gy; grp.add(m);
       if (b && b.station) {
         this.roomStations.push({ type: 'station', kind: b.station, label: `the ${b.name}`, pos: new THREE.Vector3(x, 0, z), mark: null });
       }
@@ -919,6 +920,49 @@ export class Tavern {
       else if (m === pr) { w.pos.x = maxx; if (w.vel.x < 0) w.vel.x = 0; }
       else if (m === pu) { w.pos.z = minz; if (w.vel.z > 0) w.vel.z = 0; }
       else { w.pos.z = maxz; if (w.vel.z < 0) w.vel.z = 0; }
+    }
+  }
+
+  // Clash-of-Clans style construction: the just-placed piece rises out of the ground inside
+  // a glowing magic hologram cage over `dur` seconds, then poofs solid.
+  beginConstruct(gx, gy, dur = 2) {
+    const cell = gx + '_' + gy;
+    const grp = this.roomItems.children.find(c => c.userData && c.userData.cell === cell);
+    if (!grp) return;
+    const box = new THREE.Box3().setFromObject(grp), size = box.getSize(new THREE.Vector3());
+    const w = Math.max(size.x, 0.6) + 0.2, d = Math.max(size.z, 0.6) + 0.2, h = Math.max(size.y, 0.6) + 0.2;
+    const holo = new THREE.Group(); holo.position.copy(grp.position);
+    const boxGeo = new THREE.BoxGeometry(w, h, d);
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(boxGeo), new THREE.LineBasicMaterial({ color: 0x6ad0ff, transparent: true, opacity: 0.9, depthWrite: false }));
+    edges.position.y = h / 2; holo.add(edges);
+    const fill = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial({ color: 0x3ba0e0, transparent: true, opacity: 0.14, depthWrite: false })); fill.position.y = h / 2; holo.add(fill);
+    const scan = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ color: 0x9ff0ff, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }));
+    scan.rotation.x = -Math.PI / 2; holo.add(scan);
+    this.roomScene.add(holo);
+    if (!this._constructions) this._constructions = [];
+    grp.userData._buildScaleY = grp.scale.y || 1;
+    this._constructions.push({ grp, holo, edges, fill, scan, t: 0, dur: Math.max(0.4, dur), h });
+  }
+  // driven from the main loop every frame (build mode runs while game.state === 'menu')
+  tickConstructions(dt, game) {
+    const list = this._constructions; if (!list || !list.length) return;
+    this.phase += dt;
+    for (let i = list.length - 1; i >= 0; i--) {
+      const c = list[i]; c.t += dt;
+      const k = Math.min(1, c.t / c.dur), ease = 1 - Math.pow(1 - k, 3);
+      c.grp.scale.y = (c.grp.userData._buildScaleY || 1) * (0.05 + 0.95 * ease);
+      c.scan.position.y = c.h * k;
+      const flick = 0.75 + Math.sin(this.phase * 22) * 0.25;
+      c.edges.material.opacity = ((1 - k) * 0.8 + 0.12) * flick;
+      c.fill.material.opacity = (1 - k) * 0.16;
+      c.scan.material.opacity = (1 - k) * 0.55;
+      if (k >= 1) {
+        c.grp.scale.y = c.grp.userData._buildScaleY || 1;
+        this.roomScene.remove(c.holo);
+        c.holo.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+        if (game && game.particles) { game.particles.ring({ pos: c.grp.position.clone().setY(0.1), color: 0x9ff0ff, r0: 0.2, r1: 1.5, life: 0.5 }); game.particles.burst({ pos: c.grp.position.clone().setY(0.6), color: 0x9ff0ff, count: 12, speed: 4, size: 0.18, life: 0.6, up: 1.5, blend: 'add' }); }
+        list.splice(i, 1);
+      }
     }
   }
 

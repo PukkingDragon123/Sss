@@ -1367,13 +1367,19 @@ export class UI {
     this._disposePvMesh();
     if (!id || !this.game || !this.game.tavern) { if (this.el.bpLabel) this.el.bpLabel.textContent = 'Pick a piece to preview'; return; }
     const built = this.game.tavern._buildPlaced(id); if (!built) return;
+    // render it as a glowing "magic hologram" of the piece before it's built (CoC style)
+    built.traverse(o => {
+      if (!o.isMesh || o.userData.isOutline) return;
+      o.material = new THREE.MeshBasicMaterial({ color: 0x6ad0ff, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, wireframe: false });
+    });
     const pivot = new THREE.Group(); pivot.add(built);
     const box = new THREE.Box3().setFromObject(built);
     const ctr = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
     built.position.set(-ctr.x, -ctr.y, -ctr.z);          // recentre the model inside its pivot
     const maxd = Math.max(sz.x, sz.y, sz.z) || 1; pivot.scale.setScalar(1.7 / maxd);
     this._pvScene.add(pivot); this._pvMesh = pivot;
-    const b = meta.buildableById(id); if (this.el.bpLabel) this.el.bpLabel.innerHTML = b ? `${iconImg(b.icon, {}, 'sm')} ${b.name}` : '';
+    const b = meta.buildableById(id);
+    if (this.el.bpLabel) this.el.bpLabel.innerHTML = b ? `${iconImg(b.icon, {}, 'sm')} ${b.name} · ${iconImg('clock', {}, 'sm')} ${meta.buildTimeOf(b)}s · ${b.cost} ${iconImg('coin', {}, 'sm')}` : '';
   }
   _startPreview() {
     this._ensurePreview(); if (this._pvActive || !this._pvRenderer) return;
@@ -1405,13 +1411,15 @@ export class UI {
     if (act === 'selbuild') { this._buildSel = (this._buildSel === id ? null : id); this._pvAngle = this._buildRot || 0; this._setPreviewItem(this._buildSel); if (g) g.audio.play('click'); this._renderShop(); return; }
     if (act === 'place') {
       const [gx, gy] = id.split('_').map(Number);
-      let ok, placedStation = null;
+      let ok, placedStation = null, builtB = null;
       if (meta.cellOccupied(gx, gy)) ok = meta.removeAt(gx, gy);
-      else if (this._buildSel) { const sb = meta.buildableById(this._buildSel); ok = meta.placeItem(this._buildSel, gx, gy, this._buildRot || 0); if (ok) { placedStation = sb && sb.station ? sb : null; if (placedStation) { this._buildSel = null; this._setPreviewItem(null); } } }
+      else if (this._buildSel) { const sb = meta.buildableById(this._buildSel); ok = meta.placeItem(this._buildSel, gx, gy, this._buildRot || 0); if (ok) { builtB = sb; placedStation = sb && sb.station ? sb : null; if (placedStation) { this._buildSel = null; this._setPreviewItem(null); } } }
       else ok = false;
       if (g) { g.audio.play(ok ? 'click' : 'hiccup'); if (ok && g.tavern.refreshRoom) g.tavern.refreshRoom(meta); }
+      // a magic hologram raises the new piece out of the ground over its build time (CoC style)
+      if (builtB && g && g.tavern.beginConstruct) g.tavern.beginConstruct(gx, gy, meta.buildTimeOf(builtB));
       if (ok) this.burstFX({ x: window.innerWidth / 2, y: window.innerHeight * 0.34 }, 'sparkle', 10);
-      if (placedStation) this.wispSay(`✓ Built the ${placedStation.name}. Walk up and press E to use it!`);
+      if (placedStation) this.wispSay(`✓ Building the ${placedStation.name}… walk up and press E once it's raised!`);
       this.setGold(meta.gold());
       this._renderShop();
       return;
@@ -1445,7 +1453,7 @@ export class UI {
     else if (act === 'rest') ok = meta.rest();
     else if (act === 'collect') { const r = meta.collectTavern(); ok = r > 0; if (ok) g.ui.toast(`Collected ${r}🪙`); }
     else if (act === 'tavup') ok = meta.buyTavernUpgrade(id);
-    else if (act === 'equipgear') { ok = meta.equipGear(id); if (ok && g && g.wizard) g.wizard.setEquipment(meta.equippedGearSummary()); }
+    else if (act === 'equipgear') { ok = meta.equipGear(id); if (ok && g && g.wizard) g.wizard.setEquipment(meta.equippedGearFull()); }
     else if (act === 'salvage') { const v = meta.salvageGear(id); ok = v > 0; if (ok) g.ui.toast(`Salvaged for ${v}🪙`); }
     else if (act === 'upgradegear') ok = meta.upgradeGear(id);
     else if (act === 'forge') { const inst = meta.forgeGear(id); ok = !!inst; if (ok) { g.ui.lootToast(inst); g.audio.play('levelup'); } }
@@ -1808,8 +1816,9 @@ export class UI {
       const built = b.station && meta.stationBuilt(b.id);
       const dis = locked || built || !meta.canAfford(b.cost);
       const cost = locked ? `${iconImg('lock', {}, 'sm')} quest` : built ? '✓ Built' : b.cost === 0 ? 'Free' : `${b.cost} ${iconImg('coin', {}, 'sm')}`;
+      const time = (!locked && !built && b.cost > 0) ? `<span class="bi-time">${iconImg('clock', {}, 'sm')} ${meta.buildTimeOf(b)}s</span>` : '';
       h += `<button class="build-item ${sel ? 'sel' : ''} ${b.station ? 'is-station' : ''} ${locked ? 'locked' : ''}" data-act="selbuild" data-id="${b.id}" ${dis ? 'disabled' : ''} title="${locked ? 'Unlock by claiming a bounty in your quest log' : b.name}">
-        <span class="bi-icon">${locked ? iconImg('lock', {}, 'sm') : iconImg(b.icon, {}, 'sm')}</span><span class="bi-name">${b.name}</span><span class="bi-cost">${cost}</span></button>`;
+        <span class="bi-icon">${locked ? iconImg('lock', {}, 'sm') : iconImg(b.icon, {}, 'sm')}</span><span class="bi-name">${b.name}</span><span class="bi-cost">${cost}</span>${time}</button>`;
     }
     h += '</div>';
     if (this._buildSel) { const sb = meta.buildableById(this._buildSel); if (sb) h += `<p class="build-hint">Placing <b>${iconImg(sb.icon, {}, 'sm')} ${sb.name}</b> — spin it in the preview with <b>⟳ Rotate</b>, then tap an empty tile. <span data-act="selbuild" data-id="${this._buildSel}" style="text-decoration:underline;cursor:pointer">cancel</span></p>`; }

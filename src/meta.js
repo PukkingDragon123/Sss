@@ -91,6 +91,8 @@ export const BUILDABLES = [
   { id: 'throne',     name: 'Throne',            icon: 'furn_throne',     cost: 300, comfort: 5, cat: 'furniture' },
 ];
 export const buildableById = (id) => BUILDABLES.find(b => b.id === id);
+// Clash-of-Clans build time (seconds) — scales with the piece's cost; shown in the palette
+export const buildTimeOf = (idOrB) => { const b = (idOrB && typeof idOrB === 'object') ? idOrB : buildableById(idOrB); return b ? Math.max(1, Math.round(b.cost / 60)) : 0; };
 export const placedItems = () => (state.room.placed || (state.room.placed = []));
 export const cellOccupied = (gx, gy) => placedItems().some(p => p.gx === gx && p.gy === gy);
 export const stationBuilt = (id) => placedItems().some(p => p.id === id);
@@ -832,6 +834,12 @@ export function upgradeGear(id) {
 export function equippedGearSummary() {
   const out = {};
   for (const slot of GEAR_SLOTS) { const inst = gearById(state.equippedGear[slot]); out[slot] = inst ? inst.rarity : null; }
+  return out;
+}
+// the full worn instance per slot (rarity + sprite variant) — drives the ACTUAL 3D gear models
+export function equippedGearFull() {
+  const out = {};
+  for (const slot of GEAR_SLOTS) out[slot] = gearById(state.equippedGear[slot]) || null;
   return out;
 }
 // total stat mods from all equipped gear

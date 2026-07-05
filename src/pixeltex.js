@@ -81,14 +81,19 @@ const PAINTERS = {
     ctx.fillStyle = gc(1.0); ctx.fillRect(0, (n * 0.3) | 0, n, 1);
     for (let i = 0; i < 3; i++) { ctx.fillStyle = gc(0.72); ctx.fillRect((r() * n) | 0, (r() * n) | 0, 1, 1); }
   },
-  // leafy canopy: clustered light/dark leaf dither for trees & bushes
+  // leafy canopy: chunky overlapping leaf blobs (bright tops / dark undersides) for a clear,
+  // readable 2D-leaf texture on trees & bushes — matches how visibly the grass floor reads
   leaf(ctx, n, r) {
-    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-      const c = Math.sin(x * 0.9) * Math.cos(y * 0.9);
-      let g = 0.83 + c * 0.16 + (r() - 0.5) * 0.18;
-      ctx.fillStyle = gc(g); ctx.fillRect(x, y, 1, 1);
+    // mottled green base
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { const g = 0.74 + (r() - 0.5) * 0.2; ctx.fillStyle = gc(g); ctx.fillRect(x, y, 1, 1); }
+    // scatter little 2-3px leaf shapes: a lit crown pixel + a shaded body
+    const leaves = Math.floor(n * n * 0.14);
+    for (let i = 0; i < leaves; i++) {
+      const x = (r() * n) | 0, y = (r() * n) | 0, lit = r() < 0.5;
+      ctx.fillStyle = gc(lit ? 1.18 : 0.58);
+      ctx.fillRect(x, y, 2, 1); ctx.fillRect(x, (y + 1) % n, 1, 1);          // a wee leaf
+      ctx.fillStyle = gc(lit ? 0.7 : 0.48); ctx.fillRect((x + 1) % n, (y + 1) % n, 1, 1); // its shadow
     }
-    for (let i = 0; i < n * 0.5; i++) { const x = (r() * n) | 0, y = (r() * n) | 0; ctx.fillStyle = gc(r() < 0.5 ? 1.05 : 0.64); ctx.fillRect(x, y, 1, 1); } // leaf speckle
   },
   // crystal / gem: bright faces with a diagonal glint and a few dark facets
   gem(ctx, n, r) {

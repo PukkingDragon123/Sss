@@ -1056,7 +1056,7 @@ export class Game {
     this.world.show(false);
     this.input.pointMode = false;
     this.wizard.reset(this.stats);
-    this.wizard.setEquipment(meta.equippedGearSummary()); // show worn gear in the hub too
+    this.wizard.setEquipment(meta.equippedGearFull()); // show worn gear in the hub too
     this.wizard.setVisible(true);
     this.wizard.pos.copy(this.tavern.start);
     this.aimPoint.set(this.tavern.door.x, 0, this.tavern.door.z);
@@ -1220,7 +1220,7 @@ export class Game {
     this.wizard.setVisible(true);
     this.stats = DEFAULT_STATS(); this.stats.wobble = 0.9;
     this.wizard.reset(this.stats);
-    this.wizard.setEquipment(meta.equippedGearSummary());
+    this.wizard.setEquipment(meta.equippedGearFull());
     this.wizard.pos.copy(this.tavern.roomStart);
     this.aimPoint.set(this.tavern.roomStart.x, 0, this.tavern.roomStart.z - 3);
     this.camOffset.set(0, 13, 13); this.resetCamera();
@@ -1721,7 +1721,7 @@ export class Game {
   _refreshBoonHud() { if (this.ui.setAbilities) this.ui.setAbilities([...this.runAbilities.values()], this.runArtifacts); }
 
   _applyEquipment() {
-    this.wizard.setEquipment(meta.equippedGearSummary()); // worn gear shows on the model
+    this.wizard.setEquipment(meta.equippedGearFull()); // worn gear shows on the model
     const m = meta.equipMods();
     const pm = meta.petMods(); for (const k in pm) m[k] = (m[k] || 0) + pm[k]; // fold in the carried pet's boons
     const s = this.stats;
@@ -2205,6 +2205,7 @@ export class Game {
     this.ui.updateHUD(this);
     this._updateCameraControls(dt);
     this._updatePetCompanion(dt);
+    if (this.tavern && this.tavern.tickConstructions) this.tavern.tickConstructions(dt, this); // COC build holograms (run even in the build menu)
     this._updateCamera(dt);
     if (this._gradePass) this._gradePass.uniforms.uTime.value = this.clock.getElapsedTime();
     this.present();
@@ -2375,7 +2376,7 @@ export class Game {
     this.camOffset.set(0, 26, 22);
     this.enemies.clear(); this.spells.reset(); this._clearPickups();
     this.wizard.reset(this.stats);
-    this.wizard.setEquipment(meta.equippedGearSummary()); // title-screen wizard wears your gear
+    this.wizard.setEquipment(meta.equippedGearFull()); // title-screen wizard wears your gear
     this.wizard.setVisible(true);
     this.recognizer = new Recognizer();
     this.recognizer.add('triangle', TEMPLATES.triangle);

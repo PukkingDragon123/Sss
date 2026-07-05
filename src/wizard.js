@@ -96,26 +96,27 @@ export class Wizard {
 
     const shadowed = (m) => { m.castShadow = true; return m; };
 
-    // legs (soft rounded stubs)
-    const legGeo = new THREE.CapsuleGeometry(0.17, 0.3, 2, 6);
-    this.legL = shadowed(new THREE.Mesh(legGeo, darkMat)); this.legL.position.set(-0.24, 0.34, 0);
-    this.legR = shadowed(new THREE.Mesh(legGeo, darkMat)); this.legR.position.set(0.24, 0.34, 0);
+    // ---- body: the round chibi silhouette the tavern NPCs use, in his own purple drip ----
+    // little round feet peeking out from under the robe hem
+    const footGeo = new THREE.SphereGeometry(0.19, 8, 6);
+    this.legL = shadowed(new THREE.Mesh(footGeo, darkMat)); this.legL.position.set(-0.22, 0.17, 0.05); this.legL.scale.set(1, 0.82, 1.18);
+    this.legR = shadowed(new THREE.Mesh(footGeo, darkMat)); this.legR.position.set(0.22, 0.17, 0.05); this.legR.scale.set(1, 0.82, 1.18);
     facer.add(this.legL, this.legR);
 
-    // robe / torso (rounded, soft)
-    const skirt = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.82, 1.0, 9), robeMat));
-    skirt.position.y = 0.95;
-    const torso = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.52, 10, 8), robeMat));
-    torso.position.y = 1.5; torso.scale.set(1, 0.95, 0.92);
+    // a robe hem flaring over the feet, then ONE friendly ball torso (NPC chibi ratio)
+    const skirt = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.66, 0.62, 10), robeMat));
+    skirt.position.y = 0.48;
+    const torso = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.58, 12, 9), robeMat));
+    torso.position.y = 1.12; torso.scale.set(1, 1.2, 0.95);
     facer.add(skirt, torso);
     this.torso = torso;
 
-    const belt = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.07, 5, 12), goldMat);
-    belt.rotation.x = Math.PI / 2; belt.position.y = 1.02;
+    const belt = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.075, 6, 14), goldMat);
+    belt.rotation.x = Math.PI / 2; belt.position.y = 0.78; belt.scale.z = 0.96;
     facer.add(belt);
 
-    // head
-    const head = new THREE.Group(); head.position.y = 2.05;
+    // head (big round chibi head sitting low on the ball — no neck, like the NPCs)
+    const head = new THREE.Group(); head.position.y = 1.98;
     facer.add(head); this.head = head;
     const skull = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.44, 12, 9), skinMat));
     head.add(skull);
@@ -159,8 +160,8 @@ export class Wizard {
     hat.add(star);
 
     // shoulder anchors (empties inside the body, read in world space each frame)
-    this.shoulderL = new THREE.Object3D(); this.shoulderL.position.set(-0.54, 1.62, 0.04);
-    this.shoulderR = new THREE.Object3D(); this.shoulderR.position.set(0.54, 1.62, 0.04);
+    this.shoulderL = new THREE.Object3D(); this.shoulderL.position.set(-0.52, 1.42, 0.03);
+    this.shoulderR = new THREE.Object3D(); this.shoulderR.position.set(0.52, 1.42, 0.03);
     facer.add(this.shoulderL, this.shoulderR);
     // rounded "circle" shoulder pads so the arms join the body smoothly
     const shoulderGeo = new THREE.SphereGeometry(0.21, 8, 6);
@@ -224,52 +225,91 @@ export class Wizard {
     m.traverse(o => { if (o.userData.isOutline) return; if (o.isMesh) { o.geometry.dispose(); const mat = o.material; if (mat && !mat.userData.outline) { if (mat.map && !mat.map.userData?.keep) mat.map.dispose(); mat.dispose(); } } });
     this[key] = null;
   }
-  // eq: { staff: 'rare'|null, hat: ..., robe: ..., charm: ... } — rarity per worn slot
+  // material helpers for gear models
+  _gm(color, o = {}) { return new THREE.MeshStandardMaterial({ color, roughness: o.rough ?? 0.7, metalness: o.metal ?? 0, emissive: o.emis ?? 0x000000, emissiveIntensity: o.emisI ?? 1, flatShading: true }); }
+  _glowMat(col, o = 0.5) { return new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false }); }
+
+  // eq: { staff|hat|robe|charm: gearInstance|rarityString|null } — the actual worn piece
   setEquipment(eq = {}) {
+    const inst = (slot) => { const v = eq[slot]; return (v && typeof v === 'object') ? v : (v ? { rarity: v } : null); };
     const RC = Wizard.RARITY_COLORS;
-    // STAFF — a knobbly walking-staff planted at the left mitten, orb glows by rarity
+    const colOf = (i) => RC[i && i.rarity] || RC.common;
+
+    // STAFF — an actual staff/weapon model in the left hand, its shape chosen by the variant
     this._disposeGearPiece('gearStaff');
-    if (eq.staff) {
-      const col = RC[eq.staff] || RC.common;
-      const g = new THREE.Group();
-      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 1.7, 6),
-        new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.85, flatShading: true }));
-      rod.position.y = 0.28; rod.castShadow = true; g.add(rod);
-      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.03, 5, 10),
-        new THREE.MeshStandardMaterial({ color: 0xffd98a, metalness: 0.5, roughness: 0.35, flatShading: true }));
-      collar.rotation.x = Math.PI / 2; collar.position.y = 1.02; g.add(collar);
-      const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.15, 0),
-        new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.85, roughness: 0.3, flatShading: true }));
-      orb.position.y = 1.2; g.add(orb); g.userData.orb = orb;
-      const halo = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 10),
-        new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false }));
-      halo.position.y = 1.2; g.add(halo); g.userData.halo = halo;
-      this.armGroup.add(g);
-      this.gearStaff = g;
-    }
-    // HAT — recolour the band & star to the worn hat's rarity (gold when bare)
-    if (this.hatTrimMat) {
-      const c = eq.hat ? (RC[eq.hat] || RC.common) : 0xffd98a;
-      this.hatTrimMat.color.setHex(c);
-      this.hatTrimMat.emissive.setHex(eq.hat && eq.hat !== 'common' ? c : 0x3a2c00);
-      this.hatTrimMat.emissiveIntensity = eq.hat && eq.hat !== 'common' ? 0.35 : 1;
-    }
-    // ROBE — dye the cloth toward the worn robe's rarity
-    if (this.robeMat) {
-      const base = new THREE.Color(0x8f7bd6);
-      if (eq.robe) base.lerp(new THREE.Color(RC[eq.robe] || RC.common), 0.42);
-      this.robeMat.color.copy(base);
-    }
-    // CHARM — a glowing pendant at the chest
+    const st = inst('staff');
+    if (st) { const g = this._buildStaffModel(st.sprite, colOf(st)); outlineGroup(g, { thick: 0.04 }); this.armGroup.add(g); this.gearStaff = g; }
+
+    // HAT — an actual hat model on the head; his signature pointy hat hides while one is worn
+    this._disposeGearPiece('gearHat');
+    const ht = inst('hat');
+    if (this.hat) this.hat.visible = !ht;
+    if (ht) { const g = this._buildHatModel(ht.sprite, colOf(ht)); outlineGroup(g, { thick: 0.04 }); this.head.add(g); this.gearHat = g; }
+
+    // ROBE — dye the cloth toward its rarity AND drape an actual mantle/plate over the shoulders
+    this._disposeGearPiece('gearRobe');
+    const rb = inst('robe');
+    if (this.robeMat) { const base = new THREE.Color(0x8f7bd6); if (rb) base.lerp(new THREE.Color(colOf(rb)), 0.4); this.robeMat.color.copy(base); }
+    if (rb) { const g = this._buildRobeModel(rb.sprite, colOf(rb)); outlineGroup(g, { thick: 0.04 }); this.facer.add(g); this.gearRobe = g; }
+
+    // CHARM — an actual pendant / orb / ring floating at the chest
     this._disposeGearPiece('gearCharm');
-    if (eq.charm) {
-      const col = RC[eq.charm] || RC.common;
-      const pend = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0),
-        new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.9, roughness: 0.25, flatShading: true }));
-      pend.position.set(0, 1.72, 0.47);
-      this.facer.add(pend);
-      this.gearCharm = pend;
-    }
+    const ch = inst('charm');
+    if (ch) { const g = this._buildCharmModel(ch.sprite, colOf(ch)); this.facer.add(g); this.gearCharm = g; }
+  }
+
+  _buildStaffModel(sprite, col) {
+    const g = new THREE.Group(); const s = sprite || '';
+    const wood = this._gm(0x7a5230, { rough: 0.85 }), metal = this._gm(0x9aa3ad, { metal: 0.5, rough: 0.4 }), gold = this._gm(0xffd98a, { metal: 0.5, rough: 0.35 });
+    const orbMat = this._gm(col, { emis: col, emisI: 0.85, rough: 0.3 });
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.7, 6), wood); rod.position.y = 0.28; g.add(rod);
+    if (/scythe/.test(s)) { const blade = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.05, 6, 12, Math.PI * 1.1), metal); blade.position.set(0.26, 1.12, 0); blade.rotation.z = -0.4; g.add(blade); }
+    else if (/trident/.test(s)) { for (const dx of [-0.15, 0, 0.15]) { const p = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.42, 6), metal); p.position.set(dx, 1.3, 0); g.add(p); } const bar = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.06, 0.06), metal); bar.position.y = 1.08; g.add(bar); }
+    else if (/warhammer|flail/.test(s)) { const head = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.26, 0.26), metal); head.position.y = 1.2; g.add(head); const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.09, 0), orbMat); gem.position.set(0, 1.2, 0.16); g.add(gem); }
+    else if (/spear/.test(s)) { const tip = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.5, 7), metal); tip.position.y = 1.36; g.add(tip); }
+    else if (/wand|starrod|crystalstaff|scepter/.test(s)) { const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), orbMat); gem.position.y = 1.18; g.add(gem); g.userData.orb = gem; const halo = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 10), this._glowMat(col, 0.18)); halo.position.y = 1.18; g.add(halo); g.userData.halo = halo; }
+    else { const collar = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.03, 5, 10), gold); collar.rotation.x = Math.PI / 2; collar.position.y = 1.02; g.add(collar); const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.15, 0), orbMat); orb.position.y = 1.2; g.add(orb); g.userData.orb = orb; const halo = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 10), this._glowMat(col, 0.18)); halo.position.y = 1.2; g.add(halo); g.userData.halo = halo; }
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    return g;
+  }
+
+  _buildHatModel(sprite, col) {
+    const g = new THREE.Group(); g.position.y = 0.4; const s = sprite || '';
+    const cloth = this._gm(0x6f5fc4, { rough: 0.85 }), gold = this._gm(0xffd98a, { metal: 0.5, rough: 0.35 }), metal = this._gm(0x9aa3ad, { metal: 0.6, rough: 0.4 });
+    const accent = this._gm(col, { emis: col !== 0xcfcad6 ? col : 0x000000, emisI: 0.3 });
+    if (/crown|circlet/.test(s)) { const band = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.18, 12, 1, true), gold); band.position.y = 0.12; g.add(band); for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28; const pt = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.2, 4), gold); pt.position.set(Math.cos(a) * 0.4, 0.28, Math.sin(a) * 0.4); g.add(pt); const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.05, 0), accent); gem.position.set(Math.cos(a) * 0.4, 0.32, Math.sin(a) * 0.4); g.add(gem); } }
+    else if (/helm|horns/.test(s)) { const dome = new THREE.Mesh(new THREE.SphereGeometry(0.46, 12, 8, 0, 6.28, 0, Math.PI / 2), metal); dome.position.y = 0.06; g.add(dome); const nose = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.3, 0.06), metal); nose.position.set(0, -0.05, 0.44); g.add(nose); if (/horns/.test(s)) for (const sx of [-1, 1]) { const h = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.34, 6), accent); h.position.set(sx * 0.42, 0.28, 0); h.rotation.z = sx * 0.5; g.add(h); } }
+    else if (/hood|shroud/.test(s)) { const hood = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 9, 0, 6.28, 0, Math.PI * 0.62), cloth); hood.position.y = 0.02; hood.scale.set(1, 1.1, 1.15); g.add(hood); }
+    else if (/tophat/.test(s)) { const dk = this._gm(0x2a2230, { rough: 0.6 }); const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.06, 14), dk); g.add(brim); const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.7, 14), dk); tube.position.y = 0.38; g.add(tube); const band2 = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.12, 14), accent); band2.position.y = 0.16; g.add(band2); }
+    else if (/straw|tricorne|mitre|wide|visor|bandana/.test(s)) { const straw = /straw/.test(s); const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.7, 0.07, 12), this._gm(straw ? 0xd8b45a : 0x5a4030)); g.add(brim); const cr = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 7, 0, 6.28, 0, Math.PI / 2), this._gm(straw ? 0xe0c070 : 0x6a4a30)); cr.position.y = 0.06; g.add(cr); const band2 = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 5, 12), accent); band2.rotation.x = Math.PI / 2; band2.position.y = 0.08; g.add(band2); }
+    else if (/halo/.test(s)) { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.05, 8, 20), this._gm(col, { emis: col, emisI: 1.2, rough: 0.3 })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.5; g.add(ring); g.userData.orb = ring; }
+    else if (/antlers/.test(s)) { const cap = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 7, 0, 6.28, 0, Math.PI / 2), cloth); cap.position.y = 0.04; g.add(cap); for (const sx of [-1, 1]) for (const k of [0, 1, 2]) { const bb = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.24, 5), this._gm(0xcabd9a)); bb.position.set(sx * (0.3 + k * 0.06), 0.3 + k * 0.12, -0.05 * k); bb.rotation.z = sx * (0.4 + k * 0.15); g.add(bb); } }
+    else { const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.56, 0.62, 0.1, 10), cloth); g.add(brim); const cone = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.2, 9), cloth); cone.position.y = 0.62; cone.rotation.z = 0.14; g.add(cone); const band2 = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.06, 5, 12), accent); band2.rotation.x = Math.PI / 2; band2.position.y = 0.1; g.add(band2); const tip = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 5), accent); tip.position.set(0.16, 0.92, 0.28); g.add(tip); }
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    return g;
+  }
+
+  _buildRobeModel(sprite, col) {
+    const g = new THREE.Group(); const s = sprite || '';
+    const plated = /plate|scales|furcoat/.test(s);
+    const mat = plated ? this._gm(col, { metal: 0.5, rough: 0.45 }) : this._gm(col, { rough: 0.85 });
+    const mantle = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.5, 0.42, 12, 1, true, 0, Math.PI * 1.15), mat);
+    mantle.position.set(0, 1.4, -0.04); mantle.rotation.y = -Math.PI * 0.575; g.add(mantle);
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.06, 6, 14), plated ? this._gm(0xffd98a, { metal: 0.5, rough: 0.35 }) : mat); collar.rotation.x = Math.PI / 2; collar.position.y = 1.55; collar.scale.set(1, 1, 0.7); g.add(collar);
+    if (plated) { const plate = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 9, 0, Math.PI, 0, Math.PI), mat); plate.position.set(0, 1.15, 0.06); plate.scale.set(1, 1.2, 0.6); g.add(plate); }
+    else { const capeMat = mat.clone(); capeMat.side = THREE.DoubleSide; const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.1, 3, 3), capeMat); cape.position.set(0, 1.0, -0.4); g.add(cape); }
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    return g;
+  }
+
+  _buildCharmModel(sprite, col) {
+    const g = new THREE.Group(); g.position.set(0, 1.3, 0.5); const s = sprite || '';
+    const gem = this._gm(col, { emis: col, emisI: 0.9, rough: 0.25 }), gold = this._gm(0xffd98a, { metal: 0.5, rough: 0.35 });
+    if (/ring/.test(s)) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.03, 6, 14), gold); g.add(r); const stone = new THREE.Mesh(new THREE.OctahedronGeometry(0.06, 0), gem); stone.position.y = 0.1; g.add(stone); }
+    else if (/orb/.test(s)) { g.add(new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10), gem)); g.add(new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 10), this._glowMat(col, 0.2))); }
+    else if (/feather/.test(s)) { const f = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.3, 5), gem); f.rotation.z = 0.4; g.add(f); }
+    else { const chain = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.015, 5, 16), gold); chain.rotation.x = 1.3; chain.position.y = 0.08; g.add(chain); g.add(new THREE.Mesh(new THREE.OctahedronGeometry(0.1, 0), gem)); }
+    return g;
   }
 
   reset(stats) {

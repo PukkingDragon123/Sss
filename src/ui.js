@@ -106,7 +106,7 @@ export class UI {
       btnGuide: $('btn-guide'), btnPause: $('btn-pause'), btnMute: $('btn-mute'),
       btnQuests: $('btn-quests'), btnInv: $('btn-inv'),
       questPanel: $('quest-panel'), qpBody: $('qp-body'), qpClose: $('qp-close'),
-      buildPreview: $('build-preview'), bpCanvas: $('bp-canvas'), bpLabel: $('bp-label'), bpRotate: $('bp-rotate'),
+      buildPreview: $('build-preview'), bpCanvas: $('bp-canvas'), bpLabel: $('bp-label'), bpRotate: $('bp-rotate'), buildPlace: $('build-place'),
       comboHud: $('combo-hud'), comboN: $('combo-n'),
       merchant: $('merchant'), merchCards: $('merch-cards'), merchGems: $('merch-gems'), merchLeave: $('merch-leave'),
       joystick: $('joystick'), joyKnob: $('joy-knob'), blackout: $('blackout'), wipe: $('wipe'),
@@ -180,7 +180,12 @@ export class UI {
     if (this.el.camReset) this.el.camReset.addEventListener('click', () => { game.resetCamera(); game.audio.play('click'); });
     if (this.el.btnBuild) this.el.btnBuild.addEventListener('click', () => game.openBuild());
     this.el.shopClose.addEventListener('click', () => { game.audio.play('click'); game.closeShop(); });
-    if (this.el.bpRotate) this.el.bpRotate.addEventListener('click', () => { game.audio.play('click'); this._buildRot = ((this._buildRot || 0) + Math.PI / 2) % (Math.PI * 2); this.burstFX(this.el.bpRotate, 'sparkle', 5); });
+    if (this.el.bpRotate) this.el.bpRotate.addEventListener('click', () => { game.audio.play('click'); this._buildRot = ((this._buildRot || 0) + Math.PI / 2) % (Math.PI * 2); this.burstFX(this.el.bpRotate, 'sparkle', 5); if (game._inBuild && game._inBuild()) game.buildHover(this._lastBuildX || 0, this._lastBuildY || 0); });
+    // the room itself is the build grid: hover the floor to preview a hologram, click to place
+    if (this.el.buildPlace) {
+      this.el.buildPlace.addEventListener('pointermove', (e) => { this._lastBuildX = e.clientX; this._lastBuildY = e.clientY; if (game.buildHover) game.buildHover(e.clientX, e.clientY); });
+      this.el.buildPlace.addEventListener('pointerdown', (e) => { this._lastBuildX = e.clientX; this._lastBuildY = e.clientY; if (game.buildPlaceAt) game.buildPlaceAt(e.clientX, e.clientY); });
+    }
     // shop buttons are delegated (the body is re-rendered on every action)
     this.el.shopBody.addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]');
@@ -217,7 +222,11 @@ export class UI {
     // cinematic tavern chat buttons
     if (this.el.chat) this.el.chat.addEventListener('click', (e) => {
       const b = e.target.closest('[data-chat]'); if (!b) return;
-      if (b.dataset.chat === 'claim') game.chatClaim(); else game.endChat();
+      const act = b.dataset.chat;
+      if (act === 'claim') game.chatClaim();
+      else if (act === 'accept') game.chatAccept();
+      else if (act === 'ask') game.chatAsk();
+      else game.endChat();
     });
     // world-map HUD: Venture / Back buttons (region selection itself is 3D clicks)
     if (this.el.worldDetail) this.el.worldDetail.addEventListener('click', (e) => {
@@ -271,13 +280,18 @@ export class UI {
     h += `<div class="qp-card"><h4>${iconImg('pin', {}, 'sm')} Bounty</h4>
       <p class="qp-sub">${q ? pixify(q.text, 'sm') + ' (reward ' + q.reward + ' gold)' : 'No bounty right now.'}</p>
       <div class="shop-acts"><button class="shop-btn ${done ? 'on' : ''}" data-act="claim" ${done ? '' : 'disabled'}>${done ? 'Claim reward' : 'In progress'}</button></div></div>`;
-    const reqs = meta.customerQuests();
-    h += `<div class="qp-card"><h4>${iconImg('face', {}, 'sm')} Customer Requests</h4>
-      <p class="qp-sub">Patrons roam the bar with a ${iconImg('bang', {}, 'sm')} — walk up and talk to take their job.</p>`;
+    // ACTIVE QUESTS — only the jobs you've actually accepted (chat a patron to take one)
+    const reqs = meta.acceptedQuests();
+    h += `<div class="qp-card"><h4>${iconImg('scroll', {}, 'sm')} Active Quests</h4>
+      <p class="qp-sub">Jobs you accepted. Chat a ${iconImg('bang', {}, 'sm')} patron to take on more.</p>`;
     if (reqs.length) { h += '<div class="qp-tasklist">';
-      for (const cq of reqs) { const ready = meta.customerQuestReady(cq); h += `<div class="qp-task ${ready ? 'done' : ''}"><span class="tick">${ready ? '✓' : iconImg(cq.icon || 'face', {}, 'sm')}</span><span><b>${cq.npc.name}:</b> ${pixify(cq.ask, 'sm')}${ready ? ' <i>(ready!)</i>' : ''}</span></div>`; }
+      for (const cq of reqs) {
+        const ready = meta.customerQuestReady(cq);
+        const rw = [(cq.reward && cq.reward.gems) ? `+${cq.reward.gems} ${iconImg('💎', {}, 'sm')}` : '', (cq.reward && cq.reward.gold) ? `+${cq.reward.gold} ${iconImg('coin', {}, 'sm')}` : ''].filter(Boolean).join(' ');
+        h += `<div class="qp-task ${ready ? 'done' : ''}"><span class="tick">${ready ? '✓' : iconImg(cq.icon || 'scroll', {}, 'sm')}</span><span><b>${cq.npc.name}:</b> ${pixify(cq.ask, 'sm')} <i class="qp-reward">${rw}</i>${ready ? ' <b>(ready — return to claim!)</b>' : ''}</span></div>`;
+      }
       h += '</div>';
-    } else h += '<div class="qp-progress">No requests right now.</div>';
+    } else h += '<div class="qp-progress">No active quests — accept one from a patron by the fire.</div>';
     h += '</div>';
     // side quests — each awards a collectible card
     const sqs = meta.sideQuests();
@@ -520,18 +534,22 @@ export class UI {
     const npc = station.npc || {};
     const q = station.quest;
     let body, btns;
+    // "tell me more" response (a choice the player picked → the patron elaborates)
+    const detail = (game && game._chatAsked)
+      ? `<div class="chat-detail">"${q ? (q.kind === 'clear' ? 'Fell the champion of that cursed place and bring me word — I\'ll make it worth your while.' : 'Push as deep as you dare into any region. Reach that stage and the deed is done.') : 'Aye, the old Toad\'s seen better nights. Sit, drink, and mind Tomas\' furniture, eh?'}"</div>`
+      : '';
     if (q) {
       const ready = meta.customerQuestReady(q);
       const prog = meta.customerQuestProgress(q);
       const r = q.reward || {};
       const rewardStr = [r.gold ? `${r.gold} ${iconImg('coin', {}, 'sm')}` : '', r.gems ? `${r.gems} ${iconImg('💎', {}, 'sm')}` : ''].filter(Boolean).join(' · ') || '—';
-      body = `<div class="chat-ask">${iconImg(q.icon || 'scroll', {}, 'sm')} ${pixify(q.ask, 'sm')}</div><div class="chat-prog">${pixify(prog, 'sm')}</div><div class="chat-reward">${iconImg('gift', {}, 'sm')} ${rewardStr}</div>`;
-      btns = ready
-        ? `<button class="btn chat-go" data-chat="claim">${iconImg('hand', {}, 'sm')} Hand it over</button><button class="btn chat-no" data-chat="leave">Maybe later</button>`
-        : `<button class="btn chat-no" data-chat="leave">I'll be back</button>`;
+      body = `<div class="chat-ask">${iconImg(q.icon || 'scroll', {}, 'sm')} ${pixify(q.ask, 'sm')}</div>${detail}<div class="chat-prog">${pixify(prog, 'sm')}</div><div class="chat-reward">${iconImg('gift', {}, 'sm')} ${rewardStr}</div>`;
+      if (!q.accepted) btns = `<button class="btn chat-go" data-chat="accept">${iconImg('scroll', {}, 'sm')} Accept the job</button><button class="btn chat-ask" data-chat="ask">Tell me more</button><button class="btn chat-no" data-chat="leave">Not now</button>`;
+      else if (ready) btns = `<button class="btn chat-go" data-chat="claim">${iconImg('hand', {}, 'sm')} Hand it over</button><button class="btn chat-no" data-chat="leave">Leave</button>`;
+      else btns = `<button class="btn chat-ask" data-chat="ask">Tell me more</button><button class="btn chat-no" data-chat="leave">I'll be back</button>`;
     } else {
-      body = `<div class="chat-ask">A friendly face by the fire.</div>`;
-      btns = `<button class="btn chat-go" data-chat="claim">${iconImg('beer', {}, 'sm')} Cheers!</button><button class="btn chat-no" data-chat="leave">Leave</button>`;
+      body = `<div class="chat-ask">A friendly face by the fire.</div>${detail}`;
+      btns = `<button class="btn chat-go" data-chat="claim">${iconImg('beer', {}, 'sm')} Cheers!</button><button class="btn chat-ask" data-chat="ask">Chat a while</button><button class="btn chat-no" data-chat="leave">Leave</button>`;
     }
     el.innerHTML = `<div class="chat-bar top"></div>
       <div class="chat-box">
@@ -1334,9 +1352,15 @@ export class UI {
     this._renderShop();
     this.el.shop.classList.toggle('build-mode', kind === 'build');
     this.el.shop.classList.remove('hidden');
-    if (kind === 'build') { if (this._buildRot === undefined) this._buildRot = 0; if (this.el.buildPreview) this.el.buildPreview.classList.remove('hidden'); this._setPreviewItem(this._buildSel); this._startPreview(); }
+    if (kind === 'build') { if (this._buildRot === undefined) this._buildRot = 0; if (this.el.buildPreview) this.el.buildPreview.classList.remove('hidden'); if (this.el.buildPlace) this.el.buildPlace.classList.remove('hidden'); this._setPreviewItem(this._buildSel); this._startPreview(); }
   }
-  closeShop() { this.el.shop.classList.add('hidden'); this.el.shop.classList.remove('build-mode'); if (this.el.buildPreview) this.el.buildPreview.classList.add('hidden'); this._stopPreview(); }
+  closeShop() {
+    this.el.shop.classList.add('hidden'); this.el.shop.classList.remove('build-mode');
+    if (this.el.buildPreview) this.el.buildPreview.classList.add('hidden');
+    if (this.el.buildPlace) this.el.buildPlace.classList.add('hidden');
+    if (this.game && this.game.tavern) { this.game.tavern.hideGhost(); if (this.game.tavern._disposeGhost) this.game.tavern._disposeGhost(); }
+    this._stopPreview();
+  }
 
   // ---- rotatable 3D build preview (its own tiny renderer over the bottom-docked build panel) ----
   _ensurePreview() {
@@ -1785,24 +1809,8 @@ export class UI {
     const tab = this._buildTab || (this._buildTab = 'station');
     const stationsTotal = meta.BUILDABLES.filter(b => b.station).length;
     const stationsBuilt = meta.BUILDABLES.filter(b => b.station && meta.stationBuilt(b.id)).length;
-    let h = `<p class="shop-sub">Build your wizard's den Clash-style: <b>pick</b> a building, then <b>tap a tile</b> to place it (tap a placed tile to sell it back at half). <b>Stations</b> let you manage spells &amp; gear right here; <b>comforts</b> deepen your rest bonus.</p>`;
-    h += `<div class="vil-stats">
-      <div class="vil-stat"><span>${iconImg('hammer', {}, 'sm')} Stations</span><b>${stationsBuilt}/${stationsTotal}</b></div>
-      <div class="vil-stat"><span>${iconImg('chair', {}, 'sm')} Comfort</span><b>${comfort}</b></div>
-      <div class="vil-stat"><span>${iconImg('bed', {}, 'sm')} Rest bonus</span><b>+${restAmt} HP</b></div>
-    </div>`;
-    // ghost of the selected piece previews on every empty tile — tap to place
     const selB = this._buildSel ? meta.buildableById(this._buildSel) : null;
-    const ghost = selB ? `<span class="build-ghost">${iconImg(selB.icon, {}, 'sm')}</span>` : '';
-    h += '<div class="build-grid">';
-    for (let gy = 0; gy < meta.ROOM_GH; gy++) {
-      for (let gx = 0; gx < meta.ROOM_GW; gx++) {
-        const item = meta.placedItems().find(p => p.gx === gx && p.gy === gy);
-        const b = item ? meta.buildableById(item.id) : null;
-        h += `<button class="build-cell ${item ? 'filled' : ''} ${b && b.station ? 'is-station' : ''} ${!item && selB ? 'can-place' : ''}" data-act="place" data-id="${gx}_${gy}" title="${b ? b.name + ' — tap to sell' : selB ? 'place ' + selB.name + ' here' : 'empty tile'}">${b ? iconImg(b.icon, {}, 'sm') : ghost}</button>`;
-      }
-    }
-    h += '</div>';
+    let h = `<p class="shop-sub">${selB ? `Placing <b>${iconImg(selB.icon, {}, 'sm')} ${selB.name}</b> — move over the <b>room floor</b> to preview the hologram, <b>click a spot</b> to build (<b>⟳ Rotate</b> to spin it). Click a built piece to sell it back at half.` : 'Pick a piece below, then place it right in your room — hover the floor for a hologram, click to build.'}</p>`;
     h += `<div class="vil-tabs">
       <button class="vil-tab ${tab === 'station' ? 'on' : ''}" data-act="buildtab" data-id="station">${iconImg('hammer', {}, 'sm')} Stations</button>
       <button class="vil-tab ${tab === 'comfort' ? 'on' : ''}" data-act="buildtab" data-id="comfort">${iconImg('chair', {}, 'sm')} Comforts</button>

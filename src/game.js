@@ -170,18 +170,7 @@ export class Game {
     this.cine = new Cinematics(this);
     this.ui = new UI();
     this.input = new Input(this.canvas);
-    // camera zoom: mouse wheel (desktop) + two-finger pinch (touch), clamped
-    const clampZoom = (z) => Math.max(0.5, Math.min(1.8, z));
-    this.canvas.addEventListener('wheel', (e) => { e.preventDefault(); this.camZoom = clampZoom(this.camZoom + Math.sign(e.deltaY) * 0.12); }, { passive: false });
-    let _pinchD = 0;
-    this.canvas.addEventListener('touchmove', (e) => {
-      if (e.touches.length === 2) {
-        const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        if (_pinchD) this.camZoom = clampZoom(this.camZoom - (d - _pinchD) * 0.004);
-        _pinchD = d; e.preventDefault();
-      }
-    }, { passive: false });
-    this.canvas.addEventListener('touchend', () => { _pinchD = 0; });
+    // camera zoom is fixed (no wheel / pinch) — the framing stays constant; you can still turn it
 
     this.recognizer = new Recognizer();
     this.recognizer.add('triangle', TEMPLATES.triangle);
@@ -1111,11 +1100,18 @@ export class Game {
   // and you chat to take a quest (❗) or get a coin tip from a regular (💬) ----
   startChat(station) {
     const npc = station && station.npc; if (!npc) return;
-    this._chatNpc = npc; this._chatStation = station;
+    this._chatNpc = npc; this._chatStation = station; this._chatAsked = false;
     this.state = 'chat';
     this.audio.play('click');
     this.ui.showChat(this, station);
   }
+  // dialogue choice: accept the offered job (RPG accept flow — only accepted quests log)
+  chatAccept() {
+    const st = this._chatStation; if (!st || !st.quest) return;
+    if (meta.acceptCustomerQuest(st.quest.id)) { this.audio.play('levelup'); this.ui.chatResult(this, '"You\'ll take it on? Bless you, wizard — come back when it\'s done."', ''); }
+  }
+  // dialogue choice: "tell me more" — the patron elaborates, then the choices return
+  chatAsk() { this._chatAsked = true; if (this._chatStation) this.ui.showChat(this, this._chatStation); }
   // the player pressed the main button in a chat
   chatClaim() {
     const st = this._chatStation; if (!st) return;
@@ -1139,7 +1135,7 @@ export class Game {
     }
   }
   endChat() {
-    const claimed = this._chatClaimed; this._chatClaimed = false;
+    const claimed = this._chatClaimed; this._chatClaimed = false; this._chatAsked = false;
     this._chatNpc = null; this._chatStation = null;
     this.ui.hideChat();
     if (this.state === 'chat') this.state = 'play';
@@ -1194,6 +1190,37 @@ export class Game {
   }
   closeWorldMap() { this.ui.hideWorldHud(); this.world.show(false); this.input.pointMode = false; this.enterTavern(); }
   openBuild() { if (this.state === 'play' && this.phase === 'room') { this.audio.play('click'); this._openShop('build'); } }
+  // ---- in-world building: the ROOM is the grid. Hover the floor to preview a hologram of
+  // the selected piece snapped to a cell; click to place; rotate before placing. ----
+  _inBuild() { return this.state === 'menu' && this.ui && this.ui._shopKind === 'build'; }
+  _buildCellAt(cx, cy) {
+    const ndc = { x: (cx / window.innerWidth) * 2 - 1, y: -(cy / window.innerHeight) * 2 + 1 };
+    this._ray.setFromCamera(ndc, this.camera);
+    const hit = new THREE.Vector3();
+    if (!this._ray.ray.intersectPlane(this._groundPlane, hit)) return null;
+    const G = this.tavern._roomGrid;
+    const gx = Math.round((hit.x - G.ox) / G.cell), gy = Math.round((hit.z - G.oz) / G.cell);
+    if (gx < 0 || gy < 0 || gx >= meta.ROOM_GW || gy >= meta.ROOM_GH) return null;
+    return { gx, gy };
+  }
+  buildHover(cx, cy) {
+    if (!this._inBuild()) return;
+    const sel = this.ui._buildSel;
+    if (!sel) { this.tavern.hideGhost(); return; }
+    const c = this._buildCellAt(cx, cy);
+    if (!c) { this.tavern.hideGhost(); return; }
+    const b = meta.buildableById(sel);
+    const valid = !!b && !meta.cellOccupied(c.gx, c.gy) && meta.canAfford(b.cost);
+    this.tavern.showGhost(sel, c.gx, c.gy, this.ui._buildRot || 0, valid);
+  }
+  buildPlaceAt(cx, cy) {
+    if (!this._inBuild()) return;
+    const c = this._buildCellAt(cx, cy);
+    if (!c) return;
+    if (this.ui._buildSel || meta.cellOccupied(c.gx, c.gy)) this.ui._shopAction('place', c.gx + '_' + c.gy); // reuse place/sell
+    this.tavern.hideGhost();
+  }
+  rotateBuild() { this.ui._buildRot = (((this.ui._buildRot || 0) + Math.PI / 2) % (Math.PI * 2)); if (this.audio) this.audio.play('click'); }
   restAtBed() { if (meta.rest()) this.ui.toast('🛏 Rested — you\'ll wake with +HP for the next run'); else this.ui.wispSay('🛏 You\'re already well-rested.', { tone: 'warn' }); }
 
   // ---- stairs: a quick loading transition between the bar and your room ----

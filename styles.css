@@ -898,7 +898,7 @@ body::after{content:"";position:fixed;inset:0;z-index:4;pointer-events:none;
 /* ===== Build mode: dock the panel to the bottom so the bird's-eye den shows above it ===== */
 #shop.build-mode{align-items:flex-end;justify-content:center;text-align:center;padding:0 0 max(10px,env(safe-area-inset-bottom)) 0;
   background:linear-gradient(to top, rgba(10,6,18,0.94) 0%, rgba(10,6,18,0.55) 42%, rgba(10,6,18,0) 74%);}
-#shop.build-mode .shop-box{width:min(96vw,940px);max-height:54vh;margin:0;animation:dockUp .3s cubic-bezier(.34,1.45,.6,1) both;}
+#shop.build-mode .shop-box{width:min(96vw,940px);max-height:40vh;margin:0;animation:dockUp .3s cubic-bezier(.34,1.45,.6,1) both;}
 @keyframes dockUp{from{transform:translateY(40px);opacity:0;}to{transform:translateY(0);opacity:1;}}
 
 /* ===== Rotatable 3D build preview ===== */
@@ -2018,3 +2018,11 @@ body.paused #pause-label{display:flex;}
 
 /* build palette: show the build time (materials = the coin cost above it) */
 .build-item .bi-time{display:block;font-size:10px;color:var(--mana,#6ad0ff);letter-spacing:.3px;margin-top:1px;opacity:.9;}
+
+/* in-room build placement: the room is the grid. The build palette docks at the bottom and
+   lets clicks on the room above pass through to #build-place, which drives the hologram. */
+#build-place{position:fixed;inset:0;z-index:19;cursor:crosshair;touch-action:none;}
+#build-place.hidden{display:none;}
+#shop.build-mode{pointer-events:none;}
+#shop.build-mode .shop-box{pointer-events:auto;}
+#shop.build-mode #shop-close{pointer-events:auto;}

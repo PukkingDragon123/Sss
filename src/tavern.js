@@ -65,6 +65,7 @@ export class Tavern {
     const g = this.group;
     // warm plank floor with alternating boards + an inlaid border
     const floorMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x7a5230, roughness: 0.9 });
+    pxMap(floorMat, 'wood', 14); // crisp plank grain tiled hard across the floor (cinematic look)
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(26, 26), floorMat);
     floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0.005, -4); floor.receiveShadow = true; g.add(floor);
     const plankMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x6a4528, roughness: 0.92 });
@@ -72,6 +73,7 @@ export class Tavern {
 
     // walls + wainscoting band + crown trim for a finished, less-flat look
     const wallMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x5a4030, roughness: 0.92 });
+    pxMap(wallMat, 'wood', 7); // crisp board grain on the walls
     const wainMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x6a4a30, roughness: 0.85 });
     const trimMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x8a6a44, roughness: 0.7 });
     const WH = 3.2, WY = 1.6;
@@ -129,14 +131,8 @@ export class Tavern {
       addProp(barrel, x, z, 0.7, 1.6);
     }
 
-    // patrons milling about
-    const robeColors = [0x7a8bd0, 0xcf6f6f, 0x6fb08a, 0xc9a24a];
-    const patronPos = [[-3, 2], [5, 1], [-5, -2], [3, -5]];
-    patronPos.forEach((p, i) => {
-      const person = this._buildPatron(robeColors[i % robeColors.length], i % 2 === 0);
-      person.position.set(p[0], 0, p[1]); person.rotation.y = Math.random() * Math.PI * 2; g.add(person);
-      this.npcs.push({ mesh: person, pos: new THREE.Vector3(p[0], 0, p[1]), home: new THREE.Vector3(p[0], 0, p[1]), r: 0.6, annoyedCd: 0, wob: 0, phase: Math.random() * 6, target: new THREE.Vector3(p[0], 0, p[1]), repathCd: Math.random() * 3, speed: 1.2 + Math.random() * 0.8, yaw: 0 });
-    });
+    // (ambient milling "regulars" removed — the tavern is populated only by the real
+    // quest-giver / chat patrons in setupCustomers, who sit, drink and behave properly)
   }
 
   _buildPatron(robeColor, hasHat) {
@@ -386,7 +382,9 @@ export class Tavern {
   _buildRoomScene() {
     const g = this.roomScene;
     // cosy, distinct palette from the bar
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(18, 16), new THREE.MeshStandardMaterial({ flatShading: true, color: 0x4a3a55, roughness: 0.96 }));
+    const roomFloorMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x4a3a55, roughness: 0.96 });
+    pxMap(roomFloorMat, 'stone', 11); // crisp flagstone grain across the den floor
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(18, 16), roomFloorMat);
     floor.rotation.x = -Math.PI / 2; floor.position.y = 0.004; floor.receiveShadow = true; g.add(floor);
     const planks = new THREE.Mesh(new THREE.PlaneGeometry(12, 11), new THREE.MeshStandardMaterial({ flatShading: true, color: 0x6a4a6a, roughness: 0.95 }));
     planks.rotation.x = -Math.PI / 2; planks.position.set(0, 0.01, 0); planks.receiveShadow = true; g.add(planks);
@@ -752,7 +750,7 @@ export class Tavern {
       }
       case 'sit': { // amble to the seat, then plonk down
         const d = step(seat.x, seat.z, qn.speed);
-        if (d < 0.4) { seated = true; anim = 'sit'; qn.yaw = qn.seatYaw; if (qn.stateT > 2.4) { qn.state = 'drink'; qn.stateT = 0; } }
+        if (d < 0.4) { seated = true; anim = 'sit'; qn.yaw = qn.seatYaw; if (qn.stateT > 4.5) { qn.state = 'drink'; qn.stateT = 0; } }
         else { anim = 'walk'; qn.mesh.position.set(qn.pos.x, bob, qn.pos.z); }
         break;
       }
@@ -764,8 +762,10 @@ export class Tavern {
           qn.mesh.rotation.x = 0; if (qn.mug) qn.mug.visible = false;
           qn.drinks++; qn.stateT = 0;
           game.particles.burst({ pos: qn.mesh.position.clone().setY(2.0), color: 0xf7f4ec, count: 5, speed: 1.5, size: 0.08, life: 0.5, grav: -3, blend: 'normal' });
-          if (qn.drinks >= 3) { qn.state = 'mad'; qn.stateT = 0; qn.madDur = 5 + Math.random() * 4; game.audio && game.audio.play('cheers'); }
-          else if (Math.random() < 0.55) { qn.state = 'wander'; qn.stateT = 0; qn.wanderDur = 2 + Math.random() * 2.5; qn.target.set(seat.x + (Math.random() - 0.5) * 5, 0, seat.z + (Math.random() - 0.5) * 4); }
+          // realistic tavern: they mostly settle back on the stool and nurse the next drink;
+          // only occasionally get up for a short stretch — no more rowdy running about
+          if (Math.random() < 0.18) { qn.state = 'wander'; qn.stateT = 0; qn.wanderDur = 1.5 + Math.random() * 1.5; qn.target.set(seat.x + (Math.random() - 0.5) * 3, 0, seat.z + (Math.random() - 0.5) * 2.5); }
+          else { qn.state = 'sit'; qn.stateT = 0; }
         }
         break;
       }
@@ -921,6 +921,31 @@ export class Tavern {
       else if (m === pu) { w.pos.z = minz; if (w.vel.z > 0) w.vel.z = 0; }
       else { w.pos.z = maxz; if (w.vel.z < 0) w.vel.z = 0; }
     }
+  }
+
+  // ---- in-room placement ghost: a glowing hologram of the selected piece that follows the
+  // cursor across the room floor while building (cyan = placeable, red = blocked) ----
+  showGhost(id, gx, gy, rot, valid) {
+    if (this._ghostId !== id) {
+      this._disposeGhost();
+      const m = this._buildPlaced(id); if (!m) return;
+      m.traverse(o => { if (o.isMesh && !o.userData.isOutline) o.material = new THREE.MeshBasicMaterial({ color: 0x6ad0ff, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }); });
+      this.roomScene.add(m); this._ghost = m; this._ghostId = id;
+    }
+    if (!this._ghost) return;
+    const G = this._roomGrid;
+    this._ghost.position.set(G.ox + gx * G.cell, 0.02, G.oz + gy * G.cell);
+    this._ghost.rotation.y = rot || 0;
+    this._ghost.visible = true;
+    const col = valid ? 0x6ad0ff : 0xff5a5a;
+    this._ghost.traverse(o => { if (o.isMesh && o.material && o.material.color) o.material.color.setHex(col); });
+  }
+  hideGhost() { if (this._ghost) this._ghost.visible = false; }
+  _disposeGhost() {
+    if (!this._ghost) return;
+    this.roomScene.remove(this._ghost);
+    this._ghost.traverse(o => { if (o.userData.isOutline) return; if (o.geometry) o.geometry.dispose(); if (o.material && o.material.dispose) o.material.dispose(); });
+    this._ghost = null; this._ghostId = null;
   }
 
   // Clash-of-Clans style construction: the just-placed piece rises out of the ground inside

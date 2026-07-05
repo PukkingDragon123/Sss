@@ -702,9 +702,16 @@ function _genCustomerQuest() {
     q = { kind: 'reach', stage: target, icon: '🗺️',
       ask: `Push to Stage ${target} of any region.`, reward: { gold: 18 + target * 3, gems: 2 } };
   }
-  return Object.assign({ id, npc: { name: npc.name, icon: npc.icon, color: npc.color, kind: npc.kind, line: npc.line } }, q);
+  return Object.assign({ id, accepted: false, npc: { name: npc.name, icon: npc.icon, color: npc.color, kind: npc.kind, line: npc.line } }, q);
 }
 export const customerQuests = () => (state.customer && state.customer.active) || [];
+// RPG accept flow: quests are OFFERED by patrons; only the ones you accept enter your log
+export const acceptedQuests = () => customerQuests().filter(q => q.accepted);
+export function acceptCustomerQuest(id) {
+  const q = customerQuests().find(x => x.id === id);
+  if (!q || q.accepted) return false;
+  q.accepted = true; save(); return true;
+}
 export const customersDone = () => (state.customer && state.customer.done) || 0;
 // top up the active board to `max` walk-in requests (called on entering the bar)
 export function refreshCustomers(max = 2) {

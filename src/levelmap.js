@@ -217,7 +217,9 @@ export class LevelMap {
     // pixel-art grain on the solid earth/rock/wood pieces (skip glow/sprites/transparent)
     g.traverse((o) => {
       if (!o.isMesh || !o.material || !o.material.isMeshStandardMaterial) return;
-      const m = o.material; if (m.map || m.transparent || (m.emissiveIntensity || 0) >= 0.35) return;
+      // skip already-mapped, transparent, or genuinely GLOWING (non-black emissive) mats;
+      // everything else (earth/rock/wood/leaf) gets the pixel grain
+      const m = o.material; if (m.map || m.transparent || (m.emissive && m.emissive.getHex() !== 0)) return;
       const c = m.color;
       const tk = m.metalness > 0.35 ? 'metal'
         : (c.g > c.r && c.g > c.b) ? (c.g > 0.5 ? 'grass' : 'leaf')
@@ -390,8 +392,9 @@ export class LevelMap {
     const g = this.group;
     const seenG = new Set(), seenM = new Set();
     g.traverse(o => {
-      if (o.geometry && !seenG.has(o.geometry)) { seenG.add(o.geometry); o.geometry.dispose(); }
-      const m = o.material; if (m) (Array.isArray(m) ? m : [m]).forEach(mm => { if (mm && !seenM.has(mm)) { seenM.add(mm); if (mm.map) mm.map.dispose(); mm.dispose && mm.dispose(); } });
+      // Sprites share THREE's internal singleton geometry — never dispose it
+      if (o.geometry && !o.isSprite && !seenG.has(o.geometry)) { seenG.add(o.geometry); o.geometry.dispose(); }
+      const m = o.material; if (m) (Array.isArray(m) ? m : [m]).forEach(mm => { if (mm && !seenM.has(mm)) { seenM.add(mm); if (mm.map && !(mm.map.userData && mm.map.userData.keep)) mm.map.dispose(); mm.dispose && mm.dispose(); } });
     });
     for (let i = g.children.length - 1; i >= 0; i--) g.remove(g.children[i]);
     this._nodes = []; this._hitMeshes = []; this._mobs = []; this._motes = []; this._trailDots = []; this._sway = [];

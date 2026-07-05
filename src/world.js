@@ -436,4 +436,5 @@ export class World {
     return hits.length ? hits[0].object.userData.id : null;
   }
   regionPos(id) { const L = LAYOUT[id]; return L ? new THREE.Vector3(L.x, 0, L.z) : this.center.clone(); }
+  regionTone(id) { const L = LAYOUT[id]; return L ? L.tone : 0x6a5ac0; }
 }

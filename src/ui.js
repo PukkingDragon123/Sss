@@ -103,6 +103,7 @@ export class UI {
       artReveal: $('art-reveal'), artRevealIcon: $('art-icon'), artRevealName: $('art-name'), artRevealDesc: $('art-desc'), artClaim: $('art-claim'),
       worldHud: $('world-hud'), worldDetail: $('world-detail'),
       runMap: $('run-map'), chat: $('chat'),
+      mapHud: $('map-hud'), mapTitleText: $('map-title-text'), mapRetreat: $('map-retreat'), mapHint: $('map-hint'),
       btnGuide: $('btn-guide'), btnPause: $('btn-pause'), btnMute: $('btn-mute'),
       btnQuests: $('btn-quests'), btnInv: $('btn-inv'),
       questPanel: $('quest-panel'), qpBody: $('qp-body'), qpClose: $('qp-close'),
@@ -178,6 +179,7 @@ export class UI {
     if (this.el.camLeft) this.el.camLeft.addEventListener('click', () => { game.turnCamera(-1); game.audio.play('click'); });
     if (this.el.camRight) this.el.camRight.addEventListener('click', () => { game.turnCamera(1); game.audio.play('click'); });
     if (this.el.camReset) this.el.camReset.addEventListener('click', () => { game.resetCamera(); game.audio.play('click'); });
+    if (this.el.mapRetreat) this.el.mapRetreat.addEventListener('click', () => { game.audio.play('click'); game.retreatFromMap(); });
     if (this.el.btnBuild) this.el.btnBuild.addEventListener('click', () => game.openBuild());
     this.el.shopClose.addEventListener('click', () => { game.audio.play('click'); game.closeShop(); });
     if (this.el.bpRotate) this.el.bpRotate.addEventListener('click', () => { this.burstFX(this.el.bpRotate, 'sparkle', 5); if (game.rotateBuild) { game.rotateBuild(); if (!this._buildPending && game._inBuild && game._inBuild()) game.buildHover(this._lastBuildX || 0, this._lastBuildY || 0); } });
@@ -527,6 +529,15 @@ export class UI {
     const sc = el.querySelector('.rm-scroll'); if (sc) { const target = cur != null ? Math.max(0, Y(curRow) - sc.clientHeight * 0.78) : sc.scrollHeight; sc.scrollTop = target; }
   }
   hideRunMap() { if (this.el.runMap) this.el.runMap.classList.add('hidden'); }
+  // HUD for the 3D level-map scene (region name + retreat + control hint)
+  showMapHud(game) {
+    if (!this.el.mapHud) return;
+    const id = game._runRegion; const nm = (STAGES[id] && STAGES[id].name) || 'Region';
+    if (this.el.mapTitleText) this.el.mapTitleText.textContent = nm;
+    if (this.el.castHint) this.el.castHint.classList.add('hidden'); // the map-hint replaces the world cast-hint
+    this.el.mapHud.classList.remove('hidden');
+  }
+  hideMapHud() { if (this.el.mapHud) this.el.mapHud.classList.add('hidden'); }
 
   // ---- cinematic tavern chat (letterbox + dialogue) ----
   showChat(game, station) {

@@ -16,6 +16,7 @@ import { generateRunMap } from './runmap.js';
 import { Jobs } from './jobs.js';
 import { Tavern } from './tavern.js';
 import { World } from './world.js';
+import { LevelMap } from './levelmap.js';
 import { Cinematics } from './cinematics.js';
 import { rollUpgrades, rollArtifact, artifactById, ARCHETYPES, archetypeById } from './upgrades.js';
 import * as meta from './meta.js';
@@ -165,6 +166,7 @@ export class Game {
     this.jobs = new Jobs(this.scene);
     this.tavern = new Tavern(this.scene);
     this.world = new World(this.scene);
+    this.levelMap = new LevelMap(this.scene);
     this.wizard = new Wizard(this.scene);
     this.director = new Director();
     this.cine = new Cinematics(this);
@@ -1145,7 +1147,7 @@ export class Game {
 
   // ---- the 3D top-down WORLD MAP: scout a region, then venture straight in ----
   openWorldMap() {
-    this.phase = 'world'; this.state = 'world'; this._setPixel('menu');
+    this.phase = 'world'; this.state = 'world'; this._worldDive = false; this._setPixel('menu');
     this.world.refresh((id) => this._stageUnlocked(id), (id) => meta.stageCleared(id));
     this.tavern.show(false); this.tavern.showRoom(false); this.arenaGroup.visible = false;
     this.world.show(true);
@@ -1172,9 +1174,18 @@ export class Game {
     this.ui.setGold(meta.gold());
   }
   _stageUnlocked(id) { const o = this.world.order, i = o.indexOf(id); return i <= 0 || meta.regionUnlockedByStars(i); }
+  // tap a region → if it's open, DIVE straight in (camera plunge → 3D level map);
+  // if it's locked, just highlight it and explain the star gate.
   selectWorldRegion(id) {
-    if (!id) return;
-    this._worldSel = id; this.world.select(id); this.audio.play('click'); this.ui.showWorldHud(this, id);
+    if (!id || this._worldDive) return;
+    this._worldSel = id; this.world.select(id); this.ui.showWorldHud(this, id);
+    if (!this._stageUnlocked(id)) {
+      this.audio.play('hiccup');
+      const i = this.world.order.indexOf(id);
+      this.ui.wispSay(`🔒 Earn ⭐ ${meta.regionStarReq(i)} stars to open this region — you have ${meta.totalStars()}. Win levels (with high HP) for more stars!`, { tone: 'warn' });
+      return;
+    }
+    this._diveIntoRegion(id);
   }
   ventureSelected() {
     const id = this._worldSel;
@@ -1183,10 +1194,13 @@ export class Game {
       this.ui.wispSay(`🔒 Earn ⭐ ${meta.regionStarReq(i)} stars to open this region — you have ${meta.totalStars()}. Win levels (with high HP) for more stars!`, { tone: 'warn' });
       return;
     }
+    this._diveIntoRegion(id);
+  }
+  // cinematic plunge from the realm map into the chosen island, then the 3D level map
+  _diveIntoRegion(id) {
     this.ui.hideWorldHud(); this.input.pointMode = false;
-    // no more playstyle pick — your build comes from collected cards + the upgrades you
-    // pick along the run. Open the region's level map to choose your path in.
-    this.openRegionMap(id);
+    this._worldSel = id; this.world.select(id); this._worldDive = true; this.audio.play('jobDone');
+    setTimeout(() => { this._worldDive = false; this.ui.wipe('spin', () => this.openRegionMap(id)); }, 820);
   }
   closeWorldMap() { this.ui.hideWorldHud(); this.world.show(false); this.input.pointMode = false; this.enterTavern(); }
   openBuild() { if (this.state === 'play' && this.phase === 'room') { this.audio.play('click'); this._openShop('build'); } }
@@ -1466,6 +1480,8 @@ export class Game {
   // (combat / elite / treasure / campfire / choice-event / skill-trial), Slay-the-
   // Spire style; the door previews what waits. The last fork leads to the boss. ----
   _beginRoom(isBoss, elite) {
+    // descending from the 3D level map — bring the arena scene + combat HUD back on screen
+    if (this.phase !== 'arena') { this.levelMap.show(false); if (this.ui.hideMapHud) this.ui.hideMapHud(); this.arenaGroup.visible = true; this.wizard.setVisible(true); this._restoreArenaLook(); this._setPixel('arena'); this.phase = 'arena'; this.ui.setPhase('arena', this.input.isTouch); }
     // which of the region's ten stages is this? (1 = entrance … 10 = boss lair)
     const stageNum = isBoss ? STAGES_PER_REGION : Math.min(STAGES_PER_REGION, this._forksDone + 1);
     const gim = gimmickFor(stageNum);
@@ -1567,32 +1583,65 @@ export class Game {
   // between stages: show the region's branching node map and let the player pick the next level
   _showPath() {
     if (!this._runMap) { this._runRegion = this.stage ? this.stage.id : 'forest'; this._runMap = this._buildRunMap(); this._mapNodeId = this._runMap.startId; this._mapVisited = new Set(); }
-    this.state = 'runmap';
     this.audio.play('levelup');
-    this.ui.showRunMap(this);
+    this._enterLevelMap();
   }
   _buildRunMap() {
     // a single winding candy-crush level path (linear chain of levels), not a branch graph
     return generateRunMap(Math.random, { rows: STAGES_PER_REGION, cols: 1, paths: 1 });
   }
-  // ----- region level map (Mewgenics / Slay-the-Spire style) -----
+  // ----- region LEVEL MAP: a real 3D candy-crush scene you orbit, zoom & tap into -----
   openRegionMap(id) {
-    this._setPixel('menu');
     this._worldSel = id; this._runRegion = id;
     this._runMap = this._buildRunMap();
     this._mapNodeId = null;          // null = run not started yet; entrance is the only choice
     this._mapVisited = new Set();
-    this.state = 'runmap';
-    this.input.pointMode = false;
-    this.ui.showRunMap(this);
+    this._enterLevelMap();
+  }
+  _mapStarsOf(nodeId) { const m = this._runMap; if (!m) return 0; const n = m.byId[nodeId]; return n ? meta.stageStars(this._runRegion, n.row + 1) : 0; }
+  // build + reveal the 3D level-map scene (from the world map AND between stages in a run)
+  _enterLevelMap() {
+    this.phase = 'levelmap'; this.state = 'levelmap';
+    this._worldDive = false; this._setPixel('menu');
+    this.levelMap.build(this._runMap, this.world.regionTone ? this.world.regionTone(this._runRegion) : 0x6a5ac0);
+    this.levelMap.refresh(this);
+    this.tavern.show(false); this.tavern.showRoom(false); this.arenaGroup.visible = false;
+    this.world.show(false); this.wizard.setVisible(false); this.levelMap.show(true);
+    this.input.pointMode = true;
+    this._mapYaw = 0; this._mapPitch = 1; this._mapZoom = 1;
+    // dreamy candy-night lighting so the isle reads at a glance
+    this._aimShadow(24, 44, 16, 44);
+    this.scene.background.setHex(0x1a1230); this.scene.fog.color.setHex(0x201540); this.scene.fog.density = 0.006;
+    this.hemi.color.setHex(0xe0d0ff); this.hemi.groundColor.setHex(0x2c2448); this.hemi.intensity = 1.15;
+    this.dir.color.setHex(0xffffff); this.dir.intensity = 1.4; this.ambient.color.setHex(0x4a4066); this.ambient.intensity = 0.72;
+    this.fill.color.setHex(0xcbb8ff); this.fill.intensity = 0.4;
+    this.rim.color.setHex(0xd8c0ff); this.rim.intensity = 1.0;
+    if (this.heroLight) this.heroLight.intensity = 0;
+    this.renderer.toneMappingExposure = 1.1;
+    if (this._gradePass) { const u = this._gradePass.uniforms; u.uContrast.value = 1.1; u.uSaturation.value = 1.22; u.uTintStrength.value = 0.24; u.uVignette.value = 0.4; u.uVignetteSoft.value = 0.6; u.uGrain.value = 0.014; }
+    if (this.ui.hideRunMap) this.ui.hideRunMap();
+    if (this.ui.hideWorldHud) this.ui.hideWorldHud();
+    this.ui.setScreen('play'); this.ui.setPhase('world', this.input.isTouch);
+    if (this.ui.showMapHud) this.ui.showMapHud(this);
+  }
+  // lightweight arena look restore (used when descending into a fight from the level map)
+  _restoreArenaLook() {
+    const t = this.stage && this.stage.theme; if (!t) return;
+    this._aimShadow(28, 46, 18, 48);
+    this.scene.background.setHex(t.bg); this.scene.fog.color.setHex(t.fog); this.scene.fog.density = t.fogD * 0.9;
+    this.hemi.color.setHex(t.hemi); this.hemi.groundColor.setHex(t.hemiG); this.hemi.intensity = 0.92;
+    this.dir.color.setHex(t.dir); this.dir.intensity = t.dirI; this.ambient.color.setHex(t.amb); this.ambient.intensity = 0.34;
+    this.fill.color.setHex(0xbfd0ff); this.fill.intensity = 0.36;
+    this.rim.color.setHex(t.rim != null ? t.rim : t.dir); this.rim.intensity = (t.rimI != null ? t.rimI : 1.15) + 0.3;
+    this.renderer.toneMappingExposure = 1.04;
   }
   chooseMapNode(nodeId) {
-    if (this.state !== 'runmap') return;
+    if (this.state !== 'levelmap') return;
     const map = this._runMap; if (!map) return;
     // first pick starts the run at the entrance
     if (this._mapNodeId == null) {
       if (nodeId !== map.startId) return;
-      this.audio.play('click'); this.ui.hideRunMap();
+      this.audio.play('click'); this._leaveLevelMap();
       this._mapNodeId = map.startId; if (this._mapVisited) this._mapVisited.add(map.startId);
       this.beginRun(this._runRegion);
       return;
@@ -1600,7 +1649,7 @@ export class Game {
     const cur = map.byId[this._mapNodeId];
     if (!cur || !cur.next.includes(nodeId)) return; // only reachable nodes
     const mnode = map.byId[nodeId];
-    this.audio.play('click'); this.ui.hideRunMap();
+    this.audio.play('click'); this._leaveLevelMap();
     if (this._mapVisited) this._mapVisited.add(nodeId);
     this._mapNodeId = nodeId;
     this._forksDone = mnode.row;     // depth drives difficulty + the stage banner (stageNum = row+1)
@@ -1629,8 +1678,9 @@ export class Game {
       this.state = 'minigame'; this.ui.showMinigame(this, node.gameKey);
     } else { this._awardStageStars(mnode.row + 1, 2); this._nextFork(); }
   }
+  _leaveLevelMap() { this.ui.hideRunMap && this.ui.hideRunMap(); this.levelMap.show(false); if (this.ui.hideMapHud) this.ui.hideMapHud(); }
   retreatFromMap() {
-    this.ui.hideRunMap();
+    this._leaveLevelMap();
     if (this._mapNodeId == null) { this.openWorldMap(); }   // hadn't started — back to the realm map
     else { this._runMap = null; this._mapNodeId = null; this.audio.play('click'); this.ui.wipe('diamond', () => this.enterTavern()); } // give up the run — goofy exit wipe
   }
@@ -1920,7 +1970,11 @@ export class Game {
       if (e.type === 'mute') { this.toggleMute(); continue; }
       if (e.type === 'guide') { this.toggleGuide(); continue; }
       if (e.type === 'drink') { this.drink(); continue; }
-      if (e.type === 'select') { if (this.state === 'world') { const id = this.world.pick(e.x, e.y, this.camera); if (id) this.selectWorldRegion(id); } continue; }
+      if (e.type === 'select') {
+        if (this.state === 'world') { const id = this.world.pick(e.x, e.y, this.camera); if (id) this.selectWorldRegion(id); }
+        else if (this.state === 'levelmap') { const nid = this.levelMap.pick(e.x, e.y, this.camera); if (nid) this.chooseMapNode(nid); }
+        continue;
+      }
       if (e.type === 'interact') { if (this.state === 'menu') { if (!this.ui.closeMerchant()) this.closeShop(); } else this.interact(); continue; }
 
       if (this.storyShowing) {
@@ -2100,6 +2154,8 @@ export class Game {
     if (o.dy) this.camPitch = Math.max(0.55, Math.min(1.5, this.camPitch - o.dy * 0.004));
     const t = this.input.turnInput();
     if (t) this.camYaw += t * dt * 1.7;
+    const z = this.input.consumeZoom ? this.input.consumeZoom() : 0; // wheel / pinch zoom in the fight
+    if (z) this.camZoom = Math.max(0.62, Math.min(1.7, this.camZoom + z * 0.0011));
   }
 
   // on-screen / tap camera turn: dir -1 (left) / +1 (right) — a smooth 30° snap
@@ -2172,9 +2228,24 @@ export class Game {
     // world map: a true top-down view of the realm, easing toward the selected region
     if (this.phase === 'world') {
       const sel = this._worldSel ? this.world.regionPos(this._worldSel) : this.world.center;
+      if (this._worldDive) { // plunging into the chosen island before the level map opens
+        this.camera.position.lerp(new THREE.Vector3(sel.x, 9, sel.z + 8), Math.min(1, dt * 2.6));
+        this.camera.lookAt(sel.x, 1, sel.z);
+        return;
+      }
       const cx = sel.x * 0.4, cz = sel.z * 0.4 - 1.5;
       this.camera.position.lerp(new THREE.Vector3(cx, 40, cz + 7), Math.min(1, dt * 2.5));
       this.camera.lookAt(cx, 0, cz);
+      return;
+    }
+    // 3D level map: an orbitable, zoomable angled view over the candy isle
+    if (this.phase === 'levelmap') {
+      const f = this.levelMap.center;
+      const yaw = this._mapYaw || 0, pitch = this._mapPitch || 1, zoom = this._mapZoom || 1;
+      const horiz = 30, hy = 30;
+      const off = new THREE.Vector3(Math.sin(yaw) * horiz, hy * pitch, Math.cos(yaw) * horiz).multiplyScalar(zoom);
+      this.camera.position.lerp(new THREE.Vector3(f.x + off.x, off.y, f.z + off.z), Math.min(1, dt * 3));
+      this.camera.lookAt(f.x, f.y + 2, f.z);
       return;
     }
     // boss reveal: pull out and frame the boss as it emerges
@@ -2252,6 +2323,8 @@ export class Game {
       else this._updateArena(sdt);
     } else if (this.state === 'world') {
       this._updateWorld(dt);
+    } else if (this.state === 'levelmap') {
+      this._updateLevelMap(dt);
     } else if (this.state === 'title' && !this._openingCine) {
       this._updateDemo(dt);
     } else if (this._openingCine) {
@@ -2585,6 +2658,18 @@ export class Game {
   _updateWorld(dt) {
     this.world.update(dt);
     this.particles.update(dt);
+  }
+
+  // ---- the 3D level map: orbit (drag) + zoom (wheel/pinch) with mouse & finger ----
+  _updateLevelMap(dt) {
+    this.levelMap.update(dt);
+    this.particles.update(dt);
+    const o = this.input.consumeOrbit();
+    if (o.dx) this._mapYaw = (this._mapYaw || 0) + o.dx * 0.005;
+    if (o.dy) this._mapPitch = Math.max(0.5, Math.min(1.45, (this._mapPitch || 1) - o.dy * 0.003));
+    const z = this.input.consumeZoom ? this.input.consumeZoom() : 0;
+    if (z) this._mapZoom = Math.max(0.62, Math.min(1.8, (this._mapZoom || 1) + z * 0.0011));
+    const t = this.input.turnInput(); if (t) this._mapYaw = (this._mapYaw || 0) + t * dt * 1.4;
   }
 
   // ---- animated title screen: a drunk wizard auto-blasting waves of foes ----

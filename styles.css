@@ -2129,3 +2129,47 @@ body.paused #pause-label{display:flex;}
 #shop.build-mode{pointer-events:none;}
 #shop.build-mode .shop-box{pointer-events:auto;}
 #shop.build-mode #shop-close{pointer-events:auto;}
+
+/* ===================================================================== */
+/*  3D LEVEL-MAP HUD — floating title + leave + control hint over the scene */
+/* ===================================================================== */
+#map-hud{position:fixed;inset:0;z-index:16;pointer-events:none;}
+#map-hud #map-title{position:absolute;top:16px;left:50%;transform:translateX(-50%);
+  font-weight:900;font-size:clamp(20px,4vw,30px);color:var(--gold);letter-spacing:.5px;
+  text-shadow:0 0 16px rgba(255,207,92,.5),0 2px 4px #000;display:flex;align-items:center;gap:8px;
+  background:rgba(10,6,18,.55);border:2px solid var(--panel-edge);border-radius:14px;padding:6px 18px;}
+#map-hud #map-retreat{position:absolute;top:16px;left:16px;pointer-events:auto;font-size:16px;}
+#map-hud #map-hint{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);
+  font-size:14px;color:var(--ink);background:rgba(10,6,18,.6);border:1.5px solid var(--panel-edge);
+  border-radius:12px;padding:7px 16px;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis;}
+#map-hud #map-hint b{color:var(--gold);}
+@media (max-width:760px),(pointer:coarse){ #map-hud #map-hint{font-size:12px;white-space:normal;text-align:center;width:88vw;} }
+
+/* ===================================================================== */
+/*  BIGGER, MORE READABLE TEXT & ICONS EVERYWHERE (latest request)        */
+/*  (appended last so it wins the cascade over earlier theme blocks)      */
+/* ===================================================================== */
+.btn,#btn-drink,#btn-interact,.bp-rotate,.rm-retreat{font-size:17px;}
+.shop-btn{font-size:15.5px;}
+.shop-btn.big{font-size:19px;padding:13px 22px;}
+.shop-sub{font-size:16px;}
+.shop-head h2{font-size:clamp(26px,4.6vw,38px);}
+.shop-name,.build-item .bi-name,.bi-cost{font-size:14px;}
+.shop-desc{font-size:14px;}
+.stat{font-size:18px;}
+.bar-label{font-size:13px;}
+.spell-chip .name{font-size:15px;}
+.quest-title{font-size:16px;}
+.quest-text{font-size:19px;}
+.card .card-desc{font-size:15px;}
+#cast-hint{font-size:14px;}
+.toast{font-size:16px;}
+.vil-tab{font-size:14px;}
+/* icons a clear notch larger across the board */
+.pixi{width:24px;height:24px;vertical-align:-4px;}
+.pixi.sm{width:20px;height:20px;vertical-align:-3px;}
+.pixi.md{width:40px;height:40px;vertical-align:-9px;}
+.pixi.lg{width:60px;height:60px;vertical-align:-13px;}
+.bi-icon .pixi{width:26px;height:26px;}
+.shop-cur-item .pixi{width:19px;height:19px;}
+.abil .abil-ico .pixi{width:18px;height:18px;}

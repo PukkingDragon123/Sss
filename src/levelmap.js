@@ -22,7 +22,7 @@ const TYPE = {
 
 // per-region biome dressing — ground palette, tree archetype, undergrowth, mood
 const BIOME = {
-  forest:    { grass: 0x3f7a44, grass2: 0x336237, dirt: 0x6a4a2a, path: 0x7a5a38, rock: 0x5b5a4e, tree: 'pine',   leaf: 0x2f6e3f, leaf2: 0x3f8a4a, under: ['fern', 'mushroom', 'bush'], mob: 0x241c14, accent: 0x9bff9b, fog: 0x10221a, sky: 0x0c1a12, hemi: 0xbfe0c0, hemiG: 0x1e3a24 },
+  forest:    { grass: 0x3f7a44, grass2: 0x336237, dirt: 0x6a4a2a, path: 0x7a5a38, rock: 0x5b5a4e, tree: 'pine',   leaf: 0x2f6e3f, leaf2: 0x3f8a4a, under: ['fern', 'mushroom', 'bush'], mob: 0x241c14, accent: 0x9fe0d0, fog: 0x1a3048, sky: 0x14243a, hemi: 0x9fb6e8, hemiG: 0x223a2a, key: 0xcdd8ff },
   cave:      { grass: 0x5a5040, grass2: 0x47402f, dirt: 0x4a4236, path: 0x6a6250, rock: 0x6a5a44, tree: 'rock',   leaf: 0x6fd0e8, leaf2: 0x8fe0f0, under: ['crystal', 'rock', 'mushroom'], mob: 0x181420, accent: 0x6fd0e8, fog: 0x0e1418, sky: 0x0a1014, hemi: 0x9fd0e0, hemiG: 0x2a2a34 },
   graveyard: { grass: 0x54604f, grass2: 0x45503f, dirt: 0x4a4438, path: 0x6a6656, rock: 0x767a86, tree: 'dead',   leaf: 0x3a3026, leaf2: 0x4a4030, under: ['grave', 'bush', 'rock'], mob: 0x1a1a24, accent: 0x9fb0d0, fog: 0x161a22, sky: 0x10131c, hemi: 0xaab6cc, hemiG: 0x2a2e3a },
   swamp:     { grass: 0x4a5e34, grass2: 0x3c4e2c, dirt: 0x4a4228, path: 0x5e5232, rock: 0x4a5240, tree: 'willow', leaf: 0x3f7a3a, leaf2: 0x5a8a44, under: ['reed', 'mushroom', 'bush'], mob: 0x1c2416, accent: 0x8fd06a, fog: 0x141c14, sky: 0x0e1610, hemi: 0xb0c890, hemiG: 0x243020 },
@@ -78,11 +78,11 @@ export class LevelMap {
   // lay the node chain along a serpentine trail winding into the distance
   _layout(map) {
     const ordered = map.nodes.slice().sort((a, b) => a.row - b.row);
-    const STEP = 4.7, AMP = 7.2;
+    const STEP = 5.0, AMP = 4.4;                 // gentler S-curve — one clean, readable trail
     const pos = {};
     for (let i = 0; i < ordered.length; i++) {
       const n = ordered[i];
-      pos[n.id] = { x: Math.sin(i * 0.82 + 0.5) * AMP, z: -i * STEP, node: n, i };
+      pos[n.id] = { x: Math.sin(i * 0.66) * AMP, z: -i * STEP, node: n, i };
     }
     return { ordered, pos, span: (ordered.length - 1) * STEP };
   }

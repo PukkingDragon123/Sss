@@ -398,7 +398,7 @@ export class Game {
       const capMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xc0556a, roughness: 0.8 });
       const stalkMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xe8e0cc, roughness: 0.9 });
       const rockMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x5a5e66, roughness: 1 });
-      const flowerMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xe8d24a, emissive: 0x4a4010, roughness: 0.7 });
+      const flowerMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xcdd8e8, roughness: 0.7 }); // pale moonlit bloom (no candy glow)
       const mkTree = () => { const t = new THREE.Group(); const h = 3.4 + Math.random() * 1.6; const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.75, h, 8), trunkMat); tr.position.y = h / 2; tr.castShadow = true; const lm = [leafMat, leafMat2, leafMat3][Math.floor(Math.random() * 3)]; const f1 = new THREE.Mesh(new THREE.ConeGeometry(2.2, 3.6, 9), lm); f1.position.y = h + 0.6; f1.castShadow = true; const f2 = new THREE.Mesh(new THREE.ConeGeometry(1.7, 2.8, 9), leafMat2); f2.position.y = h + 2.1; const f3 = new THREE.Mesh(new THREE.ConeGeometry(1.1, 2, 9), leafMat3); f3.position.y = h + 3.4; t.add(tr, f1, f2, f3); return t; };
       treeLine(mkTree, 54);
       inside(16, mkTree, 6, ARENA - 8);            // full trees dotted inside too
@@ -752,22 +752,14 @@ export class Game {
     mesh.position.copy(pos).setY(0.5);
     this.pickups.push({ mesh, type: 'gear', gear: inst, vel: new THREE.Vector3((Math.random() - 0.5) * 3, 5, (Math.random() - 0.5) * 3), phase: 0, grounded: false });
   }
-  // loot table when an enemy dies
+  // on-kill drops are ONLY in-combat restores now (HP / mana). No auto gems or gear —
+  // you claim gems by beating a stage / finishing a quest, and gear by breaking the chest.
   enemyDrop(pos, def) {
-    const lvl = Math.max(1, this.level);
-    if (def.boss) { // bosses always drop a good piece, a heart + a couple of gemstones
-      this.spawnGear(pos.clone(), meta.dropGear(lvl + 2, true));
-      this.spawnHeart(pos.clone().add(new THREE.Vector3(1, 0, 0)));
-      const els = meta.ELEMENT_LIST; for (let k = 0; k < 2; k++) meta.addGemstone(els[Math.floor(Math.random() * els.length)]);
-      this.ui.toast(`💎 Elemental gemstones recovered!`);
-      return;
-    }
+    if (def.boss) { this.spawnHeart(pos.clone()); return; }
     const big = def.size >= 1.4;
-    if (Math.random() < (big ? 0.10 : 0.035)) meta.addGemstone(meta.ELEMENT_LIST[Math.floor(Math.random() * meta.ELEMENT_LIST.length)]); // a gemstone into the satchel
     const r = Math.random();
-    if (r < (big ? 0.30 : 0.06)) this.spawnHeart(pos);
-    else if (r < (big ? 0.50 : 0.13)) this.spawnMana(pos);
-    else if (r < (big ? 0.62 : 0.16)) this.spawnGear(pos, meta.dropGear(lvl, false));
+    if (r < (big ? 0.34 : 0.08)) this.spawnHeart(pos);
+    else if (r < (big ? 0.56 : 0.16)) this.spawnMana(pos);
   }
 
   spawnXP(pos, value) {
@@ -965,8 +957,7 @@ export class Game {
     const comboBonus = 1 + Math.min(0.5, (this.comboBest || 0) * 0.01);
     const cardGemMult = (this.cardPerks && this.cardPerks.gemMult) || 1; // collectible-card bonus
     const gemReward = Math.max(1, Math.round((2 + depth * 1.2 + this.kills * 0.05 + (win ? 5 : 0)) * meta.gemBonusMult() * waveBonus * comboBonus * cardGemMult * meta.petGemMult()));
-    meta.addGems(gemReward);
-    if (win) meta.addGear(meta.dropGear(this.level + 3, true));
+    meta.addGems(gemReward); // gems come from beating a stage (kept) — but NO auto gear anymore
     const earnedGems = Math.max(0, meta.gems() - (this._runGemStart || 0));
     const questDone = meta.evaluateQuest({ kills: this.kills, time: Math.floor(this.elapsed), wave: depth, bossKilled: this.bossKilled, win });
     const finishedResearch = meta.advanceDay(); // a venture spends a day (and ticks research)
@@ -1060,15 +1051,15 @@ export class Game {
     if (!this._hubShown) {
       // first time in the hub — point at the quest log + satchel buttons (top-right)
       this._hubShown = true; this._introShown = true;
-      setTimeout(() => { if (this.phase === 'tavern') this.ui.wispSay('Tap 📜 for your quest log and 🎒 for your satchel any time. Your goals live there.', { big: true, ms: 5200 }); }, 900);
+      setTimeout(() => { if (this.phase === 'tavern') this.ui.wispSay('Tap 📜 quests and 🎒 satchel any time.', { big: true, ms: 5200 }); }, 900);
     }
     if (this._giftGear) {
       // present the intro-fight gear gift once the dust settles (it's already worn)
       const g0 = this._giftGear; this._giftGear = null;
-      setTimeout(() => { if (this.phase === 'tavern') { this.ui.lootToast(g0); this.audio.play('levelup'); this.ui.wispSay('🎁 That staff you\'re holding? Looted it for you. Gear drops on ventures — manage it in the Character Hall.', { big: true, ms: 5000 }); } }, 6400);
+      setTimeout(() => { if (this.phase === 'tavern') { this.ui.lootToast(g0); this.audio.play('levelup'); this.ui.wispSay('🎁 Looted you a staff! Manage gear in the Character Hall.', { big: true, ms: 5000 }); } }, 6400);
     }
     this.tavernReady = true;
-    this._learn('customer', '🧑 Patrons walk the bar. Chat the ❗ folk to take a quest, and the 💬 regulars for a coin tip. Walk up and press E.');
+    this._learn('customer', '🧑 Walk up (E) to chat: ❗ = quest, 💬 = coin tip.');
     if (this._justInherited) {
       this._justInherited = false;
       this.showStory('Wisp', [
@@ -1182,7 +1173,7 @@ export class Game {
     if (!this._stageUnlocked(id)) {
       this.audio.play('hiccup');
       const i = this.world.order.indexOf(id);
-      this.ui.wispSay(`🔒 Earn ⭐ ${meta.regionStarReq(i)} stars to open this region — you have ${meta.totalStars()}. Win levels (with high HP) for more stars!`, { tone: 'warn' });
+      this.ui.wispSay(`🔒 Need ⭐ ${meta.regionStarReq(i)} stars (${meta.totalStars()} so far).`, { tone: 'warn' });
       return;
     }
     this._diveIntoRegion(id);
@@ -1200,7 +1191,7 @@ export class Game {
   _diveIntoRegion(id) {
     this.ui.hideWorldHud(); this.input.pointMode = false;
     this._worldSel = id; this.world.select(id); this._worldDive = true; this.audio.play('jobDone');
-    setTimeout(() => { this._worldDive = false; this.ui.wipe('spin', () => this.openRegionMap(id)); }, 820);
+    setTimeout(() => { this._worldDive = false; this.ui.wipe('iris', () => this.openRegionMap(id)); }, 820);
   }
   closeWorldMap() { this.ui.hideWorldHud(); this.world.show(false); this.input.pointMode = false; this.enterTavern(); }
   openBuild() { if (this.state === 'play' && this.phase === 'room') { this.audio.play('click'); this._openShop('build'); } }
@@ -1348,7 +1339,7 @@ export class Game {
     this._pendingStage = STAGES[stageId] || STAGES.forest;
     this.audio.play('jobDone');
     this.state = 'blackout';
-    this.ui.wipe('spin');   // a goofy pinwheel as you venture out
+    this.ui.wipe('fade');   // a clean fade as you venture out
     this.ui.fadeBlack(true);
     setTimeout(() => {
       this.showStory(BLACKOUT_LINES.speaker, BLACKOUT_LINES.lines, () => this.enterArena(this._pendingStage));
@@ -1608,13 +1599,14 @@ export class Game {
     this.tavern.show(false); this.tavern.showRoom(false); this.arenaGroup.visible = false;
     this.world.show(false); this.wizard.setVisible(false); this.levelMap.show(true);
     this.input.pointMode = true;
-    this._mapYaw = 0; this._mapPitch = 1; this._mapZoom = 1;
+    // start the scroll at where you are (or the entrance), then scroll up/down the trail
+    this._mapScrollZ = this._mapNodeId ? this.levelMap.nodePos(this._mapNodeId).z : 0;
     // moody biome-night lighting keyed to the region so each diorama reads distinctly
     const B = this.levelMap.biome || {};
     this._aimShadow(24, 44, 16, 44);
     this.scene.background.setHex(B.sky != null ? B.sky : 0x0c1a12); this.scene.fog.color.setHex(B.fog != null ? B.fog : 0x10221a); this.scene.fog.density = 0.0055;
     this.hemi.color.setHex(B.hemi != null ? B.hemi : 0xbfe0c0); this.hemi.groundColor.setHex(B.hemiG != null ? B.hemiG : 0x1e3a24); this.hemi.intensity = 1.05;
-    this.dir.color.setHex(0xfff2d8); this.dir.intensity = 1.35; this.ambient.color.setHex(0x3a4a3e); this.ambient.intensity = 0.6;
+    this.dir.color.setHex(B.key != null ? B.key : 0xfff2d8); this.dir.intensity = 1.35; this.ambient.color.setHex(0x3a4a3e); this.ambient.intensity = 0.6;
     this.fill.color.setHex(0xbfd0e8); this.fill.intensity = 0.34;
     this.rim.color.setHex(B.accent != null ? B.accent : 0x9bff9b); this.rim.intensity = 1.05;
     if (this.heroLight) this.heroLight.intensity = 0;
@@ -1683,7 +1675,7 @@ export class Game {
   retreatFromMap() {
     this._leaveLevelMap();
     if (this._mapNodeId == null) { this.openWorldMap(); }   // hadn't started — back to the realm map
-    else { this._runMap = null; this._mapNodeId = null; this.audio.play('click'); this.ui.wipe('diamond', () => this.enterTavern()); } // give up the run — goofy exit wipe
+    else { this._runMap = null; this._mapNodeId = null; this.audio.play('click'); this.ui.wipe('fade', () => this.enterTavern()); } // give up the run — clean fade home
   }
   choosePath(i) {
     if (this.state !== 'path') return;
@@ -1728,7 +1720,7 @@ export class Game {
     const lvl = Math.max(1, this.level);
     if (type === 'combat') { const r = this._makeReward(this._randKind()); return { type, icon: '⚔️', name: 'Skirmish', desc: `Fight · win ${r.icon} ${r.name}`, reward: r, lurk: '⚔ foes ahead' }; }
     if (type === 'elite') { const r = this._makeReward(Math.random() < 0.5 ? 'gear' : 'ability'); return { type, icon: '💀', name: 'Elite Pack', desc: `Tough fight · win ${r.icon} ${r.name}`, reward: r, lurk: '💀 something big stirs' }; }
-    if (type === 'treasure') { const r = this._makeReward(Math.random() < 0.5 ? 'gems' : 'gear'); return { type, icon: '💰', name: 'Hidden Cache', desc: `Free · ${r.icon} ${r.name}`, reward: r, lurk: '✨ unguarded loot' }; }
+    if (type === 'treasure') { const r = this._makeReward('gems'); return { type, icon: '💰', name: 'Hidden Cache', desc: `Free · ${r.icon} ${r.name}`, reward: r, lurk: '✨ unguarded loot' }; }
     if (type === 'campfire') return { type, icon: '🔥', name: 'Campfire', desc: 'Rest — full heal & +12 max HP', lurk: '🔥 a safe little fire' };
     if (type === 'event') return { type, icon: '❓', name: 'Mystery', desc: 'A strange encounter — your call', event: this._pickEvent(), lurk: '❓ who knows what' };
     if (type === 'minigame') {
@@ -1757,8 +1749,7 @@ export class Game {
       if (opt.mana === 'full') w.mana = s.manaMax;
       if (opt.drunk) { this.drunkenness = Math.min(1, this.drunkenness + opt.drunk); this._drunkSurge = 1; }
       if (opt.gain === 'ability') { const u = rollUpgrades(this, 1)[0]; if (u) { this.applyAbility(u); this.ui.toast(`✦ ${u.name}`); } }
-      else if (opt.gain === 'gear') { const inst = meta.dropGear(Math.max(1, this.level) + 1, Math.random() < 0.4); meta.addGear(inst); this.ui.lootToast(inst); }
-      else if (opt.gain === 'gems') { const amt = opt.gemAmt || 4; meta.addGems(amt); this.ui.toast(`💎 +${amt} gems`); }
+      else if (opt.gain === 'gear' || opt.gain === 'gems') { const amt = opt.gemAmt || 8; meta.addGems(amt); this.ui.toast(`💎 +${amt} gems`); } // gear only from chests now → pay gems
       this.audio.play('click');
     }
     this._nextFork();
@@ -1767,7 +1758,7 @@ export class Game {
     this.ui.hideEvent();
     let msg;
     if (quality >= 0.82) { const u = rollUpgrades(this, 1)[0]; if (u) this.applyAbility(u); meta.addGems(8); msg = `✶ PERFECT! ✦ ${u ? u.name : 'ability'} + 💎8`; this.audio.play('levelup'); }
-    else if (quality >= 0.45) { const inst = meta.dropGear(Math.max(1, this.level), Math.random() < 0.3); meta.addGear(inst); msg = `✶ Steady — ${meta.RARITIES[inst.rarity].name} ${inst.slot}!`; this.audio.play('xp'); }
+    else if (quality >= 0.45) { meta.addGems(6); msg = '✶ Steady — 💎6'; this.audio.play('xp'); }
     else { meta.addGems(3); msg = '✶ Shaky hand — 💎3 for the effort'; this.audio.play('hiccup'); }
     this.ui.toast(msg);
     this._nextFork();
@@ -2241,12 +2232,10 @@ export class Game {
     }
     // 3D level map: an orbitable, zoomable angled view over the candy isle
     if (this.phase === 'levelmap') {
-      const f = this.levelMap.center;
-      const yaw = this._mapYaw || 0, pitch = this._mapPitch || 1, zoom = this._mapZoom || 1;
-      const horiz = 30, hy = 30;
-      const off = new THREE.Vector3(Math.sin(yaw) * horiz, hy * pitch, Math.cos(yaw) * horiz).multiplyScalar(zoom);
-      this.camera.position.lerp(new THREE.Vector3(f.x + off.x, off.y, f.z + off.z), Math.min(1, dt * 3));
-      this.camera.lookAt(f.x, f.y + 2, f.z);
+      // fixed top-down (slightly tilted) view; the player only scrolls up/down the trail
+      const sz = this._mapScrollZ || 0;
+      this.camera.position.lerp(new THREE.Vector3(0, 30, sz + 12), Math.min(1, dt * 4));
+      this.camera.lookAt(0, 0, sz - 2);
       return;
     }
     // boss reveal: pull out and frame the boss as it emerges
@@ -2614,6 +2603,9 @@ export class Game {
     const reward = this._rollChestReward();
     this._grantReward(reward);
     if (reward.bonusGems) { meta.addGems(reward.bonusGems); }
+    // every chest also yields a brewing gemstone — the only (claim-gated) source now that
+    // enemies no longer auto-drop them, so the Cauldron never runs dry.
+    if (meta.addGemstone && meta.ELEMENT_LIST) meta.addGemstone(meta.ELEMENT_LIST[Math.floor(Math.random() * meta.ELEMENT_LIST.length)]);
     this._disposeLootChest();
     this.state = 'reveal'; // freeze the field behind the reveal card
     const finish = () => { if (this.state === 'reveal') this.state = 'play'; if (onDone) onDone(); };
@@ -2661,16 +2653,19 @@ export class Game {
     this.particles.update(dt);
   }
 
-  // ---- the 3D level map: orbit (drag) + zoom (wheel/pinch) with mouse & finger ----
+  // ---- the 3D level map: a top-down trail you scroll UP/DOWN with drag, wheel or W/S ----
   _updateLevelMap(dt) {
     this.levelMap.update(dt);
     this.particles.update(dt);
-    const o = this.input.consumeOrbit();
-    if (o.dx) this._mapYaw = (this._mapYaw || 0) + o.dx * 0.005;
-    if (o.dy) this._mapPitch = Math.max(0.5, Math.min(1.45, (this._mapPitch || 1) - o.dy * 0.003));
-    const z = this.input.consumeZoom ? this.input.consumeZoom() : 0;
-    if (z) this._mapZoom = Math.max(0.62, Math.min(1.8, (this._mapZoom || 1) + z * 0.0011));
-    const t = this.input.turnInput(); if (t) this._mapYaw = (this._mapYaw || 0) + t * dt * 1.4;
+    const span = this.levelMap._span || 40;
+    const o = this.input.consumeOrbit();          // reused as a vertical drag
+    const z = this.input.consumeZoom ? this.input.consumeZoom() : 0; // wheel / pinch
+    let sz = this._mapScrollZ || 0;
+    if (o.dy) sz += o.dy * 0.03;                   // drag up → travel toward the boss
+    if (z) sz -= z * 0.02;                         // wheel down → toward the boss
+    const k = this.input.keys;                     // keyboard up/down also scroll
+    if (k) { if (k.has('w') || k.has('arrowup')) sz -= dt * 14; if (k.has('s') || k.has('arrowdown')) sz += dt * 14; }
+    this._mapScrollZ = Math.max(-span, Math.min(2, sz));
   }
 
   // ---- animated title screen: a drunk wizard auto-blasting waves of foes ----

@@ -135,40 +135,11 @@ export class Tavern {
     // quest-giver / chat patrons in setupCustomers, who sit, drink and behave properly)
   }
 
+  // every patron now uses the SAME shared body + 2D goofy face as the player & quest NPCs
   _buildPatron(robeColor, hasHat) {
-    const person = new THREE.Group();
-    const robe = new THREE.MeshStandardMaterial({ flatShading: true, color: robeColor, roughness: 0.85 });
-    const robe2 = new THREE.MeshStandardMaterial({ flatShading: true, color: robeColor, roughness: 0.85 }); robe2.color.multiplyScalar(0.78);
-    const skin = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xf0d6b8, roughness: 0.8 });
-    const dark = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x141018, roughness: 0.6 });
-    const sclera = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xf4efe2, roughness: 0.6 });
-    // a proper TALL humanoid: two legs, a longer torso, a head up high (no more squat blob)
-    const legGeo = new THREE.CapsuleGeometry(0.13, 0.42, 3, 7);
-    const legL = new THREE.Mesh(legGeo, robe2); legL.position.set(-0.16, 0.36, 0.02); legL.castShadow = true;
-    const legR = new THREE.Mesh(legGeo, robe2); legR.position.set(0.16, 0.36, 0.02); legR.castShadow = true;
-    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 0.7, 9), robe); skirt.position.y = 0.98; skirt.castShadow = true;
-    const torso = new THREE.Mesh(new THREE.SphereGeometry(0.4, 9, 7), robe); torso.position.y = 1.48; torso.scale.set(1, 1.05, 0.92); torso.castShadow = true;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.33, 9, 7), skin); head.position.y = 2.04; head.castShadow = true;
-    person.add(legL, legR, skirt, torso, head);
-    // simple black dot eyes (no white googly sclera)
-    for (const sx of [-0.12, 0.12]) {
-      const e = new THREE.Mesh(new THREE.SphereGeometry(0.062, 7, 6), dark); e.position.set(sx, 2.07, 0.3); e.userData.noOutline = true; e.userData.noTex = true; person.add(e);
-    }
-    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshStandardMaterial({ flatShading: true, color: 0xd98a72, roughness: 0.75 })); nose.position.set(0, 1.98, 0.35); person.add(nose);
-    const armGeo = new THREE.CapsuleGeometry(0.1, 0.44, 3, 7);
-    const aL = new THREE.Mesh(armGeo, robe); aL.position.set(-0.42, 1.42, 0); aL.rotation.z = 0.34; aL.castShadow = true;
-    const aR = new THREE.Mesh(armGeo, robe); aR.position.set(0.42, 1.42, 0); aR.rotation.z = -0.34; aR.castShadow = true;
-    const hL = new THREE.Mesh(new THREE.SphereGeometry(0.1, 7, 5), skin); hL.position.set(-0.5, 1.14, 0.05);
-    const hR = new THREE.Mesh(new THREE.SphereGeometry(0.1, 7, 5), skin); hR.position.set(0.5, 1.14, 0.05);
-    person.add(aL, aR, hL, hR);
-    const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.22, 9), new THREE.MeshStandardMaterial({ flatShading: true, color: 0x9a6a3a, roughness: 0.7 })); mug.position.set(0.56, 1.28, 0.14); person.add(mug);
-    if (hasHat) { // a plain rounded cap for variety — NOT a wizard hat
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.36, 9, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), robe2); cap.position.y = 2.18; cap.castShadow = true; person.add(cap);
-    }
-    person._mug = mug;
-    person.userData.limbs = { legL, legR, armL: aL, armR: aR, handL: hL, handR: hR, mug };
-    outlineGroup(person, { thick: 0.045 }); // Megabonk ink contour on the patron
-    return person;
+    const p = buildCharModel('patron');
+    p.userData._dressed = true; // already grained + ink-outlined by buildCharModel
+    return p;
   }
 
   // Bar fittings: the venture door, a staircase up to your room, and the
@@ -315,7 +286,7 @@ export class Tavern {
       // a foamy mug they raise while drinking (hidden until the 'drink' beat)
       const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.22, 9), new THREE.MeshStandardMaterial({ flatShading: true, color: 0x9a6a3a, roughness: 0.7 }));
       mug.position.set(0.36, 1.04, 0.34); mug.visible = false; person.add(mug); pxMap(mug.material, 'wood', 2);
-      this._texturize(person); // grain the fallback patrons (buildCharModel ones are already mapped)
+      if (!person.userData._dressed) this._texturize(person); // grain only raw fallback patrons
       this.group.add(person);
       const station = { type: 'customer', label: `chat with ${c.name}`, pos: new THREE.Vector3(sx, 0, sz), mark: null, quest: c.kind === 'quest' ? c.quest : null };
       // start them strolling in from the door, then they settle at their spot

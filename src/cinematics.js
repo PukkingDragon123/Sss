@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { outlineGroup } from './outline.js';
 import { pxMap } from './pixeltex.js';
+import { makeFace } from './facesprite.js';
 
 const $ = (id) => document.getElementById(id);
 const V = (a) => new THREE.Vector3(a[0], a[1], a[2]);
@@ -59,13 +60,8 @@ export class Cinematics {
     const tApron = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.7, 0.18), M(0xd8c39a, 0.95)); tApron.position.set(0, 0.95, 0.42); tomas.add(tApron);
     const tHead = new THREE.Mesh(new THREE.SphereGeometry(0.32, 14, 12), M(0xf0c89a)); tHead.position.y = 1.75; tomas.add(tHead);
     const tHair = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.07, 6, 14), M(0x6a4326)); tHair.position.set(0, 1.86, 0); tHair.rotation.x = Math.PI / 2; tomas.add(tHair);
-    // a clear, readable face that PROTRUDES from the head so the close-up reads: big googly
-    // eyes (bulging past the skull), a ruddy nose, a bushy moustache. His +Z front faces the room.
-    for (const sx of [-0.13, 0.13]) {
-      const e = new THREE.Mesh(new THREE.SphereGeometry(0.085, 7, 6), M(0x0a0a12, 0.5)); e.position.set(sx, 1.78, 0.36); e.userData.noOutline = true; tomas.add(e);
-    }
-    const tNose = new THREE.Mesh(new THREE.SphereGeometry(0.11, 7, 5), M(0xd98a6a, 0.75)); tNose.position.set(0, 1.66, 0.4); tomas.add(tNose);
-    const tMous = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.12, 0.14), M(0x5a3820)); tMous.position.set(0, 1.55, 0.34); tomas.add(tMous);
+    // goofy 2D face on the head front (his +Z faces the room) — no 3D eye/nose parts
+    const tFace = makeFace(0.44, 'happy', 3); tFace.position.set(0, 1.75, 0.33); tomas.add(tFace);
     for (const sx of [-1, 1]) { const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.12, 0.5, 4, 8), M(0x6a4d34)); arm.position.set(sx * 0.5, 1.0, 0.18); arm.rotation.z = sx * 0.5; tomas.add(arm); }
     tomas.position.set(-4.5, 0, -4.4); // behind the counter; +Z front faces out to the room
     tomas.traverse(o => { if (o.isMesh) o.castShadow = true; }); outlineGroup(tomas, { thick: 0.045 }); bar.add(tomas);
@@ -117,6 +113,7 @@ export class Cinematics {
       const p = new THREE.Group();
       const body = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 10), M(c)); body.position.y = 1.0; body.scale.set(1, 1.15, 1); p.add(body);
       const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), M(0xf0d6b8)); head.position.y = 1.62; p.add(head);
+      const pFace = makeFace(0.4, 'happy', (c & 7)); pFace.position.set(0, 1.63, 0.3); p.add(pFace); // goofy 2D face
       const stool = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.22, 0.7, 10), M(0x5a3a22)); stool.position.y = 0.35; p.add(stool);
       p.position.set(x, 0, -2.4); p.traverse(o => { if (o.isMesh) o.castShadow = true; }); bar.add(p);
       this._patrons.push({ mesh: p, home: p.position.clone() });

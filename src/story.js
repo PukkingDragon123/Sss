@@ -14,7 +14,7 @@ export const STAGES = {
     id: 'forest', name: 'Moonlit Forest', bossType: 'goblinking', bossName: 'The Goblin King',
     roster: [{ t: 'goblin', w: 1 }, { t: 'bat', w: 1 }, { t: 'slime', w: 2 }, { t: 'zombie', w: 3 }, { t: 'mushroomcap', w: 3 }, { t: 'vampire', w: 4 }, { t: 'houndling', w: 3 }, { t: 'splitslime', w: 4 }, { t: 'bomber', w: 5 }],
     theme: { bg: 0x16223a, fog: 0x1b2b44, fogD: 0.011, hemi: 0x9fb6e8, hemiG: 0x223a2a, dir: 0xcdd8ff, dirI: 1.5, amb: 0x3a4a6a, floor: 0x2f4a32, rug: 0x3f6440, scatter: 'trees', rim: 0xbfe0ff, rimI: 1.25 },
-    intro: ['You wake face-down in cold moss. A moonlit forest, far from home.', 'Red eyes blink awake between the trees. Get up, wizard, and draw to cast!'],
+    intro: ['A moonlit forest, far from home.', 'Red eyes wake in the trees. Draw a glyph to cast!'],
   },
   cave: {
     id: 'cave', name: 'Dripstone Cave', bossType: 'spiderqueen', bossName: 'The Spider Queen',
@@ -72,16 +72,16 @@ export const STAGE_ORDER = ['forest', 'cave', 'graveyard', 'swamp', 'frost', 'in
 //   game._stageMods; tint is a CSS colour layered over the scene.
 //   mission: survive | slayer (combo) | speed (time) | nohit | boss
 export const STAGE_GIMMICKS = [
-  { name: 'Arrival',     icon: '🌑', desc: 'Find your footing — a gentle skirmish to warm up.',  tint: 'rgba(40,70,110,0.10)',  hpMult: 0.85, spawnMult: 0.9, speedMult: 1.0,  dmgMult: 1.0,  mission: 'survive', goal: 0,  reward: 6 },
-  { name: 'The Swarm',   icon: '🐝', desc: 'Many weak foes pour in at once — keep moving!',       tint: 'rgba(120,180,60,0.12)', hpMult: 0.7,  spawnMult: 1.5, speedMult: 1.05, dmgMult: 0.9,  mission: 'slayer',  goal: 8,  reward: 10 },
-  { name: 'Thick Hide',  icon: '🛡️', desc: 'Fewer foes, but they soak up a real beating.',        tint: 'rgba(150,120,80,0.12)', hpMult: 1.6,  spawnMult: 0.7, speedMult: 0.9,  dmgMult: 1.0,  mission: 'speed',   goal: 45, reward: 12 },
-  { name: 'Frenzy',      icon: '⚡', desc: 'Everything moves fast. Don\'t get cornered.',          tint: 'rgba(220,180,40,0.12)', hpMult: 0.9,  spawnMult: 1.0, speedMult: 1.45, dmgMult: 1.0,  mission: 'nohit',   goal: 0,  reward: 14 },
-  { name: 'Glass Fangs', icon: '🦷', desc: 'They shatter in one hit — but oh, do they bite.',      tint: 'rgba(200,60,80,0.13)',  hpMult: 0.55, spawnMult: 1.1, speedMult: 1.1,  dmgMult: 1.5,  mission: 'nohit',   goal: 0,  reward: 16 },
-  { name: 'The Horde',   icon: '💀', desc: 'A relentless tide. Crowd control is king here.',       tint: 'rgba(110,70,150,0.13)', hpMult: 0.85, spawnMult: 1.7, speedMult: 1.05, dmgMult: 1.0,  mission: 'slayer',  goal: 14, reward: 16 },
-  { name: 'Juggernauts', icon: '🪨', desc: 'Slow, huge, and very hard to put down.',               tint: 'rgba(130,95,60,0.14)',  hpMult: 2.0,  spawnMult: 0.6, speedMult: 0.8,  dmgMult: 1.2,  mission: 'speed',   goal: 55, reward: 18 },
-  { name: 'Blitz',       icon: '🌪️', desc: 'Fast AND many, all at once. Pure chaos.',             tint: 'rgba(60,160,200,0.14)', hpMult: 0.85, spawnMult: 1.4, speedMult: 1.35, dmgMult: 1.05, mission: 'nohit',   goal: 0,  reward: 20 },
-  { name: 'The Gauntlet', icon: '🔥', desc: 'A brutal elite pack guards the road to the lair.',     tint: 'rgba(220,90,40,0.15)',  hpMult: 1.5,  spawnMult: 1.0, speedMult: 1.1,  dmgMult: 1.3,  mission: 'slayer',  goal: 12, reward: 22 },
-  { name: 'Boss Lair',   icon: '👑', desc: 'The region\'s champion awaits. End it.',               tint: 'rgba(180,40,60,0.17)',  hpMult: 1.0,  spawnMult: 1.0, speedMult: 1.0,  dmgMult: 1.0,  mission: 'boss',    goal: 0,  reward: 0 },
+  { name: 'Arrival',     icon: '🌑', desc: 'A gentle warm-up.',          tint: 'rgba(40,70,110,0.10)',  hpMult: 0.7,  spawnMult: 0.8, speedMult: 1.0,  dmgMult: 0.85, mission: 'survive', goal: 0,  reward: 6 },
+  { name: 'The Swarm',   icon: '🐝', desc: 'Many weak foes — keep moving!', tint: 'rgba(120,180,60,0.12)', hpMult: 0.6,  spawnMult: 1.25, speedMult: 1.0, dmgMult: 0.8,  mission: 'slayer',  goal: 8,  reward: 10 },
+  { name: 'Thick Hide',  icon: '🛡️', desc: 'Fewer foes, but tanky.',     tint: 'rgba(150,120,80,0.12)', hpMult: 1.3,  spawnMult: 0.7, speedMult: 0.9,  dmgMult: 0.9,  mission: 'speed',   goal: 45, reward: 12 },
+  { name: 'Frenzy',      icon: '⚡', desc: 'Everything moves fast.',      tint: 'rgba(220,180,40,0.12)', hpMult: 0.75, spawnMult: 0.95, speedMult: 1.3, dmgMult: 0.9,  mission: 'nohit',   goal: 0,  reward: 14 },
+  { name: 'Glass Fangs', icon: '🦷', desc: 'One-hit foes that bite.',    tint: 'rgba(200,60,80,0.13)',  hpMult: 0.5,  spawnMult: 1.0, speedMult: 1.1,  dmgMult: 1.2,  mission: 'nohit',   goal: 0,  reward: 16 },
+  { name: 'The Horde',   icon: '💀', desc: 'A relentless tide.',         tint: 'rgba(110,70,150,0.13)', hpMult: 0.75, spawnMult: 1.4, speedMult: 1.0,  dmgMult: 0.9,  mission: 'slayer',  goal: 14, reward: 16 },
+  { name: 'Juggernauts', icon: '🪨', desc: 'Slow, huge, hard to drop.',  tint: 'rgba(130,95,60,0.14)',  hpMult: 1.6,  spawnMult: 0.6, speedMult: 0.8,  dmgMult: 1.05, mission: 'speed',   goal: 55, reward: 18 },
+  { name: 'Blitz',       icon: '🌪️', desc: 'Fast and many — chaos.',    tint: 'rgba(60,160,200,0.14)', hpMult: 0.8,  spawnMult: 1.2, speedMult: 1.25, dmgMult: 0.95, mission: 'nohit',   goal: 0,  reward: 20 },
+  { name: 'The Gauntlet', icon: '🔥', desc: 'An elite pack guards the lair.', tint: 'rgba(220,90,40,0.15)', hpMult: 1.25, spawnMult: 0.95, speedMult: 1.05, dmgMult: 1.1, mission: 'slayer',  goal: 12, reward: 22 },
+  { name: 'Boss Lair',   icon: '👑', desc: 'The champion awaits. End it.', tint: 'rgba(180,40,60,0.17)', hpMult: 0.9,  spawnMult: 1.0, speedMult: 1.0,  dmgMult: 0.95, mission: 'boss',    goal: 0,  reward: 0 },
 ];
 export const STAGES_PER_REGION = 10;
 // pick the gimmick for a given 1-based stage number (clamped to the ladder)

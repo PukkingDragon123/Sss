@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { makeBlob } from './blobshadow.js';
 import { outlineGroup } from './outline.js';
 import { pxMap } from './pixeltex.js';
+import { makeFace } from './facesprite.js';
 
 const ARENA = 46;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -120,20 +121,8 @@ export class Wizard {
     facer.add(head); this.head = head;
     const skull = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.44, 12, 9), skinMat));
     head.add(skull);
-    const cheekMat = new THREE.MeshStandardMaterial({ color: 0xe89a8a, roughness: 0.8, transparent: true, opacity: 0.55 });
-    const cheekGeo = new THREE.SphereGeometry(0.13, 6, 5);
-    const cl = new THREE.Mesh(cheekGeo, cheekMat); cl.position.set(-0.27, -0.05, 0.31);
-    const cr = new THREE.Mesh(cheekGeo, cheekMat); cr.position.set(0.27, -0.05, 0.31);
-    head.add(cl, cr);
-    // simple black dot eyes (no white googly sclera)
-    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x0a0a12, roughness: 0.5, flatShading: true });
-    const eyeGeo = new THREE.SphereGeometry(0.078, 7, 6);
-    for (const sx of [-0.15, 0.15]) {
-      const e = new THREE.Mesh(eyeGeo, eyeMat); e.position.set(sx, 0.05, 0.44); e.userData.noOutline = true; e.userData.noTex = true; head.add(e);
-    }
-    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.1, 7, 5), new THREE.MeshStandardMaterial({ color: 0xe06a55, roughness: 0.7, flatShading: true }));
-    nose.position.set(0, -0.04, 0.45);
-    head.add(nose);
+    // goofy 2D face (flat sprite on the head front) — no 3D eye/nose parts
+    const face = makeFace(0.62, 'happy', 1); face.position.set(0, 0.04, 0.45); head.add(face);
     const beard = shadowed(new THREE.Mesh(new THREE.ConeGeometry(0.36, 0.62, 8), whiteMat));
     beard.position.set(0, -0.36, 0.2); beard.rotation.x = -0.2;
     head.add(beard);

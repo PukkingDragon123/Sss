@@ -1912,44 +1912,28 @@ html,body{background:#0b0d12;color:var(--ink);}
 .overlay,.btn,.iconbtn,.shop-btn,.spell-chip,.card,.vil-tab,.path-door,.slot-card{cursor:pointer;}
 
 /* ============================================================================
-   GOOFY SCENE TRANSITIONS — iris / diamond / spin wipes + a comedic death tumble.
+   SCENE TRANSITIONS — just two, clean: FADE to black + IRIS (black circle zoom).
    #wipe is a full-screen cover; JS adds w-<kind> + covering|revealing.
    ========================================================================== */
 #wipe{position:fixed;inset:0;z-index:60;pointer-events:none;display:none;}
 #wipe.show{display:block;}
 #wipe > i{position:absolute;inset:0;display:block;background:#0b0d12;}
-/* IRIS: a dark disc grows to cover, then shrinks to reveal */
+/* IRIS: a dark disc grows to cover, then shrinks to reveal (zoom circle black) */
 #wipe.w-iris > i{clip-path:circle(0% at 50% 50%);}
 #wipe.w-iris.covering > i{animation:irisCover .42s ease-in forwards;}
 #wipe.w-iris.revealing > i{clip-path:circle(150% at 50% 50%);animation:irisReveal .5s ease-out forwards;}
 @keyframes irisCover{from{clip-path:circle(0% at 50% 50%);}to{clip-path:circle(150% at 50% 50%);}}
 @keyframes irisReveal{from{clip-path:circle(150% at 50% 50%);}to{clip-path:circle(0% at 50% 50%);}}
-/* DIAMOND: a rotated square scales up to cover, down to reveal */
-#wipe.w-diamond > i{background:#0b0d12;transform:rotate(45deg) scale(0);transform-origin:50% 50%;}
-#wipe.w-diamond.covering > i{animation:diaCover .4s cubic-bezier(.5,0,.9,.5) forwards;}
-#wipe.w-diamond.revealing > i{transform:rotate(45deg) scale(3);animation:diaReveal .45s cubic-bezier(.1,.5,.5,1) forwards;}
-@keyframes diaCover{from{transform:rotate(45deg) scale(0);}to{transform:rotate(45deg) scale(3);}}
-@keyframes diaReveal{from{transform:rotate(45deg) scale(3);}to{transform:rotate(45deg) scale(0);}}
-/* SPIN: the cover pinwheels in and out */
-#wipe.w-spin > i{background:conic-gradient(from 0deg,#0b0d12 0 60deg,#171c24 60deg 120deg,#0b0d12 120deg 180deg,#171c24 180deg 240deg,#0b0d12 240deg 300deg,#171c24 300deg 360deg);transform:scale(0) rotate(0);transform-origin:50% 50%;}
-#wipe.w-spin.covering > i{animation:spinCover .5s ease-in forwards;}
-#wipe.w-spin.revealing > i{transform:scale(3) rotate(240deg);animation:spinReveal .5s ease-out forwards;}
-@keyframes spinCover{from{transform:scale(0) rotate(-220deg);}to{transform:scale(3) rotate(0);}}
-@keyframes spinReveal{from{transform:scale(3) rotate(0);}to{transform:scale(0) rotate(220deg);}}
+/* FADE: the cover fades in to black, then fades back out */
+#wipe.w-fade > i{opacity:0;}
+#wipe.w-fade.covering > i{animation:fadeCover .38s ease-in forwards;}
+#wipe.w-fade.revealing > i{opacity:1;animation:fadeReveal .45s ease-out forwards;}
+@keyframes fadeCover{from{opacity:0;}to{opacity:1;}}
+@keyframes fadeReveal{from{opacity:1;}to{opacity:0;}}
 
 /* a quick white flash (cutscene slam) */
 #wipe.flash > i{background:#fff;animation:trFlash .35s ease-out forwards;}
 @keyframes trFlash{0%{opacity:0;}18%{opacity:.9;}100%{opacity:0;}}
-
-/* comedic DEATH: the whole scene drunkenly spins, squashes and tumbles away to black */
-body.dying #scene,body.dying #fx2d{animation:deathTumble 1.1s cubic-bezier(.5,0,.7,1) forwards;transform-origin:50% 60%;}
-@keyframes deathTumble{
-  0%{transform:none;filter:none;}
-  25%{transform:rotate(-8deg) scale(1.05);}
-  100%{transform:rotate(320deg) scale(.02) translateY(30%);filter:brightness(.3) saturate(.4);}
-}
-body.dying #hud{animation:deathFadeHud .5s ease forwards;}
-@keyframes deathFadeHud{to{opacity:0;}}
 
 /* ============================================================================
    INDIE COMPLETENESS — smooth screen fades, a paused dim, a living title.

@@ -896,10 +896,11 @@ export class UI {
 
   fadeBlack(on) { this.el.blackout.classList.toggle('show', !!on); }
 
-  // goofy scene wipe: cover the screen (kind: 'iris'|'diamond'|'spin'), run `mid` at the
-  // covered moment (swap the scene there), then reveal. Safe no-op if the element is missing.
-  wipe(kind = 'iris', mid, done, ms = 460) {
+  // scene wipe: cover the screen, run `mid` at the covered moment (swap the scene there),
+  // then reveal. Only two, clean transitions: 'fade' (to black) and 'iris' (black circle zoom).
+  wipe(kind = 'fade', mid, done, ms = 420) {
     const el = this.el.wipe;
+    if (kind !== 'iris' && kind !== 'fade') kind = 'fade';
     if (!el) { if (mid) mid(); if (done) done(); return; }
     if (this._wipeT) { clearTimeout(this._wipeT); this._wipeT = null; }
     el.className = ''; void el.offsetWidth; // restart animations
@@ -914,11 +915,8 @@ export class UI {
   // a quick white slam-flash (cutscene starts, big reveals)
   flash() { const el = this.el.wipe; if (!el) return; el.className = ''; void el.offsetWidth; el.classList.add('show', 'flash'); setTimeout(() => { el.className = ''; }, 380); }
 
-  // comedic death: the world drunkenly spins & shrinks to black, then `done` fires
-  deathTumble(done) {
-    document.body.classList.add('dying');
-    setTimeout(() => { document.body.classList.remove('dying'); if (done) { try { done(); } catch (e) {} } }, 1150);
-  }
+  // death: a clean fade to black, then `done` fires (kept simple — no spin)
+  deathTumble(done) { this.wipe('fade', () => { if (done) { try { done(); } catch (e) {} } }); }
 
   // ⭐ candy-crush star pop when a level is rated: three stars stamp in one-by-one,
   // the earned ones gold & bouncing, with a "new best!" ribbon when it beats your record.
@@ -1280,23 +1278,13 @@ export class UI {
 
   // ---- Results / loot ----
   showResults(win, info) {
-    this.el.endTitle.textContent = win ? `${info.stage} — Conquered!` : 'The Wizard Passed Out';
-    const goals = meta.nextGoals();
-    const goalHtml = goals.length
-      ? `<div class="end-next"><div class="end-next-t">${iconImg('map', {}, 'sm')} Up next</div>${goals.map(g => `<div class="end-goal"><span>${iconImg(g.icon, {}, 'sm')}</span><span>${pixify(g.text, 'sm')}</span></div>`).join('')}</div>`
-      : '';
+    // final result only: outcome + a one-line summary + gems won (+ artifact if any)
+    this.el.endTitle.textContent = win ? `${info.stage} — Cleared!` : 'Passed Out';
     this.el.endStats.innerHTML = `
-      <div class="end-summary">${info.stage} · ${iconImg('map', {}, 'sm')} Stage ${info.stages || info.rooms}/${info.stagesTotal || 10} · ${iconImg('skull', {}, 'sm')} ${info.kills} · Lv ${info.level} · ${iconImg('sun', {}, 'sm')} Day ${info.day}${info.missions ? ` · ${iconImg('target', {}, 'sm')} ${info.missions} missions` : ''}${info.combo >= 5 ? ` · ${iconImg('fire', {}, 'sm')} best combo x${info.combo}` : ''}</div>
-      ${info.artifact ? `<div class="end-artifact">✦✦ Claimed artifact: <b>${info.artifact}</b></div>` : ''}
-      ${info.research ? `<div class="end-artifact" style="color:var(--mana)">${iconImg('alembic', {}, 'sm')} Research complete: <b>${info.research}</b></div>` : ''}
-      <div class="loot-box">
-        <div class="loot-row loot-total"><span>Gems won</span><b>+${info.earnedGems} ${iconImg('💎', {}, 'sm')}</b></div>
-      </div>
-      <div class="loot-purse">Gems: <b>${info.gems} ${iconImg('💎', {}, 'sm')}</b> · spend them on spells & research</div>
-      ${info.questDone ? `<div style="color:var(--xp);font-weight:800">✓ Bounty complete! Claim it in your ${iconImg('scroll', {}, 'sm')} quest log.</div>` : ''}
-      ${goalHtml}
-      <div style="margin-top:6px;color:var(--ink-dim)">${win ? 'Back at the tavern: research, learn spells, then work a shift for coin!' : 'You keep every gem you won. Regroup and try again.'}</div>`;
-    this.el.btnAgain.textContent = '▸ Return to the Tavern';
+      <div class="end-summary">${iconImg('map', {}, 'sm')} Stage ${info.stages || info.rooms}/${info.stagesTotal || 10} · ${iconImg('skull', {}, 'sm')} ${info.kills} · Lv ${info.level}</div>
+      ${info.artifact ? `<div class="end-artifact">✦ Artifact: <b>${info.artifact}</b></div>` : ''}
+      <div class="loot-box"><div class="loot-row loot-total"><span>Gems won</span><b>+${info.earnedGems} ${iconImg('💎', {}, 'sm')}</b></div></div>`;
+    this.el.btnAgain.textContent = '▸ Tavern';
     this.el.end.classList.remove('hidden');
   }
 
@@ -1687,7 +1675,7 @@ export class UI {
         <div class="eq-slot-rar ${g ? '' : 'empty'}" ${rc ? `style="color:${rc.color}"` : ''}>${g ? rc.name : '— empty —'}</div></div>`;
     }
     strip += '</div>';
-    let h = '<p class="shop-sub">Your relics &amp; regalia — one piece per slot. Rarer &amp; higher-level hits harder; bonuses apply on your next venture.</p>';
+    let h = '<p class="shop-sub">One piece per slot. Rarer &amp; higher-level = stronger.</p>';
     h += strip;
     h += `<div class="eq-totals"><span>${iconImg('swords', {}, 'sm')} Equipped bonuses</span><b>${totalStr}</b></div>`;
     for (const slot of meta.GEAR_SLOTS) {
@@ -1830,7 +1818,7 @@ export class UI {
   }
 
   _renderCauldron() {
-    let h = '<p class="shop-sub">Brew <b>combos</b>: cast the two glyphs in quick succession in a run (both must be equipped) to unleash them.</p><div class="shop-grid">';
+    let h = '<p class="shop-sub">Learn <b>combos</b>: cast two equipped glyphs back-to-back.</p><div class="shop-grid">';
     for (const id of meta.COMBO_LIST) {
       const c = meta.COMBO_META[id];
       const learned = meta.learned(id);

@@ -5,6 +5,7 @@
 // charPortrait returns '' and callers fall back to the 2D face / emoji.
 import * as THREE from 'three';
 import { faceImg } from './faces.js';
+import { makeFace } from './facesprite.js';
 import { outlineGroup } from './outline.js';
 import { pxMap } from './pixeltex.js';
 
@@ -94,31 +95,15 @@ function _human(o) {
   const head = S(g, 0.5, skin, 0, hy, hunch, { sy: 0.95, seg: 12, seg2: 10 });
   if (o.hunch) head.rotation.x = 0.14;
 
-  // googly eyes: light eyeball (the ink hull rings it -> crisp outline) + a dark pupil dot
-  // opted out of the hull. Glowing folk keep a lone luminous orb. All flagged noTex = pure.
-  if (o.glowEyes) {
-    const eC = o.eyeColor ?? 0x9fd8ff;
-    for (const sx of [-0.17, 0.17]) { const e = S(g, 0.09, eC, sx, hy + 0.05, 0.46 + hunch, { seg: 7, seg2: 6, emis: eC, emisI: 2.2 }); e.userData.noTex = true; }
-  } else {
-    // simple black dot eyes (no white googly sclera)
-    for (const sx of [-0.15, 0.15]) {
-      const e = S(g, 0.078, 0x0a0a12, sx, hy + 0.04, 0.49 + hunch, { seg: 7, seg2: 6 }); e.userData.noTex = true; e.userData.noOutline = true;
-    }
-  }
-  if (o.nose !== false) S(g, 0.09, o.noseColor ?? 0xd98a72, 0, hy - 0.1, 0.47 + hunch);
-  if (o.cheeks) { S(g, 0.08, o.cheeks, -0.27, hy - 0.12, 0.36 + hunch, { sy: 0.7 }); S(g, 0.08, o.cheeks, 0.27, hy - 0.12, 0.36 + hunch, { sy: 0.7 }); }
-  if (o.wideMouth) B(g, 0.3, 0.05, 0.05, 0x6a2a2a, 0, hy - 0.22, 0.42 + hunch);
-  if (o.tooth) B(g, 0.06, 0.09, 0.04, 0xffffff, 0.06, hy - 0.2, 0.44 + hunch);
+  // goofy 2D face — a flat sprite on the head front (replaces all 3D eye/nose/mouth parts)
+  const _fseed = (((o.robe || 0) >> 3) ^ ((o.skin || 0) >> 5) ^ (o.hat ? o.hat.length : 0)) & 7;
+  const _fmood = o.faceMood || (o.mad ? 'grumpy' : (o.glowEyes ? 'surprised' : 'happy'));
+  const face = makeFace(0.64, _fmood, _fseed); face.position.set(0, hy, 0.51 + hunch); g.add(face);
 
-  // ears / cat ears / frog eye-bumps / tail
+  // ears / cat ears / tail (identity kept; face features now live on the 2D sprite)
   if (o.ears) { CONE(g, 0.1, 0.3, skin, -0.5, hy + 0.08, 0, { rotZ: 1.25, seg: 6 }); CONE(g, 0.1, 0.3, skin, 0.5, hy + 0.08, 0, { rotZ: -1.25, seg: 6 }); }
   if (o.catEars) { CONE(g, 0.13, 0.24, o.hair ?? skin, -0.2, hy + 0.44, 0, { seg: 5 }); CONE(g, 0.13, 0.24, o.hair ?? skin, 0.2, hy + 0.44, 0, { seg: 5 }); }
-  if (o.whiskers) { B(g, 0.26, 0.02, 0.02, 0xffffff, -0.28, hy - 0.08, 0.34); B(g, 0.26, 0.02, 0.02, 0xffffff, 0.28, hy - 0.08, 0.34); }
   if (o.tail) { S(g, 0.1, o.hair ?? robe, 0, 0.6, -bodyR - 0.12); S(g, 0.08, o.hair ?? robe, 0.06, 0.78, -bodyR - 0.26); }
-  if (o.topEyes) {
-    S(g, 0.15, skin, -0.18, hy + 0.42, 0.1); S(g, 0.15, skin, 0.18, hy + 0.42, 0.1);
-    S(g, 0.06, 0x2a2230, -0.18, hy + 0.44, 0.23); S(g, 0.06, 0x2a2230, 0.18, hy + 0.44, 0.23);
-  }
 
   // hair: a round mop hugging the head
   if (o.hair && !o.mushroomCap) {

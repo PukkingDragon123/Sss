@@ -253,7 +253,9 @@ function _dress(g) {
 }
 export function buildCharModel(kind) {
   const g = (KINDS[kind] || KINDS.patron)();
-  return kind === 'wisp' ? g : _dress(g); // the wisp is a glowing orb — no ink outline / grain
+  const out = kind === 'wisp' ? g : _dress(g); // the wisp is a glowing orb — no ink outline / grain
+  out.userData._dressed = true; // grained + outlined already — tavern's re-texturize guard skips it
+  return out;
 }
 // dispose a built model WITHOUT killing shared resources (the cached outline material &
 // the singleton pixel-art textures, both flagged so they survive per-model teardown)

@@ -268,59 +268,37 @@ export class UI {
     if (!meta.stationBuilt('wardrobe')) { this.wispSay('🧙 Build the Character Hall in your room first — claim your first bounty to unlock it, then manage gear, spells & your satchel there.', { tone: 'warn', ms: 4200 }); return; }
     this._charTab = 'satchel'; if (game._openShop) game._openShop('character'); else this.openShop('character', game);
   }
+  // dead-simple quest log: just your GOAL (debt + the one bounty) and your JOBS.
   renderQuestPanel(game) {
     const body = this.el.qpBody; if (!body) return;
     const debt = meta.debt(), total = meta.DEBT_TOTAL || 1, paid = Math.max(0, total - debt);
-    const q = meta.currentQuest(), done = meta.questDone(), prog = meta.tutorialProgress();
-    let h = `<div class="qp-card"><h4>${iconImg('⚜', {}, 'sm')} Main Quest: The Tavern Debt</h4>
-      <p class="qp-sub">Pay Barkeep Tomas back and the Tipsy Toad is yours.</p>
-      <div class="debt-bar"><div class="debt-fill" style="width:${100 * paid / total}%"></div></div>
-      <div class="qp-progress">${paid} / ${total} gold paid</div>`;
-    h += debt > 0
-      ? `<div class="shop-acts" style="margin-top:8px"><button class="shop-btn" data-act="paydebt" ${meta.gold() > 0 ? '' : 'disabled'}>Pay ${Math.min(meta.gold(), debt)} gold</button></div></div>`
-      : `<div class="qp-progress" style="color:var(--xp)">Debt cleared. The Toad is yours!</div></div>`;
-    h += `<div class="qp-card"><h4>${iconImg('pin', {}, 'sm')} Bounty</h4>
-      <p class="qp-sub">${q ? pixify(q.text, 'sm') + ' (reward ' + q.reward + ' gold)' : 'No bounty right now.'}</p>
-      <div class="shop-acts"><button class="shop-btn ${done ? 'on' : ''}" data-act="claim" ${done ? '' : 'disabled'}>${done ? 'Claim reward' : 'In progress'}</button></div></div>`;
-    // ACTIVE QUESTS — only the jobs you've actually accepted (chat a patron to take one)
+    const q = meta.currentQuest(), done = meta.questDone();
+    // ---- GOAL: pay off the debt, then claim the bounty that unlocks the next station ----
+    let h = `<div class="qp-card"><h4>${iconImg('⚜', {}, 'sm')} Goal</h4>`;
+    if (debt > 0) {
+      h += `<p class="qp-sub">Pay off the tavern debt.</p>
+        <div class="debt-bar"><div class="debt-fill" style="width:${100 * paid / total}%"></div></div>
+        <div class="qp-progress">${paid} / ${total} gold</div>
+        <div class="shop-acts" style="margin-top:8px"><button class="shop-btn" data-act="paydebt" ${meta.gold() > 0 ? '' : 'disabled'}>Pay ${Math.min(meta.gold(), debt)} gold</button></div>`;
+    } else {
+      h += `<div class="qp-progress" style="color:var(--xp)">✓ Debt cleared — the Toad is yours!</div>`;
+    }
+    if (q) h += `<div class="qp-task ${done ? 'done' : ''}" style="margin-top:10px"><span class="tick">${done ? '✓' : iconImg('pin', {}, 'sm')}</span><span>${pixify(q.text, 'sm')} · +${q.reward} ${iconImg('coin', {}, 'sm')}</span>${done ? ` <button class="shop-btn on" data-act="claim">Claim</button>` : ''}</div>`;
+    h += `</div>`;
+    // ---- JOBS: accepted patron quests (return to the patron to claim when ready) ----
     const reqs = meta.acceptedQuests();
-    h += `<div class="qp-card"><h4>${iconImg('scroll', {}, 'sm')} Active Quests</h4>
-      <p class="qp-sub">Jobs you accepted. Chat a ${iconImg('bang', {}, 'sm')} patron to take on more.</p>`;
-    if (reqs.length) { h += '<div class="qp-tasklist">';
+    h += `<div class="qp-card"><h4>${iconImg('scroll', {}, 'sm')} Jobs</h4>`;
+    if (reqs.length) {
+      h += '<div class="qp-tasklist">';
       for (const cq of reqs) {
         const ready = meta.customerQuestReady(cq);
-        const rw = [(cq.reward && cq.reward.gems) ? `+${cq.reward.gems} ${iconImg('💎', {}, 'sm')}` : '', (cq.reward && cq.reward.gold) ? `+${cq.reward.gold} ${iconImg('coin', {}, 'sm')}` : ''].filter(Boolean).join(' ');
-        h += `<div class="qp-task ${ready ? 'done' : ''}"><span class="tick">${ready ? '✓' : iconImg(cq.icon || 'scroll', {}, 'sm')}</span><span><b>${cq.npc.name}:</b> ${pixify(cq.ask, 'sm')} <i class="qp-reward">${rw}</i>${ready ? ' <b>(ready — return to claim!)</b>' : ''}</span></div>`;
+        h += `<div class="qp-task ${ready ? 'done' : ''}"><span class="tick">${ready ? '✓' : '○'}</span><span>${pixify(cq.ask, 'sm')}${ready ? ' <b>(ready!)</b>' : ''}</span></div>`;
       }
       h += '</div>';
-    } else h += '<div class="qp-progress">No active quests — accept one from a patron by the fire.</div>';
-    h += '</div>';
-    // side quests — each awards a collectible card
-    const sqs = meta.sideQuests();
-    const sqDone = sqs.filter(s => s.claimed).length;
-    h += `<div class="qp-card"><h4>${iconImg('target', {}, 'sm')} Side Quests</h4>
-      <p class="qp-sub">Little goals that pay out a fun card.</p><div class="qp-tasklist">`;
-    for (const sq of sqs) {
-      const state = sq.claimed ? 'done' : '';
-      const right = sq.claimed ? '<span class="qp-claimed">✓ claimed</span>'
-        : sq.ready ? `<button class="shop-btn" data-act="claimside" data-id="${sq.id}">Claim ${iconImg('cardpack', {}, 'sm')}</button>`
-          : `<span class="qp-prog">${Math.min(sq.have, sq.goal)}/${sq.goal}</span>`;
-      h += `<div class="qp-task ${state}"><span class="tick">${sq.claimed ? '✓' : iconImg('target', {}, 'sm')}</span><span class="qp-task-t">${pixify(sq.text, 'sm')} <i class="qp-reward">→ ${sq.cardName}</i></span>${right}</div>`;
-    }
-    h += `</div><div class="qp-progress">${sqDone} / ${sqs.length} side quests done</div></div>`;
-    // card gallery
-    const owned = new Set(meta.cardsOwned());
-    h += `<div class="qp-card"><h4>${iconImg('cardpack', {}, 'sm')} Card Collection</h4>
-      <p class="qp-sub">Won from minigames & side quests.</p><div class="card-grid">`;
-    for (const c of CARDS) {
-      const has = owned.has(c.id); const rc = CARD_RARITY[c.rarity];
-      h += `<div class="card-cell ${has ? 'has' : 'locked'}" style="${has ? `border-color:${rc.color}` : ''}" title="${has ? c.name + ' — ' + c.flavor : 'Locked'}"><span class="card-ico">${has ? iconImg(c.icon, {}, 'sm') : iconImg('lock', {}, 'sm')}</span><span class="card-nm" style="${has ? `color:${rc.color}` : ''}">${has ? c.name : '???'}</span></div>`;
-    }
-    h += `</div><div class="qp-progress">${owned.size} / ${CARDS.length} cards collected</div></div>`;
-    h += `<div class="qp-card"><h4>${iconImg('map', {}, 'sm')} Learn the Ropes</h4>
-      <p class="qp-sub">Try every part of the realm. The wisp will guide you.</p><div class="qp-tasklist">`;
-    for (const t of meta.tutorialChecklist()) h += `<div class="qp-task ${t.done ? 'done' : ''}"><span class="tick">${t.done ? '✓' : '○'}</span><span>${pixify(t.text, 'sm')}</span></div>`;
-    h += `</div><div class="qp-progress">${prog.done} / ${prog.total} mechanics tried</div></div>`;
+    } else h += `<div class="qp-progress">No jobs — chat a ${iconImg('bang', {}, 'sm')} patron to take one.</div>`;
+    // fold in any ready-to-claim side reward so it isn't lost
+    for (const sq of meta.sideQuests().filter(s => s.ready && !s.claimed)) h += `<div class="qp-task"><span class="tick">${iconImg('target', {}, 'sm')}</span><span>${pixify(sq.text, 'sm')}</span> <button class="shop-btn" data-act="claimside" data-id="${sq.id}">Claim</button></div>`;
+    h += `</div>`;
     body.innerHTML = h;
   }
   setGems(n) { if (this.el.gems) this.el.gems.textContent = `${n}`; if (this.el.shopGems) this.el.shopGems.textContent = `${n}`; }
@@ -1395,7 +1373,8 @@ export class UI {
     this._shopKindClass = 'shop-' + kind;
     this.el.shop.classList.add('magic-shop', this._shopKindClass);
     this.el.shop.classList.remove('hidden');
-    if (kind === 'build') { this._buildPending = null; if (this._buildRot === undefined) this._buildRot = 0; if (this.el.buildPreview) this.el.buildPreview.classList.remove('hidden'); if (this.el.buildPlace) this.el.buildPlace.classList.remove('hidden'); this._setPreviewItem(this._buildSel); this._startPreview(); }
+    // build mode: no floating preview widget — the in-room hologram IS the preview (room stays the focus)
+    if (kind === 'build') { this._buildPending = null; if (this._buildRot === undefined) this._buildRot = 0; if (this.el.buildPlace) this.el.buildPlace.classList.remove('hidden'); }
   }
   closeShop() {
     this.el.shop.classList.add('hidden'); this.el.shop.classList.remove('build-mode', 'magic-shop');
@@ -1432,7 +1411,8 @@ export class UI {
     this._pvMesh = null;
   }
   _setPreviewItem(id) {
-    this._ensurePreview(); if (!this._pvScene) return;
+    return; // preview widget retired — the in-room hologram is the preview now
+    this._ensurePreview(); if (!this._pvScene) return; // eslint-disable-line no-unreachable
     this._disposePvMesh();
     if (!id || !this.game || !this.game.tavern) { if (this.el.bpLabel) this.el.bpLabel.textContent = 'Pick a piece to preview'; return; }
     const built = this.game.tavern._buildPlaced(id); if (!built) return;
@@ -1558,7 +1538,7 @@ export class UI {
   // ===== Arcane Library: spend 💎 on research; a project finishes as DAYS pass =====
   _renderLibrary() {
     const active = meta.researchActive();
-    let h = `<p class="shop-sub">Fund a <b>research project</b> with ${iconImg('💎', {}, 'sm')} gems. Days pass as you work shifts &amp; venture — when the work is done, its boon applies to <b>every future run</b>.</p>`;
+    let h = `<p class="shop-sub">Fund research with ${iconImg('💎', {}, 'sm')} gems. Once done, it boosts <b>every run</b>.</p>`;
     if (active) {
       const r = active, left = meta.researchDaysLeft();
       h += `<div class="quest-box main-quest"><div class="quest-title">${iconImg('alembic', {}, 'sm')} Researching: ${iconImg(r.icon, {}, 'sm')} ${r.name}</div>
@@ -1584,7 +1564,7 @@ export class UI {
   }
 
   _renderLedger() {
-    if (!meta.tavernOwned()) return '<p class="shop-sub">Old Tomas\'s ledger. You just <b>work</b> here for now — avenge him (clear a stage) and the Tipsy Toad becomes yours to run.</p>';
+    if (!meta.tavernOwned()) return '<p class="shop-sub">You just <b>work</b> here. Clear a stage to own the Toad.</p>';
     const bank = meta.tavernBank(), cap = meta.tavernCap(), rate = meta.tavernRate();
     let h = `<p class="shop-sub">Your tavern earns <b>${rate}${iconImg('coin', {}, 'sm')}/min</b> even while you\'re away (banked up to <b>${cap}${iconImg('coin', {}, 'sm')}</b>).</p>
       <div class="loot-box" style="max-width:340px;margin:0 auto 14px">
@@ -1628,7 +1608,7 @@ export class UI {
   // 🐾 Menagerie: adopt creatures with gems, then carry ONE for a passive boost
   _renderPets() {
     const eqid = meta.equippedPetId();
-    let h = `<p class="shop-sub">${iconImg('cat', {}, 'sm')} Adopt a <b>creature</b> with ${iconImg('💎', {}, 'sm')} gems, then carry <b>one</b> into a run for a passive boost (auto-XP, auto-heal, +damage…). It floats beside you in battle.</p><div class="shop-grid">`;
+    let h = `<p class="shop-sub">${iconImg('cat', {}, 'sm')} Adopt with ${iconImg('💎', {}, 'sm')} gems; carry <b>one</b> into a run for a boost.</p><div class="shop-grid">`;
     for (const p of meta.PETS) {
       const owned = meta.hasPet(p.id), on = eqid === p.id;
       let action;
@@ -1723,7 +1703,7 @@ export class UI {
         <div class="tgc-card-row">${cards}</div></div>`;
     }
     // --- storefront: buy a pack ---
-    let h = `<p class="shop-sub">${iconImg('cardpack', {}, 'sm')} <b>TGC.com</b> — order a booster pack of gear, tear it open, then <b>choose one</b> piece to keep. Pricier packs pull rarer loot.</p><div class="shop-grid">`;
+    let h = `<p class="shop-sub">${iconImg('cardpack', {}, 'sm')} <b>TGC.com</b> — open a gear pack, keep <b>one</b>. Pricier = rarer.</p><div class="shop-grid">`;
     for (const p of meta.PACKS) {
       const odds = meta.GEAR_RARITY_ORDER.filter(r => p.w[r]).map(r => `<span style="color:${meta.RARITIES[r].color}">${p.w[r]}%</span>`).join(' / ');
       const can = meta.canBuyPack(p.id);
@@ -1752,7 +1732,7 @@ export class UI {
   }
   _renderSkillTree() {
     const eq = meta.getLoadout();
-    let h = `<p class="shop-sub">Unlock & upgrade spells with <b>${iconImg('💎', {}, 'sm')} gems</b> (won in battle), then equip up to <b>3</b> as your loadout. Each channels one of the four elements.</p><div class="shop-grid">`;
+    let h = `<p class="shop-sub">Unlock &amp; level spells with <b>${iconImg('💎', {}, 'sm')} gems</b>. Equip up to <b>3</b>.</p><div class="shop-grid">`;
     for (const id of meta.SPELL_LIST) {
       const m = meta.SPELL_META[id];
       const { e } = this._elChip(m.element);
@@ -1863,15 +1843,14 @@ export class UI {
     if (pend && selB) {
       return `<div class="build-confirm">
         <div class="bc-head">${iconImg(selB.icon, {}, 'lg')}<div class="bc-info"><div class="bc-name">${selB.name}</div>
-          <div class="bc-meta">${selB.cost === 0 ? 'Free' : `${selB.cost} ${iconImg('coin', {}, 'sm')}`} · ${iconImg('clock', {}, 'sm')} ${meta.buildTimeOf(selB)}s to raise</div></div></div>
-        <p class="bc-hint">Placed on the floor. Nudge it to another tile, spin it, then <b>raise it</b>.</p>
+          <div class="bc-meta">${selB.cost === 0 ? 'Free' : `${selB.cost} ${iconImg('coin', {}, 'sm')}`} · ${iconImg('clock', {}, 'sm')} ${meta.buildTimeOf(selB)}s</div></div></div>
         <div class="bc-acts">
-          <button class="shop-btn big on" data-act="confirmbuild">✓ Raise it!</button>
-          <button class="shop-btn" data-act="cancelbuild">✗ Cancel</button>
-          <button class="shop-btn" data-act="rotbuild">⟳ Rotate</button>
+          <button class="shop-btn big on" data-act="confirmbuild">✓ Build</button>
+          <button class="shop-btn" data-act="rotbuild">⟳</button>
+          <button class="shop-btn" data-act="cancelbuild">✗</button>
         </div></div>`;
     }
-    let h = `<p class="shop-sub">${selB ? `Placing <b>${iconImg(selB.icon, {}, 'sm')} ${selB.name}</b> — move over the <b>room floor</b> to aim the hologram, <b>click a tile</b> to set it down, then <b>Confirm</b> to raise it (<b>⟳ Rotate</b> to spin). Click a built piece to sell it back at half.` : 'Pick a piece below, then place it right in your room — hover the floor for a hologram, click a tile, and confirm.'}</p>`;
+    let h = `<p class="shop-sub">${selB ? `Tap a floor tile to place the <b>${selB.name}</b>.` : 'Pick a piece, then tap a floor tile.'}</p>`;
     h += `<div class="vil-tabs">
       <button class="vil-tab ${tab === 'station' ? 'on' : ''}" data-act="buildtab" data-id="station">${iconImg('hammer', {}, 'sm')} Stations</button>
       <button class="vil-tab ${tab === 'comfort' ? 'on' : ''}" data-act="buildtab" data-id="comfort">${iconImg('chair', {}, 'sm')} Comforts</button>
@@ -1890,7 +1869,6 @@ export class UI {
         <span class="bi-icon">${locked ? iconImg('lock', {}, 'sm') : iconImg(b.icon, {}, 'sm')}</span><span class="bi-name">${b.name}</span><span class="bi-cost">${cost}</span>${time}</button>`;
     }
     h += '</div>';
-    if (this._buildSel) { const sb = meta.buildableById(this._buildSel); if (sb) h += `<p class="build-hint">Placing <b>${iconImg(sb.icon, {}, 'sm')} ${sb.name}</b> — spin it in the preview with <b>⟳ Rotate</b>, then tap an empty tile. <span data-act="selbuild" data-id="${this._buildSel}" style="text-decoration:underline;cursor:pointer">cancel</span></p>`; }
     return h;
   }
 

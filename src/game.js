@@ -2342,7 +2342,7 @@ export class Game {
     if (!this.particles) return;
     this._moteCd = (this._moteCd || 0) - sdt;
     if (this._moteCd <= 0) {
-      this._moteCd = 0.13 + Math.random() * 0.12;
+      this._moteCd = 0.4 + Math.random() * 0.3; // calmer, less-busy air (fewer drifting motes)
       const col = (this.stage && this.stage.theme && this.stage.theme.rim) || 0xbfe0ff;
       const w = this.wizard.pos, a = Math.random() * Math.PI * 2, r = 4 + Math.random() * 13;
       this.particles.spawn({

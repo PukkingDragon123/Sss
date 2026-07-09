@@ -996,10 +996,17 @@ body::after{content:"";position:fixed;inset:0;z-index:4;pointer-events:none;
 :root{ --fire:#ff7a32; --sparkle:#fff39a; --bubble:#bfe6ff; }
 
 /* ===== Build mode: dock the panel to the bottom so the bird's-eye den shows above it ===== */
-#shop.build-mode{align-items:flex-end;justify-content:center;text-align:center;padding:0 0 max(10px,env(safe-area-inset-bottom)) 0;
-  background:linear-gradient(to top, rgba(10,6,18,0.94) 0%, rgba(10,6,18,0.55) 42%, rgba(10,6,18,0) 74%);}
-#shop.build-mode .shop-box{width:min(96vw,940px);max-height:40vh;margin:0;animation:dockUp .3s cubic-bezier(.34,1.45,.6,1) both;}
+#shop.build-mode{align-items:flex-end;justify-content:center;text-align:center;padding:0 0 max(8px,env(safe-area-inset-bottom)) 0;
+  background:linear-gradient(to top, rgba(10,6,18,0.88) 0%, rgba(10,6,18,0.28) 30%, rgba(10,6,18,0) 55%);}
+/* slim, low-profile palette so the ROOM stays the focus */
+#shop.build-mode .shop-box{width:min(96vw,860px);max-height:30vh;margin:0;padding:12px 16px;animation:dockUp .3s cubic-bezier(.34,1.45,.6,1) both;}
+#shop.build-mode .shop-head{padding-bottom:6px;margin-bottom:6px;}
+#shop.build-mode .shop-head h2{font-size:20px;}
+#shop.build-mode .shop-sub{font-size:13px;margin:.1em 0 .6em;}
+#shop.build-mode .build-cat{max-height:16vh;overflow-y:auto;}
 @keyframes dockUp{from{transform:translateY(40px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+/* the floating preview widget is retired — the in-room hologram is the preview */
+#build-preview{display:none !important;}
 
 /* ===== Rotatable 3D build preview ===== */
 #build-preview{position:fixed;top:clamp(8px,3vh,46px);left:50%;transform:translateX(-50%);z-index:30;

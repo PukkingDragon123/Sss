@@ -2,7 +2,7 @@
 // spells/combos/loadout, room, equipment, quests, and the idle tavern tycoon.
 import { UPGRADES } from './upgrades.js';
 // one-way import only — story.js must never import meta.js (would create a cycle)
-import { STAGE_ORDER, STAGES } from './story.js';
+import { STAGE_ORDER, STAGES, STAGES_PER_REGION } from './story.js';
 import { CARDS, CARD_BY_ID, rollCard } from './cards.js';
 import { pickGearVariant } from './pixelicons.js';
 
@@ -898,7 +898,7 @@ export function nextGoals() {
   else if (stationBuilt('library') && RESEARCH.some(x => !researchDone(x.id) && canAffordGems(x.gems))) goals.push({ icon: '🔬', text: 'Fund a research project at your Arcane Library' });
   if (q) goals.push({ icon: '📌', text: `Bounty: ${q.text} (+${q.reward}🪙)` });
   const next = STAGE_ORDER.find(id => !stageCleared(id));
-  if (next) { const best = regionBest(next); goals.push({ icon: '👑', text: `Conquer ${STAGES[next].name}${best > 0 ? ` — best so far: stage ${best}/10` : ''}` }); }
+  if (next) { const best = regionBest(next); goals.push({ icon: '👑', text: `Conquer ${STAGES[next].name}${best > 0 ? ` — best: stage ${best}/${STAGES_PER_REGION}` : ''}` }); }
   if (debt() > 0) goals.push({ icon: '🪙', text: `${debt()} gold of tavern debt left — serve, chat & finish requests` });
   return goals.slice(0, 3);
 }

@@ -80,10 +80,12 @@ export const STAGE_GIMMICKS = [
   { name: 'The Horde',   icon: '💀', desc: 'A relentless tide.',         tint: 'rgba(110,70,150,0.13)', hpMult: 0.75, spawnMult: 1.4, speedMult: 1.0,  dmgMult: 0.9,  mission: 'slayer',  goal: 14, reward: 16 },
   { name: 'Juggernauts', icon: '🪨', desc: 'Slow, huge, hard to drop.',  tint: 'rgba(130,95,60,0.14)',  hpMult: 1.6,  spawnMult: 0.6, speedMult: 0.8,  dmgMult: 1.05, mission: 'speed',   goal: 55, reward: 18 },
   { name: 'Blitz',       icon: '🌪️', desc: 'Fast and many — chaos.',    tint: 'rgba(60,160,200,0.14)', hpMult: 0.8,  spawnMult: 1.2, speedMult: 1.25, dmgMult: 0.95, mission: 'nohit',   goal: 0,  reward: 20 },
+  { name: 'Night Hunt',  icon: '🌙', desc: 'Hunters stalk in packs.',    tint: 'rgba(90,110,200,0.14)', hpMult: 0.95, spawnMult: 1.1, speedMult: 1.15, dmgMult: 1.0,  mission: 'slayer',  goal: 10, reward: 20 },
+  { name: 'Gold Rush',   icon: '✨', desc: 'Clear it fast — fortune favours speed.', tint: 'rgba(220,190,80,0.14)', hpMult: 0.85, spawnMult: 1.05, speedMult: 1.1, dmgMult: 0.95, mission: 'speed',  goal: 50, reward: 24 },
   { name: 'The Gauntlet', icon: '🔥', desc: 'An elite pack guards the lair.', tint: 'rgba(220,90,40,0.15)', hpMult: 1.25, spawnMult: 0.95, speedMult: 1.05, dmgMult: 1.1, mission: 'slayer',  goal: 12, reward: 22 },
   { name: 'Boss Lair',   icon: '👑', desc: 'The champion awaits. End it.', tint: 'rgba(180,40,60,0.17)', hpMult: 0.9,  spawnMult: 1.0, speedMult: 1.0,  dmgMult: 0.95, mission: 'boss',    goal: 0,  reward: 0 },
 ];
-export const STAGES_PER_REGION = 10;
+export const STAGES_PER_REGION = 12; // two more levels per region (12-stage ladder)
 // pick the gimmick for a given 1-based stage number (clamped to the ladder)
 export function gimmickFor(stageNum) {
   const i = Math.max(1, Math.min(STAGE_GIMMICKS.length, stageNum)) - 1;

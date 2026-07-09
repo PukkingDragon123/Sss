@@ -4,9 +4,8 @@
 // entrance + draw-a-glyph lesson. Self-contained: it owns its sets, its actors, and
 // the #cinema DOM.
 import * as THREE from 'three';
-import { outlineGroup } from './outline.js';
 import { pxMap } from './pixeltex.js';
-import { makeFace } from './facesprite.js';
+import { buildCharModel } from './charmodels.js';
 
 const $ = (id) => document.getElementById(id);
 const V = (a) => new THREE.Vector3(a[0], a[1], a[2]);
@@ -54,17 +53,12 @@ export class Cinematics {
     const mugRail = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.08, 0.08), M(0x2a1c10)); mugRail.position.set(-4.5, 2.7, -4.2); bar.add(mugRail);
     for (let i = 0; i < 5; i++) { const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.24, 8), M(0x8a5a34, 0.5)); mug.position.set(-6.3 + i * 0.9, 2.5, -4.2); bar.add(mug); }
 
-    // ---- BARKEEP TOMAS (behind the counter; he speaks in 'scold') ----
-    const tomas = this._tomas = new THREE.Group();
-    const tBody = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 12), M(0x6a4d34)); tBody.position.y = 1.0; tBody.scale.set(1, 1.25, 1); tomas.add(tBody);
-    const tApron = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.7, 0.18), M(0xd8c39a, 0.95)); tApron.position.set(0, 0.95, 0.42); tomas.add(tApron);
-    const tHead = new THREE.Mesh(new THREE.SphereGeometry(0.32, 14, 12), M(0xf0c89a)); tHead.position.y = 1.75; tomas.add(tHead);
-    const tHair = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.07, 6, 14), M(0x6a4326)); tHair.position.set(0, 1.86, 0); tHair.rotation.x = Math.PI / 2; tomas.add(tHair);
-    // goofy 2D face on the head front (his +Z faces the room) — no 3D eye/nose parts
-    const tFace = makeFace(0.44, 'happy', 3); tFace.position.set(0, 1.75, 0.33); tomas.add(tFace);
-    for (const sx of [-1, 1]) { const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.12, 0.5, 4, 8), M(0x6a4d34)); arm.position.set(sx * 0.5, 1.0, 0.18); arm.rotation.z = sx * 0.5; tomas.add(arm); }
+    // ---- BARKEEP TOMAS — the real shared character model (same body as the player's
+    // NPC build), scaled so his face lands where the 'scold' close-up camera looks (~y1.7)
+    const tomas = this._tomas = buildCharModel('barkeep');
+    tomas.scale.multiplyScalar(0.88);
     tomas.position.set(-4.5, 0, -4.4); // behind the counter; +Z front faces out to the room
-    tomas.traverse(o => { if (o.isMesh) o.castShadow = true; }); outlineGroup(tomas, { thick: 0.045 }); bar.add(tomas);
+    bar.add(tomas);
 
     // ---- FIREPLACE (back wall, right of centre) with a live flicker light ----
     const hearth = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.8, 0.7), M(0x52504e, 0.96)); hearth.position.set(3.2, 1.4, -5.7); bar.add(hearth);
@@ -107,15 +101,14 @@ export class Cinematics {
     const slab = new THREE.Mesh(new THREE.BoxGeometry(1.9, 3.4, 0.14), M(0x5a3c22, 0.85)); slab.position.set(0.95, 1.7, 0); panel.add(slab);
     door.add(panel); bar.add(door);
 
-    // ---- patrons on stools (they yell during 'thrown') ----
+    // ---- patrons at the bar (they surge after the wizard during 'thrown') — real
+    // character models with the same shared body as everyone else
     this._patrons = [];
-    for (const [x, c] of [[-2.4, 0x7a8bd0], [-6.6, 0x6fb08a]]) {
-      const p = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 10), M(c)); body.position.y = 1.0; body.scale.set(1, 1.15, 1); p.add(body);
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), M(0xf0d6b8)); head.position.y = 1.62; p.add(head);
-      const pFace = makeFace(0.4, 'happy', (c & 7)); pFace.position.set(0, 1.63, 0.3); p.add(pFace); // goofy 2D face
-      const stool = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.22, 0.7, 10), M(0x5a3a22)); stool.position.y = 0.35; p.add(stool);
-      p.position.set(x, 0, -2.4); p.traverse(o => { if (o.isMesh) o.castShadow = true; }); bar.add(p);
+    for (const [x, kind] of [[-2.4, 'dwarf'], [-6.6, 'barmaid']]) {
+      const p = buildCharModel(kind);
+      p.scale.multiplyScalar(0.88);
+      p.position.set(x, 0, -2.4); p.rotation.y = Math.PI + (x > -4 ? -0.3 : 0.3); // facing the bar
+      bar.add(p);
       this._patrons.push({ mesh: p, home: p.position.clone() });
     }
 
@@ -180,8 +173,7 @@ export class Cinematics {
       const tk = m.metalness > 0.35 ? 'metal' : (c.g > c.r && c.g > c.b) ? 'leaf' : (c.r > 0.32 && c.b < c.r * 0.85) ? 'wood' : (Math.abs(c.r - c.g) < 0.09 && Math.abs(c.g - c.b) < 0.09) ? 'stone' : 'cloth';
       pxMap(m, tk, 2);
     });
-    dress(bar); dress(forest);
-    for (const p of this._patrons) outlineGroup(p.mesh, { thick: 0.045 });
+    dress(bar); dress(forest); // (character models arrive pre-grained + pre-outlined)
   }
 
   _bindDom() {

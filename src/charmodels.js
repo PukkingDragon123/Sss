@@ -95,9 +95,11 @@ function _human(o) {
   const head = S(g, 0.5, skin, 0, hy, hunch, { sy: 0.95, seg: 12, seg2: 10 });
   if (o.hunch) head.rotation.x = 0.14;
 
-  // goofy 2D face — a flat sprite on the head front (replaces all 3D eye/nose/mouth parts)
+  // goofy 2D face — dot eyes + brows + a per-person mouth (replaces all 3D face parts).
+  // Without an explicit faceMood, the seed picks this character's resting expression.
   const _fseed = (((o.robe || 0) >> 3) ^ ((o.skin || 0) >> 5) ^ (o.hat ? o.hat.length : 0)) & 7;
-  const _fmood = o.faceMood || (o.mad ? 'grumpy' : (o.glowEyes ? 'surprised' : 'happy'));
+  const _moods = ['happy', 'neutral', 'grumpy', 'happy', 'surprised', 'happy', 'neutral', 'grumpy'];
+  const _fmood = o.faceMood || (o.mad ? 'grumpy' : (o.glowEyes ? 'surprised' : _moods[_fseed]));
   const face = makeFace(0.64, _fmood, _fseed); face.position.set(0, hy, 0.51 + hunch); g.add(face);
 
   // ears / cat ears / tail (identity kept; face features now live on the 2D sprite)
@@ -215,9 +217,9 @@ function _wisp() {
 const KINDS = {
   // Wobblesworth's portrait mirrors the ACTUAL player rig (wizard.js): soft-purple
   // robe 0x8f7bd6, deep-purple hat 0x6f5fc4, white beard, red nose, blush, gold belt
-  wizard: () => _human({ skin: 0xf2e0c9, robe: 0x8f7bd6, robe2: 0x6f5fc4, hat: 'pointy', hatColor: 0x6f5fc4, beard: 'long', beardColor: 0xf7f4ec, noseColor: 0xe06a55, cheeks: 0xe89a8a, belt: 0xffd98a, acc: 'star' }),
-  // Barkeep Tomas' portrait mirrors his cutscene set model (cinematics.js:61-68)
-  barkeep: () => _human({ skin: 0xf0c89a, robe: 0x6a4d34, apron: 0xd8c39a, beard: 'mustache', beardColor: 0x6a4326, hair: 0x6a4326, wide: true }),
+  wizard: () => _human({ skin: 0xf2e0c9, robe: 0x8f7bd6, robe2: 0x6f5fc4, hat: 'pointy', hatColor: 0x6f5fc4, beard: 'long', beardColor: 0xf7f4ec, noseColor: 0xe06a55, cheeks: 0xe89a8a, belt: 0xffd98a, acc: 'star', faceMood: 'happy' }),
+  // Barkeep Tomas — the SAME model stands in the cutscene bar now (grumpy: he scolds you)
+  barkeep: () => _human({ skin: 0xf0c89a, robe: 0x6a4d34, apron: 0xd8c39a, beard: 'mustache', beardColor: 0x6a4326, hair: 0x6a4326, wide: true, faceMood: 'grumpy' }),
   wisp: () => _wisp(),
   knight: () => _human({ skin: 0xeac49a, robe: 0x7f93b8, robe2: 0x55637e, metalBody: true, hat: 'helm', hatColor: 0x8a97ac, plume: 0xd8434d, belt: 0xd9a84a }),
   witch: () => _human({ skin: 0x8fb868, robe: 0x46285e, robe2: 0x2e1a40, hat: 'wide', hatColor: 0x201432, hair: 0x231b2c, longHair: true, noseColor: 0x6f9a4e, belt: 0xc9a24a }),

@@ -678,6 +678,8 @@ export class Game {
     const choices = rollUpgrades(this, 3);
     this.ui.showLevelUp(choices, (u) => {
       this.applyAbility(u);
+      // every level-up also patches you up a bit — keeps runs generous & moreish
+      this.wizard.heal(Math.round(this.stats.hpMax * 0.2));
       this.pendingLevels--;
       if (this.pendingLevels > 0) this._openLevelUp();
       else this.state = 'play';
@@ -2622,8 +2624,8 @@ export class Game {
     if (r < 0.68) return { kind: 'gear', inst: meta.genGear(null, 'common', lvl), tier: 'common' };
     if (r < 0.83) return { kind: 'gems', amount: 26 + Math.floor(Math.random() * 20) + depth * 3, tier: 'rare' };
     if (r < 0.93) return { kind: 'gear', inst: meta.genGear(null, Math.random() < 0.55 ? 'rare' : 'epic', lvl), tier: 'epic' };
-    if (r < 0.98) { const which = Math.random() < 0.5 ? 'heart' : 'brew'; return { kind: which, tier: 'epic' }; }
-    // 2% JACKPOT — a legendary piece and a fistful of gems
+    if (r < 0.96) { const which = Math.random() < 0.5 ? 'heart' : 'brew'; return { kind: which, tier: 'epic' }; }
+    // 4% JACKPOT — a legendary piece and a fistful of gems (rare enough to chase, common enough to hit)
     return { kind: 'gear', inst: meta.genGear(null, 'legendary', lvl), tier: 'legendary', bonusGems: 30 };
   }
 

@@ -1025,6 +1025,17 @@ body::after{content:"";position:fixed;inset:0;z-index:4;pointer-events:none;
   32%{transform:translateX(-50%) translateY(-4px) scale(1) rotate(var(--tilt,0deg));}
   72%{opacity:.95;}100%{opacity:0;transform:translateX(-50%) translateY(-58px) scale(1.02) rotate(var(--tilt,0deg));}}
 
+/* ===== living, magical UI — panels breathe, runes shimmer ===== */
+#shop.magic-shop .shop-box::after{content:"";position:absolute;inset:-4px;border-radius:inherit;pointer-events:none;
+  border:1.5px solid color-mix(in srgb,var(--shop-accent,#b79bff) 55%,transparent);
+  animation:runeBreathe 3.4s ease-in-out infinite;}
+@keyframes runeBreathe{0%,100%{opacity:.25;transform:scale(1);}50%{opacity:.8;transform:scale(1.004);}}
+#quest-tracker{animation:trackerGlow 4.5s ease-in-out infinite;}
+@keyframes trackerGlow{0%,100%{box-shadow:0 6px 18px rgba(0,0,0,.45);}50%{box-shadow:0 6px 18px rgba(0,0,0,.45),0 0 16px rgba(155,123,255,.28);}}
+#title .swipe-hint{font-size:13px;color:var(--magic);letter-spacing:2px;margin-top:6px;opacity:.85;
+  animation:swipeNudge 2.6s ease-in-out infinite;}
+@keyframes swipeNudge{0%,100%{transform:translateX(0);opacity:.55;}50%{transform:translateX(7px);opacity:.95;}}
+
 /* ===== handmade indie touches — nothing sits perfectly straight ===== */
 #title .game-title{transform:rotate(-1.6deg);}
 #title .tagline{transform:rotate(-.4deg);}

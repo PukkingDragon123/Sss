@@ -1038,6 +1038,8 @@ export class Game {
     this.tavern.showRoom(false);
     this.arenaGroup.visible = false;
     this.world.show(false);
+    if (this._titleLib) this._titleLib.visible = false; // stow the title dioramas
+    if (this.cine && this.cine.bar) this.cine.bar.visible = false;
     this.input.pointMode = false;
     this.wizard.reset(this.stats);
     this.wizard.setEquipment(meta.equippedGearFull()); // show worn gear in the hub too
@@ -1401,6 +1403,8 @@ export class Game {
     this.bossActive = false; this.bossCine = 0; this._endState = null; this._exiting = false; this._lastCast = null;
     this.enemies.clear(); this.spells.reset(); this._clearPickups(); this.director.reset(); this._disposeLootChest();
     this.world.show(false); this.tavern.show(false); this.tavern.showRoom(false); this.arenaGroup.visible = true;
+    if (this._titleLib) this._titleLib.visible = false;
+    if (this.cine && this.cine.bar) this.cine.bar.visible = false;
     this.wizard.setVisible(true);
     this.wizard.reset(this.stats); this.wizard.pos.set(0, 0, 0);
     this.input.pointMode = false;
@@ -2228,12 +2232,23 @@ export class Game {
       }
       return;
     }
-    // tavern chat: dolly in on the patron you're talking to (cinematic conversation shot)
+    // title diorama: a quiet arcane library — swipe and the camera glides to the tavern
+    if (this.state === 'title') {
+      const p = this._titleSlideS || 0;
+      const k = p * p * (3 - 2 * p); // smoothstep — the glide eases both ways
+      const arc = Math.sin(k * Math.PI); // swing OUT and over mid-glide, clearing the tavern's outer wall
+      const px = -34 + 34.6 * k;
+      this.camera.position.lerp(new THREE.Vector3(px + 1.2, 2.5 + k * 0.3 + arc * 1.8, 7.6 + k * 1.2 + arc * 7), Math.min(1, dt * 3.5));
+      this.camera.rotation.z = 0;
+      this.camera.lookAt(px - 0.6, 1.8, -2.4);
+      return;
+    }
+    // tavern chat: dolly in on the patron you're talking to (framed for the tall build)
     if (this._chatNpc && this._chatNpc.pos) {
       const p = this._chatNpc.pos;
-      this.camera.position.lerp(new THREE.Vector3(p.x + 3.0, 4.0, p.z + 5.2), Math.min(1, dt * 2.6));
+      this.camera.position.lerp(new THREE.Vector3(p.x + 3.0, 4.3, p.z + 5.0), Math.min(1, dt * 2.6));
       this.camera.rotation.z = 0;
-      this.camera.lookAt(p.x, 1.6, p.z);
+      this.camera.lookAt(p.x, 2.0, p.z);
       return;
     }
     // tavern intro: a slow cinematic orbit of the room before you take control
@@ -2696,47 +2711,112 @@ export class Game {
   }
 
   // ---- animated title screen: a drunk wizard auto-blasting waves of foes ----
+  // the title screen is a living diorama: the wizard's arcane LIBRARY, and a swipe
+  // slides you over to peek into the tavern (the dressed cutscene bar set)
   enterDemo() {
     this.phase = 'arena';
     this.tavernReady = true; this._openingCine = false; this.bossCine = 0;
     this.stats = DEFAULT_STATS();
-    this.tavern.show(false);
-    this.tavern.showRoom(false);
-    this.world.show(false);
-    this.arenaGroup.visible = true;
-    this._applyStageTheme(STAGES.forest);
-    this.camOffset.set(0, 26, 22);
+    this.tavern.show(false); this.tavern.showRoom(false); this.world.show(false);
+    this.arenaGroup.visible = false;
     this.enemies.clear(); this.spells.reset(); this._clearPickups();
+    this.cine.bar.visible = true;
+    if (!this._titleLib) this._titleLib = this._buildTitleLibrary();
+    this._titleLib.visible = true;
+    this._titleSlide = 0; this._titleSlideS = 0; this._titleT = 0;
+    this._setMood('tavern');
+    this._aimShadow(-20, 20, 10, 34);
     this.wizard.reset(this.stats);
-    this.wizard.setEquipment(meta.equippedGearFull()); // title-screen wizard wears your gear
+    this.wizard.setEquipment(meta.equippedGearFull()); // the title wizard wears your gear
     this.wizard.setVisible(true);
+    this.wizard.pos.set(-32.4, 0, -0.8); this.wizard.yaw = 2.5; // browsing his own library
+    this.input.pointMode = true; // one-finger drag / wheel slides library ⟷ tavern
     this.recognizer = new Recognizer();
     this.recognizer.add('triangle', TEMPLATES.triangle);
-    this._demoSpawn = 0.5; this._demoCast = 1; this._demoMove = 0;
     this.activeCombos = [];
   }
 
+  // the little arcane library diorama that hosts the title menu
+  _buildTitleLibrary() {
+    const g = new THREE.Group(); g.position.set(-34, 0, 0); this.scene.add(g);
+    const M = (c, r = 0.9, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: o.metal || 0, emissive: o.emis || 0x000000, emissiveIntensity: o.emisI != null ? o.emisI : 1, flatShading: true });
+    const glow = (c, o = 0.9) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false });
+    g.userData = { books: [], motes: [] };
+    // floor + rug + walls (a snug candle-lit study)
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(18, 18), M(0x3a2a1a, 0.95)); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; g.add(floor);
+    const rug = new THREE.Mesh(new THREE.CircleGeometry(3.2, 18), M(0x4a2a4e, 0.95)); rug.rotation.x = -Math.PI / 2; rug.position.set(0.4, 0.02, -0.6); g.add(rug);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(18, 10, 0.5), M(0x42301f, 0.95)); back.position.set(0, 4, -6); g.add(back);
+    const side = new THREE.Mesh(new THREE.BoxGeometry(0.5, 10, 18), M(0x3a2a1a, 0.95)); side.position.set(-9, 4, -1); g.add(side);
+    // three towering bookcases stuffed with pixel spines
+    const spineCols = [0x8a3a3a, 0x3a6a8a, 0xc9a24a, 0x4a7a4a, 0x7a4ea0, 0xd07a4a];
+    for (let s = 0; s < 3; s++) {
+      const bx = -4.6 + s * 4.4;
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(3.4, 6.4, 0.9), M(0x5a3a22, 0.9)); frame.position.set(bx, 3.2, -5.3); frame.castShadow = true; g.add(frame);
+      for (let row = 0; row < 5; row++) {
+        const shelfY = 0.9 + row * 1.18;
+        const shelf = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.1, 0.8), M(0x4a3018, 0.9)); shelf.position.set(bx, shelfY, -5.2); g.add(shelf);
+        let x0 = bx - 1.35;
+        while (x0 < bx + 1.2) { // a run of mismatched book spines
+          const w = 0.16 + Math.random() * 0.18, h = 0.62 + Math.random() * 0.34;
+          const book = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.5), M(spineCols[(Math.random() * spineCols.length) | 0], 0.85));
+          book.position.set(x0 + w / 2, shelfY + h / 2 + 0.06, -5.2); book.rotation.z = (Math.random() - 0.5) * 0.06; g.add(book);
+          x0 += w + 0.035;
+        }
+      }
+    }
+    // reading desk + open tome + candle
+    const desk = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.16, 1.3), M(0x6a4526, 0.85)); desk.position.set(2.6, 1.05, -1.6); desk.castShadow = true; g.add(desk);
+    for (const [lx, lz] of [[-1, -0.5], [1, -0.5], [-1, 0.5], [1, 0.5]]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.0, 6), M(0x5a3a22)); leg.position.set(2.6 + lx, 0.5, -1.6 + lz * 0.5); g.add(leg); }
+    for (const sx of [-1, 1]) { const page = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.05, 0.7), M(0xefe6cf, 0.95)); page.position.set(2.6 + sx * 0.27, 1.16, -1.6); page.rotation.z = sx * 0.08; g.add(page); }
+    const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.34, 8), M(0xefe0c0, 0.9)); candle.position.set(3.5, 1.3, -1.9); g.add(candle);
+    const flame = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), glow(0xffd9a0, 0.95)); flame.position.set(3.5, 1.55, -1.9); g.add(flame);
+    const candleLight = new THREE.PointLight(0xffca88, 1.2, 10); candleLight.position.set(3.5, 1.8, -1.6); g.add(candleLight);
+    g.userData.candle = candleLight;
+    // a floating arcane orb on a stand — the library's heart
+    const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.3, 1.2, 8), M(0x4a4a60, 0.8)); stand.position.set(-2.6, 0.6, -2.2); g.add(stand);
+    const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.34, 1), glow(0x9fd8ff, 0.9)); orb.position.set(-2.6, 1.6, -2.2); g.add(orb); g.userData.orb = orb;
+    const orbLight = new THREE.PointLight(0x8fd0ff, 1.0, 9); orbLight.position.set(-2.6, 1.9, -2.2); g.add(orbLight);
+    // enchanted books circling the orb + drifting dust motes
+    for (let i = 0; i < 3; i++) {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.1, 0.46), M(spineCols[i * 2], 0.85));
+      b.userData = { ox: -2.6, oy: 2.1 + i * 0.3, oz: -2.2 }; b.castShadow = true; g.add(b); g.userData.books.push(b);
+    }
+    for (let i = 0; i < 9; i++) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 5), glow(0xffe6b0, 0.5));
+      m.position.set(-4 + Math.random() * 9, 0.8 + Math.random() * 3.4, -5 + Math.random() * 4.5);
+      m.userData = { oy: m.position.y, sp: 0.5 + Math.random() * 0.8 }; g.add(m); g.userData.motes.push(m);
+    }
+    // pixel grain on the woodwork (same dressing pass as every other set)
+    g.traverse((o) => {
+      if (!o.isMesh || !o.material || !o.material.isMeshStandardMaterial) return;
+      const m = o.material; if (m.map || m.transparent || (m.emissive && m.emissive.getHex() !== 0)) return;
+      const c = m.color;
+      pxMap(m, (c.r > 0.32 && c.b < c.r * 0.85) ? 'wood' : 'cloth', 2);
+    });
+    return g;
+  }
+
   _updateDemo(dt) {
-    // wander the wizard a little
-    this._demoMove -= dt;
-    if (this._demoMove <= 0) { this._demoMove = 1.5 + Math.random() * 2; this._demoDir = new THREE.Vector3((Math.random() - 0.5), 0, (Math.random() - 0.5)); }
-    if (this._demoDir) { this.wizard.vel.addScaledVector(this._demoDir, 18 * dt); }
-    // spawn foes
-    this._demoSpawn -= dt;
-    if (this._demoSpawn <= 0 && this.enemies.count() < 14) { this._demoSpawn = 1.0; this.enemies.spawn(Math.random() < 0.7 ? 'goblin' : 'bat', 1, this.wizard.pos, this); }
-    // auto-aim + auto-cast
-    const near = this.enemies.nearest(this.wizard.pos, 40);
-    if (near) this.aimPoint.set(near.mesh.position.x, 0, near.mesh.position.z);
-    this._demoCast -= dt;
-    if (this._demoCast <= 0 && near) { this._demoCast = 0.55 + Math.random() * 0.35; this.wizard.mana = this.stats.manaMax; this._castAt('fireball', this.aimPoint, { accuracy: 0.85 }); }
-    // sim
+    // one-finger drag / wheel slides the view: library (0) ⟷ tavern (1)
+    const o = this.input.consumeOrbit();
+    const z = this.input.consumeZoom ? this.input.consumeZoom() : 0;
+    this._titleSlide = Math.max(0, Math.min(1, (this._titleSlide || 0) - (o.dx || 0) * 0.0016 + z * 0.0006));
+    this._titleSlideS = this._titleSlideS == null ? this._titleSlide : this._titleSlideS + (this._titleSlide - this._titleSlideS) * Math.min(1, dt * 5);
+    this._titleT = (this._titleT || 0) + dt;
+    const t = this._titleT;
+    // library life: books orbit the orb, the candle gutters, dust drifts
+    const lib = this._titleLib;
+    if (lib && lib.visible) {
+      const ud = lib.userData;
+      ud.books.forEach((b, i) => { const a = t * 0.55 + i * 2.1; b.position.set(b.userData.ox + Math.cos(a) * 0.62, b.userData.oy + Math.sin(t * 1.3 + i) * 0.16, b.userData.oz + Math.sin(a) * 0.62); b.rotation.y = a + 1.2; b.rotation.z = Math.sin(t + i) * 0.16; });
+      if (ud.orb) { ud.orb.rotation.y += dt * 0.8; ud.orb.material.opacity = 0.72 + Math.sin(t * 2.2) * 0.2; }
+      if (ud.candle) ud.candle.intensity = 1.15 + Math.sin(t * 9 + Math.sin(t * 3.3) * 2) * 0.22;
+      ud.motes.forEach((m, i) => { m.position.y = m.userData.oy + Math.sin(t * m.userData.sp + i) * 0.4; m.material.opacity = 0.3 + Math.abs(Math.sin(t * 1.4 + i * 1.3)) * 0.3; });
+    }
+    // the tavern hearth breathes over in the other diorama
+    const c = this.cine;
+    if (c && c._fire) { const f = 0.92 + Math.sin(t * 11) * 0.1 + Math.sin(t * 23) * 0.05; c._fire.scale.set(f, 1 + (f - 0.92) * 1.8, f); if (c._fireLight) c._fireLight.intensity = 2.1 + (f - 0.92) * 4; }
     this.wizard.update(dt, this);
-    this.enemies.update(dt, this);
-    this.spells.update(dt, this);
-    this._updatePickups(dt);
     this.particles.update(dt);
-    this._ambientFX(dt); // drifting motes on the title so the menu feels alive
-    // the demo wizard is immortal
-    this.wizard.hp = this.stats.hpMax; this.wizard.alive = true; this.wizard.invuln = 1;
   }
 }

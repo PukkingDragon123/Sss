@@ -100,7 +100,7 @@ function _human(o) {
   const _fseed = (((o.robe || 0) >> 3) ^ ((o.skin || 0) >> 5) ^ (o.hat ? o.hat.length : 0)) & 7;
   const _moods = ['happy', 'neutral', 'grumpy', 'happy', 'surprised', 'happy', 'neutral', 'grumpy'];
   const _fmood = o.faceMood || (o.mad ? 'grumpy' : (o.glowEyes ? 'surprised' : _moods[_fseed]));
-  const face = makeFace(0.64, _fmood, _fseed); face.position.set(0, hy, 0.51 + hunch); g.add(face);
+  const face = makeFace(0.72, _fmood, _fseed); face.position.set(0, hy, 0.51 + hunch); g.add(face);
 
   // ears / cat ears / tail (identity kept; face features now live on the 2D sprite)
   if (o.ears) { CONE(g, 0.1, 0.3, skin, -0.5, hy + 0.08, 0, { rotZ: 1.25, seg: 6 }); CONE(g, 0.1, 0.3, skin, 0.5, hy + 0.08, 0, { rotZ: -1.25, seg: 6 }); }
@@ -130,8 +130,8 @@ function _human(o) {
   // post-process: transparency (ghost) + shadow opt-out
   if (o.opacity != null) g.traverse(m => { if (m.material) { m.material.transparent = true; m.material.opacity = o.opacity; } });
   if (o.noShadow) g.traverse(m => { if (m.isMesh) m.castShadow = false; });
-  // stand taller than the old squat chibi — a touch bigger and noticeably taller (adult-ish)
-  const s = o.scale ?? 1; g.scale.set(s * 1.06, s * 1.26, s * 1.06);
+  // the ONE body everyone shares: tall low-poly build, matching the player's proportions
+  const s = o.scale ?? 1; g.scale.set(s * 1.06, s * 1.42, s * 1.06);
   g.userData.limbs = limbs; // { legL, legR, armL, armR, handL, handR } for walk/sit/drink anim
   return g;
 }
@@ -285,7 +285,7 @@ function ensureRig() {
     renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
     const scene = new THREE.Scene();
     const cam = new THREE.PerspectiveCamera(32, 1, 0.1, 50);
-    cam.position.set(1.15, 1.55, 4.6); cam.lookAt(0, 1.2, 0); // full body incl. tall hats
+    cam.position.set(1.25, 1.8, 5.3); cam.lookAt(0, 1.4, 0); // full TALL body incl. pointy hats
     const key = new THREE.DirectionalLight(0xfff0d8, 2.2); key.position.set(2.5, 4, 3); scene.add(key);
     const rim = new THREE.DirectionalLight(0xbfe0ff, 0.9); rim.position.set(-2, 2, -2); scene.add(rim);
     scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x2a2230, 1.0));

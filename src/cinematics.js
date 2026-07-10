@@ -56,7 +56,7 @@ export class Cinematics {
     // ---- BARKEEP TOMAS — the real shared character model (same body as the player's
     // NPC build), scaled so his face lands where the 'scold' close-up camera looks (~y1.7)
     const tomas = this._tomas = buildCharModel('barkeep');
-    tomas.scale.multiplyScalar(0.88);
+    tomas.scale.multiplyScalar(0.78);
     tomas.position.set(-4.5, 0, -4.4); // behind the counter; +Z front faces out to the room
     bar.add(tomas);
 
@@ -106,7 +106,7 @@ export class Cinematics {
     this._patrons = [];
     for (const [x, kind] of [[-2.4, 'dwarf'], [-6.6, 'barmaid']]) {
       const p = buildCharModel(kind);
-      p.scale.multiplyScalar(0.88);
+      p.scale.multiplyScalar(0.78);
       p.position.set(x, 0, -2.4); p.rotation.y = Math.PI + (x > -4 ? -0.3 : 0.3); // facing the bar
       bar.add(p);
       this._patrons.push({ mesh: p, home: p.position.clone() });

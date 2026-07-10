@@ -759,6 +759,13 @@ export class Tavern {
     }
     if (seated) qn.mesh.position.set(qn.pos.x, -0.16, qn.pos.z); // sunk down = sitting
     if (qn.state !== 'mad') qn.mesh.rotation.z = Math.sin(qn.phase) * 0.04;
+    // alive: patrons turn to face the wizard when he wanders close (unless marching somewhere)
+    const wdx = game.wizard.pos.x - qn.pos.x, wdz = game.wizard.pos.z - qn.pos.z;
+    if (anim !== 'walk' && wdx * wdx + wdz * wdz < 3.4 * 3.4) {
+      const want = Math.atan2(wdx, wdz);
+      const diff = ((want - qn.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      qn.yaw += diff * Math.min(1, dt * 5);
+    }
     qn.mesh.rotation.y = qn.yaw;
     this._animLimbs(qn.mesh.userData.limbs, anim, qn.phase, qn.mug, intens);
     qn.marker.position.y = 2.5 + Math.sin(this.phase * 3 + qn.pos.x) * 0.14;

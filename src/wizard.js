@@ -122,7 +122,7 @@ export class Wizard {
     const skull = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.44, 12, 9), skinMat));
     head.add(skull);
     // goofy 2D face (flat sprite on the head front) — no 3D eye/nose parts
-    const face = makeFace(0.62, 'happy', 1); face.position.set(0, 0.04, 0.45); head.add(face);
+    const face = makeFace(0.7, 'happy', 1); face.position.set(0, 0.04, 0.45); head.add(face);
     const beard = shadowed(new THREE.Mesh(new THREE.ConeGeometry(0.36, 0.62, 8), whiteMat));
     beard.position.set(0, -0.36, 0.2); beard.rotation.x = -0.2;
     head.add(beard);

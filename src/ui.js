@@ -331,17 +331,17 @@ export class UI {
   setDrinkProg(f) { if (this.el.drinkBarFill) this.el.drinkBarFill.style.width = Math.round(f * 100) + '%'; }
   hideDrinkBar() { if (this.el.drinkBar) this.el.drinkBar.classList.add('hidden'); }
 
-  critToast() {
-    const t = document.createElement('div');
-    t.className = 'toast crit'; t.textContent = '✦ PERFECT — CRIT! ✦';
-    this.el.toastArea.appendChild(t); setTimeout(() => t.remove(), 1700);
-  }
-  accuracyToast(acc) {
-    const label = acc >= 0.92 ? 'Clean!' : acc >= 0.8 ? 'Nice' : acc >= 0.65 ? 'Sloppy…' : 'Messy!';
-    const color = acc >= 0.92 ? '#6ee7a0' : acc >= 0.8 ? '#cde87a' : acc >= 0.65 ? '#ffcf5c' : '#ff9a6a';
-    const t = document.createElement('div');
-    t.className = 'toast acc'; t.textContent = label; t.style.color = color;
-    this.el.toastArea.appendChild(t); setTimeout(() => t.remove(), 1100);
+  // the spell's NAME drifts up in glowing arcane script when you cast — no toast boxes,
+  // no "clean/sloppy" grading text. Crit = bigger, gold, flanked by flourishes.
+  castWord(text, { color = '#c9b6ff', crit = false, big = false } = {}) {
+    const w = document.createElement('div');
+    w.className = 'cast-word' + (crit ? ' crit' : '') + (big ? ' big' : '');
+    w.textContent = crit || big ? `✦ ${text} ✦` : text;
+    w.style.setProperty('--cw', color);
+    w.style.left = `calc(50% + ${Math.round((Math.random() - 0.5) * 90)}px)`;
+    w.style.setProperty('--tilt', ((Math.random() - 0.5) * 6).toFixed(1) + 'deg');
+    document.body.appendChild(w); // body, not #toast-area (its transform breaks position:fixed)
+    setTimeout(() => w.remove(), crit || big ? 1300 : 950);
   }
 
   hideLoading() { this.el.loading.classList.add('hidden'); }
@@ -1266,11 +1266,7 @@ export class UI {
     this.el.end.classList.remove('hidden');
   }
 
-  comboToast(name) {
-    const t = document.createElement('div');
-    t.className = 'toast crit'; t.innerHTML = `${iconImg('bolt', {}, 'sm')} COMBO: ${name}!`;
-    this.el.toastArea.appendChild(t); this.burstFX(t, 'fire', 12); setTimeout(() => t.remove(), 1700);
-  }
+  comboToast(name) { this.castWord(name, { color: '#ffd36b', big: true }); } // combos announce in arcane script too
   lootToast(gear) {
     const rc = meta.RARITIES[gear.rarity];
     const t = document.createElement('div');

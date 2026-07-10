@@ -570,8 +570,8 @@ export class Game {
   // dpr1 and dpr2 (the old pr-multiplied math made dpr1 round to 1 = no pixelation at all).
   _setPixel(mode) {
     const pr = this._pr || this.renderer.getPixelRatio() || 1;
-    const cssBlock = mode === 'arena' ? 1 : 1.5;          // very light pixelation: barely-there texture
-    const n = Math.max(1, Math.round(cssBlock * pr));      // device px; 1 = essentially no pixelation
+    const cssBlock = mode === 'arena' ? 1.5 : 2;           // proper chunky pixel-art render (still legible in the fight)
+    const n = Math.max(1, Math.round(cssBlock * pr));      // device px
     this._pixelWant = n;
     if (this._pixelPass) this._pixelPass.setPixelSize(n);
   }
@@ -2011,15 +2011,13 @@ export class Game {
         const accuracy = Math.max(0.5, Math.min(1, (res.score - 0.6) / (0.92 - 0.6) * 0.5 + 0.5));
         const crit = res.score >= 0.9;
         this._castAt(id, this.gestureAim, { accuracy, crit });
-        const channeled = this._maybeChannelShrine(); // drawing at the shrine claims a relic
-        if (!crit && !channeled) this.ui.accuracyToast(accuracy);
+        this._maybeChannelShrine(); // drawing at the shrine claims a relic
         return;
       }
       if (id) { this.ui.wispSay(`✋ ${SPELLS[id].name} is not equipped. Learn it at the Spell Table.`, { tone: 'warn' }); this.audio.play('hiccup'); return; }
     }
-    // a fizzle — show a little puff so it still feels responsive
+    // a fizzle — just a puff and a hiccup, no nagging text
     this.audio.play('hiccup');
-    this.ui.wispSay('The glyph fizzles. Try a cleaner line.', { tone: 'warn' });
     const hp = this.wizard.handPosition();
     this.particles.burst({ pos: hp, color: 0x6a5a82, count: 6, speed: 2, size: 0.2, life: 0.5, grav: 1, blend: 'normal' });
   }
@@ -2038,6 +2036,8 @@ export class Game {
       const sm = meta.SPELL_META[id]; const el = sm && sm.element;
       const eCol = (el && meta.ELEMENTS[el]) ? new THREE.Color(meta.ELEMENTS[el].color).getHex() : 0xbfa3ff;
       const col = crit ? 0xffd36b : eCol;
+      // the spell's name drifts up in arcane script (replaces the old crit/sloppy toasts)
+      this.ui.castWord(SPELLS[id].name, { color: '#' + col.toString(16).padStart(6, '0'), crit });
       this.particles.burst({ pos: hp, color: col, count: crit ? 14 : 7, speed: crit ? 7 : 4.5, size: crit ? 0.28 : 0.2, life: 0.34, up: 1, blend: 'add', floor: false });
       this.particles.ring({ pos: hp, color: col, r0: 0.12, r1: crit ? 1.5 : 0.9, life: 0.26 });
       // a short trail from the hand toward the aim point sells the cast direction
@@ -2079,51 +2079,76 @@ export class Game {
   }
 
   // ---------- gesture trail rendering ----------
-  _drawTrail() {
+  // the glyph you draw is a ribbon of living magic: a smoothed, glowing stroke with
+  // stardust spilling off the pen tip (sparks linger a moment after you let go)
+  _drawTrail(dt = 0.016) {
     const ctx = this.fxctx;
     ctx.clearRect(0, 0, this.fx2d.width, this.fx2d.height);
     this._live = null;
-    if (this.phase !== 'arena' || !this.input.drawing || this.input.points.length < 2) return;
+    const drawing = this.phase === 'arena' && this.input.drawing && this.input.points.length >= 2;
+
+    // ---- stardust sparks (persist briefly after release) ----
+    if (!this._sparks) this._sparks = [];
+    if (drawing) {
+      const last = this.input.points[this.input.points.length - 1];
+      for (let k = 0; k < 2; k++) this._sparks.push({ x: last.x + (Math.random() - 0.5) * 8, y: last.y + (Math.random() - 0.5) * 8, vx: (Math.random() - 0.5) * 40, vy: -20 - Math.random() * 40, life: 0.45 + Math.random() * 0.3, max: 0.7 });
+    }
+    for (let i = this._sparks.length - 1; i >= 0; i--) {
+      const s = this._sparks[i]; s.life -= dt; if (s.life <= 0) { this._sparks.splice(i, 1); continue; }
+      s.x += s.vx * dt; s.y += s.vy * dt;
+      const a = Math.max(0, s.life / s.max);
+      ctx.fillStyle = `rgba(220,205,255,${(a * 0.9).toFixed(2)})`;
+      ctx.fillRect(s.x - 1.5, s.y - 1.5, 3, 3); // square = pixel stardust
+    }
+    if (!drawing) return;
     const pts = this.input.points;
 
-    // live prediction — recolour the trail by how clean the glyph is
-    let rgb = [180, 170, 200];
+    // live prediction — the ribbon warms toward gold as the glyph gets cleaner
+    let rgb = [190, 175, 235];
     if (pts.length >= 7) {
       const res = this.recognizer.recognize(pts);
       if (res && res.score > 0.5) {
         const id = GESTURE_TO_SPELL[res.name];
         if (id && this.unlocked.has(id)) {
           this._live = { id, score: res.score };
-          rgb = res.score >= 0.9 ? [255, 216, 120] : res.score >= 0.75 ? [120, 240, 150] : res.score >= 0.6 ? [240, 220, 120] : [220, 150, 120];
-        } else if (id) { this._live = { id, score: res.score, locked: true }; rgb = [210, 120, 120]; }
+          rgb = res.score >= 0.9 ? [255, 216, 120] : res.score >= 0.75 ? [190, 230, 170] : [200, 185, 240];
+        } else if (id) { this._live = { id, score: res.score, locked: true }; rgb = [210, 130, 130]; }
       }
     }
     const c = rgb.join(',');
 
+    // smoothed path: quadratic curves through midpoints (silky, no elbows)
+    const path = () => {
+      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length - 1; i++) { const p = pts[i], q = pts[i + 1]; ctx.quadraticCurveTo(p.x, p.y, (p.x + q.x) / 2, (p.y + q.y) / 2); }
+      const l = pts[pts.length - 1]; ctx.lineTo(l.x, l.y);
+    };
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    ctx.strokeStyle = `rgba(${c},0.30)`; ctx.lineWidth = 16;
-    ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    // layered glow: a wide soft aura, a mid bloom, then the bright living core
+    ctx.save();
+    ctx.shadowColor = `rgba(${c},0.9)`; ctx.shadowBlur = 18;
+    ctx.strokeStyle = `rgba(${c},0.16)`; ctx.lineWidth = 22; path(); ctx.stroke();
+    ctx.strokeStyle = `rgba(${c},0.34)`; ctx.lineWidth = 10; path(); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,252,240,0.95)`; ctx.lineWidth = 3.5; path(); ctx.stroke();
+    ctx.restore();
+    // the ink's start is a little rune ring; the pen tip a four-point star
+    const p0 = pts[0], last = pts[pts.length - 1];
+    ctx.strokeStyle = `rgba(${c},0.9)`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(p0.x, p0.y, 8, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,252,240,0.95)'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(last.x - 9, last.y); ctx.lineTo(last.x + 9, last.y);
+    ctx.moveTo(last.x, last.y - 9); ctx.lineTo(last.x, last.y + 9);
     ctx.stroke();
-    ctx.strokeStyle = `rgba(${c},0.95)`; ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-    ctx.stroke();
-    // start dot (green) + pen-tip dot
-    ctx.fillStyle = 'rgba(120,240,150,0.95)';
-    ctx.beginPath(); ctx.arc(pts[0].x, pts[0].y, 7, 0, Math.PI * 2); ctx.fill();
-    const last = pts[pts.length - 1];
-    ctx.fillStyle = `rgba(${c},1)`;
-    ctx.beginPath(); ctx.arc(last.x, last.y, 6, 0, Math.PI * 2); ctx.fill();
 
-    // predicted-spell label at the pen tip
+    // predicted-spell whisper at the pen tip
     if (this._live) {
       const s = SPELLS[this._live.id];
-      ctx.font = 'bold 26px "Trebuchet MS", sans-serif';
+      ctx.font = 'italic bold 22px "Trebuchet MS", sans-serif';
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = `rgba(${c},1)`;
-      const label = this._live.locked ? `${s.name} (locked)` : (this._live.score >= 0.9 ? `${s.glyph} ${s.name}  ✦CRIT` : `${s.glyph} ${s.name}`);
-      ctx.fillText(label, last.x + 16, last.y - 18);
+      ctx.fillStyle = `rgba(${c},0.95)`;
+      const label = this._live.locked ? `${s.name} (locked)` : (this._live.score >= 0.9 ? `✦ ${s.name}` : s.name);
+      ctx.fillText(label, last.x + 18, last.y - 18);
     }
   }
 
@@ -2296,7 +2321,7 @@ export class Game {
     // cutscenes drive their own camera, actors & render — bypass the normal loop
     if (this.state === 'cutscene') { this.cine.update(dt); return; }
     this._updateAim();
-    this._drawTrail();
+    this._drawTrail(dt);
     if (this.bossCine > 0) this.bossCine -= dt;
 
     // slow-mo while drawing a glyph, or during the boss reveal (forest fight only)

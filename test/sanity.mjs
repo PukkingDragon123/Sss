@@ -90,7 +90,7 @@ ok(UPGRADES.length >= 12, `upgrade pool is large enough (${UPGRADES.length})`);
 // ---- party minigames (pure logic; canvas draw is never called here) ----
 console.log('Minigames:');
 const lcg = (seed) => { let s = seed >>> 0; return () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff); };
-ok(MINIGAME_KEYS.length === 10, `exactly 10 minigames (${MINIGAME_KEYS.length})`);
+ok(MINIGAME_KEYS.length === 12, `exactly 12 minigames (${MINIGAME_KEYS.length})`);
 for (const k of MINIGAME_KEYS) {
   const mg = MINIGAMES[k];
   ok(typeof mg.init === 'function' && typeof mg.update === 'function' && typeof mg.onInput === 'function', `${k}: has init/update/onInput`);

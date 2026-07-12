@@ -899,6 +899,7 @@ export function nextGoals() {
   if (q) goals.push({ icon: '📌', text: `Bounty: ${q.text} (+${q.reward}🪙)` });
   const next = STAGE_ORDER.find(id => !stageCleared(id));
   if (next) { const best = regionBest(next); goals.push({ icon: '👑', text: `Conquer ${STAGES[next].name}${best > 0 ? ` — best: stage ${best}/${STAGES_PER_REGION}` : ''}` }); }
+  else goals.unshift({ icon: '👑', text: 'All 8 realms conquered — the land is saved!' });
   if (debt() > 0) goals.push({ icon: '🪙', text: `${debt()} gold of tavern debt left — serve, chat & finish requests` });
   return goals.slice(0, 3);
 }

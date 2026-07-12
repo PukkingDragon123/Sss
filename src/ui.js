@@ -859,6 +859,19 @@ export class UI {
     this._chestRewardT = setTimeout(finish, tier === 'legendary' ? 4200 : 3000);
   }
 
+  // YOUR QUEST splash — stamps the game's two goals once, right after the intro scold.
+  showGoalSplash(onDone) {
+    if (meta.hasSeen && meta.hasSeen('goalsplash')) { if (onDone) onDone(); return; }
+    if (meta.markSeen) meta.markSeen('goalsplash');
+    const el = document.getElementById('goal-splash'); if (!el) { if (onDone) onDone(); return; }
+    el.classList.remove('hidden'); void el.offsetWidth; el.classList.add('show');
+    if (this.game && this.game.audio) this.game.audio.play('levelup');
+    let done = false;
+    const finish = () => { if (done) return; done = true; el.classList.remove('show'); setTimeout(() => el.classList.add('hidden'), 320); if (onDone) onDone(); };
+    el.addEventListener('click', finish, { once: true });
+    setTimeout(finish, 4200);
+  }
+
   // hub prompt: show what the wizard can interact with
   updatePrompt(station, isTouch) {
     if (station) {
@@ -1139,11 +1152,14 @@ export class UI {
     const debt = meta.debt(), total = meta.DEBT_TOTAL || 1;
     const q = meta.currentQuest(), done = meta.questDone();
     const accepted = meta.acceptedQuests ? meta.acceptedQuests() : []; // only quests you've taken on
+    const realms = STAGE_ORDER.filter(id => meta.stageCleared(id)).length, realmsTotal = STAGE_ORDER.length;
     const featSig = (meta.FEATURE_ORDER || []).map(f => meta.featureUnlocked(f) ? 1 : 0).join('');
-    const sig = `${debt}|${done ? 1 : 0}|${q ? q.id : '-'}|${meta.gold()}|${featSig}|${accepted.map(a => a.id + (meta.customerQuestReady(a) ? 'R' : '')).join(',')}`;
+    const sig = `${debt}|${done ? 1 : 0}|${q ? q.id : '-'}|${meta.gold()}|${featSig}|${realms}|${accepted.map(a => a.id + (meta.customerQuestReady(a) ? 'R' : '')).join(',')}`;
     if (sig === this._qtSig) return; this._qtSig = sig;
-    this.el.qtGoalText.textContent = debt > 0 ? 'Pay off the Tavern Debt' : 'The Toad is yours — adventure on!';
-    this.el.qtFill.style.width = (100 * Math.max(0, total - debt) / total) + '%';
+    // the game's TWO clear goals, in order: pay the debt, then conquer every realm
+    this.el.qtGoalText.textContent = debt > 0 ? 'Pay off the Tavern Debt'
+      : realms >= realmsTotal ? '★ All realms conquered!' : `Conquer the 8 Realms — ${realms}/${realmsTotal}`;
+    this.el.qtFill.style.width = (debt > 0 ? 100 * Math.max(0, total - debt) / total : 100 * realms / realmsTotal) + '%';
     // a just-unlocked feature whose station isn't built yet takes priority — names exactly what to do next
     let unbuilt = null;
     for (const f of (meta.FEATURE_ORDER || [])) {
@@ -1154,7 +1170,8 @@ export class UI {
     else if (unbuilt) step = `Build the ${unbuilt.name} up in your 🪜 room`;
     else if (debt > 0 && meta.gold() < debt) step = 'Earn coin: serve at the 🍺 Bar or finish a bounty';
     else if (debt > 0) step = 'Pay it down in the 📜 quest log';
-    else step = 'Venture out and grow stronger';
+    else if (realms >= realmsTotal) step = 'You beat the game! Keep hunting stars & loot';
+    else step = `Venture: beat ${STAGES[STAGE_ORDER.find(id => !meta.stageCleared(id))]?.name || 'the next realm'}`;
     this.el.qtStep.innerHTML = '➤ ' + pixify(step, 'sm');
     let bounty = q ? pixify(`Bounty: ${q.text} (+${q.reward}🪙)${done ? ' ✓' : ''}`, 'sm') : '';
     for (const a of accepted.slice(0, 3)) { const ready = meta.customerQuestReady(a); bounty += `<div class="qt-quest ${ready ? 'ready' : ''}">${ready ? '✓' : '➤'} ${pixify(a.ask, 'sm')}${ready ? ' <b>(ready!)</b>' : ''}</div>`; }
@@ -1178,23 +1195,6 @@ export class UI {
     }
     this.el.archGo.onclick = () => { this.el.archetypePick.classList.add('hidden'); cb(sel); };
     this.el.archetypePick.classList.remove('hidden');
-  }
-
-  // floating damage / pickup number at screen coords (capped so big AoE
-  // hits don't flood the DOM with hundreds of nodes)
-  floatNumber(x, y, text, color = '#fff', crit = false, scale = 1) {
-    this._floatCount = this._floatCount || 0;
-    if (this._floatCount > 36) return;
-    this._floatCount++;
-    const d = document.createElement('div');
-    d.className = crit ? 'floatnum crit' : 'floatnum';
-    d.textContent = text;
-    d.style.left = x + 'px';
-    d.style.top = y + 'px';
-    d.style.color = color;
-    if (!crit && scale !== 1) d.style.fontSize = Math.round(22 * scale) + 'px'; // Megabonk-sized hits
-    document.body.appendChild(d);
-    setTimeout(() => { d.remove(); this._floatCount--; }, 800);
   }
 
   // ---- Jobs ----
@@ -1258,10 +1258,13 @@ export class UI {
   showResults(win, info) {
     // final result only: outcome + a one-line summary + gems won (+ artifact if any)
     this.el.endTitle.textContent = win ? `${info.stage} — Cleared!` : 'Passed Out';
+    const realms = STAGE_ORDER.filter(id => meta.stageCleared(id)).length;
     this.el.endStats.innerHTML = `
       <div class="end-summary">${iconImg('map', {}, 'sm')} Stage ${info.stages || info.rooms}/${info.stagesTotal || 10} · ${iconImg('skull', {}, 'sm')} ${info.kills} · Lv ${info.level}</div>
+      ${win ? `<div class="end-artifact" style="color:var(--gold)">${iconImg('crown', {}, 'sm')} Realm ${realms}/${STAGE_ORDER.length} conquered</div>` : ''}
       ${info.artifact ? `<div class="end-artifact">✦ Artifact: <b>${info.artifact}</b></div>` : ''}
-      <div class="loot-box"><div class="loot-row loot-total"><span>Gems won</span><b>+${info.earnedGems} ${iconImg('💎', {}, 'sm')}</b></div></div>`;
+      <div class="loot-box"><div class="loot-row loot-total"><span>Gems won</span><b>+${info.earnedGems} ${iconImg('💎', {}, 'sm')}</b></div></div>
+      ${(() => { const up = meta.nextGoals ? meta.nextGoals() : []; return up.length ? `<div class="end-next">▸ ${pixify(up[0].text, 'sm')}</div>` : ''; })()}`;
     this.el.btnAgain.textContent = '▸ Tavern';
     this.el.end.classList.remove('hidden');
   }

@@ -351,6 +351,7 @@ export class Enemies {
     if (game) {
       game.audio.play('enemyDie');
       const dp = e.mesh.position.clone().setY(0.7 * def.size);
+      if (game.dmgNumber) game.dmgNumber(dp, 0, { kill: true });
       game.particles.burst({ pos: dp, color: def.color, count: def.boss ? 54 : 18, speed: def.boss ? 11 : 7, size: 0.35 * def.size, life: 0.9, up: 3, blend: 'normal' });
       game.particles.burst({ pos: dp.clone(), color: def.color, count: def.boss ? 22 : 7, speed: 3.5, size: 0.55 * def.size, life: 1.1, grav: -15, up: 4.5, blend: 'normal' }); // heavy gibs that arc & tumble
       game.particles.burst({ pos: dp.clone(), color: 0xffffff, count: def.boss ? 16 : 10, speed: 8, size: 0.26, life: 0.5 });               // white spark flash

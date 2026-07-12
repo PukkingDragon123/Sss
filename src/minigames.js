@@ -1,4 +1,4 @@
-// minigames.js — ten little Mario-Party-style stage games.
+// minigames.js — twelve little Mario-Party-style stage games.
 //
 // HARD RULE: this module imports nothing and touches no DOM/Three. Every game's
 // rules live in PURE functions (init/update/onInput/isOver/scoreOf/reward) so the
@@ -219,5 +219,63 @@ const match = {
   draw(ctx, W, H, s) { if (!ctx) return; bg(ctx, W, H, '#1a1230', '#0a0618'); const rows = Math.ceil(s.tiles.length / s.cols); const m = W * 0.03; const cw = (W - m * (s.cols + 1)) / s.cols, ch = (H * 0.86 - m * (rows + 1)) / rows; s.tiles.forEach((t, i) => { const c = i % s.cols, r = (i / s.cols) | 0; const x = m + c * (cw + m), y = m + r * (ch + m); ctx.fillStyle = t.done ? '#244' : (t.up ? '#46406a' : '#2a2444'); ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, cw, ch, 8) : ctx.rect(x, y, cw, ch); ctx.fill(); if (t.up || t.done) icon(ctx, t.v, x + cw / 2, y + ch / 2, Math.min(cw, ch) * 0.6); else icon(ctx, 'question', x + cw / 2, y + ch / 2, Math.min(cw, ch) * 0.5); }); text(ctx, `${s.matched}/${s.pairs}`, W / 2, H * 0.95, W * 0.05, '#cbd'); },
 };
 
-export const MINIGAMES = { reflex, mash, dodge, simon, mole, balance, catch: catchg, rhythm, stack, match };
+// ----------------------------------------------------------------------------- 11. POUR
+const pour = {
+  id: 'pour', name: 'Perfect Pour', how: 'TAP to stop the pour inside the gold band!', dur: 16,
+  controls: [{ id: 'tap', label: 'POUR!', big: true }],
+  init(o = {}) { const rng = o.rng || Math.random; return { rng, rounds: 5, round: 0, t: rng() * 3, speed: 1.5 + rng() * 0.4, band: 0.62 + rng() * 0.14, half: 0.09, results: [], timeLeft: 16 }; },
+  update(s, dt) { s.t += dt; },
+  onInput(s, ev) {
+    if (!isTap(ev) || s.round >= s.rounds) return;
+    const level = 0.5 + Math.sin(s.t * s.speed) * 0.46;                       // the sloshing fill line
+    s.results.push(clamp(1 - Math.abs(level - s.band) / s.half, 0, 1));
+    s.round++; s.band = 0.55 + s.rng() * 0.3; s.t = s.rng() * 3;              // next mug, new mark
+  },
+  isOver(s) { return s.round >= s.rounds; },
+  scoreOf(s) { if (!s.results.length) return 0; return clamp(s.results.reduce((a, b) => a + b, 0) / s.rounds, 0, 1); },
+  reward: defaultReward,
+  draw(ctx, W, H, s) {
+    if (!ctx) return; bg(ctx, W, H, '#241a10', '#0e0a04');
+    const mw = W * 0.34, mh = H * 0.6, mx = W / 2 - mw / 2, my = H * 0.16;
+    const level = 0.5 + Math.sin(s.t * s.speed) * 0.46;
+    ctx.fillStyle = '#3a2c1a'; ctx.fillRect(mx - 8, my - 8, mw + 16, mh + 16);        // mug body
+    ctx.fillStyle = '#120c06'; ctx.fillRect(mx, my, mw, mh);                          // empty
+    ctx.fillStyle = '#e8a33a'; ctx.fillRect(mx, my + mh * (1 - level), mw, mh * level); // ale
+    ctx.fillStyle = '#fff3dc'; ctx.fillRect(mx, my + mh * (1 - level) - 6, mw, 6);    // foam line
+    ctx.fillStyle = 'rgba(255,211,77,0.35)'; ctx.fillRect(mx - 14, my + mh * (1 - s.band - s.half), mw + 28, mh * s.half * 2); // gold band
+    ctx.strokeStyle = '#ffd34d'; ctx.lineWidth = 3; ctx.strokeRect(mx - 14, my + mh * (1 - s.band - s.half), mw + 28, mh * s.half * 2);
+    icon(ctx, 'beer', W * 0.16, H * 0.3, W * 0.14);
+    text(ctx, `${s.round}/${s.rounds}`, W / 2, H * 0.9, W * 0.06, '#dcb');
+  },
+};
+
+// ----------------------------------------------------------------------------- 12. DARTS
+const darts = {
+  id: 'darts', name: 'Dart Toss', how: 'TAP to throw when the wobbling aim crosses the bullseye!', dur: 16,
+  controls: [{ id: 'tap', label: 'THROW!', big: true }],
+  init(o = {}) { const rng = o.rng || Math.random; return { rng, t: rng() * 5, darts: 4, thrown: [], sx: 1.3 + rng() * 0.3, sy: 1.7 + rng() * 0.3, timeLeft: 16 }; },
+  update(s, dt) { s.t += dt; },
+  onInput(s, ev) {
+    if (!isTap(ev) || s.thrown.length >= s.darts) return;
+    const ax = Math.sin(s.t * s.sx) * 0.34, ay = Math.cos(s.t * s.sy) * 0.3;  // the wobbling aim
+    s.thrown.push({ x: ax, y: ay, pts: clamp(1 - Math.hypot(ax, ay) / 0.34, 0, 1) });
+  },
+  isOver(s) { return s.thrown.length >= s.darts; },
+  scoreOf(s) { if (!s.thrown.length) return 0; return clamp(s.thrown.reduce((a, d) => a + d.pts, 0) / s.darts, 0, 1); },
+  reward: defaultReward,
+  draw(ctx, W, H, s) {
+    if (!ctx) return; bg(ctx, W, H, '#1c2418', '#0a0e08');
+    const cx = W / 2, cy = H * 0.44, R = Math.min(W, H) * 0.36;
+    for (const [r, col] of [[1, '#c8503a'], [0.66, '#e8d8b0'], [0.33, '#c8503a'], [0.12, '#2a1c10']]) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(cx, cy, R * r, 0, 7); ctx.fill(); }
+    for (const d of s.thrown) { ctx.fillStyle = '#ffd34d'; ctx.beginPath(); ctx.arc(cx + d.x * R * 2.2, cy + d.y * R * 2.2, Math.max(4, W * 0.014), 0, 7); ctx.fill(); }
+    if (s.thrown.length < s.darts) { // live aim
+      const ax = cx + Math.sin(s.t * s.sx) * 0.34 * R * 2.2, ay = cy + Math.cos(s.t * s.sy) * 0.3 * R * 2.2;
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(ax - 12, ay); ctx.lineTo(ax + 12, ay); ctx.moveTo(ax, ay - 12); ctx.lineTo(ax, ay + 12); ctx.stroke();
+    }
+    text(ctx, `${s.thrown.length}/${s.darts}`, W / 2, H * 0.92, W * 0.06, '#cdb');
+  },
+};
+
+export const MINIGAMES = { reflex, mash, dodge, simon, mole, balance, catch: catchg, rhythm, stack, match, pour, darts };
 export const MINIGAME_KEYS = Object.keys(MINIGAMES);

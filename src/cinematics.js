@@ -501,4 +501,16 @@ const SCRIPTS = {
     { scene: 'bar', cam: { pos: [0.5, 1.8, 3], look: [0, 1.6, 0] }, speaker: 'Barkeep Tomas', text: 'You owe me 600 gold. Track it in your quest log and work it off.' },
     { scene: 'bar', cam: { pos: [-2, 1.5, 4.5], look: [0, 1.6, 0], push: true }, speaker: 'Wobblesworth', text: 'Fine, you old goat. I will get rich and pay off your debt. Now, to mayhem!' },
   ],
+  // 6) DEED — the debt is PAID: Tomas hands over the Tipsy Toad
+  deed: [
+    { scene: 'bar', pose: [0, 0, 0], yaw: 0.2, cam: { pos: [-2.6, 2.0, -1.2], look: [-4.5, 1.6, -4.4], push: true }, speaker: 'Barkeep Tomas', text: 'Paid. In. Full. Ha! Never thought I would see the day.' },
+    { scene: 'bar', cam: { pos: [2.5, 1.8, 4.5], look: [0, 1.5, 0], push: true }, speaker: 'Barkeep Tomas', text: 'The Tipsy Toad is yours now, deed and all. Try not to burn it down.' },
+    { scene: 'bar', cam: { pos: [0, 2.6, 7], look: [0, 1.4, -2], push: true }, speaker: 'The Patrons', text: 'To the new landlord! CHEERS!' },
+  ],
+  // 7) VICTORY — all eight realms conquered: the game's proper ending toast
+  victory: [
+    { scene: 'bar', pose: [0, 0, 0], yaw: 0.2, cam: { pos: [0, 2.6, 8], look: [0, 1.5, -2], push: true }, speaker: 'Barkeep Tomas', text: 'Eight realms. EIGHT. The whole night saved by the wobbliest wizard alive.' },
+    { scene: 'bar', cam: { pos: [2.5, 1.7, 4.2], look: [0, 1.5, 0], push: true }, speaker: 'Wobblesworth', text: 'All in a night\'s work. Now — someone pour me an ale. A small one.' },
+    { scene: 'bar', cam: { pos: [-1.5, 2.0, 5], look: [0, 1.6, -1], push: true }, speaker: 'Wisp', text: 'The realms are quiet. The Toad is warm. You did it, wizard. THE END… ish.' },
+  ],
 };

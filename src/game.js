@@ -9,7 +9,7 @@ import { Recognizer, TEMPLATES } from './recognizer.js';
 import { Input } from './input.js';
 import { AudioEngine } from './audio.js';
 import { UI } from './ui.js';
-import { Director, STAGES, BLACKOUT_LINES, STAGE_GIMMICKS, STAGES_PER_REGION, gimmickFor } from './story.js';
+import { Director, STAGES, STAGE_ORDER, BLACKOUT_LINES, STAGE_GIMMICKS, STAGES_PER_REGION, gimmickFor } from './story.js';
 import { MINIGAMES, MINIGAME_KEYS } from './minigames.js';
 import { applyCardPerks } from './cards.js';
 import { generateRunMap } from './runmap.js';
@@ -852,16 +852,8 @@ export class Game {
   // ranged enemies fire a hostile projectile at the wizard through the spell system
   spawnHostileOrb(from, dir, dmg) { if (this.spells) this.spells.spawnHostile(from, dir, dmg); }
 
-  popDamage(worldPos, n) {
-    const v = worldPos.clone(); v.y += 1.2;
-    v.project(this.camera);
-    if (v.z > 1) return;
-    const x = (v.x * 0.5 + 0.5) * window.innerWidth;
-    const y = (-v.y * 0.5 + 0.5) * window.innerHeight;
-    const crit = n >= 24; // big hits pop bigger & gold
-    const scale = Math.min(2.1, 0.9 + n / 34);            // Megabonk numbers: the harder the hit, the fatter the digits
-    this.ui.floatNumber(x, y, Math.round(n), crit ? '#ffd36b' : '#ffe08a', crit, scale);
-  }
+  // every hit routes through here → the pooled canvas numbers (outlined, arcing, world-anchored)
+  popDamage(worldPos, n) { this.dmgNumber(worldPos, n, { crit: n >= 24 }); }
 
   notifySpell(tags, pos) { this.jobs.onSpell(tags, pos, this); }
 
@@ -948,8 +940,15 @@ export class Game {
   // backwards-compat alias used by the wizard-death check
   _lose() { this._loseRun(); }
 
-  _showEnd(win) {
+  _showEnd(win, afterCine = false) {
     if (win && this.stage) meta.markStageCleared(this.stage.id); // opens the next haunt on the world map
+    // ALL EIGHT REALMS conquered → the game's proper ending cutscene (once), then the results
+    if (!afterCine && win && STAGE_ORDER.every(id => meta.stageCleared(id)) && !meta.hasSeen('victoryCine')) {
+      meta.markSeen('victoryCine');
+      this.cine.play('victory', () => this._showEnd(win, true));
+      return;
+    }
+    if (afterCine) this.state = win ? 'win' : 'gameover'; // leave 'cutscene' so confirm-to-restart works
     if (win && !meta.tavernOwned()) { meta.setTavernOwned(true); this._justInherited = true; } // avenge -> inherit
     this.ui.hideCombo();
     const depth = this._roomsCleared || 0; // rooms cleared (boss = forks+2)
@@ -1319,11 +1318,11 @@ export class Game {
     for (const f of meta.FEATURE_ORDER) meta.unlockFeature(f); // owning the place opens everything
     meta.setTavernOwned(true);
     this.ui.setGold(meta.gold());
-    this.showStory('Wobblesworth', [
-      'The last coin drops into the box. The debt is paid in full.',
-      'The Tipsy Toad is mine now, free and clear. No more creditors, no more scolding.',
-      'Now I drink, I brawl, and I get rich. To glorious mayhem!',
-    ]);
+    // close whichever panel fired this (quest panel OR shop modal), then roll the DEED cutscene
+    this._shopKind = null;
+    if (this.ui.closeShop) this.ui.closeShop();
+    if (this.ui.el.questPanel) this.ui.el.questPanel.classList.remove('show');
+    this.cine.play('deed', () => this.enterTavern());
   }
   startRun(stageId) { this._shopKind = null; this.beginRun(stageId); }
   closeShop() {
@@ -1470,7 +1469,7 @@ export class Game {
     meta.addGear(first); meta.equipGear(first.id); meta.save();
     this._giftGear = first;
     this.state = 'blackout'; this.ui.fadeBlack(true); this.audio.play('win');
-    setTimeout(() => this.cine.play('scold', () => this.enterTavern()), 900);
+    setTimeout(() => this.cine.play('scold', () => { this.enterTavern(); if (this.ui.showGoalSplash) this.ui.showGoalSplash(); }), 900);
   }
 
   // ---- run path: a left/right fork before each step. Nodes are typed
@@ -2083,12 +2082,48 @@ export class Game {
   }
 
   // ---------- gesture trail rendering ----------
+  // Megabonk-style floating damage numbers: anchored in the world, they pop, arc up
+  // and fade on the fx overlay. Crits go big & gold; kill-pops shout a starburst.
+  dmgNumber(worldPos, amount, { crit = false, kill = false } = {}) {
+    if (!this._dmgNums) this._dmgNums = [];
+    if (this._dmgNums.length > 42) this._dmgNums.shift(); // cap the pool
+    this._dmgNums.push({
+      wx: worldPos.x, wy: (worldPos.y ?? 1) + 0.8, wz: worldPos.z,
+      jx: (Math.random() - 0.5) * 34, t: 0, max: crit || kill ? 1.0 : 0.75,
+      text: kill ? '✦' : String(Math.max(1, Math.round(amount))),
+      crit, kill,
+    });
+  }
+  _drawDmgNums(ctx, dt) {
+    const list = this._dmgNums; if (!list || !list.length) return;
+    const W = this.fx2d.width, H = this.fx2d.height;
+    const v = this._dmgV || (this._dmgV = new THREE.Vector3());
+    for (let i = list.length - 1; i >= 0; i--) {
+      const n = list[i]; n.t += dt;
+      if (n.t >= n.max) { list.splice(i, 1); continue; }
+      v.set(n.wx, n.wy, n.wz).project(this.camera);
+      if (v.z > 1) continue; // behind the camera
+      const k = n.t / n.max;
+      const x = (v.x * 0.5 + 0.5) * W + n.jx * k;
+      const y = (-v.y * 0.5 + 0.5) * H - 46 * k + 10 * k * k; // rise with a soft arc
+      const pop = k < 0.18 ? 0.6 + (k / 0.18) * 0.55 : 1.15 - (k - 0.18) * 0.25; // punchy entrance
+      const size = (n.kill ? 30 : n.crit ? 34 : 21) * pop;
+      ctx.font = `900 ${size.toFixed(0)}px "Trebuchet MS", sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const a = k > 0.7 ? (1 - k) / 0.3 : 1;
+      ctx.lineWidth = Math.max(3, size * 0.16); ctx.strokeStyle = `rgba(10,8,16,${(a * 0.95).toFixed(2)})`;
+      ctx.fillStyle = n.crit ? `rgba(255,214,107,${a})` : n.kill ? `rgba(255,236,170,${a})` : `rgba(255,250,240,${a})`;
+      ctx.strokeText(n.text, x, y); ctx.fillText(n.text, x, y);
+    }
+  }
+
   // the glyph you draw is a ribbon of living magic: a smoothed, glowing stroke with
   // stardust spilling off the pen tip (sparks linger a moment after you let go)
   _drawTrail(dt = 0.016) {
     const ctx = this.fxctx;
     ctx.clearRect(0, 0, this.fx2d.width, this.fx2d.height);
     this._live = null;
+    this._drawDmgNums(ctx, dt); // damage numbers live on the same overlay, under the ink
     const drawing = this.phase === 'arena' && this.input.drawing && this.input.points.length >= 2;
 
     // ---- stardust sparks (persist briefly after release) ----

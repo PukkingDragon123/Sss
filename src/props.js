@@ -189,6 +189,8 @@ const CRITTERS = {
   squirrel: { body: 0x9a5a2a, accent: 0xc08048, size: 0.8, speed: 2.8, hop: 0.32, hopH: 0.3 },
   mouse: { body: 0x8a8078, accent: 0xb0a89c, size: 0.55, speed: 3.4, hop: 0.18, hopH: 0.12 },
   bird: { body: 0x6a8ad0, accent: 0xe0a040, size: 0.55, speed: 3.0, hop: 0.34, hopH: 0.22, fly: true },
+  fox: { body: 0xd0692a, accent: 0xf2ead8, size: 1.0, speed: 3.0, hop: 0.28, hopH: 0.2, canine: true },
+  wolf: { body: 0x6c7076, accent: 0x9aa0a8, size: 1.2, speed: 2.6, hop: 0.2, hopH: 0.13, canine: true },
 };
 
 function buildCritter(kind) {
@@ -221,6 +223,16 @@ function buildCritter(kind) {
     for (const sx of [-1, 1]) { const w = new THREE.Mesh(new THREE.ConeGeometry(0.12 * s, 0.36 * s, 4), bodyMat); w.geometry.rotateZ(Math.PI / 2); w.position.set(sx * 0.2 * s, 0.24 * s, 0); if (sx > 0) w.rotation.y = Math.PI; g.add(w); wings.push(w); }
     g.userData.wings = wings;
     const tail = new THREE.Mesh(new THREE.ConeGeometry(0.1 * s, 0.24 * s, 4), bodyMat); tail.position.set(0, 0.24 * s, -0.3 * s); tail.rotation.x = -1.4; g.add(tail);
+  } else if (def.canine) {
+    // fox / wolf: a longer low body, a snout, pointy ears, four legs and a bushy tail
+    body.scale.set(1.15, 0.82, 1.5); body.position.y = 0.3 * s;
+    head.position.set(0, 0.38 * s, 0.34 * s);
+    const snout = new THREE.Mesh(new THREE.ConeGeometry(0.1 * s, 0.26 * s, 6), bodyMat); snout.rotation.x = Math.PI / 2; snout.position.set(0, 0.34 * s, 0.56 * s); g.add(snout);
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.05 * s, 6, 5), darkMat); nose.position.set(0, 0.34 * s, 0.7 * s); g.add(nose);
+    for (const sx of [-1, 1]) { const ear = new THREE.Mesh(new THREE.ConeGeometry(0.09 * s, 0.22 * s, 5), bodyMat); ear.position.set(sx * 0.13 * s, 0.56 * s, 0.28 * s); g.add(ear); }
+    for (const [lx, lz] of [[-0.14, 0.2], [0.14, 0.2], [-0.14, -0.2], [0.14, -0.2]]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.055 * s, 0.05 * s, 0.24 * s, 5), darkMat); leg.position.set(lx * s, 0.12 * s, lz * s); leg.castShadow = true; g.add(leg); }
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(0.15 * s, 0.44 * s, 6), kind === 'fox' ? bodyMat : bodyMat); tail.position.set(0, 0.4 * s, -0.46 * s); tail.rotation.x = -0.8; g.add(tail);
+    if (kind === 'fox') { const tip = new THREE.Mesh(new THREE.SphereGeometry(0.11 * s, 7, 6), accMat); tip.position.set(0, 0.58 * s, -0.62 * s); g.add(tip); const belly = new THREE.Mesh(new THREE.SphereGeometry(0.15 * s, 7, 5), accMat); belly.position.set(0, 0.34 * s, 0.5 * s); belly.scale.set(0.8, 0.7, 0.5); g.add(belly); }
   }
   g.userData.def = def; g.userData.kind = kind;
   return g;
@@ -299,8 +311,8 @@ export class Critters {
 
 // which critters suit each scatter biome (empty = none)
 export const BIOME_CRITTERS = {
-  trees: ['rabbit', 'squirrel', 'bird', 'mouse'],
-  swamp: ['bird', 'mouse'],
-  graves: ['mouse'],
-  ice: ['rabbit', 'bird'],
+  trees: ['rabbit', 'squirrel', 'fox', 'wolf', 'bird'],
+  swamp: ['bird', 'mouse', 'fox'],
+  graves: ['mouse', 'wolf'],
+  ice: ['rabbit', 'fox', 'wolf'],
 };

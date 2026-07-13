@@ -11,9 +11,14 @@ export const BLACKOUT_LINES = {
 
 export const STAGES = {
   forest: {
-    id: 'forest', name: 'Moonlit Forest', bossType: 'goblinking', bossName: 'The Goblin King',
+    id: 'forest', name: 'Sunlit Forest', bossType: 'goblinking', bossName: 'The Goblin King',
     roster: [{ t: 'goblin', w: 1 }, { t: 'bat', w: 1 }, { t: 'slime', w: 2 }, { t: 'brigand', w: 2 }, { t: 'zombie', w: 3 }, { t: 'mushroomcap', w: 3 }, { t: 'vampire', w: 4 }, { t: 'houndling', w: 3 }, { t: 'splitslime', w: 4 }, { t: 'bomber', w: 5 }],
-    theme: { bg: 0x16223a, fog: 0x1b2b44, fogD: 0.011, hemi: 0x9fb6e8, hemiG: 0x223a2a, dir: 0xcdd8ff, dirI: 1.5, amb: 0x3a4a6a, floor: 0x2f4a32, rug: 0x3f6440, scatter: 'trees', rim: 0xbfe0ff, rimI: 1.25 },
+    // bright MORNING woodland by default — warm sun, soft blue sky, lush green
+    theme: {
+      bg: 0x8fc6e8, fog: 0xc3ddec, fogD: 0.006, hemi: 0xcfe6ff, hemiG: 0x40663a, dir: 0xfff2d2, dirI: 1.75, amb: 0x6f8a72, floor: 0x4f8a48, rug: 0x5fa055, scatter: 'trees', rim: 0xfff0d0, rimI: 1.2,
+      // the guided TUTORIAL fight plays at NIGHT (moonlit) — set apart from the rest
+      night: { bg: 0x16223a, fog: 0x1b2b44, fogD: 0.011, hemi: 0x9fb6e8, hemiG: 0x223a2a, dir: 0xcdd8ff, dirI: 1.5, amb: 0x3a4a6a, floor: 0x2f4a32, rug: 0x3f6440, rim: 0xbfe0ff, rimI: 1.25 },
+    },
     intro: ['A moonlit forest, far from home.', 'Red eyes wake in the trees. Draw a glyph to cast!'],
   },
   cave: {

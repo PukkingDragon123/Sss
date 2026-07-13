@@ -93,7 +93,7 @@ export class Enemies {
   countNonBoss() { let n = 0; for (const e of this.list) if (e.alive && !TYPES[e.type].boss) n++; return n; }
 
   clear() {
-    for (const e of this.list) { e.mesh.visible = false; this.pools[e.type].push(e); }
+    for (const e of this.list) { e.mesh.visible = false; e.mesh.rotation.set(0, 0, 0); this.pools[e.type].push(e); } // reset tilt so a mid-ragdoll corpse can't be pooled lying down
     this.list.length = 0;
     this.bossAlive = false;
   }
@@ -338,7 +338,7 @@ export class Enemies {
     e.charging = 0;
     e.squashT = 0;
     e.dying = 0;
-    e.mesh.rotation.x = 0;
+    e.mesh.rotation.set(0, 0, 0); // clear any leftover ragdoll topple/plummet tilt from a pooled corpse
 
     const center = near || new THREE.Vector3();
     const ang = Math.random() * Math.PI * 2;

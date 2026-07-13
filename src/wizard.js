@@ -48,6 +48,7 @@ export class Wizard {
     this.castTimer = 0;
     this.drinkHold = 0; // seconds left holding the tankard up (the channel)
     this.castDir = new THREE.Vector3(0, 0, 1);
+    this.dashT = 0; this.dashCd = 0; this.dashDir = new THREE.Vector3(0, 0, 1); // dodge-dash
     this.invuln = 0;
     this.flash = 0;
     this.hiccupIn = 3 + Math.random() * 4;
@@ -419,13 +420,29 @@ export class Wizard {
 
     // ---- movement with drunk overshoot ----
     const mv = game.moveVector ? game.moveVector() : (game.input ? game.input.moveVector() : { x: 0, z: 0 });
-    const accel = 60;
+    const accel = 74;                    // snappier, more responsive acceleration
     const maxSpeed = s.moveSpeed;
     if (this.alive) { this.vel.x += mv.x * accel * dt; this.vel.z += mv.z * accel * dt; }
+    // ---- DODGE-DASH: a quick burst (Shift / Ctrl / double-tap the move stick) with i-frames ----
+    if (this.dashCd > 0) this.dashCd -= dt;
+    if (this.alive && this.dashT <= 0 && this.dashCd <= 0 && game.input && game.input.consumeDash && game.input.consumeDash()) {
+      const l = Math.hypot(mv.x, mv.z);
+      if (l > 0.1) this.dashDir.set(mv.x / l, 0, mv.z / l);
+      else this.dashDir.set(Math.sin(this.yaw), 0, Math.cos(this.yaw)); // dash where he faces if standing still
+      this.dashT = this.dashDur = 0.22; this.dashCd = 0.8;
+      this.invuln = Math.max(this.invuln, 0.26);            // brief i-frames — dodge through danger
+      this.squash(0.22, -1, 0.2);
+      this.leanV.x += this.dashDir.x * 3; this.leanV.z += this.dashDir.z * 3;
+      if (game.particles) { const fp = this.pos.clone().setY(0.35); game.particles.burst({ pos: fp, color: 0xbfa3ff, count: 12, speed: 6, size: 0.22, life: 0.4, blend: 'add' }); game.particles.ring({ pos: this.pos.clone().setY(0.1), color: 0xbfa3ff, r0: 0.2, r1: 2.6, life: 0.34 }); }
+      if (game.audio) game.audio.play('gust');
+      if (game.shake) game.shake(0.35);
+    }
     const damp = Math.pow(0.0009, dt);
     this.vel.x *= damp; this.vel.z *= damp;
+    if (this.dashT > 0) { this.dashT -= dt; const k = Math.max(0, this.dashT / this.dashDur); const ds = 12 + 20 * k; this.vel.x = this.dashDir.x * ds; this.vel.z = this.dashDir.z * ds; }
+    const cap = this.dashT > 0 ? 26 : maxSpeed;             // dash may exceed the normal speed cap
     const sp = Math.hypot(this.vel.x, this.vel.z);
-    if (sp > maxSpeed) { this.vel.x *= maxSpeed / sp; this.vel.z *= maxSpeed / sp; }
+    if (sp > cap) { this.vel.x *= cap / sp; this.vel.z *= cap / sp; }
     this.pos.addScaledVector(this.vel, dt);
     if (this.pos.x < -ARENA) { this.pos.x = -ARENA; this.vel.x *= -0.4; }
     if (this.pos.x > ARENA) { this.pos.x = ARENA; this.vel.x *= -0.4; }

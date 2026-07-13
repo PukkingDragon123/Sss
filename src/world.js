@@ -50,24 +50,40 @@ function labelSprite(text, tone) {
 }
 const hx = (n) => '#' + ('000000' + n.toString(16)).slice(-6);
 
-// hand-scattered stylized water: layered wave strokes on a finer canvas with smooth
-// filtering — clean low-poly-adjacent look rather than chunky pixels
-function seaTexture() {
-  const c = document.createElement('canvas'); c.width = c.height = 128;
+// aged PARCHMENT: a warm tan sheet with faint fibres, ink flecks and hand-drawn
+// contour hatching — the surface of an old medieval country map.
+function parchmentTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
   const x = c.getContext('2d');
-  x.fillStyle = '#14304e'; x.fillRect(0, 0, 128, 128);
-  x.fillStyle = '#112741';
-  for (let i = 0; i < 46; i++) { const w = 8 + ((Math.random() * 14) | 0); x.fillRect((Math.random() * 128) | 0, (Math.random() * 128) | 0, w, 3); }
-  x.fillStyle = '#1e4468';
-  for (let i = 0; i < 40; i++) { const w = 7 + ((Math.random() * 10) | 0); x.fillRect((Math.random() * 128) | 0, (Math.random() * 128) | 0, w, 2); }
-  x.fillStyle = 'rgba(79,158,207,0.9)';
-  for (let i = 0; i < 22; i++) x.fillRect((Math.random() * 128) | 0, (Math.random() * 128) | 0, 5, 1);
+  x.fillStyle = '#e6d3a6'; x.fillRect(0, 0, 256, 256);
+  // mottled tan blotches (aging)
+  for (let i = 0; i < 220; i++) { const r = 4 + (Math.random() * 22 | 0); x.fillStyle = Math.random() < 0.5 ? 'rgba(196,168,116,0.22)' : 'rgba(228,210,168,0.3)'; x.beginPath(); x.arc(Math.random() * 256, Math.random() * 256, r, 0, 7); x.fill(); }
+  // faint fibres
+  x.strokeStyle = 'rgba(150,120,74,0.14)'; x.lineWidth = 1;
+  for (let i = 0; i < 60; i++) { x.beginPath(); const y = Math.random() * 256; x.moveTo(0, y); x.lineTo(256, y + (Math.random() - 0.5) * 20); x.stroke(); }
+  // sparse ink flecks
+  x.fillStyle = 'rgba(90,64,34,0.4)';
+  for (let i = 0; i < 40; i++) x.fillRect(Math.random() * 256 | 0, Math.random() * 256 | 0, 1 + (Math.random() * 2 | 0), 1 + (Math.random() * 2 | 0));
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearMipmapLinearFilter;
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.repeat.set(6, 5);
+  tex.repeat.set(3, 3);
   return tex;
+}
+// a hand-drawn compass rose stamped on the map's corner
+function compassSprite() {
+  const c = document.createElement('canvas'); c.width = c.height = 160;
+  const x = c.getContext('2d'); const cx = 80, cy = 80;
+  x.strokeStyle = '#5a3f22'; x.lineWidth = 3; x.beginPath(); x.arc(cx, cy, 62, 0, 7); x.stroke();
+  x.beginPath(); x.arc(cx, cy, 52, 0, 7); x.stroke();
+  const star = (R, col) => { x.fillStyle = col; for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2; x.beginPath(); x.moveTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R); x.lineTo(cx + Math.cos(a + 0.35) * R * 0.28, cy + Math.sin(a + 0.35) * R * 0.28); x.lineTo(cx + Math.cos(a - 0.35) * R * 0.28, cy + Math.sin(a - 0.35) * R * 0.28); x.closePath(); x.fill(); } };
+  star(50, '#7a5a34'); // diagonal points
+  x.save(); x.translate(cx, cy); x.rotate(Math.PI / 4); x.translate(-cx, -cy); star(38, '#8a6a3a'); x.restore();
+  x.fillStyle = '#8a2020'; x.font = '900 26px "Trebuchet MS",serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('N', cx, cy - 40);
+  const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0.92 }));
+  s.scale.set(6, 6, 6); return s;
 }
 
 export class World {
@@ -85,27 +101,33 @@ export class World {
     const g = this.group;
     const M = (c, r = 0.9, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: o.metal || 0, emissive: o.emis || 0x000000, emissiveIntensity: o.emisI != null ? o.emisI : 1, flatShading: true });
 
-    // ---- the living pixel sea ----
-    this._seaTex = seaTexture();
-    const sea = new THREE.Mesh(new THREE.PlaneGeometry(96, 76), new THREE.MeshStandardMaterial({ map: this._seaTex, color: 0xffffff, roughness: 0.65, metalness: 0.15, emissive: 0x0a1c30, emissiveIntensity: 0.55 }));
+    // ---- the PARCHMENT map sheet the whole realm is drawn on ----
+    this._seaTex = parchmentTexture();
+    const sea = new THREE.Mesh(new THREE.PlaneGeometry(96, 76), new THREE.MeshStandardMaterial({ map: this._seaTex, color: 0xffffff, roughness: 0.95, metalness: 0 }));
     sea.rotation.x = -Math.PI / 2; sea.position.set(0, -0.4, -1.5); sea.receiveShadow = true; g.add(sea); this._sea = sea;
+    // a decorative dark diamond map border framing the sheet
+    const borderMat = new THREE.MeshBasicMaterial({ color: 0x5a3f22, transparent: true, opacity: 0.55, side: THREE.DoubleSide });
+    const border = new THREE.Mesh(new THREE.RingGeometry(44, 46, 4, 1), borderMat); // diamond frame flourish
+    border.rotation.x = -Math.PI / 2; border.position.set(0, -0.35, -1.5); border.scale.set(1.05, 1, 0.85); g.add(border);
 
-    // ---- the mainland: a layered pixel "cake" — grass, sand beach, dark shore ----
-    const landG = new THREE.Mesh(new THREE.CircleGeometry(30, 48), M(0x35543e, 1));
+    // ---- the country: a drawn sage-green landmass ringed by an inked coastline & painted sea ----
+    const landG = new THREE.Mesh(new THREE.CircleGeometry(30, 48), M(0x8faa5e, 1));
     landG.rotation.x = -Math.PI / 2; landG.position.set(0, -0.13, -1.5); landG.scale.set(1.25, 1, 0.95); landG.receiveShadow = true; g.add(landG);
-    const sand = new THREE.Mesh(new THREE.CircleGeometry(31.2, 48), M(0xc9b077, 1));
+    const sand = new THREE.Mesh(new THREE.CircleGeometry(31.2, 48), M(0xcbb98a, 1));
     sand.rotation.x = -Math.PI / 2; sand.position.set(0, -0.22, -1.5); sand.scale.set(1.25, 1, 0.95); sand.receiveShadow = true; g.add(sand);
-    const shore = new THREE.Mesh(new THREE.CircleGeometry(32.4, 48), M(0x2c4056, 1));
+    const shore = new THREE.Mesh(new THREE.CircleGeometry(32.6, 48), M(0x6f92a2, 1)); // painted-sea rim
     shore.rotation.x = -Math.PI / 2; shore.position.set(0, -0.3, -1.5); shore.scale.set(1.25, 1, 0.95); g.add(shore);
-    // breathing foam line hugging the beach
-    const foam = new THREE.Mesh(new THREE.RingGeometry(31.4, 32.2, 64), new THREE.MeshBasicMaterial({ color: 0xbfe6f2, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false }));
+    // an inked coastline stroke hugging the country
+    const foam = new THREE.Mesh(new THREE.RingGeometry(31.5, 32.1, 64), new THREE.MeshBasicMaterial({ color: 0x4a3320, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }));
     foam.rotation.x = -Math.PI / 2; foam.position.set(0, -0.21, -1.5); foam.scale.set(1.25, 1, 0.95); g.add(foam); this._foam = foam;
 
-    // ---- a pixel moon + soft halo, low over the horizon ----
-    const moon = new THREE.Mesh(new THREE.SphereGeometry(2.6, 10, 8), new THREE.MeshBasicMaterial({ color: 0xf5eeda }));
-    moon.position.set(-30, 9, -26); g.add(moon);
-    const moonGlow = new THREE.Mesh(new THREE.SphereGeometry(4.2, 10, 8), new THREE.MeshBasicMaterial({ color: 0xcfd8ea, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false }));
+    // ---- a warm morning SUN + soft halo over the map ----
+    const moon = new THREE.Mesh(new THREE.SphereGeometry(2.8, 12, 10), new THREE.MeshBasicMaterial({ color: 0xfff2c4 }));
+    moon.position.set(-30, 12, -26); g.add(moon);
+    const moonGlow = new THREE.Mesh(new THREE.SphereGeometry(5.2, 12, 10), new THREE.MeshBasicMaterial({ color: 0xffe6a0, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false }));
     moonGlow.position.copy(moon.position); g.add(moonGlow);
+    // the compass rose in the map's lower corner
+    const compass = compassSprite(); compass.position.set(-26, 0.6, 18); g.add(compass);
 
     // drifting fireflies / motes for atmosphere
     this._motes = [];
@@ -197,10 +219,10 @@ export class World {
       }
     }
 
-    // ---- roaming monsters prowling the overworld (dark bodies, glowing red eyes) ----
+    // ---- no roaming night-monsters on the daytime country map (kept clean & readable) ----
     this._mobs = [];
     const mobMat = M(0x1a1420, 0.9);
-    for (let i = 0; i < 11; i++) {
+    for (let i = 0; i < 0; i++) {
       const m = new THREE.Group();
       const body = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 10), mobMat); body.scale.set(1, 0.78, 1.12); body.position.y = 0.42; body.castShadow = true; m.add(body);
       const ear = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.3, 6), mobMat); ear.position.set(0, 0.78, -0.05); m.add(ear);
@@ -339,7 +361,7 @@ export class World {
       v.icon.visible = unlocked; v.lock.visible = !unlocked;
       if (v.flag) v.flag.visible = cleared;
       v.beam.material.opacity = unlocked ? 0.12 : 0;
-      if (v.eyes) v.eyes.visible = unlocked && !cleared; // danger lurks in regions you've yet to conquer
+      if (v.eyes) v.eyes.visible = false; // no creepy eyes on the tidy daytime country map
       v.view.scale.setScalar(unlocked ? 1 : 0.9);        // locked islands sit a touch smaller/dimmer
       v.base.material.color.setHex(LAYOUT[v.id].tone).multiplyScalar(unlocked ? 1 : 0.45);
       v._unlocked = unlocked;
@@ -359,10 +381,8 @@ export class World {
     if (!this.group.visible) return;
     this._t += dt;
     const t = this._t;
-    // pixel sea drifts + coast foam breathes
-    if (this._seaTex) { this._seaTex.offset.x = t * 0.008; this._seaTex.offset.y = Math.sin(t * 0.22) * 0.02; }
-    if (this._sea) this._sea.material.emissiveIntensity = 0.45 + Math.sin(t * 0.8) * 0.15;
-    if (this._foam) { this._foam.material.opacity = 0.2 + Math.abs(Math.sin(t * 0.7)) * 0.18; this._foam.scale.setScalar(1 + Math.sin(t * 0.7) * 0.004); this._foam.scale.x = 1.25 * (1 + Math.sin(t * 0.7) * 0.004); }
+    // the parchment map sheet is static; only the inked coastline gently breathes
+    if (this._foam) { this._foam.material.opacity = 0.42 + Math.abs(Math.sin(t * 0.7)) * 0.12; }
     // lurking eyes pulse, and blink shut now and then
     if (this._eyeMat) { const blink = (t % 4) > 3.8 ? 0.1 : 1; this._eyeMat.opacity = (0.55 + Math.abs(Math.sin(t * 2.4)) * 0.4) * blink; }
     if (this._motes) for (const m of this._motes) { m.position.y = m.userData.base + Math.sin(t * m.userData.sp + m.userData.ph) * 0.5; m.position.x += Math.sin(t * 0.3 + m.userData.ph) * dt * 0.4; }

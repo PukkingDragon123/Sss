@@ -90,14 +90,14 @@ export class LevelMap {
     this.center = new THREE.Vector3(); this.biome = BIOME.forest;
   }
 
-  // lay the node chain along a serpentine trail winding into the distance
+  // lay the node chain as a STRAIGHT vertical block-road climbing into the distance
   _layout(map) {
     const ordered = map.nodes.slice().sort((a, b) => a.row - b.row);
-    const STEP = 5.0, AMP = 4.4;                 // gentler S-curve — one clean, readable trail
+    const STEP = 5.0;                            // one clean straight column of levels
     const pos = {};
     for (let i = 0; i < ordered.length; i++) {
       const n = ordered[i];
-      pos[n.id] = { x: Math.sin(i * 0.66) * AMP, z: -i * STEP, node: n, i };
+      pos[n.id] = { x: 0, z: -i * STEP, node: n, i };
     }
     return { ordered, pos, span: (ordered.length - 1) * STEP };
   }
@@ -128,28 +128,23 @@ export class LevelMap {
       patch.rotation.x = -Math.PI / 2; patch.position.set(px, 0.62, pz); g.add(patch);
     }
 
-    // ---- the winding dirt TRAIL: a strip of packed earth + mossy stepping stones ----
+    // ---- the straight BLOCK ROAD: one bold ribbon of packed earth with kerb edges ----
     const pathMat = M(B.path, 1);
-    for (let i = 0; i < L.ordered.length - 1; i++) {
-      const a = L.pos[L.ordered[i].id], b = L.pos[L.ordered[i + 1].id];
-      const dx = b.x - a.x, dz = b.z - a.z, len = Math.hypot(dx, dz);
-      const strip = new THREE.Mesh(new THREE.PlaneGeometry(2.2, len + 1.2), pathMat);
-      strip.rotation.x = -Math.PI / 2; strip.rotation.z = -Math.atan2(dx, dz);
-      strip.position.set((a.x + b.x) / 2, 0.64, (a.z + b.z) / 2); g.add(strip);
-    }
+    const roadLen = L.span + 3;
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(3.6, roadLen), pathMat);
+    road.rotation.x = -Math.PI / 2; road.position.set(0, 0.64, midZ); g.add(road);
+    // stone kerbs down both sides of the block road
+    const kerbMat = M(0x8a8474, 0.95);
+    for (const sx of [-1, 1]) { const kerb = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.22, roadLen), kerbMat); kerb.position.set(sx * 1.95, 0.7, midZ); kerb.castShadow = true; g.add(kerb); }
+    // faint guiding wisps marching straight up the centre of the road toward the frontier
     this._trailDots = [];
-    const stoneMat = M(0x8a8474, 0.95); const mossMat = M(0x5a7a44, 0.9);
     for (let i = 0; i < L.ordered.length - 1; i++) {
       const a = L.pos[L.ordered[i].id], b = L.pos[L.ordered[i + 1].id];
-      const seg = 5;
+      const seg = 3;
       for (let k = 1; k < seg; k++) {
         const t = k / seg;
-        const st = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.4, 0.16, 7), stoneMat);
-        st.position.set(a.x + (b.x - a.x) * t + (Math.random() - 0.5) * 0.4, 0.7, a.z + (b.z - a.z) * t + (Math.random() - 0.5) * 0.4);
-        st.rotation.y = Math.random() * 6.28; st.castShadow = true; g.add(st);
-        // a faint glowing firefly wisp hovering over the trail, pulses toward the frontier
-        const wisp = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), basic(B.accent, 0.0));
-        wisp.position.set(st.position.x, 1.1, st.position.z); g.add(wisp);
+        const wisp = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), basic(B.accent, 0.0));
+        wisp.position.set(0, 1.1, a.z + (b.z - a.z) * t); g.add(wisp);
         this._trailDots.push({ wisp, seg: i, k });
       }
     }

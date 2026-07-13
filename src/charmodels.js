@@ -73,11 +73,14 @@ function _human(o) {
   } else if (o.gown) {
     CYL(g, bodyR * 0.7, bodyR * 1.3, 0.7, robe, 0, 0.36, 0);
   } else {
-    limbs.legL = S(g, 0.14, o.pants ?? robe2, -0.18, 0.13, 0.02);
-    limbs.legR = S(g, 0.14, o.pants ?? robe2, 0.18, 0.13, 0.02);
+    // little round feet peeking out under a flaring robe hem — the PLAYER wizard's exact
+    // silhouette (skirt + ball torso), so every NPC shares the main character's body
+    limbs.legL = S(g, 0.15, o.pants ?? robe2, -0.2, 0.14, 0.03, { sy: 0.82, sz: 1.15 });
+    limbs.legR = S(g, 0.15, o.pants ?? robe2, 0.2, 0.14, 0.03, { sy: 0.82, sz: 1.15 });
+    CYL(g, bodyR * 0.8, bodyR * 1.32, 0.62, robe, 0, 0.4, 0, metal); // robe skirt flaring over the feet
   }
   // torso: one friendly ball
-  S(g, bodyR, robe, 0, 0.78, 0, { sy: 1.14, ...metal });
+  S(g, bodyR, robe, 0, 0.82, 0, { sy: 1.18, ...metal });
   if (o.apron) S(g, bodyR * 0.62, o.apron, 0, 0.74, bodyR * 0.62, { sy: 1.1, sz: 0.45 });
   if (o.belt) { const b = CYL(g, bodyR + 0.03, bodyR + 0.03, 0.1, o.belt, 0, 0.66, 0, { metal: 0.5, rough: 0.4, emis: 0x3a2c00 }); b.scale.z = 0.96; }
   if (o.cracks) { B(g, 0.05, 0.3, 0.04, darken(robe, 0.5), -0.1, 0.82, bodyR - 0.02); B(g, 0.05, 0.2, 0.04, darken(robe, 0.5), 0.14, 0.9, bodyR - 0.02, { rotZ: 0.4 }); }

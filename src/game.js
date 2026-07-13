@@ -487,8 +487,8 @@ export class Game {
       pxMap(m, tk, 3); // a touch denser so bushes/rocks/trees clearly read as pixel-textured
     });
 
-    // ambient wildlife suited to the biome (rabbits & squirrels in the wood, etc.)
-    if (this.critters) this.critters.populate(BIOME_CRITTERS[kind] || null, kind === 'trees' ? 8 : 5);
+    // ambient wildlife suited to the biome — kept sparse so it feels alive, not crowded
+    if (this.critters) this.critters.populate(BIOME_CRITTERS[kind] || null, kind === 'trees' ? 5 : 3);
   }
 
   // addon-free image-based lighting: bake a tiny gradient sky + a couple of bright
@@ -584,7 +584,9 @@ export class Game {
   }
 
   _applyStageTheme(stage) {
-    const t = stage.theme;
+    // day by default; the guided tutorial fight uses the theme's NIGHT override
+    const base = stage.theme;
+    const t = (this._introRun && base.night) ? Object.assign({}, base, base.night) : base;
     this._aimShadow(28, 46, 18, 48); // arena frustum — tighter than before = more shadow texels/unit
     this.scene.background.setHex(t.bg);
     this.scene.fog.color.setHex(t.fog); this.scene.fog.density = t.fogD * 0.9; // light haze — the diorama must READ
@@ -1146,10 +1148,10 @@ export class Game {
     this.world.show(true);
     this.wizard.setVisible(false);
     this.input.pointMode = true;
-    this.scene.background.setHex(0x0a1424); this.scene.fog.color.setHex(0x0e1a2c); this.scene.fog.density = 0.003; // clear night air — the map must READ
-    this.hemi.color.setHex(0xbfd0ff); this.hemi.groundColor.setHex(0x2a3a4a); this.hemi.intensity = 1.15;
-    this.dir.color.setHex(0xffffff); this.dir.intensity = 1.45; this.ambient.color.setHex(0x44506a); this.ambient.intensity = 0.7;
-    this.rim.color.setHex(0xbfe0ff); this.rim.intensity = 1.0;
+    this.scene.background.setHex(0x9cc6dc); this.scene.fog.color.setHex(0xc3ddec); this.scene.fog.density = 0.0022; // bright daylight sky over the parchment map
+    this.hemi.color.setHex(0xdfeaff); this.hemi.groundColor.setHex(0x8a7a52); this.hemi.intensity = 1.25;
+    this.dir.color.setHex(0xfff2d2); this.dir.intensity = 1.7; this.ambient.color.setHex(0x8a8468); this.ambient.intensity = 0.85;
+    this.rim.color.setHex(0xfff0d0); this.rim.intensity = 0.9;
     if (this.heroLight) this.heroLight.intensity = 0;
     this.renderer.toneMappingExposure = 1.1;
     if (this._gradePass) { const u = this._gradePass.uniforms; // moody storybook grade for the map
@@ -1623,7 +1625,8 @@ export class Game {
   }
   // lightweight arena look restore (used when descending into a fight from the level map)
   _restoreArenaLook() {
-    const t = this.stage && this.stage.theme; if (!t) return;
+    const base = this.stage && this.stage.theme; if (!base) return;
+    const t = (this._introRun && base.night) ? Object.assign({}, base, base.night) : base;
     this._aimShadow(28, 46, 18, 48);
     this.scene.background.setHex(t.bg); this.scene.fog.color.setHex(t.fog); this.scene.fog.density = t.fogD * 0.9;
     this.hemi.color.setHex(t.hemi); this.hemi.groundColor.setHex(t.hemiG); this.hemi.intensity = 1.2;

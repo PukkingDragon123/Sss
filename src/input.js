@@ -46,7 +46,8 @@ export class Input {
       if (k === 'h' || k === '?') this.events.push({ type: 'guide' });
       if (k === 'q' || k === 'r') this.events.push({ type: 'drink' });
       if (k === 'e' || k === 'f') this.events.push({ type: 'interact' });
-      if ([' ', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
+      if ((k === 'shift' || k === 'control') && !e.repeat) this._dash = true; // quick dodge-dash
+      if ([' ', 'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(k)) e.preventDefault();
     });
     window.addEventListener('keyup', (e) => { this.keys.delete(e.key.toLowerCase()); });
 
@@ -83,6 +84,9 @@ export class Input {
           this.joy.ox = e.clientX; this.joy.oy = e.clientY;
           this.joy.x = e.clientX; this.joy.y = e.clientY;
           this.joy.dx = 0; this.joy.dz = 0;
+          const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+          if (this._lastJoyTap && now - this._lastJoyTap < 320) this._dash = true; // double-tap the move stick to dash
+          this._lastJoyTap = now;
         } else {
           this._startDraw(e);
         }
@@ -190,6 +194,8 @@ export class Input {
     return { x, z };
   }
 
+  // one-shot dodge-dash request (Shift/Ctrl or a double-tap on the move stick), then reset
+  consumeDash() { const d = this._dash; this._dash = false; return d; }
   // camera orbit delta since last poll (pixels), then reset
   consumeOrbit() { const o = this.orbit; this.orbit = { dx: 0, dy: 0 }; return o; }
   // camera zoom delta since last poll (wheel + pinch), then reset

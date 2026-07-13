@@ -783,8 +783,8 @@ export class Tavern {
     const rx = (m, d) => { if (m) m.rotation.x = m.userData._b.rx + (d || 0); };
     const restMug = () => { if (mug) { const b = mug.userData._b; mug.position.set(b.px, b.py, b.pz); } };
     if (mode === 'walk') {
-      const s = Math.sin(t * 10) * 0.16 * intens;
-      pz(legL, s); pz(legR, -s); rx(armL, s * 1.4); rx(armR, -s * 1.4); restMug();
+      const s = Math.sin(t * 10) * 0.22 * intens;              // livelier pendulum arm+leg swing
+      pz(legL, s); pz(legR, -s); rx(armL, s * 1.6); rx(armR, -s * 1.6); restMug();
     } else if (mode === 'sit') {
       pz(legL, 0.16); pz(legR, 0.16); rx(armL, 0); rx(armR, 0); restMug();
     } else if (mode === 'drink') {
@@ -793,8 +793,9 @@ export class Tavern {
       rx(armR, -1.15 * pump);
       if (handR) { const b = handR.userData._b; handR.position.set(b.px * 0.5, b.py + 0.45 * pump, b.pz + 0.22); }
       if (mug) { const b = mug.userData._b; mug.position.set(b.px * 0.35, b.py + 0.5 * pump, b.pz + 0.14); }
-    } else { // idle
-      pz(legL, 0); pz(legR, 0); rx(armL, 0); rx(armR, 0); restMug();
+    } else { // idle — a gentle living sway so the arms breathe & dangle like the player's
+      const s = Math.sin(t * 2.1) * 0.1 * intens;
+      pz(legL, 0); pz(legR, 0); rx(armL, s); rx(armR, -s); restMug();
     }
   }
 
@@ -824,7 +825,7 @@ export class Tavern {
         if (n.annoyedCd <= 0) { n.annoyedCd = 1.2; n.wob = 1; this.ruckus.patrons++; game.audio.play('hurt'); game.shake(0.5); if (this.ruckus.patrons === 1) game.showStory('Patron', ['OI! Watch where you\'re flailing, you soggy old fool!']); }
       }
       if (n.annoyedCd > 0) n.annoyedCd -= dt;
-      if (n.wob > 0) { n.wob -= dt * 2; n.mesh.rotation.z = Math.sin(this.phase * 22) * 0.15 * Math.max(0, n.wob); } else { n.mesh.rotation.z = Math.sin(n.phase) * 0.03; }
+      if (n.wob > 0) { n.wob -= dt * 2; n.mesh.rotation.z = Math.sin(this.phase * 22) * 0.15 * Math.max(0, n.wob); } else { n.mesh.rotation.z = Math.sin(n.phase * 1.3) * 0.055; n.mesh.rotation.x = Math.sin(n.phase * 0.9 + 1) * 0.03; } // a gentle drunk spring-sway (player-like body physics)
     }
 
     // unique customers now LIVE: they walk in, settle at their spot, sip a brew, and

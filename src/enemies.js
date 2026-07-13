@@ -4,6 +4,12 @@ import * as THREE from 'three';
 import { ARENA } from './wizard.js';
 import { outlineGroup } from './outline.js';
 import { pxMap } from './pixeltex.js';
+import { makeFace } from './facesprite.js';
+
+// flyers & wisps keep their tiny 3D dot eyes; everything else wears a goofy-but-menacing
+// 2D pixel face on its front (matching the humanoids), and topples like a ragdoll on death.
+const NO_FACE = new Set(['bat', 'brutebat', 'wraith', 'wispling', 'drone']);
+const SURPRISED_FACE = new Set(['slime', 'splitslime', 'mushroomcap', 'rat']);
 
 const TYPES = {
   // forest
@@ -13,6 +19,7 @@ const TYPES = {
   zombie:  { hp: 52,  speed: 1.5, dmg: 11, r: 0.95, xp: 13,  color: 0x6f9e5a, size: 1.55, baseY: 0 },
   slime:   { hp: 20,  speed: 2.2, dmg: 7,  r: 0.7,  xp: 7,   color: 0x4ad0a8, size: 1.0, baseY: 0 },
   mushroomcap: { hp: 60, speed: 1.4, dmg: 10, r: 0.85, xp: 12, color: 0xc44a5a, size: 1.35, baseY: 0 },
+  brigand: { hp: 34, speed: 2.6, dmg: 10, r: 0.72, xp: 12, color: 0x8fae5a, size: 1.15, baseY: 0, humanoid: 'club' }, // upright forest brute swinging a spiked club — ragdolls on death
   goblinking:  { hp: 850, speed: 1.9, dmg: 18, r: 2.0, xp: 220, color: 0x6fae3a, size: 3.2, baseY: 0, boss: true },
   // cave
   rat:      { hp: 8,  speed: 4.3, dmg: 5,  r: 0.45, xp: 3,  color: 0x8a7a66, size: 0.7, baseY: 0 },
@@ -109,13 +116,21 @@ export class Enemies {
     body.castShadow = true;
     g.add(body);
 
-    // simple black dot eyes (no white googly sclera); a touch bigger + angry brows on fierce foes
-    const pupilMat = new THREE.MeshStandardMaterial({ color: 0x0a0a12, roughness: 0.5, flatShading: true });
-    const er0 = fierce ? 0.1 : 0.085;
-    const eGeo = new THREE.SphereGeometry(er0, 7, 6);
-    for (const sx of [-1, 1]) {
-      const e = new THREE.Mesh(eGeo, pupilMat); e.position.set(sx * 0.2, 0.95, 0.56); e.userData.noOutline = true; e.userData.noTex = true; g.add(e);
-      if (fierce) { const brow = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.06, 0.08), pupilMat); brow.position.set(sx * 0.2, 1.13, 0.5); brow.rotation.z = sx * 0.5; g.add(brow); }
+    if (NO_FACE.has(type)) {
+      // flyers/wisps: simple black dot eyes (no 2D face plane)
+      const pupilMat = new THREE.MeshStandardMaterial({ color: 0x0a0a12, roughness: 0.5, flatShading: true });
+      const er0 = fierce ? 0.1 : 0.085;
+      const eGeo = new THREE.SphereGeometry(er0, 7, 6);
+      for (const sx of [-1, 1]) {
+        const e = new THREE.Mesh(eGeo, pupilMat); e.position.set(sx * 0.2, 0.95, 0.56); e.userData.noOutline = true; e.userData.noTex = true; g.add(e);
+      }
+    } else {
+      // a goofy-but-menacing 2D pixel face on the body front (grumpy scowl; a couple look surprised)
+      const mood = SURPRISED_FACE.has(type) ? 'surprised' : 'grumpy';
+      const fseed = (type.length * 3) & 7;
+      const face = makeFace(0.92, mood, fseed);
+      face.position.set(0, 0.92, 0.57);
+      g.add(face);
     }
 
     // little feet (flyers/floaters have none)
@@ -263,6 +278,31 @@ export class Enemies {
       const crag = new THREE.Mesh(new THREE.OctahedronGeometry(0.24, 0), rockMat); crag.position.set(0, 1.28, -0.1); crag.rotation.y = 0.5; crag.castShadow = true; g.add(crag);
       body.scale.set(1.15, 1.05, 1.1);
     }
+    if (def.humanoid) {
+      // a proper humanoid brute: upright torso, two arms, and a weapon raised to swing.
+      body.scale.set(0.94, 1.18, 0.94);
+      const skinMat = new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.85, flatShading: true }); pxMap(skinMat, 'skin', 2);
+      const clothMat = new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 0.9, flatShading: true }); pxMap(clothMat, 'cloth', 2);
+      const armGeo = new THREE.CylinderGeometry(0.11, 0.09, 0.62, 6); armGeo.translate(0, -0.31, 0);
+      const handGeo = new THREE.SphereGeometry(0.14, 7, 6);
+      const sy = 1.0;
+      // left arm hangs at the side
+      const aL = new THREE.Mesh(armGeo, clothMat); aL.position.set(-0.5, sy, 0); aL.rotation.z = 0.32; aL.castShadow = true; g.add(aL);
+      const hL = new THREE.Mesh(handGeo, skinMat); hL.position.set(-0.64, sy - 0.56, 0.04); g.add(hL);
+      // right arm cocked back, gripping the weapon
+      const aR = new THREE.Mesh(armGeo, clothMat); aR.position.set(0.5, sy, 0.08); aR.rotation.set(-1.05, 0, -0.22); aR.castShadow = true; g.add(aR);
+      const hR = new THREE.Mesh(handGeo, skinMat); hR.position.set(0.6, sy + 0.16, 0.52); g.add(hR);
+      // a chunky spiked club in the raised hand
+      const woodMat = new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: 0.9, flatShading: true }); pxMap(woodMat, 'wood', 2);
+      const boneMat = new THREE.MeshStandardMaterial({ color: 0xdcd2ba, roughness: 0.6, flatShading: true });
+      const club = new THREE.Group(); club.position.set(0.62, sy + 0.2, 0.5); club.rotation.set(-0.7, 0, -0.25);
+      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.075, 0.72, 6), woodMat); handle.position.y = 0.22; handle.castShadow = true; club.add(handle);
+      const knob = new THREE.Mesh(new THREE.DodecahedronGeometry(0.22, 0), woodMat); knob.position.y = 0.62; knob.castShadow = true; club.add(knob);
+      for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2; const sp = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.16, 4), boneMat); sp.position.set(Math.cos(a) * 0.22, 0.62, Math.sin(a) * 0.22); sp.rotation.z = -Math.cos(a) * 1.4; sp.rotation.x = Math.sin(a) * 1.4; club.add(sp); }
+      g.add(club);
+      // a leather belt + shoulder strap for character
+      const belt = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.06, 5, 12), clothMat); belt.rotation.x = Math.PI / 2; belt.position.y = 0.5; g.add(belt);
+    }
 
     g.scale.setScalar(def.size);
     // Megabonk ink contour around the whole critter (eyes/aura/FX are skipped by the helper)
@@ -346,8 +386,16 @@ export class Enemies {
 
   _kill(e, game) {
     e.alive = false;
-    e.dying = 0.16; e.dyingMax = 0.16; // hand the mesh to the squish-pop in update()
     const def = TYPES[e.type];
+    // death style: bosses pop dramatically; grounded foes RAGDOLL — topple over, crash
+    // down and fade; flyers plummet out of the air. (falls back to the classic pop.)
+    if (def.boss) { e.deathStyle = 'pop'; e.dying = 0.16; e.dyingMax = 0.16; }
+    else if (def.baseY > 0) { e.deathStyle = 'plummet'; e.dying = 0.7; e.dyingMax = 0.7; }
+    else { e.deathStyle = 'topple'; e.dying = 0.72; e.dyingMax = 0.72; }
+    e.toppleDir = Math.random() < 0.5 ? 1 : -1;      // fall left or right
+    e.toppleAxis = Math.random() < 0.5 ? 'x' : 'z';  // forward/back or sideways
+    e.spinV = (Math.random() - 0.5) * 6;             // a little death spin
+    e.fallVY = 0;                                     // vertical velocity for the crash
     if (game) {
       game.audio.play('enemyDie');
       const dp = e.mesh.position.clone().setY(0.7 * def.size);
@@ -387,17 +435,36 @@ export class Enemies {
     for (let i = this.list.length - 1; i >= 0; i--) {
       const e = this.list[i];
       if (!e.alive) {
-        if (e.dying > 0) {                                   // squish-pop before it vanishes — juicy kill
+        if (e.dying > 0) {                                   // death animation before it vanishes — juicy kill
           e.dying -= dt;
           const dsz = TYPES[e.type].size;
           const u = 1 - Math.max(0, e.dying) / (e.dyingMax || 0.16); // 0→1
-          const m = u < 0.32 ? 1 + (u / 0.32) * 0.75 : Math.max(0.01, 1.75 * (1 - (u - 0.32) / 0.68));
-          e.mesh.scale.set(dsz * m * 1.18, dsz * m * 0.78, dsz * m * 1.18); // pop wide then implode
-          e.mesh.rotation.y += dt * 14;
-          e.mesh.position.y += dt * 1.8;
+          if (e.deathStyle === 'topple') {
+            // RAGDOLL: tip over onto the ground, crash with a tiny bounce, then sink & shrink away
+            const fall = Math.min(1, u / 0.55);
+            const ang = (Math.PI / 2 + 0.25) * fall * fall * e.toppleDir; // ease into lying flat
+            if (e.toppleAxis === 'x') e.mesh.rotation.x = ang; else e.mesh.rotation.z = ang;
+            e.mesh.rotation.y += e.spinV * dt * (1 - u);
+            e.fallVY -= 26 * dt; e.mesh.position.y = Math.max(0.12 * dsz, e.mesh.position.y + e.fallVY * dt);
+            if (e.mesh.position.y <= 0.12 * dsz && e.fallVY < -2) e.fallVY = -e.fallVY * 0.28; // bounce
+            const shrink = u < 0.7 ? 1 : Math.max(0.01, 1 - (u - 0.7) / 0.3);
+            e.mesh.scale.set(dsz * shrink * 1.05, dsz * shrink * 0.95, dsz * shrink);
+          } else if (e.deathStyle === 'plummet') {
+            // FLYER: drop out of the sky, spinning, and shrink as it hits
+            e.fallVY -= 24 * dt; e.mesh.position.y = Math.max(0.1, e.mesh.position.y + e.fallVY * dt);
+            e.mesh.rotation.z += e.spinV * dt; e.mesh.rotation.x += dt * 4;
+            const shrink = u < 0.6 ? 1 : Math.max(0.01, 1 - (u - 0.6) / 0.4);
+            e.mesh.scale.setScalar(dsz * shrink);
+          } else {
+            // classic squish-pop (bosses + fallback)
+            const m = u < 0.32 ? 1 + (u / 0.32) * 0.75 : Math.max(0.01, 1.75 * (1 - (u - 0.32) / 0.68));
+            e.mesh.scale.set(dsz * m * 1.18, dsz * m * 0.78, dsz * m * 1.18); // pop wide then implode
+            e.mesh.rotation.y += dt * 14;
+            e.mesh.position.y += dt * 1.8;
+          }
           if (e.dying > 0) continue;
         }
-        e.mesh.visible = false; this.pools[e.type].push(e); this.list.splice(i, 1); continue;
+        e.mesh.visible = false; e.mesh.rotation.set(0, 0, 0); this.pools[e.type].push(e); this.list.splice(i, 1); continue;
       }
 
       const sz = TYPES[e.type].size;

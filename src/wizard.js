@@ -123,9 +123,17 @@ export class Wizard {
     head.add(skull);
     // goofy 2D face (flat sprite on the head front) — no 3D eye/nose parts
     const face = makeFace(0.7, 'happy', 1); face.position.set(0, 0.04, 0.45); head.add(face);
-    const beard = shadowed(new THREE.Mesh(new THREE.ConeGeometry(0.36, 0.62, 8), whiteMat));
-    beard.position.set(0, -0.36, 0.2); beard.rotation.x = -0.2;
-    head.add(beard);
+    // ---- a proper LONG, flowing white wizard beard: a wide chin fringe, a long
+    // central fall, side whiskers and a tapering tip — layered cones so it reads bushy.
+    // Seated below the 2D face sprite so it never clashes with the drawn features. ----
+    const beard = new THREE.Group(); beard.position.set(0, -0.18, 0.2); head.add(beard); this.beard = beard;
+    const bcone = (r, h, y, z, sx = 1) => { const m = shadowed(new THREE.Mesh(new THREE.ConeGeometry(r, h, 8), whiteMat)); m.position.set(0, y, z); m.scale.x = sx; beard.add(m); return m; };
+    bcone(0.42, 0.34, -0.12, 0.12, 1.15);                // wide fringe under the chin
+    bcone(0.34, 1.06, -0.60, 0.07);                      // the long central fall
+    bcone(0.19, 0.58, -1.02, 0.05);                      // a tapering tip
+    for (const sx of [-1, 1]) { const w = shadowed(new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.4, 2, 6), whiteMat)); w.position.set(sx * 0.27, -0.28, 0.14); w.rotation.z = sx * 0.22; beard.add(w); } // side whiskers framing the jaw
+    // a bushy white moustache riding in front, just above the beard line
+    for (const sx of [-1, 1]) { const m = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), whiteMat)); m.position.set(sx * 0.14, 0.16, 0.34); m.scale.set(1.25, 0.62, 0.8); beard.add(m); }
 
     // hat (springy flop)
     const hat = new THREE.Group(); hat.position.y = 0.38;

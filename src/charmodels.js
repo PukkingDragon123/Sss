@@ -82,12 +82,13 @@ function _human(o) {
   if (o.belt) { const b = CYL(g, bodyR + 0.03, bodyR + 0.03, 0.1, o.belt, 0, 0.66, 0, { metal: 0.5, rough: 0.4, emis: 0x3a2c00 }); b.scale.z = 0.96; }
   if (o.cracks) { B(g, 0.05, 0.3, 0.04, darken(robe, 0.5), -0.1, 0.82, bodyR - 0.02); B(g, 0.05, 0.2, 0.04, darken(robe, 0.5), 0.14, 0.9, bodyR - 0.02, { rotZ: 0.4 }); }
 
-  // stubby arms + ball hands
-  const ax = bodyR + 0.06;
-  limbs.armL = CAP(g, 0.09, 0.26, robe, -ax, 0.86, 0, { rotZ: 0.55, ...metal });
-  limbs.armR = CAP(g, 0.09, 0.26, robe, ax, 0.86, 0, { rotZ: -0.55, ...metal });
-  limbs.handL = S(g, 0.11, skin, -ax - 0.1, 0.66, 0.04);
-  limbs.handR = S(g, 0.11, skin, ax + 0.1, 0.66, 0.04);
+  // arms that HANG at the sides like the player wizard's dangling limbs (unified body),
+  // long capsules from the shoulder down to a ball "mitten" hand — swung by the tavern anim
+  const ax = bodyR + 0.02;
+  limbs.armL = CAP(g, 0.085, 0.4, robe, -ax, 0.74, 0.02, { rotZ: 0.16, ...metal });
+  limbs.armR = CAP(g, 0.085, 0.4, robe, ax, 0.74, 0.02, { rotZ: -0.16, ...metal });
+  limbs.handL = S(g, 0.115, skin, -ax - 0.06, 0.46, 0.04, { sy: 0.86 });
+  limbs.handR = S(g, 0.115, skin, ax + 0.06, 0.46, 0.04, { sy: 0.86 });
 
   // big round head (chibi ratio)
   const hunch = o.hunch ? 0.14 : 0;

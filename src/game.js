@@ -22,6 +22,7 @@ import { rollUpgrades, rollArtifact, artifactById, ARCHETYPES, archetypeById } f
 import * as meta from './meta.js';
 import { COMBO_META } from './meta.js';
 import { pxMap } from './pixeltex.js';
+import { makeLeafyTree, makeGrass, makeFern, makeRock, makeMushroom, makeFallenLog, Critters, BIOME_CRITTERS } from './props.js';
 import { iconCanvas, PET_SPRITE } from './pixelicons.js';
 
 // Cinematic color grade — runs LAST (after OutputPass), so it operates on sRGB display
@@ -148,7 +149,7 @@ export class Game {
     this.scene.fog = new THREE.FogExp2(0x8e8ecb, 0.0085);
 
     this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 400);
-    this.camOffset = new THREE.Vector3(0, 27, 22);
+    this.camOffset = new THREE.Vector3(0, 21, 17); // closer, punchier arena framing (zoomed in)
     this.camTarget = new THREE.Vector3();
     this.camZoom = 1; // player zoom (wheel / pinch), multiplies the camera offset
     this.camYaw = 0;    // player camera turn (orbit around the wizard) — middle-drag / [ ] / on-screen buttons
@@ -292,6 +293,7 @@ export class Game {
 
     // per-stage scatter (trees / rocks / graves) rebuilt on stage change
     this.scatterGroup = new THREE.Group(); G.add(this.scatterGroup);
+    this.critters = new Critters(G, ARENA); // ambient wildlife roaming the clearing
     this._buildScatter('trees');
 
     // aim reticle on the ground
@@ -389,23 +391,15 @@ export class Game {
     };
 
     if (kind === 'trees') {
-      const trunkMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x4a3326, roughness: 0.95 });
-      const leafMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x2f6e3f, roughness: 0.9 });
-      const leafMat2 = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x3a824a, roughness: 0.9 });
-      const leafMat3 = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x255a34, roughness: 0.9 });
-      const bushMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x356b3e, roughness: 0.95 });
-      const fernMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x418a4a, roughness: 0.95 });
-      const capMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xc0556a, roughness: 0.8 });
-      const stalkMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xe8e0cc, roughness: 0.9 });
-      const rockMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x5a5e66, roughness: 1 });
-      const flowerMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xcdd8e8, roughness: 0.7 }); // pale moonlit bloom (no candy glow)
-      const mkTree = () => { const t = new THREE.Group(); const h = 3.4 + Math.random() * 1.6; const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.75, h, 8), trunkMat); tr.position.y = h / 2; tr.castShadow = true; const lm = [leafMat, leafMat2, leafMat3][Math.floor(Math.random() * 3)]; const f1 = new THREE.Mesh(new THREE.ConeGeometry(2.2, 3.6, 9), lm); f1.position.y = h + 0.6; f1.castShadow = true; const f2 = new THREE.Mesh(new THREE.ConeGeometry(1.7, 2.8, 9), leafMat2); f2.position.y = h + 2.1; const f3 = new THREE.Mesh(new THREE.ConeGeometry(1.1, 2, 9), leafMat3); f3.position.y = h + 3.4; t.add(tr, f1, f2, f3); return t; };
-      treeLine(mkTree, 54);
-      inside(16, mkTree, 6, ARENA - 8);            // full trees dotted inside too
-      inside(34, () => { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.8 + Math.random() * 0.7, 0), Math.random() < 0.5 ? bushMat : fernMat); b.position.y = 0.55; b.castShadow = true; b.scale.y = 0.8; return b; });
-      inside(20, () => { const g = new THREE.Group(); const s = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.5, 7), stalkMat); s.position.y = 0.25; const c = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), capMat); c.position.y = 0.5; c.castShadow = true; g.add(s, c); return g; });
-      inside(16, () => { const r = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5 + Math.random() * 0.6, 0), rockMat); r.position.y = 0.32; r.castShadow = true; return r; });
-      inside(18, () => { const g = new THREE.Group(); for (let i = 0; i < 3; i++) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), flowerMat); fl.position.set((Math.random() - 0.5) * 0.6, 0.3 + Math.random() * 0.2, (Math.random() - 0.5) * 0.6); g.add(fl); } return g; });
+      // handmade forest: 3D trees with 2D leaf-sprite canopies, sprite grass & ferns,
+      // textured toadstools, mossy boulders and fallen logs — a real, lived-in wood.
+      treeLine(makeLeafyTree, 46);
+      inside(13, makeLeafyTree, 6, ARENA - 8);     // full trees dotted inside too
+      inside(64, makeGrass, 3, ARENA - 5);         // thick sprite-grass ground cover
+      inside(28, makeFern);                         // leafy ferns tucked between
+      inside(20, makeMushroom);                     // toadstool clusters
+      inside(16, makeRock);                         // mossy boulders
+      inside(9, makeFallenLog, 5, ARENA - 9);       // fallen logs as little landmarks
     } else if (kind === 'rocks') {
       const rockMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x4a443e, roughness: 1 });
       const tipMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x5a524a, roughness: 1 });
@@ -492,6 +486,9 @@ export class Game {
       const tk = (c.g > c.r + 0.02 && c.g >= c.b) ? 'leaf' : (c.r > 0.28 && c.b < c.r * 0.92) ? 'wood' : 'stone';
       pxMap(m, tk, 3); // a touch denser so bushes/rocks/trees clearly read as pixel-textured
     });
+
+    // ambient wildlife suited to the biome (rabbits & squirrels in the wood, etc.)
+    if (this.critters) this.critters.populate(BIOME_CRITTERS[kind] || null, kind === 'trees' ? 8 : 5);
   }
 
   // addon-free image-based lighting: bake a tiny gradient sky + a couple of bright
@@ -1407,7 +1404,7 @@ export class Game {
     this.wizard.setVisible(true);
     this.wizard.reset(this.stats); this.wizard.pos.set(0, 0, 0);
     this.input.pointMode = false;
-    this.camOffset.set(0, 27, 22); this.resetCamera();
+    this.camOffset.set(0, 21, 17); this.resetCamera(); // zoomed-in arena view
     this._applyStageTheme(stage);
     this._spawnShrine();         // a rune shrine: draw a glyph at it to channel a relic
     this._spawnWisp();           // your glowing wisp guide-pet drifts along
@@ -2456,6 +2453,7 @@ export class Game {
     this.spells.update(sdt, this);
     this.jobs.update(sdt, this);
     this.particles.update(sdt);
+    if (this.critters) this.critters.update(sdt, this.wizard.pos); // hopping rabbits, scurrying mice, fluttering birds
     this._updatePickups(sdt);
     this._ambientFX(sdt);           // drifting motes/embers + low-HP vignette pulse
 

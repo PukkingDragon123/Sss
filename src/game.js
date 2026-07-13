@@ -590,21 +590,23 @@ export class Game {
     this.scene.fog.color.setHex(t.fog); this.scene.fog.density = t.fogD * 0.9; // light haze — the diorama must READ
     // clean low-poly light: lifted floors so every facet catches a readable shade,
     // with the keyed dir + rim still doing the sculpting.
-    this.hemi.color.setHex(t.hemi); this.hemi.groundColor.setHex(t.hemiG); this.hemi.intensity = 0.92;
-    this.dir.color.setHex(t.dir); this.dir.intensity = t.dirI;
-    this.ambient.color.setHex(t.amb); this.ambient.intensity = 0.34;
-    this.fill.color.setHex(0xbfd0ff); this.fill.intensity = 0.36;
-    this.rim.color.setHex(t.rim != null ? t.rim : t.dir); this.rim.intensity = (t.rimI != null ? t.rimI : 1.15) + 0.3;
+    // brighter, more readable low-poly light: lifted hemisphere + ambient so every facet
+    // reads, the keyed dir + rim still sculpting — the scene is lit, not gloomy.
+    this.hemi.color.setHex(t.hemi); this.hemi.groundColor.setHex(t.hemiG); this.hemi.intensity = 1.2;
+    this.dir.color.setHex(t.dir); this.dir.intensity = Math.max(t.dirI, 1.7);
+    this.ambient.color.setHex(t.amb); this.ambient.intensity = 0.58;
+    this.fill.color.setHex(0xbfd0ff); this.fill.intensity = 0.5;
+    this.rim.color.setHex(t.rim != null ? t.rim : t.dir); this.rim.intensity = (t.rimI != null ? t.rimI : 1.15) + 0.35;
     this.floorMat.color.setHex(t.floor);
     this.rugMat.color.setHex(t.rug);
     this._buildScatter(t.scatter);
-    this.renderer.toneMappingExposure = 1.04; // moody, saturated, Balatro-rich
+    this.renderer.toneMappingExposure = 1.14; // brighter, still saturated & rich
     if (this._gradePass) { const u = this._gradePass.uniforms; // deep felt low-poly grade
-      u.uContrast.value = 1.13; u.uSaturation.value = 1.19;
-      u.uShadowTint.value.set(0.88, 0.93, 1.08); u.uHighlightTint.value.set(1.05, 1.01, 0.95);
-      u.uTintStrength.value = 0.26; u.uVignette.value = 0.40; u.uVignetteSoft.value = 0.52;
-      u.uGrain.value = 0.012;
-      this._baseVig = 0.40; // authoritative vignette base for the low-HP pulse
+      u.uContrast.value = 1.1; u.uSaturation.value = 1.18;
+      u.uShadowTint.value.set(0.9, 0.95, 1.08); u.uHighlightTint.value.set(1.05, 1.01, 0.95);
+      u.uTintStrength.value = 0.22; u.uVignette.value = 0.3; u.uVignetteSoft.value = 0.58;
+      u.uGrain.value = 0.01;
+      this._baseVig = 0.3; // authoritative vignette base for the low-HP pulse (lighter, less gloomy)
     }
   }
 
@@ -1624,11 +1626,12 @@ export class Game {
     const t = this.stage && this.stage.theme; if (!t) return;
     this._aimShadow(28, 46, 18, 48);
     this.scene.background.setHex(t.bg); this.scene.fog.color.setHex(t.fog); this.scene.fog.density = t.fogD * 0.9;
-    this.hemi.color.setHex(t.hemi); this.hemi.groundColor.setHex(t.hemiG); this.hemi.intensity = 0.92;
-    this.dir.color.setHex(t.dir); this.dir.intensity = t.dirI; this.ambient.color.setHex(t.amb); this.ambient.intensity = 0.34;
-    this.fill.color.setHex(0xbfd0ff); this.fill.intensity = 0.36;
-    this.rim.color.setHex(t.rim != null ? t.rim : t.dir); this.rim.intensity = (t.rimI != null ? t.rimI : 1.15) + 0.3;
-    this.renderer.toneMappingExposure = 1.04;
+    this.hemi.color.setHex(t.hemi); this.hemi.groundColor.setHex(t.hemiG); this.hemi.intensity = 1.2;
+    this.dir.color.setHex(t.dir); this.dir.intensity = Math.max(t.dirI, 1.7); this.ambient.color.setHex(t.amb); this.ambient.intensity = 0.58;
+    this.fill.color.setHex(0xbfd0ff); this.fill.intensity = 0.5;
+    this.rim.color.setHex(t.rim != null ? t.rim : t.dir); this.rim.intensity = (t.rimI != null ? t.rimI : 1.15) + 0.35;
+    this.renderer.toneMappingExposure = 1.14;
+    if (this._gradePass) { this._gradePass.uniforms.uVignette.value = 0.3; this._baseVig = 0.3; }
   }
   chooseMapNode(nodeId) {
     if (this.state !== 'levelmap') return;
@@ -2304,12 +2307,12 @@ export class Game {
       this.camera.lookAt(cx, 0, cz);
       return;
     }
-    // 3D level map: an orbitable, zoomable angled view over the candy isle
+    // 3D level map: LOCKED near-top-down map view; the player only scrolls up/down the trail
     if (this.phase === 'levelmap') {
-      // fixed top-down (slightly tilted) view; the player only scrolls up/down the trail
       const sz = this._mapScrollZ || 0;
-      this.camera.position.lerp(new THREE.Vector3(0, 30, sz + 12), Math.min(1, dt * 4));
-      this.camera.lookAt(0, 0, sz - 2);
+      this.camera.position.lerp(new THREE.Vector3(0, 34, sz + 6), Math.min(1, dt * 4)); // higher + steeper = a clean map read
+      this.camera.rotation.z = 0;
+      this.camera.lookAt(0, 0, sz - 1);
       return;
     }
     // boss reveal: pull out and frame the boss as it emerges

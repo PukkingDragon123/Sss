@@ -5,7 +5,6 @@
 // the pure runmap graph; rendered with the main camera so it orbits & zooms with
 // mouse & finger. Primitives-only, low-poly + pixel-textured — no candy anywhere.
 import * as THREE from 'three';
-import { iconCanvas } from './pixelicons.js';
 import { pxMap } from './pixeltex.js';
 
 // per node TYPE: floating badge + accent tint + a little landmark prop on the pad
@@ -34,36 +33,52 @@ const BIOME = {
 const hx = (n) => '#' + ('000000' + n.toString(16)).slice(-6);
 const lerpHex = (a, b, t) => { const ca = new THREE.Color(a), cb = new THREE.Color(b); return ca.lerp(cb, t).getHex(); };
 
-function numSprite(text) {
-  const c = document.createElement('canvas'); c.width = c.height = 128;
+// A big, unmistakable Candy-Crush-style LEVEL MEDALLION billboard: a glossy round
+// button with a thick dark ring, a huge readable number (or crown for the boss),
+// a padlock when locked, a type glyph, and three star pips. Redrawn on state change.
+function makeMedallion(number, typeDef, isBoss) {
+  const S = 192;
+  const c = document.createElement('canvas'); c.width = c.height = S;
   const x = c.getContext('2d');
-  x.font = '900 78px "Trebuchet MS",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.lineWidth = 13; x.strokeStyle = 'rgba(6,4,10,0.96)'; x.strokeText(text, 64, 66);
-  x.fillStyle = '#fff4dc'; x.fillText(text, 64, 66);
-  const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-  s.scale.set(1.35, 1.35, 1.35); return s;
-}
-function iconSprite(key, px = 92) {
-  const c = document.createElement('canvas'); c.width = c.height = 128;
-  const x = c.getContext('2d');
-  const spr = iconCanvas(key, { scale: 6 });
-  if (spr) { x.imageSmoothingEnabled = false; x.shadowColor = 'rgba(0,0,0,0.5)'; x.shadowOffsetY = 4; x.drawImage(spr, (128 - px) / 2, (128 - px) / 2 + 3, px, px); }
-  const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-  s.scale.set(1.7, 1.7, 1.7); return s;
-}
-function labelSprite(text, tone) {
-  const c = document.createElement('canvas'); c.width = 320; c.height = 76;
-  const x = c.getContext('2d');
-  x.font = 'bold 34px "Trebuchet MS",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.lineWidth = 8; x.strokeStyle = 'rgba(6,4,10,0.96)'; x.strokeText(text, 160, 34);
-  x.fillStyle = '#f6ecd2'; x.fillText(text, 160, 34);
-  const w = Math.min(300, x.measureText(text).width + 16);
-  x.fillStyle = tone; x.fillRect(160 - w / 2, 60, w, 7);
-  const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-  s.scale.set(8.4, 2, 1); return s;
+  const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4; tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearMipmapLinearFilter;
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  const cx = S / 2, cy = S / 2 - 12, R = isBoss ? 68 : 60;
+  const draw = (state, stars) => {
+    x.clearRect(0, 0, S, S);
+    const locked = state === 'locked';
+    let disc, ring, ink, gloss = 'rgba(255,255,255,0.28)';
+    if (locked) { disc = '#6a6470'; ring = '#3a3640'; ink = '#26232c'; }
+    else if (state === 'current') { disc = '#ffd45a'; ring = '#9a6a16'; ink = '#3a2600'; }
+    else if (state === 'done') { disc = '#74c268'; ring = '#2c6330'; ink = '#0f350f'; }
+    else { disc = hx(typeDef.col); ring = '#221a12'; ink = '#181008'; } // reachable → type colour
+    // ground shadow
+    x.fillStyle = 'rgba(0,0,0,0.38)'; x.beginPath(); x.ellipse(cx, cy + R + 12, R * 0.78, 11, 0, 0, 7); x.fill();
+    // outer ring + disc
+    x.beginPath(); x.arc(cx, cy, R + 11, 0, 7); x.fillStyle = ring; x.fill();
+    x.beginPath(); x.arc(cx, cy, R, 0, 7); x.fillStyle = disc; x.fill();
+    // glossy top highlight
+    x.beginPath(); x.ellipse(cx, cy - R * 0.42, R * 0.66, R * 0.36, 0, 0, 7); x.fillStyle = gloss; x.fill();
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    if (locked) {                                   // padlock
+      x.fillStyle = ink; x.beginPath(); x.roundRect(cx - 20, cy - 2, 40, 34, 6); x.fill();
+      x.lineWidth = 9; x.strokeStyle = ink; x.beginPath(); x.arc(cx, cy - 6, 15, Math.PI, 0); x.stroke();
+      x.fillStyle = disc; x.beginPath(); x.arc(cx, cy + 12, 5, 0, 7); x.fill();
+    } else if (isBoss) {                            // crown for the lair
+      x.font = '900 68px sans-serif'; x.fillStyle = ink; x.fillText('♛', cx, cy + 4);
+    } else {                                        // the level number, huge & outlined
+      x.font = '900 76px "Trebuchet MS",Arial,sans-serif';
+      x.lineWidth = 10; x.strokeStyle = ink; x.strokeText(String(number), cx, cy + 4);
+      x.fillStyle = '#fff8e6'; x.fillText(String(number), cx, cy + 4);
+    }
+    // a small type glyph above (skip plain combat & boss)
+    if (!locked && !isBoss && typeDef && typeDef.icon && typeDef !== TYPE.combat) { x.font = '34px sans-serif'; x.fillText(typeDef.icon, cx, cy - R - 6); }
+    // three star pips beneath
+    for (let s = 0; s < 3; s++) { x.font = '30px sans-serif'; x.fillStyle = s < (stars || 0) ? '#ffdf5a' : 'rgba(255,255,255,0.24)'; x.fillText('★', cx + (s - 1) * 30, cy + R + 22); }
+    tex.needsUpdate = true;
+  };
+  draw('locked', 0);
+  const sc = isBoss ? 4.0 : 3.2; spr.scale.set(sc, sc, sc);
+  return { spr, draw };
 }
 
 export class LevelMap {
@@ -139,38 +154,31 @@ export class LevelMap {
       }
     }
 
-    // ---- the node waystones ----
+    // ---- the node waystones: a clean disc pad + a big candy-crush level medallion ----
     for (const n of L.ordered) {
       const p = L.pos[n.id];
       const def = TYPE[n.type] || TYPE.combat;
       const isBoss = n.type === 'boss';
       const view = new THREE.Group(); view.position.set(p.x, 0.64, p.z);
-      // mossy stone dais
-      const dais = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.5, 0.55, 12), M(B.rock, 0.95)); dais.position.y = 0.28; dais.castShadow = dais.receiveShadow = true; view.add(dais);
-      const moss = new THREE.Mesh(new THREE.CylinderGeometry(1.28, 1.28, 0.12, 12), M(lerpHex(B.grass, 0x4a6a34, 0.5), 0.9)); moss.position.y = 0.56; view.add(moss);
-      this._nodeProp(view, def.prop, def.col, isBoss, M, basic);
-      // floating type badge + carved level number
-      const badge = iconSprite(def.icon, isBoss ? 108 : 86); badge.position.y = isBoss ? 4.4 : 2.9; view.add(badge);
-      if (!isBoss) { const num = numSprite(String(n.row + 1)); num.position.set(0, 1.7, 0); view.add(num); }
-      // star pips
-      const stars = new THREE.Group(); stars.position.y = isBoss ? 3.3 : 2.15; const starMeshes = [];
-      for (let s = 0; s < 3; s++) { const stm = new THREE.Mesh(new THREE.OctahedronGeometry(0.15, 0), new THREE.MeshBasicMaterial({ color: 0x3a3228 })); stm.position.set((s - 1) * 0.46, 0, 0); stars.add(stm); starMeshes.push(stm); }
-      view.add(stars);
-      // reachable/current glow ring + a rising light column
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.1, 8, 28), basic(B.accent, 0)); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.12; view.add(ring);
-      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.9, 6, 12, 1, true), basic(B.accent, 0)); beam.position.y = 3.4; view.add(beam);
-      const ptr = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.85, 4), new THREE.MeshBasicMaterial({ color: 0xffe08a })); ptr.rotation.x = Math.PI; ptr.position.y = isBoss ? 5.3 : 3.7; ptr.visible = false; view.add(ptr);
-      const label = labelSprite(def.label, hx(def.col)); label.position.y = -0.5; label.scale.set(5.6, 1.35, 1); view.add(label);
-      const hit = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.7, 4.6, 10), new THREE.MeshBasicMaterial({ visible: false })); hit.position.y = 1.8; hit.userData.id = n.id; view.add(hit);
+      // a low mossy stone pad (kept small & tidy)
+      const dais = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.4, 0.5, 14), M(B.rock, 0.95)); dais.position.y = 0.25; dais.castShadow = dais.receiveShadow = true; view.add(dais);
+      const moss = new THREE.Mesh(new THREE.CylinderGeometry(1.18, 1.18, 0.12, 14), M(lerpHex(B.grass, 0x4a6a34, 0.5), 0.9)); moss.position.y = 0.5; view.add(moss);
+      if (isBoss) this._nodeProp(view, 'lair', def.col, true, M, basic); // keep the dramatic lair landmark
+      // the big readable medallion (billboard — always faces the camera)
+      const med = makeMedallion(n.row + 1, def, isBoss); med.spr.position.y = isBoss ? 3.6 : 2.6; view.add(med.spr);
+      // a soft glow ring on the pad (lit for reachable/current) + a "you are here" pointer
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(1.42, 0.12, 8, 28), basic(B.accent, 0)); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.1; view.add(ring);
+      const ptr = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.9, 4), new THREE.MeshBasicMaterial({ color: 0xffe08a })); ptr.rotation.x = Math.PI; ptr.position.y = isBoss ? 5.4 : 4.0; ptr.visible = false; view.add(ptr);
+      const hit = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.7, 5.0, 10), new THREE.MeshBasicMaterial({ visible: false })); hit.position.y = 2.0; hit.userData.id = n.id; view.add(hit);
       g.add(view);
       this._hitMeshes.push(hit);
-      this._nodes.push({ id: n.id, node: n, view, ring, beam, ptr, badge, stars: starMeshes, isBoss });
+      this._nodes.push({ id: n.id, node: n, view, ring, ptr, med, isBoss });
     }
 
     // ---- THICK undergrowth: trees, bushes, rocks & biome props packed around the trail ----
     this._sway = [];
-    const onPad = (x, z) => L.ordered.some(n => { const p = L.pos[n.id]; return (x - p.x) ** 2 + (z - p.z) ** 2 < 4.6; });
-    const TREES = 46, PROPS = 30;
+    const onPad = (x, z) => L.ordered.some(n => { const p = L.pos[n.id]; return (x - p.x) ** 2 + (z - p.z) ** 2 < 5.5; });
+    const TREES = 26, PROPS = 16; // thinned out — a clean, readable map, not a cluttered thicket
     for (let i = 0; i < TREES; i++) {
       const a = Math.random() * 6.28, r = 0.28 + Math.random() * 0.72;
       const x = Math.cos(a) * RW * 0.98 * r, z = midZ + Math.sin(a) * RD * 0.98 * r;
@@ -190,7 +198,7 @@ export class LevelMap {
     // ---- prowling creatures: dark bodies, glowing eyes, hopping between the trees ----
     this._eyeMat = basic(0xff3a20, 0.9);
     const mobMat = M(B.mob, 0.9);
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 3; i++) {
       const m = new THREE.Group();
       const body = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 9), mobMat); body.scale.set(1, 0.72, 1.12); body.position.y = 0.44; body.castShadow = true; m.add(body);
       const ear = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.34, 6), mobMat); ear.position.set(0, 0.82, -0.04); m.add(ear);
@@ -203,7 +211,7 @@ export class LevelMap {
 
     // ---- atmosphere: drifting fireflies/spores + a low moon with a soft halo ----
     const moteMat = basic(B.accent, 0.85);
-    for (let i = 0; i < 26; i++) {
+    for (let i = 0; i < 14; i++) {
       const mo = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), moteMat);
       const a = Math.random() * 6.28, r = Math.random();
       mo.position.set(Math.cos(a) * RW * r, 0.8 + Math.random() * 4, midZ + Math.sin(a) * RD * r);
@@ -334,12 +342,12 @@ export class LevelMap {
       nd._cur = isCur; nd._active = isCur || isReach;
       nd.ptr.visible = isCur;
       nd.ring.material.color.setHex(isCur ? 0xffe08a : this.biome.accent);
-      nd.beam.material.color.setHex(isCur ? 0xffe08a : this.biome.accent);
-      nd._ringTarget = nd._active ? 0.85 : 0;
-      nd._beamTarget = nd._active ? 0.18 : 0;
-      nd.view.scale.setScalar((!isReach && !isVis && !isCur) ? 0.9 : 1);
+      nd._ringTarget = isCur ? 0.9 : (isReach ? 0.55 : 0);
       const got = starsOf(nd.id);
-      for (let s = 0; s < nd.stars.length; s++) nd.stars[s].material.color.setHex(s < got ? 0xffdf5a : 0x3a3228);
+      // candy-crush states: done (visited) / current / reachable (open) / locked
+      const state = isCur ? 'current' : isVis ? 'done' : isReach ? 'reachable' : 'locked';
+      nd.med.draw(state, got);
+      nd.view.scale.setScalar(state === 'locked' ? 0.92 : 1);
     }
     this._frontierZ = (() => { let z = 0; for (const nd of this._nodes) if (nd._active) z = Math.min(z, nd.view.position.z); return z; })();
   }
@@ -358,14 +366,14 @@ export class LevelMap {
     this._t += dt; const t = this._t;
     // trail wisps pulse toward the frontier
     if (this._trailDots) for (const d of this._trailDots) { const k = Math.max(0, Math.sin(t * 2.4 - d.seg * 0.5 - d.k * 0.4)); d.wisp.material.opacity = k * 0.75; d.wisp.position.y = 1.0 + k * 0.4; d.wisp.scale.setScalar(0.7 + k * 0.9); }
-    // node idle life
+    // node idle life — the medallion bobs gently; the current one bobs bigger
     for (const nd of this._nodes) {
-      nd.badge.position.y = (nd.isBoss ? 4.4 : 2.9) + Math.sin(t * 2.2 + nd.view.position.x) * 0.14;
-      const rt = nd._ringTarget || 0, bt = nd._beamTarget || 0;
+      const base = nd.isBoss ? 3.6 : 2.6, amp = nd._cur ? 0.28 : 0.14;
+      nd.med.spr.position.y = base + Math.sin(t * 2.2 + nd.view.position.x) * amp;
+      const rt = nd._ringTarget || 0;
       nd.ring.material.opacity += (rt - nd.ring.material.opacity) * Math.min(1, dt * 6);
-      nd.beam.material.opacity += (bt - nd.beam.material.opacity) * Math.min(1, dt * 6);
       if (nd._active) { nd.ring.rotation.z += dt * 1.1; nd.ring.scale.setScalar(1 + Math.sin(t * 4 + nd.view.position.z) * 0.05); }
-      if (nd.ptr.visible) { nd.ptr.position.y = (nd.isBoss ? 5.2 : 3.6) + Math.abs(Math.sin(t * 3.2)) * 0.5; nd.ptr.rotation.y += dt * 2.4; }
+      if (nd.ptr.visible) { nd.ptr.position.y = (nd.isBoss ? 5.4 : 4.0) + Math.abs(Math.sin(t * 3.2)) * 0.5; nd.ptr.rotation.y += dt * 2.4; }
       const uf = nd.view.userData;
       if (uf.flame) { uf.flame.scale.y = 1 + Math.sin(t * 9 + nd.view.position.x) * 0.18; uf.flame.material.opacity = 0.7 + Math.abs(Math.sin(t * 7)) * 0.25; }
       if (uf.flag) uf.flag.rotation.y = Math.sin(t * 2.6 + nd.view.position.x) * 0.35;

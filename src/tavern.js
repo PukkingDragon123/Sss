@@ -249,7 +249,7 @@ export class Tavern {
     if (spr) { x.imageSmoothingEnabled = false; x.drawImage(spr, 64 - 28, 56 - 28, 56, 56); }
     const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-    s.scale.set(1.0, 1.0, 1.0);
+    s.scale.set(1.5, 1.5, 1.5); // bigger, clearer marker
     return s;
   }
   // (re)build the walk-around patrons: quest-givers (❗) + a few regulars (💬) you can chat

@@ -1874,20 +1874,21 @@ export class Game {
 
   _setMood(mood) {
     if (mood === 'tavern') {
-      this.scene.background.setHex(0x1c130f);
-      this.scene.fog.color.setHex(0x201612); this.scene.fog.density = 0.010; // gentle candle-lit haze
-      this.hemi.color.setHex(0xe8b070); this.hemi.groundColor.setHex(0x241610); this.hemi.intensity = 0.78;
-      this.dir.color.setHex(0xffd29a); this.dir.intensity = 1.35;
-      this.ambient.color.setHex(0x3a2a24); this.ambient.intensity = 0.36; // lifted warm shadows
-      this.fill.color.setHex(0xe8b483); this.fill.intensity = 0.3; // warm, soft fill
-      this.rim.color.setHex(0xffe2b0); this.rim.intensity = 1.15;
+      // cozy, warm and INVITING — a bright hearth-lit room, not a gloomy cave
+      this.scene.background.setHex(0x2e1f16);
+      this.scene.fog.color.setHex(0x36251a); this.scene.fog.density = 0.005; // just a whisper of hearth haze
+      this.hemi.color.setHex(0xffd9a0); this.hemi.groundColor.setHex(0x3a241a); this.hemi.intensity = 1.15;
+      this.dir.color.setHex(0xffe0b0); this.dir.intensity = 1.55;
+      this.ambient.color.setHex(0x5a4030); this.ambient.intensity = 0.62; // lifted, warm
+      this.fill.color.setHex(0xf0c896); this.fill.intensity = 0.45; // warm, soft fill
+      this.rim.color.setHex(0xffe8c0); this.rim.intensity = 1.2;
       if (this.heroLight) this.heroLight.intensity = 0; // arena-only
-      this.renderer.toneMappingExposure = 1.04;
-      if (this._gradePass) { const u = this._gradePass.uniforms; // warm, moody tavern grade
-        u.uContrast.value = 1.09; u.uSaturation.value = 1.19;
-        u.uShadowTint.value.set(0.88, 0.94, 1.05); u.uHighlightTint.value.set(1.11, 1.02, 0.85);
-        u.uTintStrength.value = 0.30; u.uVignette.value = 0.42; u.uVignetteSoft.value = 0.56; this._baseVig = 0.42;
-        u.uGrain.value = 0.013;
+      this.renderer.toneMappingExposure = 1.12;
+      if (this._gradePass) { const u = this._gradePass.uniforms; // warm, cozy tavern grade
+        u.uContrast.value = 1.06; u.uSaturation.value = 1.16;
+        u.uShadowTint.value.set(0.92, 0.96, 1.04); u.uHighlightTint.value.set(1.1, 1.02, 0.86);
+        u.uTintStrength.value = 0.26; u.uVignette.value = 0.28; u.uVignetteSoft.value = 0.6; this._baseVig = 0.28;
+        u.uGrain.value = 0.01;
       }
     } else {
       this.scene.background.setHex(0x101a30);

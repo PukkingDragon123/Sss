@@ -875,27 +875,30 @@ export class UI {
   // ===== the TELEPORTER: a slot machine you spin to roll the next stage =====
   showTeleporter(game, opts) {
     this.hideTeleporter();
-    const ENC = opts.isBoss
-      ? [{ k: 'boss', i: '👑', t: 'BOSS LAIR' }]
-      : [{ k: 'combat', i: '⚔️', t: 'Skirmish' }, { k: 'elite', i: '💀', t: 'Elite Pack' }, { k: 'treasure', i: '💰', t: 'Cache' }, { k: 'campfire', i: '🔥', t: 'Rest' }, { k: 'event', i: '❓', t: 'Mystery' }, { k: 'minigame', i: '🎲', t: 'Party Game' }];
-    const TW = STAGE_GIMMICKS.map((g, idx) => ({ idx, i: g.icon || '✦', t: g.name }));
+    const entrance = !!opts.entrance;
+    // WHERE reel: boss stage is locked to the lair; the first venture is always the
+    // entrance skirmish; otherwise the full encounter pool.
+    const ENC = opts.isBoss ? [{ k: 'boss', i: '👑', t: 'BOSS LAIR' }]
+      : entrance ? [{ k: 'combat', i: '⚔️', t: 'Skirmish' }]
+        : [{ k: 'combat', i: '⚔️', t: 'Skirmish' }, { k: 'elite', i: '💀', t: 'Elite Pack' }, { k: 'treasure', i: '💰', t: 'Cache' }, { k: 'campfire', i: '🔥', t: 'Rest' }, { k: 'event', i: '❓', t: 'Mystery' }, { k: 'minigame', i: '🎲', t: 'Party Game' }];
+    // TWIST reel: real per-stage gimmicks only — never the boss-lair objective
+    const TW = STAGE_GIMMICKS.map((g, idx) => ({ idx, i: g.icon || '✦', t: g.name })).filter(e => STAGE_GIMMICKS[e.idx].mission !== 'boss');
     const BOUNTY = [{ k: 'gems', i: '💎', t: 'Gems' }, { k: 'heart', i: '❤️', t: 'Heal' }, { k: 'brew', i: '🍺', t: 'Brew' }, { k: 'gear', i: '🛡️', t: 'Gear' }, { k: 'ability', i: '✨', t: 'Power' }];
+    // the entrance fight always drops a generic reward, so only show reels that matter
+    const cfg = [{ id: 'enc', lbl: 'WHERE', list: ENC, key: 'encounter', pick: (p) => p.k, dur: 900 },
+      { id: 'tw', lbl: 'TWIST', list: TW, key: 'twistIdx', pick: (p) => p.idx, dur: 1300 }];
+    if (!entrance) cfg.push({ id: 'bt', lbl: 'BOUNTY', list: BOUNTY, key: 'bounty', pick: (p) => p.k, dur: 1700 });
     const ov = document.createElement('div'); ov.id = 'teleporter';
     ov.innerHTML = `
       <div class="tp-frame">
         <div class="tp-title">✦ TELEPORTER ✦</div>
         <div class="tp-sub">Stage ${opts.stageNum}/${opts.total} · spin to roll your fate</div>
-        <div class="tp-reels">
-          <div class="tp-reel" data-r="enc"><div class="tp-lbl">WHERE</div><div class="tp-win"><span class="tp-i">?</span><span class="tp-t">— —</span></div></div>
-          <div class="tp-reel" data-r="tw"><div class="tp-lbl">TWIST</div><div class="tp-win"><span class="tp-i">?</span><span class="tp-t">— —</span></div></div>
-          <div class="tp-reel" data-r="bt"><div class="tp-lbl">BOUNTY</div><div class="tp-win"><span class="tp-i">?</span><span class="tp-t">— —</span></div></div>
-        </div>
+        <div class="tp-reels">${cfg.map(c => `<div class="tp-reel" data-r="${c.id}"><div class="tp-lbl">${c.lbl}</div><div class="tp-win"><span class="tp-i">?</span><span class="tp-t">— —</span></div></div>`).join('')}</div>
         <button class="btn big tp-spin">▸ SPIN</button>
         <button class="btn big tp-launch" style="display:none">✦ LAUNCH! ✦</button>
         <button class="btn tp-back">◀ Back to the bar</button>
       </div>`;
     document.body.appendChild(ov); this._tp = ov; this._tpTimers = [];
-    const reels = { enc: ov.querySelector('[data-r="enc"] .tp-win'), tw: ov.querySelector('[data-r="tw"] .tp-win'), bt: ov.querySelector('[data-r="bt"] .tp-win') };
     const set = (win, e) => { win.querySelector('.tp-i').textContent = e.i; win.querySelector('.tp-t').textContent = e.t; };
     const spinBtn = ov.querySelector('.tp-spin'), launchBtn = ov.querySelector('.tp-launch');
     ov.querySelector('.tp-back').onclick = () => { if (game.audio) game.audio.play('click'); game.retreatFromMap(); };
@@ -910,10 +913,14 @@ export class UI {
     spinBtn.onclick = () => {
       if (spinning) return; spinning = true; spinBtn.disabled = true;
       if (game.audio) game.audio.play('levelup');
-      const res = {};
-      spinReel(reels.enc, ENC, 900, (p) => { res.encounter = p.k; });
-      spinReel(reels.tw, TW, 1300, (p) => { res.twistIdx = p.idx; });
-      spinReel(reels.bt, BOUNTY, 1750, (p) => { res.bounty = p.k; this._tpResult = res; launchBtn.style.display = ''; launchBtn.classList.add('pop'); if (game.audio) game.audio.play('win'); });
+      const res = {}; const last = cfg.length - 1;
+      cfg.forEach((c, i) => {
+        const win = ov.querySelector(`[data-r="${c.id}"] .tp-win`);
+        spinReel(win, c.list, c.dur, (p) => {
+          res[c.key] = c.pick(p);
+          if (i === last) { this._tpResult = res; launchBtn.style.display = ''; launchBtn.classList.add('pop'); if (game.audio) game.audio.play('win'); }
+        });
+      });
     };
     launchBtn.onclick = () => { if (!this._tpResult) return; launchBtn.disabled = true; game.resolveTeleport(this._tpResult); };
     void ov.offsetWidth; ov.classList.add('show');

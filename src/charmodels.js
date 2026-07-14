@@ -98,8 +98,6 @@ function _human(o) {
   const hy = 1.58, hw = 0.5;
   const head = S(g, 0.5, skin, 0, hy, hunch, { sy: 1.0, seg: 14, seg2: 12 }); // rounder, smoother head
   if (o.hunch) head.rotation.x = 0.14;
-  // a short neck so the head sits ON the body instead of floating
-  CYL(g, 0.19, 0.24, 0.26, skin, 0, hy - 0.48, hunch * 0.6);
   // small rounded ears (skipped when a hood/helm/wide brim covers them, or the kind has its own ears)
   if (!o.ears && !o.catEars && o.hat !== 'hood' && o.hat !== 'helm' && o.hat !== 'wide') {
     for (const sx of [-1, 1]) S(g, 0.1, skin, sx * 0.47, hy - 0.02, hunch, { sy: 1.15, sz: 0.7 });

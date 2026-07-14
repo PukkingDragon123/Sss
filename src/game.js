@@ -1618,7 +1618,7 @@ export class Game {
     this.wizard.setVisible(false);
     this.scene.background.setHex(0x0a0812); this.scene.fog.density = 0.001;
     this.audio.play('levelup');
-    this.ui.showTeleporter(this, { stageNum, total: STAGES_PER_REGION, isBoss, region: this._runRegion });
+    this.ui.showTeleporter(this, { stageNum, total: STAGES_PER_REGION, isBoss, entrance: this._mapNodeId == null, region: this._runRegion });
   }
   // called by the slot UI on LAUNCH with the rolled result {encounter, twistIdx, bounty}
   resolveTeleport(result) {

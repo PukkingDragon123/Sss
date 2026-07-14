@@ -694,8 +694,9 @@ export class Tavern {
     const stone = pxMap(M(0x6f6a62, 1), 'stone', 3); const stoneD = pxMap(M(0x514c46, 1), 'stone', 2); const mantelMat = M(0x6a4a2e, 0.85);
     const HX = 6, HZ = 6.6;
     const back = new THREE.Mesh(new THREE.BoxGeometry(3.0, 2.6, 0.4), stone); back.position.set(HX, 1.3, HZ); back.castShadow = true; back.receiveShadow = true; g.add(back);
-    for (const sx of [-1, 1]) { const pil = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.2, 0.8), stoneD); pil.position.set(HX + sx * 1.15, 1.1, HZ - 0.2); pil.castShadow = true; g.add(pil); }
-    const lintel = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.5, 0.9), stoneD); lintel.position.set(HX, 2.15, HZ - 0.2); lintel.castShadow = true; g.add(lintel);
+    // surround pillars + lintel sit clearly IN FRONT of the back slab (no coplanar faces → no z-fight)
+    for (const sx of [-1, 1]) { const pil = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.2, 0.8), stoneD); pil.position.set(HX + sx * 1.15, 1.1, HZ - 0.45); pil.castShadow = true; g.add(pil); }
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.5, 0.8), stoneD); lintel.position.set(HX, 2.15, HZ - 0.45); lintel.castShadow = true; g.add(lintel);
     const mantel = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.24, 1.1), mantelMat); mantel.position.set(HX, 2.52, HZ - 0.25); mantel.castShadow = true; g.add(mantel);
     const firebox = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.4, 0.3), M(0x140c08, 1)); firebox.position.set(HX, 0.95, HZ - 0.32); g.add(firebox);
     for (const [lx, ry] of [[-0.34, 0.3], [0.34, -0.3]]) { const log = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 1.0, 7), pxMap(M(0x4a3020, 0.9), 'wood', 2)); log.rotation.z = Math.PI / 2; log.rotation.y = ry; log.position.set(HX + lx, 0.5, HZ - 0.42); log.castShadow = true; g.add(log); }

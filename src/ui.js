@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { SPELL_ORDER, SPELLS } from './spells.js';
 import { TEMPLATES } from './recognizer.js';
 import * as meta from './meta.js';
-import { STAGES, STAGE_ORDER } from './story.js';
+import { STAGES, STAGE_ORDER, STAGE_GIMMICKS } from './story.js';
 import { ARTIFACTS, artifactById, UPGRADES, upgradeRarity } from './upgrades.js';
 import { MINIGAMES, setIconDrawer } from './minigames.js';
 import { CARDS, CARD_BY_ID, CARD_RARITY } from './cards.js';
@@ -870,6 +870,70 @@ export class UI {
     const finish = () => { if (done) return; done = true; el.classList.remove('show'); setTimeout(() => el.classList.add('hidden'), 320); if (onDone) onDone(); };
     el.addEventListener('click', finish, { once: true });
     setTimeout(finish, 4200);
+  }
+
+  // ===== the TELEPORTER: a slot machine you spin to roll the next stage =====
+  showTeleporter(game, opts) {
+    this.hideTeleporter();
+    const ENC = opts.isBoss
+      ? [{ k: 'boss', i: '👑', t: 'BOSS LAIR' }]
+      : [{ k: 'combat', i: '⚔️', t: 'Skirmish' }, { k: 'elite', i: '💀', t: 'Elite Pack' }, { k: 'treasure', i: '💰', t: 'Cache' }, { k: 'campfire', i: '🔥', t: 'Rest' }, { k: 'event', i: '❓', t: 'Mystery' }, { k: 'minigame', i: '🎲', t: 'Party Game' }];
+    const TW = STAGE_GIMMICKS.map((g, idx) => ({ idx, i: g.icon || '✦', t: g.name }));
+    const BOUNTY = [{ k: 'gems', i: '💎', t: 'Gems' }, { k: 'heart', i: '❤️', t: 'Heal' }, { k: 'brew', i: '🍺', t: 'Brew' }, { k: 'gear', i: '🛡️', t: 'Gear' }, { k: 'ability', i: '✨', t: 'Power' }];
+    const ov = document.createElement('div'); ov.id = 'teleporter';
+    ov.innerHTML = `
+      <div class="tp-frame">
+        <div class="tp-title">✦ TELEPORTER ✦</div>
+        <div class="tp-sub">Stage ${opts.stageNum}/${opts.total} · spin to roll your fate</div>
+        <div class="tp-reels">
+          <div class="tp-reel" data-r="enc"><div class="tp-lbl">WHERE</div><div class="tp-win"><span class="tp-i">?</span><span class="tp-t">— —</span></div></div>
+          <div class="tp-reel" data-r="tw"><div class="tp-lbl">TWIST</div><div class="tp-win"><span class="tp-i">?</span><span class="tp-t">— —</span></div></div>
+          <div class="tp-reel" data-r="bt"><div class="tp-lbl">BOUNTY</div><div class="tp-win"><span class="tp-i">?</span><span class="tp-t">— —</span></div></div>
+        </div>
+        <button class="btn big tp-spin">▸ SPIN</button>
+        <button class="btn big tp-launch" style="display:none">✦ LAUNCH! ✦</button>
+        <button class="btn tp-back">◀ Back to the bar</button>
+      </div>`;
+    document.body.appendChild(ov); this._tp = ov; this._tpTimers = [];
+    const reels = { enc: ov.querySelector('[data-r="enc"] .tp-win'), tw: ov.querySelector('[data-r="tw"] .tp-win'), bt: ov.querySelector('[data-r="bt"] .tp-win') };
+    const set = (win, e) => { win.querySelector('.tp-i').textContent = e.i; win.querySelector('.tp-t').textContent = e.t; };
+    const spinBtn = ov.querySelector('.tp-spin'), launchBtn = ov.querySelector('.tp-launch');
+    ov.querySelector('.tp-back').onclick = () => { if (game.audio) game.audio.play('click'); game.retreatFromMap(); };
+    let spinning = false;
+    const spinReel = (win, list, dur, onStop) => {
+      const box = win.parentElement; box.classList.add('spin');
+      const iv = setInterval(() => { set(win, list[(Math.random() * list.length) | 0]); }, 70);
+      this._tpTimers.push(iv);
+      const to = setTimeout(() => { clearInterval(iv); const pick = list[(Math.random() * list.length) | 0]; set(win, pick); box.classList.remove('spin'); box.classList.add('landed'); setTimeout(() => box.classList.remove('landed'), 400); if (game.audio) game.audio.play('click'); onStop(pick); }, dur);
+      this._tpTimers.push(to);
+    };
+    spinBtn.onclick = () => {
+      if (spinning) return; spinning = true; spinBtn.disabled = true;
+      if (game.audio) game.audio.play('levelup');
+      const res = {};
+      spinReel(reels.enc, ENC, 900, (p) => { res.encounter = p.k; });
+      spinReel(reels.tw, TW, 1300, (p) => { res.twistIdx = p.idx; });
+      spinReel(reels.bt, BOUNTY, 1750, (p) => { res.bounty = p.k; this._tpResult = res; launchBtn.style.display = ''; launchBtn.classList.add('pop'); if (game.audio) game.audio.play('win'); });
+    };
+    launchBtn.onclick = () => { if (!this._tpResult) return; launchBtn.disabled = true; game.resolveTeleport(this._tpResult); };
+    void ov.offsetWidth; ov.classList.add('show');
+  }
+  hideTeleporter() { if (this._tpTimers) { for (const t of this._tpTimers) { clearInterval(t); clearTimeout(t); } this._tpTimers = null; } if (this._tp) { this._tp.remove(); this._tp = null; } this._tpResult = null; }
+
+  // ===== the CATAPULT launch: a quick DOM cutscene flinging the wizard into the stage =====
+  showCatapult(onDone) {
+    const ov = document.createElement('div'); ov.id = 'catapult';
+    ov.innerHTML = `
+      <div class="cp-sky"></div>
+      <div class="cp-ground"></div>
+      <div class="cp-machine"><div class="cp-base"></div><div class="cp-arm"><div class="cp-bucket"></div></div></div>
+      <div class="cp-wiz">🧙</div>
+      <div class="cp-word">WHEEE!</div>`;
+    document.body.appendChild(ov);
+    void ov.offsetWidth; ov.classList.add('go');
+    let done = false;
+    const finish = () => { if (done) return; done = true; ov.classList.add('flash'); setTimeout(() => { ov.remove(); if (onDone) onDone(); }, 180); };
+    setTimeout(finish, 1650);
   }
 
   // hub prompt: show what the wizard can interact with

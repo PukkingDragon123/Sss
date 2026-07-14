@@ -1028,6 +1028,56 @@ body::after{content:"";position:fixed;inset:0;z-index:4;pointer-events:none;
 .gs-goal .pixi,.gs-goal .pix{width:26px;height:26px;}
 .gs-tap{margin-top:6px;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-dim);animation:crBlink 1.4s ease-in-out infinite;}
 
+/* ===== TELEPORTER slot machine ===== */
+#teleporter{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 40%,rgba(60,40,90,.55),rgba(6,4,12,.94));opacity:0;transition:opacity .3s ease;}
+#teleporter.show{opacity:1;}
+#teleporter .tp-frame{display:flex;flex-direction:column;align-items:center;gap:14px;padding:26px 34px 22px;max-width:92vw;
+  background:linear-gradient(180deg,#2a2140,#181228);border:3px solid var(--gold);border-radius:20px;
+  box-shadow:0 0 0 5px rgba(0,0,0,.5),0 0 60px rgba(155,123,255,.45);}
+.tp-title{font-family:var(--font-head);font-weight:900;letter-spacing:4px;font-size:26px;color:var(--gold);text-shadow:0 0 18px rgba(255,207,92,.6);}
+.tp-sub{font-size:14px;color:var(--ink-dim);margin-top:-6px;}
+.tp-reels{display:flex;gap:14px;}
+.tp-reel{display:flex;flex-direction:column;align-items:center;gap:6px;}
+.tp-lbl{font-size:12px;font-weight:800;letter-spacing:2px;color:var(--magic);text-transform:uppercase;}
+.tp-win{width:150px;height:132px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  background:#0e0a18;border:3px solid #4a3f66;border-radius:14px;box-shadow:inset 0 0 18px rgba(0,0,0,.7);overflow:hidden;}
+.tp-win .tp-i{font-size:56px;line-height:1;}
+.tp-win .tp-t{font-size:15px;font-weight:800;color:var(--ink);text-align:center;padding:0 6px;}
+.tp-reel.spin .tp-win{border-color:var(--magic);animation:tpShake .12s linear infinite;}
+.tp-reel.spin .tp-i{filter:blur(1px);}
+.tp-reel.landed .tp-win{border-color:var(--gold);box-shadow:0 0 22px rgba(255,207,92,.7),inset 0 0 18px rgba(0,0,0,.7);}
+@keyframes tpShake{0%,100%{transform:translateY(-2px);}50%{transform:translateY(2px);}}
+.tp-spin{min-width:220px;}
+.tp-launch{min-width:220px;background:linear-gradient(180deg,#ffd76a,#e0952e);}
+.tp-launch.pop{animation:gsPop .5s cubic-bezier(.2,.9,.3,1.4);}
+.tp-back{font-size:14px;opacity:.85;}
+
+/* ===== CATAPULT launch cutscene ===== */
+#catapult{position:fixed;inset:0;z-index:61;overflow:hidden;}
+#catapult .cp-sky{position:absolute;inset:0;background:linear-gradient(180deg,#8fc6e8 0%,#bfe0ec 60%,#cfe4c0 100%);}
+#catapult .cp-ground{position:absolute;left:0;right:0;bottom:0;height:24%;background:linear-gradient(180deg,#4f8a48,#3a6a34);border-top:6px solid #2f5a2c;}
+#catapult .cp-machine{position:absolute;left:9%;bottom:22%;width:150px;height:120px;}
+#catapult .cp-base{position:absolute;bottom:0;left:24px;width:96px;height:44px;background:#6a4526;border:4px solid #3a2414;border-radius:6px;}
+#catapult .cp-base::after{content:"";position:absolute;bottom:-14px;left:-6px;width:22px;height:22px;background:#3a2414;border-radius:50%;box-shadow:84px 0 0 #3a2414;}
+#catapult .cp-arm{position:absolute;bottom:34px;left:60px;width:14px;height:90px;background:#8a5a34;border:3px solid #3a2414;border-radius:4px;transform-origin:bottom center;transform:rotate(58deg);}
+#catapult.go .cp-arm{animation:cpFling 1.6s cubic-bezier(.5,-0.4,.4,1) forwards;}
+#catapult .cp-bucket{position:absolute;top:-6px;left:-12px;width:34px;height:22px;background:#6a4526;border:3px solid #3a2414;border-radius:0 0 12px 12px;}
+#catapult .cp-wiz{position:absolute;left:11%;bottom:44%;font-size:56px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.4));}
+#catapult.go .cp-wiz{animation:cpArc 1.6s cubic-bezier(.3,-0.2,.6,1) forwards;}
+#catapult .cp-word{position:absolute;top:24%;left:50%;transform:translateX(-50%) rotate(-6deg);font-family:var(--font-head);font-weight:900;font-size:44px;color:#fff4dc;text-shadow:0 0 16px rgba(255,207,92,.8),3px 3px 0 #6b3d00;opacity:0;}
+#catapult.go .cp-word{animation:cpWord 1.6s ease-out forwards;}
+#catapult.flash::after{content:"";position:absolute;inset:0;background:#fff;animation:cpFlash .18s ease-out;}
+@keyframes cpFling{0%{transform:rotate(58deg);}18%{transform:rotate(74deg);}40%{transform:rotate(-40deg);}100%{transform:rotate(-46deg);}}
+@keyframes cpArc{
+  0%{left:11%;bottom:44%;transform:rotate(0deg) scale(1);}
+  20%{left:14%;bottom:46%;transform:rotate(-30deg) scale(1);}
+  55%{left:52%;bottom:82%;transform:rotate(320deg) scale(.9);}
+  100%{left:86%;bottom:30%;transform:rotate(760deg) scale(.55);opacity:.85;}
+}
+@keyframes cpWord{0%{opacity:0;transform:translateX(-50%) rotate(-6deg) scale(.6);}30%{opacity:1;transform:translateX(-50%) rotate(-6deg) scale(1.1);}80%{opacity:1;}100%{opacity:0;}}
+@keyframes cpFlash{from{opacity:.9;}to{opacity:0;}}
+
 /* ===== living, magical UI — panels breathe, runes shimmer ===== */
 #shop.magic-shop .shop-box::after{content:"";position:absolute;inset:-4px;border-radius:inherit;pointer-events:none;
   border:1.5px solid color-mix(in srgb,var(--shop-accent,#b79bff) 55%,transparent);

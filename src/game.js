@@ -149,7 +149,7 @@ export class Game {
     this.scene.fog = new THREE.FogExp2(0x8e8ecb, 0.0085);
 
     this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 400);
-    this.camOffset = new THREE.Vector3(0, 21, 17); // closer, punchier arena framing (zoomed in)
+    this.camOffset = new THREE.Vector3(0, 17.5, 14.5); // punchy zoomed-in arena framing
     this.camTarget = new THREE.Vector3();
     this.camZoom = 1; // player zoom (wheel / pinch), multiplies the camera offset
     this.camYaw = 0;    // player camera turn (orbit around the wizard) — middle-drag / [ ] / on-screen buttons
@@ -1408,7 +1408,7 @@ export class Game {
     this.wizard.setVisible(true);
     this.wizard.reset(this.stats); this.wizard.pos.set(0, 0, 0);
     this.input.pointMode = false;
-    this.camOffset.set(0, 21, 17); this.resetCamera(); // zoomed-in arena view
+    this.camOffset.set(0, 17.5, 14.5); this.resetCamera(); // zoomed-in arena view
     this._applyStageTheme(stage);
     this._spawnShrine();         // a rune shrine: draw a glyph at it to channel a relic
     this._spawnWisp();           // your glowing wisp guide-pet drifts along
@@ -1481,7 +1481,9 @@ export class Game {
     if (this.phase !== 'arena') { this.levelMap.show(false); if (this.ui.hideMapHud) this.ui.hideMapHud(); this.arenaGroup.visible = true; this.wizard.setVisible(true); this._restoreArenaLook(); this._setPixel('arena'); this.phase = 'arena'; this.ui.setPhase('arena', this.input.isTouch); }
     // which of the region's ten stages is this? (1 = entrance … 10 = boss lair)
     const stageNum = isBoss ? STAGES_PER_REGION : Math.min(STAGES_PER_REGION, this._forksDone + 1);
-    const gim = gimmickFor(stageNum);
+    // the teleporter's TWIST reel forces a rolled gimmick; otherwise use the stage default
+    const gim = (this._slotGimmick != null) ? STAGE_GIMMICKS[((this._slotGimmick % STAGE_GIMMICKS.length) + STAGE_GIMMICKS.length) % STAGE_GIMMICKS.length] : gimmickFor(stageNum);
+    this._slotGimmick = null; this._launchNext = false; // consumed
     this._stageMods = { speedMult: gim.speedMult, dmgMult: gim.dmgMult }; // read live by enemies.js
     const baseScale = (1 + this._forksDone * 0.12) * (elite ? 1.5 : 1);
     const scale = baseScale * gim.hpMult;
@@ -1581,7 +1583,7 @@ export class Game {
   _showPath() {
     if (!this._runMap) { this._runRegion = this.stage ? this.stage.id : 'forest'; this._runMap = this._buildRunMap(); this._mapNodeId = this._runMap.startId; this._mapVisited = new Set(); }
     this.audio.play('levelup');
-    this._enterLevelMap();
+    this._enterTeleporter();
   }
   _buildRunMap() {
     // a single winding trail (linear chain of levels), not a branch graph
@@ -1593,7 +1595,50 @@ export class Game {
     this._runMap = this._buildRunMap();
     this._mapNodeId = null;          // null = run not started yet; entrance is the only choice
     this._mapVisited = new Set();
-    this._enterLevelMap();
+    this._enterTeleporter();
+  }
+
+  // ----- the TELEPORTER: a slot machine you spin to roll the next stage's encounter,
+  // twist (gimmick/status) and bounty — replacing the old node map. -----
+  _enterTeleporter() {
+    if (!this._runMap) { this._runMap = this._buildRunMap(); this._mapNodeId = null; this._mapVisited = new Set(); }
+    const map = this._runMap;
+    let targetId;
+    if (this._mapNodeId == null) targetId = map.startId;
+    else { const cur = map.byId[this._mapNodeId]; targetId = cur && cur.next && cur.next[0]; }
+    if (!targetId) { this.ui.wipe('fade', () => this.enterTavern()); return; } // ran out of trail → home
+    this._teleTarget = targetId;
+    const tnode = map.byId[targetId];
+    const isBoss = tnode.type === 'boss';
+    const stageNum = tnode.row + 1;
+    this.phase = 'levelmap'; this.state = 'teleporter'; this._setPixel('menu');
+    this._worldDive = false;
+    this.tavern.show(false); this.tavern.showRoom(false); this.world.show(false); this.levelMap.show(false); this.arenaGroup.visible = false;
+    if (this.ui.hideMapHud) this.ui.hideMapHud();
+    this.wizard.setVisible(false);
+    this.scene.background.setHex(0x0a0812); this.scene.fog.density = 0.001;
+    this.audio.play('levelup');
+    this.ui.showTeleporter(this, { stageNum, total: STAGES_PER_REGION, isBoss, region: this._runRegion });
+  }
+  // called by the slot UI on LAUNCH with the rolled result {encounter, twistIdx, bounty}
+  resolveTeleport(result) {
+    const map = this._runMap, targetId = this._teleTarget;
+    if (!map || !targetId) { this.enterTavern(); return; }
+    const tnode = map.byId[targetId];
+    this._slotGimmick = result.twistIdx;
+    this._slotBounty = result.bounty;
+    if (tnode.type !== 'boss') tnode.type = result.encounter; // the reel decides the encounter
+    // catapult into mid-run fights; the very first venture keeps its "out the door" intro
+    this._launchNext = ['combat', 'elite', 'boss'].includes(tnode.type) && this._mapNodeId != null;
+    if (this.ui.hideTeleporter) this.ui.hideTeleporter();
+    this.state = 'levelmap'; // chooseMapNode guards on this
+    this.chooseMapNode(targetId);
+  }
+  // a DOM catapult-launch cutscene, then run the callback (used in place of _travel for fights)
+  _playCatapult(cb) {
+    this.state = 'loading';
+    this.audio.play('gust');
+    if (this.ui.showCatapult) this.ui.showCatapult(() => cb()); else cb();
   }
   _mapStarsOf(nodeId) { const m = this._runMap; if (!m) return 0; const n = m.byId[nodeId]; return n ? meta.stageStars(this._runRegion, n.row + 1) : 0; }
   // build + reveal the 3D level-map scene (from the world map AND between stages in a run)
@@ -1644,7 +1689,7 @@ export class Game {
       if (nodeId !== map.startId) return;
       this.audio.play('click'); this._leaveLevelMap();
       this._mapNodeId = map.startId; if (this._mapVisited) this._mapVisited.add(map.startId);
-      this.beginRun(this._runRegion);
+      if (this._launchNext) this._playCatapult(() => this.beginRun(this._runRegion)); else this.beginRun(this._runRegion);
       return;
     }
     const cur = map.byId[this._mapNodeId];
@@ -1654,12 +1699,13 @@ export class Game {
     if (this._mapVisited) this._mapVisited.add(nodeId);
     this._mapNodeId = nodeId;
     this._forksDone = mnode.row;     // depth drives difficulty + the stage banner (stageNum = row+1)
-    if (mnode.type === 'boss') { this._travel('Approaching the lair…', () => { this.state = 'play'; this._beginRoom(true); }); return; }
+    if (mnode.type === 'boss') { const go = () => { this.state = 'play'; this._beginRoom(true); }; if (this._launchNext) this._playCatapult(go); else this._travel('Approaching the lair…', go); return; }
     const node = this._makeNode(mnode.type); // live reward / event / gameKey for this stage
     if (node.type === 'combat' || node.type === 'elite') {
       this._pendingReward = node.reward || null;
       const elite = node.type === 'elite';
-      this._travel(null, () => { this.state = 'play'; this._beginRoom(false, elite); });
+      const go = () => { this.state = 'play'; this._beginRoom(false, elite); };
+      if (this._launchNext) this._playCatapult(go); else this._travel(null, go);
     } else if (node.type === 'treasure') {
       this._awardStageStars(mnode.row + 1, 3); // ⭐ a cache level: full marks for the loot
       this._grantReward(node.reward); this._nextFork();
@@ -1679,7 +1725,7 @@ export class Game {
       this.state = 'minigame'; this.ui.showMinigame(this, node.gameKey);
     } else { this._awardStageStars(mnode.row + 1, 2); this._nextFork(); }
   }
-  _leaveLevelMap() { this.ui.hideRunMap && this.ui.hideRunMap(); this.levelMap.show(false); if (this.ui.hideMapHud) this.ui.hideMapHud(); }
+  _leaveLevelMap() { this.ui.hideRunMap && this.ui.hideRunMap(); this.levelMap.show(false); if (this.ui.hideMapHud) this.ui.hideMapHud(); if (this.ui.hideTeleporter) this.ui.hideTeleporter(); }
   retreatFromMap() {
     this._leaveLevelMap();
     if (this._mapNodeId == null) { this.openWorldMap(); }   // hadn't started — back to the realm map
@@ -1726,7 +1772,7 @@ export class Game {
   }
   _makeNode(type) {
     const lvl = Math.max(1, this.level);
-    if (type === 'combat') { const r = this._makeReward(this._randKind()); return { type, icon: '⚔️', name: 'Skirmish', desc: `Fight · win ${r.icon} ${r.name}`, reward: r, lurk: '⚔ foes ahead' }; }
+    if (type === 'combat') { const r = this._makeReward(this._slotBounty || this._randKind()); return { type, icon: '⚔️', name: 'Skirmish', desc: `Fight · win ${r.icon} ${r.name}`, reward: r, lurk: '⚔ foes ahead' }; }
     if (type === 'elite') { const r = this._makeReward(Math.random() < 0.5 ? 'gear' : 'ability'); return { type, icon: '💀', name: 'Elite Pack', desc: `Tough fight · win ${r.icon} ${r.name}`, reward: r, lurk: '💀 something big stirs' }; }
     if (type === 'treasure') { const r = this._makeReward('gems'); return { type, icon: '💰', name: 'Hidden Cache', desc: `Free · ${r.icon} ${r.name}`, reward: r, lurk: '✨ unguarded loot' }; }
     if (type === 'campfire') return { type, icon: '🔥', name: 'Campfire', desc: 'Rest — full heal & +12 max HP', lurk: '🔥 a safe little fire' };

@@ -100,15 +100,24 @@ export class Tavern {
     arrow.position.set(DOOR_X, 3.4, NORTH + 0.5); arrow.rotation.x = Math.PI; g.add(arrow);
     this._arrow = arrow;
 
-    // bar counter along the west — base + polished overhanging top + brass foot rail
-    const barMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x5a3a22, roughness: 0.85 });
-    const barTopMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x8a5a34, roughness: 0.45, metalness: 0.15 });
-    const brassMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xd9a84a, roughness: 0.4, metalness: 0.6 });
+    // bar counter along the west — paneled base + a polished overhanging top with a
+    // brass edge, a brass foot rail, and a back cabinet under the bottle shelves
+    const barMat = pxMap(new THREE.MeshStandardMaterial({ flatShading: true, color: 0x5a3a22, roughness: 0.82 }), 'wood', 3);
+    const panelMat = pxMap(new THREE.MeshStandardMaterial({ flatShading: true, color: 0x452c1a, roughness: 0.86 }), 'wood', 2);
+    const barTopMat = pxMap(new THREE.MeshStandardMaterial({ flatShading: true, color: 0x8a5a34, roughness: 0.4, metalness: 0.18 }), 'wood', 4);
+    const brassMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0xd9a84a, roughness: 0.35, metalness: 0.65 });
     const bar = new THREE.Mesh(new THREE.BoxGeometry(2, 1.1, 12), barMat);
     bar.position.set(-9.2, 0.55, -4); bar.castShadow = true; bar.receiveShadow = true; g.add(bar);
-    const barTop = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.16, 12.4), barTopMat); barTop.position.set(-9.1, 1.16, -4); barTop.castShadow = true; g.add(barTop);
-    const footRail = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 12, 8), brassMat); footRail.rotation.x = Math.PI / 2; footRail.position.set(-8.1, 0.22, -4); g.add(footRail);
-    for (const z of [-9, -4, 1]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.22, 6), brassMat); post.position.set(-8.1, 0.11, z); g.add(post); }
+    // recessed front panels down the customer side (breaks up the flat slab)
+    for (let z = -9; z <= 1; z += 1.4) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.74, 1.0), panelMat); p.position.set(-8.18, 0.54, z); p.castShadow = true; g.add(p); }
+    // an overhanging polished top + a bright brass edge strip along the customer side
+    const barTop = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.18, 12.5), barTopMat); barTop.position.set(-9.05, 1.17, -4); barTop.castShadow = true; g.add(barTop);
+    const edge = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.1, 12.5), brassMat); edge.position.set(-7.83, 1.17, -4); g.add(edge);
+    const footRail = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 12, 8), brassMat); footRail.rotation.x = Math.PI / 2; footRail.position.set(-8.05, 0.22, -4); g.add(footRail);
+    for (const z of [-9, -4, 1]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.22, 6), brassMat); post.position.set(-8.05, 0.11, z); g.add(post); }
+    // back-bar cabinet under the bottle shelves (fills the dead wall behind the counter)
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.5, 10.5), barMat); cab.position.set(-11.1, 0.75, -4); cab.castShadow = true; cab.receiveShadow = true; g.add(cab);
+    const cabTop = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.12, 10.7), barTopMat); cabTop.position.set(-11.05, 1.52, -4); g.add(cabTop);
     // SOLID obstacles you actually bump into (the bar counter blocks you — no walking through it)
     this._barSolids = [{ x: -9.1, z: -4, hw: 1.35, hd: 6.4 }];
 
@@ -681,10 +690,18 @@ export class Tavern {
     for (const [x, z] of [[-11.6, 1.5], [11.6, 1.5], [11.6, -8]]) { const win = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.6, 1.2), paneMat); win.position.set(x, 2.1, z); const bar1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.6, 0.08), wood); bar1.position.set(x, 2.1, z); const bar2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.08, 1.2), wood); bar2.position.set(x, 2.1, z); g.add(win, bar1, bar2); }
 
     const runner = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 14), M(0x7a2f3a, 0.95)); runner.rotation.x = -Math.PI / 2; runner.position.set(0, 0.012, -2); runner.receiveShadow = true; g.add(runner);
-    // hearth
-    const hearth = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.6, 0.6), M(0x5a5050, 1)); hearth.position.set(6, 0.8, 6.4); g.add(hearth);
-    const flames = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.0, 8), flameMat); flames.position.set(6, 0.9, 6.1); flames.scale.y = 1; this._flames.push(flames); g.add(flames);
-    const fireLight = new THREE.PointLight(0xff8a3a, 1.2, 12); fireLight.position.set(6, 1.2, 6); fireLight.castShadow = false; g.add(fireLight);
+    // hearth: a proper stone fireplace — pillared surround, mantel, glowing firebox & logs
+    const stone = pxMap(M(0x6f6a62, 1), 'stone', 3); const stoneD = pxMap(M(0x514c46, 1), 'stone', 2); const mantelMat = M(0x6a4a2e, 0.85);
+    const HX = 6, HZ = 6.6;
+    const back = new THREE.Mesh(new THREE.BoxGeometry(3.0, 2.6, 0.4), stone); back.position.set(HX, 1.3, HZ); back.castShadow = true; back.receiveShadow = true; g.add(back);
+    for (const sx of [-1, 1]) { const pil = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.2, 0.8), stoneD); pil.position.set(HX + sx * 1.15, 1.1, HZ - 0.2); pil.castShadow = true; g.add(pil); }
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.5, 0.9), stoneD); lintel.position.set(HX, 2.15, HZ - 0.2); lintel.castShadow = true; g.add(lintel);
+    const mantel = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.24, 1.1), mantelMat); mantel.position.set(HX, 2.52, HZ - 0.25); mantel.castShadow = true; g.add(mantel);
+    const firebox = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.4, 0.3), M(0x140c08, 1)); firebox.position.set(HX, 0.95, HZ - 0.32); g.add(firebox);
+    for (const [lx, ry] of [[-0.34, 0.3], [0.34, -0.3]]) { const log = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 1.0, 7), pxMap(M(0x4a3020, 0.9), 'wood', 2)); log.rotation.z = Math.PI / 2; log.rotation.y = ry; log.position.set(HX + lx, 0.5, HZ - 0.42); log.castShadow = true; g.add(log); }
+    const flames = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.1, 8), flameMat); flames.position.set(HX, 0.98, HZ - 0.42); this._flames.push(flames); g.add(flames);
+    const flames2 = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.7, 7), flameMat); flames2.position.set(HX - 0.32, 0.82, HZ - 0.36); this._flames.push(flames2); g.add(flames2);
+    const fireLight = new THREE.PointLight(0xff9a4a, 2.4, 17); fireLight.position.set(HX, 1.25, HZ - 0.9); fireLight.castShadow = false; g.add(fireLight);
   }
 
   nearestStation(pos, list, range = 2.4) {

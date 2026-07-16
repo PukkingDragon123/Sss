@@ -1053,6 +1053,98 @@ body::after{content:"";position:fixed;inset:0;z-index:4;pointer-events:none;
 .tp-launch.pop{animation:gsPop .5s cubic-bezier(.2,.9,.3,1.4);}
 .tp-back{font-size:14px;opacity:.85;}
 
+/* ===== COOK TIMING: the quick service-cook bar ===== */
+#cooktime{position:fixed;inset:0;z-index:62;display:flex;align-items:flex-end;justify-content:center;padding-bottom:16vh;
+  pointer-events:auto;opacity:0;transition:opacity .2s ease;}
+#cooktime.show{opacity:1;}
+#cooktime .ct-card{display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 26px;
+  background:#181228;border:3px solid var(--gold);border-radius:14px;transform:skewX(-4deg);
+  box-shadow:0 0 0 4px rgba(0,0,0,.5),0 0 40px rgba(255,207,92,.4);}
+#cooktime .ct-name{font-family:var(--font-head);font-weight:900;font-size:20px;color:var(--gold);letter-spacing:2px;}
+#cooktime .ct-bar{position:relative;width:min(420px,74vw);height:34px;background:#0e0a18;border:3px solid #4a3f66;border-radius:10px;overflow:visible;}
+#cooktime .ct-zone{position:absolute;left:38%;width:24%;top:0;bottom:0;background:rgba(255,215,106,.35);}
+#cooktime .ct-perfect{position:absolute;left:47.5%;width:5%;top:0;bottom:0;background:rgba(255,240,180,.75);}
+#cooktime .ct-marker{position:absolute;top:-14px;font-size:30px;transform:translateX(-50%);filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));}
+#cooktime .ct-hint{font-size:13px;color:var(--ink-dim);letter-spacing:1px;}
+#cooktime.ct-win .ct-card{border-color:#b9ff7a;box-shadow:0 0 60px rgba(185,255,122,.7);}
+#cooktime.ct-ok .ct-card{border-color:var(--ink-dim);}
+
+/* ===== COOK-OFF: the Cooking-Mama practice canvas ===== */
+#cookoff{position:fixed;inset:0;z-index:62;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  background:radial-gradient(circle at 50% 40%,rgba(90,50,30,.5),rgba(8,4,10,.95));opacity:0;transition:opacity .25s;}
+#cookoff.show{opacity:1;}
+#cookoff .co-head{display:flex;align-items:center;gap:16px;transform:rotate(-2deg);}
+#cookoff .co-title{font-family:var(--font-head);font-weight:900;font-size:34px;color:#ff7a4a;letter-spacing:5px;
+  text-shadow:3px 3px 0 #2a0e04,0 0 24px rgba(255,122,74,.6);}
+#cookoff .co-dish{font-size:19px;font-weight:800;color:var(--gold);}
+#cookoff .co-quit{font-size:14px;padding:6px 12px;transform:rotate(2deg);}
+#cookoff .co-canvas{border:4px solid var(--gold);border-radius:16px;box-shadow:0 0 0 5px rgba(0,0,0,.5),0 0 50px rgba(255,150,60,.35);transform:rotate(.6deg);}
+#cookoff .co-phase{font-family:var(--font-head);font-weight:900;font-size:28px;color:#fff4dc;letter-spacing:4px;transform:rotate(-1.5deg);
+  text-shadow:2px 2px 0 #6b3d00,0 0 18px rgba(255,207,92,.6);animation:gsPop .4s cubic-bezier(.2,.9,.3,1.4);}
+#cookoff.co-done .co-canvas{filter:saturate(1.3) brightness(1.1);}
+
+/* ===== the MENU BOOK — Persona-style slashed panels ===== */
+#menubook{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
+  background:rgba(6,4,12,.9);opacity:0;transition:opacity .25s;}
+#menubook.show{opacity:1;}
+#menubook .mb-frame{display:flex;flex-direction:column;gap:10px;width:min(680px,94vw);max-height:88vh;padding:18px 22px;
+  background:linear-gradient(165deg,#241a38 60%,#181228);border:3px solid var(--gold);border-radius:4px 22px 4px 22px;
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%);
+  box-shadow:0 0 0 5px rgba(0,0,0,.5),0 0 50px rgba(155,123,255,.35);}
+#menubook .mb-head{display:flex;justify-content:space-between;align-items:center;}
+#menubook .mb-head span{font-family:var(--font-head);font-weight:900;font-size:30px;color:var(--gold);letter-spacing:6px;
+  transform:rotate(-1.6deg);text-shadow:3px 3px 0 #2a1808,0 0 22px rgba(255,207,92,.5);}
+#menubook .mb-pantry{font-size:15px;font-weight:800;color:var(--ink);padding:8px 12px;background:#0e0a18;border-radius:10px;transform:skewX(-3deg);}
+#menubook .mb-ing{margin-right:8px;} #menubook .mb-ing.none{opacity:.35;}
+#menubook .mb-list{overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px;}
+#menubook .mb-card{display:flex;gap:12px;align-items:center;padding:10px 14px;background:#1c1430;border:2px solid #4a3f66;
+  border-radius:4px 14px 4px 14px;transform:skewX(-2deg);transition:transform .12s,border-color .12s,box-shadow .12s;}
+#menubook .mb-card:hover{transform:skewX(-2deg) scale(1.02) rotate(-.4deg);border-color:var(--gold);box-shadow:0 0 18px rgba(255,207,92,.3);}
+#menubook .mb-ico{font-size:38px;filter:drop-shadow(0 3px 4px rgba(0,0,0,.5));}
+#menubook .mb-mid{flex:1;min-width:0;}
+#menubook .mb-name{font-weight:900;font-size:17px;color:var(--ink);}
+#menubook .mb-stars{color:#ffdf5a;font-size:14px;letter-spacing:1px;} #menubook .mb-stars .dim{color:#3a3250;}
+#menubook .mb-desc{font-size:12.5px;color:var(--ink-dim);}
+#menubook .mb-needs{font-size:14px;margin-top:2px;} #menubook .mb-needs .ok{color:#b9ff7a;} #menubook .mb-needs .lack{color:#ff7a6a;}
+#menubook .mb-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+#menubook .mb-price{font-weight:900;font-size:18px;color:var(--gold);}
+#menubook .mb-cook{font-size:12px;padding:6px 12px;background:linear-gradient(180deg,#ff9a5a,#d0602a);color:#2a0e04;}
+#menubook .mb-cook:disabled{opacity:.35;}
+#menubook .mb-foot{font-size:12px;color:var(--ink-dim);text-align:center;letter-spacing:.5px;}
+
+/* ===== the ZODIAC constellation wheel ===== */
+#zodiac{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 45%,rgba(40,30,80,.72),rgba(4,2,10,.96));opacity:0;transition:opacity .3s;}
+#zodiac.show{opacity:1;}
+#zodiac .zd-sky{display:flex;flex-direction:column;align-items:center;gap:6px;width:min(720px,96vw);max-height:92vh;}
+#zodiac .zd-head{display:flex;justify-content:space-between;align-items:center;width:100%;padding:0 18px;}
+#zodiac .zd-head span{font-family:var(--font-head);font-weight:900;font-size:30px;color:#c6a3ff;letter-spacing:8px;
+  transform:rotate(-1.4deg);text-shadow:0 0 26px rgba(155,123,255,.8),3px 3px 0 #140a28;}
+#zodiac .zd-wheel{position:relative;width:min(560px,88vw);height:min(560px,88vw);max-height:62vh;display:flex;align-items:center;justify-content:center;}
+#zodiac .zd-core{position:absolute;font-size:44px;display:flex;flex-direction:column;align-items:center;
+  text-shadow:0 0 30px rgba(255,255,255,.8);animation:runeBreathe 3s ease-in-out infinite;}
+#zodiac .zd-gems{font-size:17px;font-weight:900;color:var(--gold);}
+#zodiac .zd-sign{position:absolute;display:flex;flex-direction:column;align-items:center;gap:1px;width:120px;margin:-40px -60px 0 0;left:50%;top:50%;
+  background:transparent;border:none;cursor:pointer;color:var(--ink-dim);transition:filter .15s;}
+#zodiac .zd-sign:hover{filter:brightness(1.5) drop-shadow(0 0 12px rgba(198,163,255,.8));}
+#zodiac .zd-glyph{font-size:34px;color:#8f7bd6;text-shadow:0 0 14px rgba(155,123,255,.5);}
+#zodiac .zd-sign.owned .zd-glyph{color:#ffe9a0;text-shadow:0 0 22px rgba(255,223,90,.95),0 0 44px rgba(255,207,92,.5);}
+#zodiac .zd-name{font-weight:900;font-size:13px;letter-spacing:1px;color:var(--ink);}
+#zodiac .zd-sub{font-size:9.5px;line-height:1.15;text-align:center;color:var(--ink-dim);}
+#zodiac .zd-sign.owned .zd-sub{color:#b9ff7a;}
+#zodiac .zd-foot{font-size:12.5px;color:var(--ink-dim);letter-spacing:1px;}
+
+/* ===== Persona-punch for the teleporter (cooler slot machine) ===== */
+#teleporter .tp-frame{transform:rotate(-.8deg);clip-path:polygon(0 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%);
+  background:linear-gradient(160deg,#31264c 55%,#181228);}
+#teleporter .tp-title{transform:rotate(-1.6deg);font-size:30px;letter-spacing:6px;
+  text-shadow:3px 3px 0 #2a1808,0 0 30px rgba(255,207,92,.75);}
+#teleporter .tp-win{transform:skewX(-2deg);}
+#teleporter .tp-reel.landed .tp-win{animation:tpLand .3s cubic-bezier(.2,.9,.3,1.5);}
+@keyframes tpLand{0%{transform:skewX(-2deg) scale(1.15);}100%{transform:skewX(-2deg) scale(1);}}
+#teleporter .tp-spin{transform:skewX(-6deg);font-size:22px;letter-spacing:3px;}
+#teleporter .tp-launch{transform:skewX(-6deg);font-size:22px;letter-spacing:3px;animation:runeBreathe 1.6s ease-in-out infinite;}
+
 /* ===== CATAPULT launch cutscene ===== */
 #catapult{position:fixed;inset:0;z-index:61;overflow:hidden;}
 #catapult .cp-sky{position:absolute;inset:0;background:linear-gradient(180deg,#8fc6e8 0%,#bfe0ec 60%,#cfe4c0 100%);}

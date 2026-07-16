@@ -13,13 +13,20 @@ const SURPRISED_FACE = new Set(['slime', 'splitslime', 'mushroomcap', 'rat']);
 
 const TYPES = {
   // forest
-  goblin:  { hp: 12,  speed: 2.9, dmg: 6,  r: 0.6,  xp: 5,   color: 0x8fc24a, size: 1.0, baseY: 0 },
-  bat:     { hp: 5,   speed: 5.0, dmg: 4,  r: 0.45, xp: 3,   color: 0x8c6fb8, size: 0.7, baseY: 1.4 },
+  goblin:  { hp: 12,  speed: 2.9, dmg: 6,  r: 0.6,  xp: 5,   color: 0x8fc24a, size: 1.0, baseY: 0, loot: 2 }, // tribe goblins: not cookable, but they carry pilfered coin
+  bat:     { hp: 5,   speed: 5.0, dmg: 4,  r: 0.45, xp: 3,   color: 0x8c6fb8, size: 0.7, baseY: 1.4, cook: 'batwing' },
   vampire: { hp: 26,  speed: 3.5, dmg: 9,  r: 0.7,  xp: 16,  color: 0xe6dcec, size: 1.15, baseY: 0 },
   zombie:  { hp: 52,  speed: 1.5, dmg: 11, r: 0.95, xp: 13,  color: 0x6f9e5a, size: 1.55, baseY: 0 },
-  slime:   { hp: 20,  speed: 2.2, dmg: 7,  r: 0.7,  xp: 7,   color: 0x4ad0a8, size: 1.0, baseY: 0 },
-  mushroomcap: { hp: 60, speed: 1.4, dmg: 10, r: 0.85, xp: 12, color: 0xc44a5a, size: 1.35, baseY: 0 },
+  slime:   { hp: 20,  speed: 2.2, dmg: 7,  r: 0.7,  xp: 7,   color: 0x4ad0a8, size: 1.0, baseY: 0, cook: 'slimejelly' },
+  mushroomcap: { hp: 60, speed: 1.4, dmg: 10, r: 0.85, xp: 12, color: 0xc44a5a, size: 1.35, baseY: 0, cook: 'shroomcap' },
   brigand: { hp: 34, speed: 2.6, dmg: 10, r: 0.72, xp: 12, color: 0x8fae5a, size: 1.15, baseY: 0, humanoid: 'club' }, // upright forest brute swinging a spiked club — ragdolls on death
+  // ---- the COOKABLE menagerie: beasts that drop restaurant ingredients ----
+  boar:      { hp: 30,  speed: 3.4, dmg: 9,  r: 0.75, xp: 10, color: 0x8a5a3a, size: 1.1,  baseY: 0, cook: 'boarmeat',  beast: 'boar', ability: 'charge', atkInterval: 3.2 },
+  greatboar: { hp: 140, speed: 2.8, dmg: 16, r: 1.2,  xp: 40, color: 0x6a4028, size: 1.8,  baseY: 0, cook: 'boarmeat',  cookN: 3, beast: 'boar', ability: 'charge', atkInterval: 2.6 }, // the tusked terror — a walking banquet
+  lizardman: { hp: 26,  speed: 3.0, dmg: 9,  r: 0.68, xp: 10, color: 0x5a9a4a, size: 1.05, baseY: 0, cook: 'lizardtail', beast: 'lizard' },
+  chameleon: { hp: 34,  speed: 2.4, dmg: 8,  r: 0.8,  xp: 14, color: 0x4ac09a, size: 1.15, baseY: 0, cook: 'chamflank', beast: 'chameleon', shifty: true },
+  mudwhale:  { hp: 170, speed: 1.1, dmg: 14, r: 1.4,  xp: 42, color: 0x5a7a9a, size: 2.0,  baseY: 0, cook: 'whaleblub', cookN: 2, beast: 'whale' }, // a four-foot whale, beached & furious
+  hydrabird: { hp: 44,  speed: 3.6, dmg: 11, r: 0.85, xp: 18, color: 0xd08a4a, size: 1.2,  baseY: 1.2, cook: 'hydrawing', cookN: 2, beast: 'hydra' }, // five heads, all of them rude
   goblinking:  { hp: 850, speed: 1.9, dmg: 18, r: 2.0, xp: 220, color: 0x6fae3a, size: 3.2, baseY: 0, boss: true },
   // cave
   rat:      { hp: 8,  speed: 4.3, dmg: 5,  r: 0.45, xp: 3,  color: 0x8a7a66, size: 0.7, baseY: 0 },
@@ -303,6 +310,53 @@ export class Enemies {
       // a leather belt + shoulder strap for character
       const belt = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.06, 5, 12), clothMat); belt.rotation.x = Math.PI / 2; belt.position.y = 0.5; g.add(belt);
     }
+    // ---- the cookable BEASTS: each silhouette reads instantly as its animal ----
+    if (def.beast === 'boar') {
+      body.scale.set(1.1, 0.9, 1.45); body.position.y = 0.56; // long low hog body
+      const snout = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.3, 7), bodyMat); snout.rotation.x = Math.PI / 2; snout.position.set(0, 0.5, 0.85); snout.castShadow = true; g.add(snout);
+      const tuskMat = new THREE.MeshStandardMaterial({ color: 0xf0e8d0, roughness: 0.5, flatShading: true });
+      for (const sx of [-1, 1]) { const tusk = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.3, 5), tuskMat); tusk.position.set(sx * 0.18, 0.42, 0.92); tusk.rotation.x = -0.7; tusk.rotation.z = sx * 0.3; g.add(tusk); }
+      for (const sx of [-1, 1]) { const ear = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.2, 5), darkMat); ear.position.set(sx * 0.3, 0.95, 0.3); g.add(ear); }
+      const bristle = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.18, 1.0), darkMat); bristle.position.set(0, 1.0, -0.1); g.add(bristle); // a mohawk ridge of bristles
+      const tail = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.03, 5, 10, Math.PI * 1.4), bodyMat); tail.position.set(0, 0.7, -0.72); g.add(tail);
+    } else if (def.beast === 'lizard') {
+      body.scale.set(0.95, 1.05, 1.1);
+      const tail = new THREE.Mesh(new THREE.ConeGeometry(0.18, 1.2, 6), bodyMat); tail.position.set(0, 0.4, -0.85); tail.rotation.x = 1.35; tail.castShadow = true; g.add(tail);
+      const frillMat = new THREE.MeshStandardMaterial({ color: 0x3a7a3a, roughness: 0.8, side: THREE.DoubleSide, flatShading: true });
+      for (let k = 0; k < 3; k++) { const spine = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.3, 4), frillMat); spine.position.set(0, 1.15 - k * 0.22, -0.15 - k * 0.14); g.add(spine); }
+      const snout = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.34), bodyMat); snout.position.set(0, 0.8, 0.62); snout.castShadow = true; g.add(snout);
+    } else if (def.beast === 'chameleon') {
+      body.scale.set(1.05, 0.9, 1.3);
+      const curl = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.08, 6, 12, Math.PI * 1.7), bodyMat); curl.position.set(0, 0.5, -0.8); curl.rotation.y = Math.PI / 2; g.add(curl); // the coiled tail
+      for (const sx of [-1, 1]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 7), bodyMat); eye.position.set(sx * 0.32, 1.0, 0.35); g.add(eye); const pu = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 5), darkMat); pu.position.set(sx * 0.36, 1.02, 0.46); pu.userData.noOutline = true; g.add(pu); } // swivel turret eyes
+      const crest = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.34, 4), bodyMat); crest.position.set(0, 1.24, -0.05); g.add(crest);
+    } else if (def.beast === 'whale') {
+      body.scale.set(1.25, 0.95, 1.8); body.position.y = 0.66; // a beached barrel of blubber
+      const tailMat = bodyMat;
+      const fluke = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.1, 0.4), tailMat); fluke.position.set(0, 0.7, -1.25); fluke.castShadow = true; g.add(fluke);
+      for (const sx of [-1, 1]) { const fin = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.3), tailMat); fin.position.set(sx * 0.75, 0.4, 0.2); fin.rotation.z = sx * 0.3; g.add(fin); }
+      const belly = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8), new THREE.MeshStandardMaterial({ color: 0xcfdce8, roughness: 0.8, flatShading: true })); belly.position.set(0, 0.35, 0.3); belly.scale.set(1.1, 0.6, 1.3); g.add(belly);
+      const spout = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.3, 5), new THREE.MeshBasicMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.7 })); spout.position.set(0, 1.35, 0.25); g.add(spout); anim.aura = spout;
+    } else if (def.beast === 'hydra') {
+      body.scale.set(1.0, 0.9, 1.1);
+      // FIVE snake-necked bird heads fanned out, each with its own beak
+      const beakMat = new THREE.MeshStandardMaterial({ color: 0xe0a040, roughness: 0.6, flatShading: true });
+      const heads = [];
+      for (let k = 0; k < 5; k++) {
+        const a = (k - 2) * 0.42;
+        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.7, 6), bodyMat);
+        neck.position.set(Math.sin(a) * 0.42, 1.15, 0.25 + Math.cos(a) * 0.12); neck.rotation.z = -a * 0.5; neck.castShadow = true; g.add(neck);
+        const hd = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 7), bodyMat); hd.position.set(Math.sin(a) * 0.52, 1.52, 0.3 + Math.cos(a) * 0.14); hd.castShadow = true; g.add(hd);
+        const bk = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.2, 5), beakMat); bk.position.copy(hd.position); bk.position.z += 0.18; bk.rotation.x = Math.PI / 2; g.add(bk);
+        heads.push(hd);
+      }
+      anim.wings = null; // hydra flaps its stub wings
+      const wingMat = new THREE.MeshStandardMaterial({ color: 0xb87038, roughness: 0.8, side: THREE.DoubleSide, flatShading: true });
+      const wgeo = new THREE.ConeGeometry(0.4, 0.8, 3); wgeo.rotateZ(Math.PI / 2);
+      const wL = new THREE.Mesh(wgeo, wingMat); wL.position.set(-0.6, 0.7, 0); wL.castShadow = true;
+      const wR = new THREE.Mesh(wgeo, wingMat); wR.position.set(0.6, 0.7, 0); wR.rotation.y = Math.PI; wR.castShadow = true;
+      g.add(wL, wR); anim.wings = [wL, wR];
+    }
 
     g.scale.setScalar(def.size);
     // Megabonk ink contour around the whole critter (eyes/aura/FX are skipped by the helper)
@@ -409,6 +463,10 @@ export class Enemies {
       if (!def.boss) game.shake(0.3 + def.size * 0.2);
       game.spawnXP(e.mesh.position.clone(), e.xp);
       game.enemyDrop(e.mesh.position.clone(), def);
+      // cookable beasts leave an INGREDIENT CORPSE to haul back to the caravan
+      if (def.cook && game.spawnCorpse) { for (let k = 0; k < (def.cookN || 1); k++) game.spawnCorpse(e.mesh.position.clone(), def.cook, def.size); }
+      // tribe goblins carry pilfered coin — a little gold burst on death
+      if (def.loot && game.addRunGold) game.addRunGold(def.loot + ((Math.random() * def.loot) | 0), e.mesh.position.clone());
       if (def.boss) { this.bossAlive = false; game.particles.ring({ pos: e.mesh.position.clone(), color: 0xffd98a, r0: 1, r1: 16, life: 0.9 }); game.onBossDead(); }
       game.kills++;
       if (game.onKill) game.onKill(e, def);
@@ -543,6 +601,7 @@ export class Enemies {
       } else {
         e.bodyMat.emissive.copy(e._baseEmissive); // restore the designed glow (don't go black)
       }
+      if (adef.shifty) e.bodyMat.color.setHSL((e.phase * 0.11) % 1, 0.5, 0.55); // chameleon hide cycles through the rainbow
 
       if (e.contactCd > 0) e.contactCd -= dt;
       const pr = 0.7 + e.r;

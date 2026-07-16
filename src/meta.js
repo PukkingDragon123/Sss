@@ -474,6 +474,39 @@ export function addGemstone(el, n = 1) { if (!state.gemstones) state.gemstones =
 export function spendGemstone(el, n = 1) { const g = state.gemstones || _emptyGemstones(); if ((g[el] || 0) < n) return false; g[el] -= n; state.gemstones = g; save(); return true; }
 export const totalGemstones = () => { const g = state.gemstones || {}; return (g.fire || 0) + (g.water || 0) + (g.air || 0) + (g.earth || 0); };
 
+// ==== the RESTAURANT: pantry of hunted ingredients + the menu you master + zodiac boons ====
+// pantry: {ingredientId: count} — corpses hauled home in the caravan land here
+// (distinct from the retired herb "ingredients" block below, which has no callers)
+export const pantry = () => state.pantry || {};
+export function pantryAdd(id, n = 1) { if (!state.pantry) state.pantry = {}; state.pantry[id] = (state.pantry[id] || 0) + n; save(); }
+export function pantrySpend(needs) {
+  const p = state.pantry || {};
+  for (const [id, n] of Object.entries(needs || {})) if ((p[id] || 0) < n) return false;
+  for (const [id, n] of Object.entries(needs || {})) p[id] -= n;
+  state.pantry = p; save(); return true;
+}
+export const pantryCount = (id) => (state.pantry && state.pantry[id]) || 0;
+export const pantryTotal = () => Object.values(state.pantry || {}).reduce((a, b) => a + b, 0);
+// menu mastery: {recipeId: stars 0..5} — every plate cooked teaches you (learn by doing)
+export const recipeMastery = (id) => (state.menuMastery && state.menuMastery[id]) || 0;
+export function bumpMastery(id, max = 5) {
+  if (!state.menuMastery) state.menuMastery = {};
+  const cur = state.menuMastery[id] || 0;
+  if (cur >= max) return false;
+  state.menuMastery[id] = cur + 1; save(); return true;
+}
+export const platesServed = () => (state.stats && state.stats.plates) || 0;
+export function notePlateServed() { if (!state.stats) state.stats = {}; state.stats.plates = (state.stats.plates || 0) + 1; save(); }
+// zodiac: unlocked sign ids (the arcane skill tree — permanent passives)
+export const zodiacSigns = () => state.zodiac || [];
+export const zodiacHas = (id) => (state.zodiac || []).includes(id);
+export function unlockZodiac(id, cost) {
+  if (zodiacHas(id)) return false;
+  if (!spendGems(cost)) return false;
+  if (!state.zodiac) state.zodiac = [];
+  state.zodiac.push(id); save(); return true;
+}
+
 // ---- brewing: spend elemental gemstones at the Cauldron for a lasting potion (a permanent boon) ----
 export const POTIONS = [
   { id: 'vigor', name: 'Potion of Vigor',   icon: '🧪', el: 'fire',  herbs: 3, gems: 2, perHp: 8,     desc: '+8 max health, for good.' },

@@ -22,6 +22,10 @@ import { rollUpgrades, rollArtifact, artifactById, ARCHETYPES, archetypeById } f
 import * as meta from './meta.js';
 import { COMBO_META } from './meta.js';
 import { pxMap } from './pixeltex.js';
+import { makeFace } from './facesprite.js';
+import { outlineGroup } from './outline.js';
+import { buildCharModel } from './charmodels.js';
+import { INGREDIENTS, RECIPES, RECIPE_BY_ID, platePrice, canCook, applyZodiacTo } from './cooking.js';
 import { makeLeafyTree, makeGrass, makeFern, makeRock, makeMushroom, makeFallenLog, Critters, BIOME_CRITTERS } from './props.js';
 import { iconCanvas, PET_SPRITE } from './pixelicons.js';
 
@@ -631,7 +635,7 @@ export class Game {
     if (s.manaOnKill) this.wizard.mana = Math.min(s.manaMax, this.wizard.mana + s.manaOnKill);
     // ---- kill-combo: stack kills inside a short window for escalating reward + juice ----
     this.combo = (this.combo || 0) + 1;
-    this.comboT = 3.2;                                   // time before the chain lapses
+    this.comboT = 3.2 + (this.stats.comboWindow || 0);   // time before the chain lapses (Gemini widens it)
     if (this.combo > (this.comboBest || 0)) this.comboBest = this.combo;
     if (this.combo >= 3) this.ui.showCombo(this.combo);
     if (this.combo >= 5 && this.combo % 5 === 0) this._comboMilestone(e);
@@ -780,6 +784,261 @@ export class Game {
     const mesh = this._getPickup('heart');
     mesh.position.copy(pos).setY(0.5);
     this.pickups.push({ mesh, type: 'heart', value: 22, vel: new THREE.Vector3(0, 5, 0), phase: 0, grounded: false });
+  }
+
+  // ==== THE HUNT: cookable beasts leave INGREDIENT CORPSES you haul to the caravan ====
+  // a chunky "cut of meat" prop: a rounded slab + a bone, tinted by ingredient
+  spawnCorpse(pos, ingId, size = 1) {
+    if (!this._corpses) this._corpses = [];
+    if (this._corpses.length > 40) return; // safety valve
+    const ing = INGREDIENTS[ingId]; if (!ing) return;
+    const tint = { boarmeat: 0xc05a4a, lizardtail: 0x6aa050, slimejelly: 0x4ad0a8, shroomcap: 0xd8465e, hydrawing: 0xd8905a, chamflank: 0x9a6ad0, whaleblub: 0x8fb6d0, batwing: 0x8c6fb8 }[ingId] || 0xc05a4a;
+    const g = new THREE.Group();
+    const meat = new THREE.Mesh(new THREE.SphereGeometry(0.34, 9, 7), pxMap(new THREE.MeshStandardMaterial({ color: tint, roughness: 0.75, flatShading: true }), 'skin', 2));
+    meat.scale.set(1.25, 0.7, 0.95); meat.position.y = 0.26; meat.castShadow = true; g.add(meat);
+    const bone = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.5, 6), new THREE.MeshStandardMaterial({ color: 0xf0e8d4, roughness: 0.6, flatShading: true }));
+    bone.rotation.z = 1.1; bone.position.set(0.3, 0.34, 0); g.add(bone);
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), bone.material); knob.position.set(0.5, 0.44, 0); g.add(knob);
+    const halo = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.52, 20), new THREE.MeshBasicMaterial({ color: 0xffd98a, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }));
+    halo.rotation.x = -Math.PI / 2; halo.position.y = 0.05; g.add(halo);
+    g.position.set(pos.x + (Math.random() - 0.5) * 0.8, 0, pos.z + (Math.random() - 0.5) * 0.8);
+    g.rotation.y = Math.random() * 6.28;
+    this.arenaGroup.add(g);
+    this._corpses.push({ mesh: g, halo, ing: ingId, phase: Math.random() * 6, t: 0 });
+  }
+  _updateCorpses(dt) {
+    if (!this._corpses || !this._corpses.length) return;
+    const w = this.wizard;
+    for (let i = this._corpses.length - 1; i >= 0; i--) {
+      const c = this._corpses[i];
+      c.phase += dt; c.t += dt;
+      c.mesh.position.y = Math.abs(Math.sin(c.phase * 2)) * 0.06;
+      c.halo.material.opacity = 0.35 + Math.abs(Math.sin(c.phase * 2.4)) * 0.3;
+      const dx = w.pos.x - c.mesh.position.x, dz = w.pos.z - c.mesh.position.z;
+      if (dx * dx + dz * dz < 1.5 * 1.5) {
+        // scoop it up — onto the carry stack (capped: a wizard can only haul so much)
+        if (w.carryStack.length >= this.carryCap()) { if (!this._carryWarnT || this.elapsed - this._carryWarnT > 3) { this._carryWarnT = this.elapsed; this.ui.toast('🎒 Arms full! Haul your ingredients to the CARAVAN.'); } continue; }
+        w.addCarry(c.ing, c.mesh.children[0].material.color.getHex());
+        this.audio.play('xp');
+        this.particles.burst({ pos: c.mesh.position.clone().setY(0.5), color: 0xffd98a, count: 8, speed: 3, size: 0.2, life: 0.5, blend: 'add' });
+        this.ui.castWord && this.ui.castWord(INGREDIENTS[c.ing].name, { color: '#ffd98a' });
+        this._disposeCorpse(c); this._corpses.splice(i, 1);
+      }
+    }
+  }
+  _disposeCorpse(c) {
+    c.mesh.traverse(o => { if (o.isMesh) { o.geometry.dispose(); if (o.material && !o.material.userData?.keep) { if (o.material.map && !o.material.map.userData?.keep) o.material.map.dispose(); o.material.dispose(); } } });
+    this.arenaGroup.remove(c.mesh);
+  }
+  _clearCorpses() { if (this._corpses) { for (const c of this._corpses) this._disposeCorpse(c); this._corpses.length = 0; } }
+  carryCap() { return 6; }
+
+  // ---- the CARAVAN: a pack-beast cart parked at the clearing edge — bank your haul ----
+  _buildCaravan() {
+    if (this._caravan) return;
+    const g = new THREE.Group();
+    const wood = pxMap(new THREE.MeshStandardMaterial({ color: 0x6a4526, roughness: 0.85, flatShading: true }), 'wood', 3);
+    const woodD = pxMap(new THREE.MeshStandardMaterial({ color: 0x4a3018, roughness: 0.9, flatShading: true }), 'wood', 2);
+    // cart bed + slatted sides + canvas bonnet
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.24, 1.7), wood); bed.position.y = 0.7; bed.castShadow = true; g.add(bed);
+    for (const sz of [-1, 1]) { const side = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.5, 0.14), woodD); side.position.set(0, 1.05, sz * 0.8); side.castShadow = true; g.add(side); }
+    const bonnetMat = new THREE.MeshStandardMaterial({ color: 0xe8dcc0, roughness: 0.9, flatShading: true, side: THREE.DoubleSide });
+    const bonnet = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 2.0, 10, 1, true, 0, Math.PI), bonnetMat);
+    bonnet.rotation.z = Math.PI / 2; bonnet.position.y = 1.35; g.add(bonnet);
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x3a2414, roughness: 0.8, flatShading: true });
+    for (const [wx, wz] of [[-0.9, 0.85], [0.9, 0.85], [-0.9, -0.85], [0.9, -0.85]]) { const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.1, 6, 12), wheelMat); wheel.position.set(wx, 0.36, wz); g.add(wheel); }
+    // the MOUNT: a big patient pack-snail hitched to the front (slow, unbothered)
+    const snail = new THREE.Group(); snail.position.set(2.4, 0, 0);
+    const foot = new THREE.Mesh(new THREE.SphereGeometry(0.55, 10, 8), new THREE.MeshStandardMaterial({ color: 0xc9a86a, roughness: 0.85, flatShading: true })); foot.scale.set(1.35, 0.55, 0.85); foot.position.y = 0.3; snail.add(foot);
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 0.7, 7), foot.material); neck.position.set(0.55, 0.75, 0); neck.rotation.z = -0.4; snail.add(neck);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 7), foot.material); head.position.set(0.75, 1.05, 0); snail.add(head);
+    const face = makeFace(0.34, 'happy', 4); face.position.set(0.75, 1.05, 0.2); face.rotation.y = 0.5; snail.add(face);
+    for (const sx of [-1, 1]) { const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.3, 5), foot.material); stalk.position.set(0.8, 1.3, sx * 0.09); snail.add(stalk); const tip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 5), foot.material); tip.position.set(0.82, 1.46, sx * 0.09); snail.add(tip); }
+    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.6, 10, 9), pxMap(new THREE.MeshStandardMaterial({ color: 0xb0623a, roughness: 0.7, flatShading: true }), 'stone', 2)); shell.position.set(-0.3, 0.85, 0); snail.add(shell);
+    const swirl = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.07, 6, 14), woodD); swirl.position.set(-0.3, 0.85, 0.45); swirl.scale.z = 0.4; snail.add(swirl);
+    g.add(snail); g.userData.snail = snail;
+    // a glowing deposit ring so the drop-off reads
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(2.2, 0.09, 8, 30), new THREE.MeshBasicMaterial({ color: 0xffd98a, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.08; g.add(ring); g.userData.ring = ring;
+    outlineGroup(g, { thick: 0.04 });
+    g.position.set(4, 0, 10); // parked by the clearing entrance
+    this.arenaGroup.add(g);
+    this._caravan = g;
+  }
+  _updateCaravan(dt) {
+    const cv = this._caravan; if (!cv || !cv.visible) return;
+    const t = this.elapsed;
+    if (cv.userData.ring) { cv.userData.ring.material.opacity = 0.28 + Math.abs(Math.sin(t * 2)) * 0.25; cv.userData.ring.rotation.z += dt * 0.6; }
+    if (cv.userData.snail) cv.userData.snail.position.y = Math.sin(t * 1.4) * 0.03; // the snail breathes
+    // bank the haul when the wizard steps into the ring
+    const w = this.wizard;
+    const dx = w.pos.x - cv.position.x, dz = w.pos.z - cv.position.z;
+    if (w.carryStack.length && dx * dx + dz * dz < 2.4 * 2.4) {
+      let n = 0;
+      for (const item of w.carryStack) { meta.pantryAdd(item.ing, 1); n++; }
+      w.clearCarry();
+      this.audio.play('win');
+      this.particles.burst({ pos: cv.position.clone().setY(1.4), color: 0xffd98a, count: 18, speed: 5, size: 0.26, life: 0.7, blend: 'add' });
+      this.particles.ring({ pos: cv.position.clone().setY(0.2), color: 0xffd98a, r0: 0.4, r1: 3, life: 0.5 });
+      this.ui.toast(`🛒 Banked ${n} ingredient${n > 1 ? 's' : ''} in the caravan!`);
+      if (this.ui.updatePantryChip) this.ui.updatePantryChip();
+    }
+  }
+  // goblin-tribe pocket change: a little gold fountain on death
+  addRunGold(n, pos) {
+    meta.addGold(n);
+    if (pos && this.particles) this.particles.burst({ pos: pos.setY(0.8), color: 0xffd24a, count: 6, speed: 3.5, size: 0.18, life: 0.6, grav: -8, up: 3, blend: 'add' });
+    if (this.ui.updateHUD) this.ui.updateHUD(this);
+  }
+
+  // ==== DINNER SERVICE: the Dave-the-Diver loop — side-scroll chef behind the counter,
+  // diners order off YOUR menu, you cook each plate on a timing bar and serve it across ====
+  _dishBubble(icon) {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const x = c.getContext('2d');
+    x.fillStyle = 'rgba(250,244,226,0.97)'; x.beginPath(); x.arc(64, 56, 42, 0, 6.28); x.fill();
+    x.lineWidth = 5; x.strokeStyle = '#2a1a10'; x.beginPath(); x.arc(64, 56, 42, 0, 6.28); x.stroke();
+    x.beginPath(); x.moveTo(50, 94); x.lineTo(64, 116); x.lineTo(74, 92); x.closePath(); x.fillStyle = 'rgba(250,244,226,0.97)'; x.fill(); x.stroke();
+    x.font = '52px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(icon, 64, 58);
+    const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    s.material.color.setScalar(0.72); // tamed so the bloom doesn't blow the bubble out
+    s.scale.set(1.5, 1.5, 1.5); return s;
+  }
+  _pickOrder() {
+    // diners order what you can actually make: pantry-backed recipes (weighted to fancy), else the house staple
+    const inv = meta.pantry();
+    const options = RECIPES.filter(r => r.id === 'alebread' || canCook(r, inv));
+    const fancy = options.filter(r => r.id !== 'alebread');
+    const pick = (fancy.length && Math.random() < 0.75) ? fancy[(Math.random() * fancy.length) | 0] : options[(Math.random() * options.length) | 0];
+    return pick.id;
+  }
+  startService() {
+    if (this._service && this._service.active) return;
+    const SEATS = [-7.5, -4.5, -1.5, 1.0];
+    const count = 3 + ((Math.random() * 2) | 0); // 3-4 covers a night
+    const diners = [];
+    for (let i = 0; i < Math.min(count, SEATS.length); i++) {
+      const mesh = buildCharModel('patron');
+      mesh.scale.multiplyScalar(0.92);
+      const z = SEATS[i];
+      mesh.position.set(-7.7, 0.45, z); mesh.rotation.y = -Math.PI / 2; // perched on a stool, facing the counter
+      this.tavern.group.add(mesh);
+      const order = this._pickOrder();
+      const bubble = this._dishBubble(RECIPE_BY_ID[order].icon);
+      bubble.position.set(-7.7, 3.1, z);
+      this.tavern.group.add(bubble);
+      diners.push({ mesh, bubble, z, order, served: false, happyT: 0 });
+    }
+    this._service = { active: true, diners, served: 0, earned: 0, plates: 0, carrying: null, busy: false, endT: 0 };
+    // the chef steps behind the counter
+    this.wizard.pos.set(-10.35, 0, -4); this.wizard.vel.set(0, 0, 0);
+    this.audio.play('levelup');
+    this.ui.showJob('🍳 Dinner Service', 'Cook at the STOVE (E) · serve across the counter (E) · ESC closes the kitchen');
+    this.ui.updateJob(0, diners.length);
+    this.ui.toast('🍳 Service! Walk to the stove and press E to cook the first order.');
+  }
+  _serviceInteract() {
+    const sv = this._service; if (!sv || !sv.active || sv.busy) return;
+    const w = this.wizard;
+    // 1) serve: carrying a plate + lined up with a waiting diner across the counter
+    if (sv.carrying) {
+      const d = sv.diners.find(d => !d.served && Math.abs(d.z - w.pos.z) < 1.0);
+      if (d && d.order === sv.carrying.recipe) { this._servePlate(d); return; }
+      if (d) { this.ui.wispSay('Wrong dish for this diner — check the bubble!', { tone: 'warn' }); return; }
+      this.ui.wispSay('Line up with a hungry diner to serve.', { tone: 'warn' }); return;
+    }
+    // 2) cook: standing at the stove
+    if (Math.abs(w.pos.z - 1.6) < 1.4) {
+      const d = sv.diners.find(d => !d.served);
+      if (!d) return;
+      const recipe = RECIPE_BY_ID[d.order];
+      if (recipe.id !== 'alebread' && !meta.pantrySpend(recipe.needs)) {
+        // pantry ran dry mid-service — the diner graciously downgrades to the staple
+        d.order = 'alebread'; d.bubble.material.map.dispose(); this.tavern.group.remove(d.bubble);
+        d.bubble = this._dishBubble(RECIPE_BY_ID.alebread.icon); d.bubble.position.set(-7.7, 3.1, d.z); this.tavern.group.add(d.bubble);
+        this.ui.toast('🧺 Pantry\'s out! They\'ll take the house staple instead.');
+        return;
+      }
+      sv.busy = true;
+      this.ui.showCookTiming(recipe, (quality) => {
+        if (!this._service || !this._service.active) return; // service ended mid-flash — drop the plate
+        sv.busy = false;
+        sv.carrying = { recipe: recipe.id, quality };
+        this._makePlate(recipe, quality);
+        this.audio.play(quality >= 1.3 ? 'win' : 'click');
+        if (quality >= 1.3) this.ui.castWord && this.ui.castWord('PERFECT!', { color: '#ffd76a', big: true });
+        this.ui.toast(`🍽️ ${recipe.name} plated — carry it to the diner!`);
+      });
+      return;
+    }
+    this.ui.wispSay('Cook at the STOVE first — it\'s at the end of the counter.', { tone: 'warn' });
+  }
+  _makePlate(recipe, quality) {
+    const g = new THREE.Group();
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.24, 0.05, 12), new THREE.MeshStandardMaterial({ color: 0xf0ead8, roughness: 0.5, flatShading: true }));
+    g.add(plate);
+    const food = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 7), new THREE.MeshStandardMaterial({ color: quality >= 1.3 ? 0xffb35a : 0xc07840, roughness: 0.7, flatShading: true }));
+    food.scale.y = 0.7; food.position.y = 0.12; g.add(food);
+    const steam = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
+    steam.position.y = 0.34; g.add(steam); g.userData.steam = steam;
+    g.position.set(0.55, 1.5, 0.3);
+    this.wizard.facer.add(g);
+    this._service.plateMesh = g;
+  }
+  _servePlate(d) {
+    const sv = this._service;
+    const recipe = RECIPE_BY_ID[sv.carrying.recipe];
+    const mastery = meta.recipeMastery(recipe.id);
+    const zg = meta.zodiacHas('capricorn') ? 1.2 : 1; // Capricorn: the coin sign
+    const pay = Math.round(platePrice(recipe, mastery, sv.carrying.quality) * zg);
+    meta.addGold(pay); meta.notePlateServed();
+    // LEARN BY DOING: perfect plates always teach; decent ones sometimes do
+    if ((sv.carrying.quality >= 1.3 || Math.random() < 0.25) && meta.bumpMastery(recipe.id)) {
+      this.ui.toast(`⭐ ${recipe.name} mastery up! (${meta.recipeMastery(recipe.id)}/5 — plates now pay more)`);
+    }
+    d.served = true; d.happyT = 2.2;
+    sv.served++; sv.earned += pay; sv.carrying = null;
+    if (sv.plateMesh) { this.wizard.facer.remove(sv.plateMesh); sv.plateMesh = null; }
+    d.bubble.material.map.dispose(); this.tavern.group.remove(d.bubble);
+    d.bubble = this._dishBubble('😋'); d.bubble.position.set(-7.7, 3.1, d.z); this.tavern.group.add(d.bubble);
+    this.audio.play('win');
+    this.particles && this.particles.burst({ pos: new THREE.Vector3(-8.5, 2, d.z), color: 0xffd24a, count: 10, speed: 3, size: 0.2, life: 0.6, blend: 'add' });
+    this.ui.castWord && this.ui.castWord(`+${pay} gold`, { color: '#ffd24a' });
+    this.ui.updateJob(sv.served, sv.diners.length);
+    if (this.ui.updateHUD) this.ui.updateHUD(this);
+    if (sv.diners.every(x => x.served)) sv.endT = 1.6; // service complete — wrap up shortly
+  }
+  _updateService(dt) {
+    const sv = this._service; if (!sv || !sv.active) return;
+    const w = this.wizard;
+    // the chef lane: locked behind the counter, side-scrolling along it
+    w.pos.x = Math.max(-10.55, Math.min(-10.15, w.pos.x));
+    w.pos.z = Math.max(-9.2, Math.min(2.4, w.pos.z));
+    const t = this.elapsed || 0;
+    for (const d of sv.diners) {
+      d.bubble.position.y = 3.1 + Math.sin(t * 2.2 + d.z) * 0.1;
+      if (d.served && d.happyT > 0) { d.happyT -= dt; d.mesh.rotation.z = Math.sin(t * 10) * 0.06; if (d.happyT <= 0) d.mesh.rotation.z = 0; }
+    }
+    if (sv.plateMesh && sv.plateMesh.userData.steam) { sv.plateMesh.userData.steam.position.y = 0.34 + Math.sin(t * 4) * 0.05; sv.plateMesh.userData.steam.material.opacity = 0.3 + Math.abs(Math.sin(t * 3)) * 0.3; }
+    if (sv.endT > 0) { sv.endT -= dt; if (sv.endT <= 0) this.endService(); }
+  }
+  endService() {
+    const sv = this._service; if (!sv) return;
+    if (this.ui.hideCookTiming) this.ui.hideCookTiming(); // tear down a mid-sweep timing bar
+    for (const d of sv.diners) {
+      d.mesh.traverse(o => { if (o.userData.isOutline) return; if (o.isMesh) { o.geometry.dispose(); const m = o.material; if (m && !m.userData.outline) { if (m.map && !m.map.userData?.keep) m.map.dispose(); m.dispose(); } } });
+      this.tavern.group.remove(d.mesh);
+      if (d.bubble) { d.bubble.material.map.dispose(); this.tavern.group.remove(d.bubble); }
+    }
+    if (sv.plateMesh) this.wizard.facer.remove(sv.plateMesh);
+    const earned = sv.earned, plates = sv.served;
+    this._service = null;
+    this.ui.hideJob();
+    this.wizard.pos.set(-6.8, 0, -4); // step back out front
+    this.audio.play('win');
+    this.ui.toast(`🍳 Service done — ${plates} plates, +${earned} gold!`);
+    if (this.ui.wispSay) this.ui.wispSay(`A fine night's cooking. Hunt rarer beasts for pricier plates!`);
   }
 
   _updatePickups(dt) {
@@ -1077,12 +1336,17 @@ export class Game {
   }
 
   interact() {
-    if (this.state !== 'play' || !this.nearStation) return;
+    if (this.state !== 'play') return;
+    if (this.ui.overlayActive && this.ui.overlayActive()) return; // a fullscreen overlay owns E right now
+    // dinner service captures E: cook at the stove / serve across the counter
+    if (this.phase === 'tavern' && this._service && this._service.active) { this._serviceInteract(); return; }
+    if (!this.nearStation) return;
     const s = this.nearStation, t = s.type;
     this.audio.play('click');
     if (this.phase === 'tavern') {
       if (t === 'door') { this.openWorldMap(); return; }
       if (t === 'stairs') { this.goUpstairs(); return; }
+      if (t === 'kitchen') { this.startService(); return; }
       if (t === 'customer') { this.startChat(s); return; }
     } else if (this.phase === 'room') {
       if (t === 'down') { this.goDownstairs(); return; }
@@ -1360,6 +1624,8 @@ export class Game {
     this._spawnPetCompanion(); // 🐾 the carried creature joins the fight
     meta.applyResearch(this.stats); // completed research bonuses
     meta.applyBrews(this.stats);    // brewed-potion boons (permanent)
+    applyZodiacTo(this.stats, meta.zodiacSigns()); // ✨ the zodiac skill tree's permanent boons
+    this._buildCaravan(); this._clearCorpses(); if (this.wizard.clearCarry) this.wizard.clearCarry(); // fresh hunt, empty back
     // collectible-card passives (tiny): folded once per run
     const cp = applyCardPerks(this, meta.cardsOwned());
     if (cp.dmgMult !== 1) this.stats.damageMult = (this.stats.damageMult || 1) * cp.dmgMult;
@@ -1551,6 +1817,13 @@ export class Game {
     if (this._introRun) { this._finishIntroRun(); return; } // the guided first fight is over
     this._evalMission(); // judge this stage's optional mission, pay the bonus
     this._awardStageStars(Math.min(STAGES_PER_REGION, (this._forksDone || 0) + 1)); // ⭐ rate this level
+    // the caravan swings past between stages — anything still on your back is banked
+    if (this.wizard.carryStack && this.wizard.carryStack.length) {
+      const n = this.wizard.carryStack.length;
+      for (const item of this.wizard.carryStack) meta.pantryAdd(item.ing, 1);
+      this.wizard.clearCarry();
+      this.ui.toast(`🛒 The caravan collects your haul — ${n} ingredient${n > 1 ? 's' : ''} banked!`);
+    }
     // the loot no longer just teleports into your bag — a chest appears and you break it open
     this._spawnLootChest(() => {
       if (this._pendingReward) { this._grantReward(this._pendingReward); this._pendingReward = null; } // the node's promised prize, folded in
@@ -1568,7 +1841,7 @@ export class Game {
 
   _nextFork() {
     this._roomsCleared = this._forksDone;
-    this.enemies.clear(); this._clearPickups(); this._disposeLootChest(); // a calm clearing to choose your path in
+    this.enemies.clear(); this._clearPickups(); this._disposeLootChest(); this._clearCorpses(); // a calm clearing to choose your path in
     // a wandering merchant drops by every 3 rooms cleared, before the next fork
     if (this._forksDone > 0 && this._forksDone % 3 === 0 && this._lastMerchantFork !== this._forksDone) {
       this._lastMerchantFork = this._forksDone;
@@ -1956,6 +2229,10 @@ export class Game {
 
   castById(id) { if (this.state === 'play' && this.phase === 'arena' && this.unlocked.has(id)) this._castAt(id, this.aimPoint, { accuracy: 0.8 }); }
   togglePause() {
+    // the touch pause button closes the kitchen instead of freezing mid-service
+    if (this._service && this._service.active && this.phase === 'tavern' && this.state === 'play') {
+      this.endService(); this.ui.toast('🍳 Kitchen closed early.'); return;
+    }
     if (this.state === 'play') { this.state = 'paused'; document.body.classList.add('paused'); this.ui.toast('⏸ Paused'); }
     else if (this.state === 'paused') { this.state = 'play'; document.body.classList.remove('paused'); this.ui.toast('▶ Resumed'); }
   }
@@ -2040,6 +2317,7 @@ export class Game {
       if (this.state === 'levelup') continue;
 
       if (this.state === 'play' || this.state === 'paused') {
+        if (e.type === 'pause' && this._service && this._service.active && this.phase === 'tavern') { this.endService(); this.ui.toast('🍳 Kitchen closed early.'); continue; } // ESC/P hangs up the apron
         if (e.type === 'pause') { this.state = this.state === 'paused' ? 'play' : 'paused'; this.ui.toast(this.state === 'paused' ? '⏸ Paused' : '▶ Resumed'); continue; }
       }
       if (this.state !== 'play') continue;
@@ -2328,6 +2606,17 @@ export class Game {
       this.camera.lookAt(px - 0.6, 1.8, -2.4);
       return;
     }
+    // DINNER SERVICE: a locked side-scrolling chef cam — the counter runs across the
+    // screen, diners on the right, the stove down the lane (Dave-the-Diver framing)
+    if (this.phase === 'tavern' && this._service && this._service.active) {
+      const wz = Math.max(-8.5, Math.min(2, this.wizard.pos.z));
+      // high three-quarter side view: diners low in the foreground, the counter a
+      // clean band across the screen, the chef fully readable in his lane behind it
+      this.camera.position.lerp(new THREE.Vector3(-2.4, 7.2, wz + 0.8), Math.min(1, dt * 5));
+      this.camera.rotation.z = 0;
+      this.camera.lookAt(-11.4, 0.0, wz);
+      return;
+    }
     // tavern chat: dolly in on the patron you're talking to (framed for the tall build)
     if (this._chatNpc && this._chatNpc.pos) {
       const p = this._chatNpc.pos;
@@ -2508,6 +2797,8 @@ export class Game {
     this.particles.update(sdt);
     if (this.critters) this.critters.update(sdt, this.wizard.pos); // hopping rabbits, scurrying mice, fluttering birds
     this._updatePickups(sdt);
+    this._updateCorpses(sdt);   // ingredient corpses waiting to be hauled
+    this._updateCaravan(sdt);   // the pack-snail cart that banks your haul
     this._ambientFX(sdt);           // drifting motes/embers + low-HP vignette pulse
 
     // ---- kill-combo upkeep: lapses over time, snaps on any hit taken ----
@@ -2764,6 +3055,7 @@ export class Game {
   _updateTavern(sdt) {
     this.wizard.update(sdt, this);
     this.tavern.update(sdt, this);
+    this._updateService(sdt); // dinner service (chef lane, diners, plates)
     this.particles.update(sdt);
     if (meta.tavernOwned()) meta.accrueIdle(sdt); // tycoon ticks while you potter about
   }

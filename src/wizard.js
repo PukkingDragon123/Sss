@@ -49,6 +49,7 @@ export class Wizard {
     this.drinkHold = 0; // seconds left holding the tankard up (the channel)
     this.castDir = new THREE.Vector3(0, 0, 1);
     this.dashT = 0; this.dashCd = 0; this.dashDir = new THREE.Vector3(0, 0, 1); // dodge-dash
+    this.carryStack = []; // hauled ingredient corpses, stacked & swaying on his back
     this.invuln = 0;
     this.flash = 0;
     this.hiccupIn = 3 + Math.random() * 4;
@@ -206,9 +207,44 @@ export class Wizard {
     this.handLight = new THREE.PointLight(0x9b7bff, 0, 7);
     this.armGroup.add(this.handLight);
 
+    // ---- the CARRY STACK: hauled meat piles up on his back & sways with real lag physics ----
+    this.carryGroup = new THREE.Group();
+    this.scene.add(this.carryGroup);
+    this._carrySway = []; // per-item lagged offsets — the tower wobbles like jelly
+
     // Megabonk ink outline on the body + the verlet arms (cheeks/glow/light auto-skipped)
     outlineGroup(this.facer, { thick: 0.05 });
     outlineGroup(this.armGroup, { thick: 0.05 });
+  }
+
+  // hoist one hauled ingredient onto the back-stack (a little tinted meat slab)
+  addCarry(ing, tint) {
+    const meat = new THREE.Mesh(new THREE.SphereGeometry(0.26, 8, 6),
+      new THREE.MeshStandardMaterial({ color: tint || 0xc05a4a, roughness: 0.75, flatShading: true }));
+    meat.scale.set(1.3, 0.62, 1.0); meat.castShadow = true;
+    this.carryGroup.add(meat);
+    this.carryStack.push({ ing, mesh: meat });
+    this._carrySway.push({ x: 0, z: 0, vx: 0, vz: 0 });
+    this.squash(0.16, 1, 0.18); // oof — the weight lands
+  }
+  clearCarry() {
+    for (const it of this.carryStack) { it.mesh.geometry.dispose(); it.mesh.material.dispose(); this.carryGroup.remove(it.mesh); }
+    this.carryStack.length = 0; this._carrySway.length = 0;
+  }
+  _updateCarry(dt) {
+    if (!this.carryStack.length) return;
+    // each slab spring-chases the one below — a jelly tower that lags his moves
+    const baseX = this.pos.x - Math.sin(this.yaw) * 0.42, baseZ = this.pos.z - Math.cos(this.yaw) * 0.42;
+    let px = baseX, pz = baseZ;
+    for (let i = 0; i < this.carryStack.length; i++) {
+      const s = this._carrySway[i], m = this.carryStack[i].mesh;
+      const k = 34 - i * 3, damp = 7.5;
+      s.vx += ((px - s.x) * k - s.vx * damp) * dt; s.vz += ((pz - s.z) * k - s.vz * damp) * dt;
+      s.x += s.vx * dt; s.z += s.vz * dt;
+      m.position.set(s.x, (this.floorY || 0) + 2.35 + i * 0.34, s.z);
+      m.rotation.y = this.yaw; m.rotation.z = (s.x - px) * 1.4; m.rotation.x = -(s.z - pz) * 1.4;
+      px = s.x; pz = s.z;
+    }
   }
 
   // ---- equipped gear, worn on the model (staff in hand, hat trim, robe dye, charm) ----
@@ -323,7 +359,7 @@ export class Wizard {
   startDrink(dur) { this.drinkHold = (dur || 3) + 0.2; if (this.mug) this.mug.visible = true; }
   endDrink() { this.drinkHold = 0; }
 
-  setVisible(v) { this.root.visible = v; this.armGroup.visible = v; if (this.blob) this.blob.visible = v; }
+  setVisible(v) { this.root.visible = v; this.armGroup.visible = v; if (this.blob) this.blob.visible = v; if (this.carryGroup) this.carryGroup.visible = v; }
 
   spendMana(n) { if (this.mana >= n) { this.mana -= n; return true; } return false; }
   heal(n) { this.hp = Math.min(this._maxHp, this.hp + n); }
@@ -421,7 +457,7 @@ export class Wizard {
     // ---- movement with drunk overshoot ----
     const mv = game.moveVector ? game.moveVector() : (game.input ? game.input.moveVector() : { x: 0, z: 0 });
     const accel = 74;                    // snappier, more responsive acceleration
-    const maxSpeed = s.moveSpeed;
+    const maxSpeed = s.moveSpeed * (1 - Math.min(0.28, this.carryStack.length * 0.04)); // hauled meat weighs you down
     if (this.alive) { this.vel.x += mv.x * accel * dt; this.vel.z += mv.z * accel * dt; }
     // ---- DODGE-DASH: a quick burst (Shift / Ctrl / double-tap the move stick) with i-frames ----
     if (this.dashCd > 0) this.dashCd -= dt;
@@ -600,6 +636,8 @@ export class Wizard {
     // ---- shield (mana does NOT auto-regen — drink to refill it) ----
     if (this.shieldT > 0) { this.shieldT -= dt; if (this.shieldT <= 0) this.shield = 0; }
     if (s.manaRegen > 0) this.mana = Math.min(s.manaMax, this.mana + s.manaRegen * dt); // 0 by default
+
+    this._updateCarry(dt); // the hauled-meat tower sways after him
   }
 }
 

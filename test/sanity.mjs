@@ -6,6 +6,7 @@ import { rollUpgrades, UPGRADES } from '../src/upgrades.js';
 import { MINIGAMES, MINIGAME_KEYS } from '../src/minigames.js';
 import { CARDS, CARD_BY_ID, CARD_RARITY, applyCardPerks, rollCard } from '../src/cards.js';
 import { generateRunMap } from '../src/runmap.js';
+import { INGREDIENTS, RECIPES, RECIPE_BY_ID, masteryMult, platePrice, canCook, ZODIAC, applyZodiacTo } from '../src/cooking.js';
 
 let pass = 0, fail = 0;
 const ok = (cond, msg) => { if (cond) { pass++; } else { fail++; console.error('  ✗ ' + msg); } };
@@ -134,6 +135,26 @@ for (let t = 0; t < 60; t++) {
   ok(seen.has(m.bossId), 'boss reachable from entrance');
   ok(m.nodes.every(n => seen.has(n.id)), 'every node reachable');
   ok(m.nodes.every(n => n.id === m.bossId || n.next.length >= 1), 'non-boss nodes have an exit');
+}
+
+// ---- monster cuisine: ingredients, recipes, zodiac ----
+console.log('Cooking:');
+ok(new Set(RECIPES.map(r => r.id)).size === RECIPES.length, 'recipe ids unique');
+ok(RECIPES.every(r => r.price > 0 && r.name && r.icon), 'recipes have name/icon/positive price');
+ok(RECIPES.every(r => Object.keys(r.needs).every(id => INGREDIENTS[id])), 'recipe needs reference real ingredients');
+ok(RECIPES.some(r => Object.keys(r.needs).length === 0), 'a no-ingredient staple exists (service can never soft-lock)');
+ok(RECIPE_BY_ID.alebread && Object.keys(RECIPE_BY_ID.alebread.needs).length === 0, 'alebread is the free staple');
+for (let m = 0; m < 5; m++) ok(masteryMult(m + 1) > masteryMult(m), `mastery mult grows (${m})`);
+ok(platePrice(RECIPE_BY_ID.boarchop, 0) < platePrice(RECIPE_BY_ID.boarchop, 5), 'mastery raises plate price');
+ok(canCook(RECIPE_BY_ID.boarchop, { boarmeat: 1 }) && !canCook(RECIPE_BY_ID.boarchop, {}), 'canCook checks the pantry');
+ok(ZODIAC.length === 12 && new Set(ZODIAC.map(z => z.id)).size === 12, 'twelve unique zodiac signs');
+ok(ZODIAC.every(z => z.cost > 0 && z.desc && z.icon), 'signs have cost/desc/icon');
+{
+  const st = { hpMax: 100, manaMax: 100, moveSpeed: 6 };
+  applyZodiacTo(st, ZODIAC.map(z => z.id));
+  ok(st.hpMax > 100 && st.manaMax > 100 && st.moveSpeed > 6 && st.damageMult > 1 && st.goldMult > 1, 'all twelve boons fold into stats');
+  const st2 = applyZodiacTo({ hpMax: 100, manaMax: 100, moveSpeed: 6 }, []);
+  ok(st2.hpMax === 100 && !st2.damageMult, 'no signs → untouched stats');
 }
 
 // ---- summary ----

@@ -12,7 +12,7 @@ export const BLACKOUT_LINES = {
 export const STAGES = {
   forest: {
     id: 'forest', name: 'Sunlit Forest', bossType: 'goblinking', bossName: 'The Goblin King',
-    roster: [{ t: 'goblin', w: 1 }, { t: 'bat', w: 1 }, { t: 'slime', w: 2 }, { t: 'brigand', w: 2 }, { t: 'zombie', w: 3 }, { t: 'mushroomcap', w: 3 }, { t: 'vampire', w: 4 }, { t: 'houndling', w: 3 }, { t: 'splitslime', w: 4 }, { t: 'bomber', w: 5 }],
+    roster: [{ t: 'goblin', w: 1 }, { t: 'boar', w: 1 }, { t: 'slime', w: 1 }, { t: 'lizardman', w: 2 }, { t: 'bat', w: 2 }, { t: 'brigand', w: 2 }, { t: 'mushroomcap', w: 3 }, { t: 'hydrabird', w: 3 }, { t: 'chameleon', w: 4 }, { t: 'greatboar', w: 5 }, { t: 'splitslime', w: 4 }, { t: 'bomber', w: 5 }],
     // bright MORNING woodland by default — warm sun, soft blue sky, lush green
     theme: {
       bg: 0x8fc6e8, fog: 0xc3ddec, fogD: 0.006, hemi: 0xcfe6ff, hemiG: 0x40663a, dir: 0xfff2d2, dirI: 1.75, amb: 0x6f8a72, floor: 0x4f8a48, rug: 0x5fa055, scatter: 'trees', rim: 0xfff0d0, rimI: 1.2,
@@ -23,7 +23,7 @@ export const STAGES = {
   },
   cave: {
     id: 'cave', name: 'Dripstone Cave', bossType: 'spiderqueen', bossName: 'The Spider Queen',
-    roster: [{ t: 'rat', w: 1 }, { t: 'brutebat', w: 1 }, { t: 'spider', w: 3 }, { t: 'cultist', w: 3 }, { t: 'stonegolem', w: 4 }, { t: 'broodmother', w: 4 }],
+    roster: [{ t: 'rat', w: 1 }, { t: 'brutebat', w: 1 }, { t: 'boar', w: 2 }, { t: 'spider', w: 3 }, { t: 'cultist', w: 3 }, { t: 'hydrabird', w: 4 }, { t: 'stonegolem', w: 4 }, { t: 'broodmother', w: 4 }],
     theme: { bg: 0x14110e, fog: 0x18130f, fogD: 0.022, hemi: 0x7a6a5a, hemiG: 0x2a201a, dir: 0xffd9a0, dirI: 0.85, amb: 0x4a3a30, floor: 0x3a322c, rug: 0x4a3f36, scatter: 'rocks', rim: 0xffb060, rimI: 1.05 },
     intro: ['Dripping dark, the stink of damp fur and old web. A cave.', 'Something skitters in the black. A great many somethings.'],
   },
@@ -35,7 +35,7 @@ export const STAGES = {
   },
   swamp: {
     id: 'swamp', name: 'Mire of Murmurs', bossType: 'bogwretch', bossName: 'The Bog Wretch',
-    roster: [{ t: 'zombie', w: 1 }, { t: 'bat', w: 1 }, { t: 'spider', w: 2 }, { t: 'vampire', w: 4 }, { t: 'splitslime', w: 2 }, { t: 'broodmother', w: 3 }],
+    roster: [{ t: 'zombie', w: 1 }, { t: 'lizardman', w: 1 }, { t: 'mudwhale', w: 3 }, { t: 'vampire', w: 4 }, { t: 'splitslime', w: 2 }, { t: 'chameleon', w: 2 }, { t: 'broodmother', w: 3 }],
     theme: { bg: 0x16241c, fog: 0x18271d, fogD: 0.026, hemi: 0x7fae7a, hemiG: 0x1a2a1a, dir: 0xbfe0a0, dirI: 1.0, amb: 0x33503a, floor: 0x2a3a26, rug: 0x33482e, scatter: 'swamp', rim: 0xbfe89a, rimI: 1.15 },
     intro: ['Knee-deep muck and the reek of rot. Something gurgles beneath the reeds.', 'Watch your step, wizard. The bog bites back.'],
   },

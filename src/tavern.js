@@ -194,6 +194,19 @@ export class Tavern {
 
     // the venture door
     this.stations.push({ type: 'door', label: 'venture out on a run', pos: this.door.clone(), mark: null });
+
+    // ---- the KITCHEN: an iron range behind the bar + the dinner-service start spot ----
+    const iron2 = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x33302e, roughness: 0.6, metalness: 0.35 });
+    const stove = new THREE.Group(); stove.position.set(-10.35, 0, 1.6);
+    const rangeBody = new THREE.Mesh(new THREE.BoxGeometry(0.95, 1.0, 1.15), iron2); rangeBody.position.y = 0.5; rangeBody.castShadow = true; stove.add(rangeBody);
+    const hob = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.06, 12), new THREE.MeshStandardMaterial({ flatShading: true, color: 0x1a1614, roughness: 0.5 })); hob.position.set(0, 1.04, 0.2); stove.add(hob);
+    const stoveFire = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 7), new THREE.MeshBasicMaterial({ color: 0xff9a3a, transparent: true, opacity: 0.9 })); stoveFire.position.set(0, 1.1, 0.2); stoveFire.scale.y = 1.4; stove.add(stoveFire); this._stoveFire = stoveFire;
+    const pan = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.22, 0.1, 10), iron2); pan.position.set(0, 1.12, -0.28); stove.add(pan);
+    const chimney = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 1.4, 7), iron2); chimney.position.set(0, 1.8, 0.35); stove.add(chimney);
+    const stoveLight = new THREE.PointLight(0xff9a4a, 1.0, 6); stoveLight.position.set(0, 1.4, 0); stove.add(stoveLight);
+    g.add(stove); this._stove = stove;
+    // start dinner service from the public side of the counter
+    this.stations.push({ type: 'kitchen', label: 'open the KITCHEN — dinner service!', pos: new THREE.Vector3(-7.4, 0, -1.2), mark: null });
   }
 
   // ===================== the 4 serving tables (the WORK loop) =====================
@@ -899,7 +912,7 @@ export class Tavern {
     for (const s of this.stations) if (s.mark) { s.mark.rotation.y += dt * 2; s.mark.position.y = 2.4 + Math.sin(this.phase * 3 + s.pos.x) * 0.16; }
     game.nearStation = this.nearestStation(w.pos, this.stations);
 
-    this._resolveSolids(w, 0.55, this._barSolids); // bump off the bar counter
+    if (!(game._service && game._service.active)) this._resolveSolids(w, 0.55, this._barSolids); // bump off the bar counter (chef stands BEHIND it during service)
     w.pos.x = Math.max(MINX, Math.min(MAXX, w.pos.x));
     w.pos.z = Math.max(NORTH, Math.min(SOUTH, w.pos.z));
   }

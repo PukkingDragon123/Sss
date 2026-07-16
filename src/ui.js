@@ -5,6 +5,7 @@ import { SPELL_ORDER, SPELLS } from './spells.js';
 import { TEMPLATES } from './recognizer.js';
 import * as meta from './meta.js';
 import { STAGES, STAGE_ORDER, STAGE_GIMMICKS } from './story.js';
+import { INGREDIENTS, RECIPES, RECIPE_BY_ID, platePrice, canCook, ZODIAC, ZODIAC_BY_ID } from './cooking.js';
 import { ARTIFACTS, artifactById, UPGRADES, upgradeRarity } from './upgrades.js';
 import { MINIGAMES, setIconDrawer } from './minigames.js';
 import { CARDS, CARD_BY_ID, CARD_RARITY } from './cards.js';
@@ -154,6 +155,11 @@ export class UI {
     this.el.btnMute.addEventListener('click', () => { game.toggleMute(); });
     this.el.btnGuide.addEventListener('click', () => { game.audio.play('click'); game.toggleGuide(); });
     if (this.el.btnQuests) this.el.btnQuests.addEventListener('click', () => { game.audio.play('click'); this.toggleQuestPanel(game); });
+    const btnCook = document.getElementById('btn-cookbook');
+    const inService = () => { if (game._service && game._service.active) { this.toast('🍳 Finish the dinner service first!'); return true; } return false; };
+    if (btnCook) { this.el.btnCookbook = btnCook; btnCook.addEventListener('click', () => { if (inService()) return; game.audio.play('click'); this._mb ? this.hideMenuBook() : this.showMenuBook(game); }); }
+    const btnZod = document.getElementById('btn-zodiac');
+    if (btnZod) { this.el.btnZodiac = btnZod; btnZod.addEventListener('click', () => { if (inService()) return; game.audio.play('click'); this._zd ? this.hideZodiac() : this.showZodiac(game); }); }
     if (this.el.btnInv) this.el.btnInv.addEventListener('click', () => { game.audio.play('click'); this.openInventory(game); });
     if (this.el.qpClose) this.el.qpClose.addEventListener('click', () => { game.audio.play('click'); this.el.questPanel.classList.remove('show'); });
     if (this.el.questPanel) this.el.questPanel.addEventListener('click', (e) => {
@@ -372,6 +378,8 @@ export class UI {
     this.el.tavernHud.classList.add('hidden');
     this.el.btnGuide.classList.toggle('hidden', !arena);
     if (this.el.btnQuests) this.el.btnQuests.classList.toggle('hidden', !(tavern || room)); // quest log + satchel in the hub
+    if (this.el.btnCookbook) this.el.btnCookbook.classList.toggle('hidden', !(tavern || room)); // the menu book lives in the hub
+    if (this.el.btnZodiac) this.el.btnZodiac.classList.toggle('hidden', !(tavern || room));     // the star chart too
     if (this.el.btnInv) this.el.btnInv.classList.toggle('hidden', !(tavern || room));
     if (this.el.questPanel && !(tavern || room)) this.el.questPanel.classList.remove('show');
     if (this.el.btnDrink) this.el.btnDrink.classList.toggle('hidden', !arena); // drink only in the fight
@@ -943,6 +951,242 @@ export class UI {
     setTimeout(finish, 1650);
   }
 
+  // ===== COOK TIMING: the quick service-cook — stop the sweeping flame in the gold zone =====
+  showCookTiming(recipe, onDone) {
+    this.hideCookTiming();
+    const ov = document.createElement('div'); ov.id = 'cooktime';
+    ov.innerHTML = `
+      <div class="ct-card">
+        <div class="ct-name">${recipe.icon} ${recipe.name}</div>
+        <div class="ct-bar"><div class="ct-zone"></div><div class="ct-perfect"></div><div class="ct-marker">🔥</div></div>
+        <div class="ct-hint">E / tap — stop the flame in the gold!</div>
+      </div>`;
+    document.body.appendChild(ov); this._ct = ov;
+    const marker = ov.querySelector('.ct-marker');
+    let t = 0, dir = 1, sweeps = 0, done = false, last = performance.now(), raf = 0;
+    this._ctAbort = () => { done = true; cancelAnimationFrame(raf); window.removeEventListener('keydown', onKey); }; // external teardown (service ended underneath)
+    const finish = (quality) => {
+      if (done) return; done = true;
+      cancelAnimationFrame(raf); this._ctAbort = null;
+      window.removeEventListener('keydown', onKey); ov.removeEventListener('pointerdown', onTap);
+      ov.classList.add(quality >= 1.3 ? 'ct-win' : 'ct-ok');
+      this._ctTimer = setTimeout(() => { this._ctTimer = null; this.hideCookTiming(); onDone(quality); }, quality >= 1.3 ? 520 : 300);
+    };
+    const stop = () => { const d = Math.abs(t - 0.5); finish(Math.max(0.5, Math.min(1.5, 1.5 - d * 3.2))); };
+    const onKey = (e) => { const k = e.key.toLowerCase(); if (k === 'e' || k === ' ' || k === 'enter' || k === 'f') { e.preventDefault(); stop(); } };
+    const onTap = () => stop();
+    window.addEventListener('keydown', onKey); ov.addEventListener('pointerdown', onTap);
+    const loop = (now) => {
+      if (done) return;
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      t += dir * dt * 1.15;
+      if (t > 1) { t = 1; dir = -1; sweeps++; } else if (t < 0) { t = 0; dir = 1; sweeps++; }
+      if (sweeps >= 4) { finish(0.7); return; } // dawdled — a passable plate
+      marker.style.left = (t * 100) + '%';
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    void ov.offsetWidth; ov.classList.add('show');
+  }
+  hideCookTiming() {
+    if (this._ctTimer) { clearTimeout(this._ctTimer); this._ctTimer = null; } // kill a pending result-flash callback
+    if (this._ctAbort) { this._ctAbort(); this._ctAbort = null; }
+    if (this._ct) { this._ct.remove(); this._ct = null; }
+  }
+
+  // ===== COOK-OFF: the Cooking-Mama practice minigame — CHOP! SIZZLE! SEASON! =====
+  // A full-screen canvas with three juicy phases; onDone(score 0..1).
+  showCookOff(game, recipe, onDone) {
+    const ov = document.createElement('div'); ov.id = 'cookoff';
+    ov.innerHTML = `<div class="co-head"><span class="co-title">COOK-OFF</span><span class="co-dish">${recipe.icon} ${recipe.name}</span><button class="btn co-quit">✕</button></div>
+      <canvas class="co-canvas"></canvas><div class="co-phase"></div>`;
+    document.body.appendChild(ov);
+    const cv = ov.querySelector('.co-canvas');
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const W = Math.min(560, window.innerWidth - 40), H = 380;
+    cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    const x = cv.getContext('2d'); x.scale(dpr, dpr);
+    const phaseLbl = ov.querySelector('.co-phase');
+    const s = { phase: 0, t: 0, shake: 0, pops: [], // pops: little burst rings for juice
+      chop: { hits: 0, taps: 0, kx: 0 },            // knife marches; tap on the marks
+      sizzle: { heat: 0, inBand: 0, dur: 5 },        // hold to keep the heat in the gold band
+      season: { ring: 1.4, round: 0, score: 0 },     // shrinking ring; tap at the circle
+      scores: [] };
+    let held = false, done = false, raf = 0, last = performance.now();
+    const names = ['CHOP!', 'SIZZLE!', 'SEASON!'];
+    const pop = (px, py, col) => { s.pops.push({ x: px, y: py, r: 6, col, a: 1 }); s.shake = 5; if (game.audio) game.audio.play('click'); };
+    const nextPhase = (score) => {
+      s.scores.push(Math.max(0, Math.min(1, score)));
+      s.phase++; s.t = 0;
+      if (s.phase >= 3) {
+        done = true; cancelAnimationFrame(raf); cleanup();
+        const total = s.scores.reduce((a, b) => a + b, 0) / 3;
+        ov.classList.add('co-done');
+        phaseLbl.textContent = total >= 0.85 ? '✨ MASTERFUL! ✨' : total >= 0.6 ? '😋 Delicious!' : '💨 A bit burnt…';
+        if (game.audio) game.audio.play(total >= 0.6 ? 'win' : 'hurt');
+        this._coTimer = setTimeout(() => { this._coTimer = null; this._coAbort = null; ov.remove(); onDone(total); }, 1200);
+      } else { phaseLbl.textContent = names[s.phase]; if (game.audio) game.audio.play('levelup'); }
+    };
+    const press = (px) => {
+      if (s.phase === 0) { // chop: knife at kx, targets every 20%
+        s.chop.taps++;
+        const near = Math.abs(((s.chop.kx * 5) % 1) - 0.5) < 0.22; // near a chop mark
+        if (near) { s.chop.hits++; pop(60 + s.chop.kx * (W - 120), H * 0.5, '#ffd76a'); }
+        if (s.chop.taps >= 5) nextPhase(s.chop.hits / 5);
+      } else if (s.phase === 2) { // season: tap when the ring meets the circle
+        const d = Math.abs(s.season.ring - 0.52);
+        s.season.score += Math.max(0, 1 - d * 4.5);
+        pop(W / 2, H * 0.52, '#b9ff7a');
+        s.season.round++; s.season.ring = 1.4;
+        if (s.season.round >= 3) nextPhase(s.season.score / 3);
+      }
+    };
+    const onDown = (e) => { held = true; press(); e.preventDefault(); };
+    const onUp = () => { held = false; };
+    const onKey = (e) => { const k = e.key.toLowerCase(); if (k === 'e' || k === ' ' || k === 'enter') { if (!e.repeat) press(); held = true; e.preventDefault(); } };
+    const onKeyUp = () => { held = false; };
+    ov.addEventListener('pointerdown', onDown); window.addEventListener('pointerup', onUp);
+    window.addEventListener('keydown', onKey); window.addEventListener('keyup', onKeyUp);
+    const cleanup = () => { ov.removeEventListener('pointerdown', onDown); window.removeEventListener('pointerup', onUp); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp); };
+    const quitBtn = ov.querySelector('.co-quit');
+    quitBtn.addEventListener('pointerdown', (e) => e.stopPropagation()); // don't count as a chop
+    // silent teardown for closeModals — no onDone, so nothing reopens over a scene change
+    this._coAbort = () => {
+      done = true; cancelAnimationFrame(raf); cleanup();
+      if (this._coTimer) { clearTimeout(this._coTimer); this._coTimer = null; }
+      ov.remove(); this._coAbort = null;
+    };
+    quitBtn.onclick = () => { if (done) return; const ab = this._coAbort; if (ab) ab(); onDone(0); };
+    phaseLbl.textContent = names[0];
+    const loop = (now) => {
+      if (done) return;
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      s.t += dt; s.shake = Math.max(0, s.shake - dt * 30);
+      x.clearRect(0, 0, W, H);
+      x.save(); if (s.shake > 0) x.translate((Math.random() - 0.5) * s.shake, (Math.random() - 0.5) * s.shake);
+      // board
+      x.fillStyle = '#2a2140'; x.fillRect(0, 0, W, H);
+      x.fillStyle = '#181228'; x.fillRect(10, 10, W - 20, H - 20);
+      if (s.phase === 0) { // CHOP: a marching knife over 5 marks
+        s.chop.kx = (s.t * 0.28) % 1;
+        x.fillStyle = '#7a5a34'; x.fillRect(40, H * 0.52, W - 80, 26); // the board
+        const sausage = 60 + ((s.chop.taps) / 5) * 0; // the roast
+        x.fillStyle = '#c05a4a'; x.beginPath(); x.roundRect(60, H * 0.44, W - 120, 34, 16); x.fill();
+        for (let k = 0; k < 5; k++) { const mx = 60 + ((k + 0.5) / 5) * (W - 120); x.strokeStyle = k < s.chop.taps ? '#4a3020' : '#ffd76a'; x.lineWidth = 4; x.beginPath(); x.moveTo(mx, H * 0.40); x.lineTo(mx, H * 0.52 + 30); x.stroke(); }
+        const kx = 60 + s.chop.kx * (W - 120);
+        x.font = '44px sans-serif'; x.textAlign = 'center'; x.fillText('🔪', kx, H * 0.36);
+      } else if (s.phase === 1) { // SIZZLE: hold to keep heat in the gold band
+        const z = s.sizzle;
+        z.heat += (held ? 1.4 : -1.1) * dt; z.heat = Math.max(0, Math.min(1, z.heat));
+        const inBand = z.heat > 0.55 && z.heat < 0.85;
+        if (inBand) z.inBand += dt;
+        z.dur -= dt;
+        x.font = '64px sans-serif'; x.textAlign = 'center'; x.fillText('🍳', W / 2, H * 0.42);
+        if (inBand && Math.random() < 0.4) pop(W / 2 + (Math.random() - 0.5) * 90, H * 0.35, '#ffb35a');
+        const bx = W / 2 - 30, bh = H - 120;
+        x.fillStyle = '#0e0a18'; x.beginPath(); x.roundRect(bx, 60, 60, bh, 12); x.fill();
+        x.fillStyle = 'rgba(255,215,106,0.35)'; x.fillRect(bx, 60 + bh * 0.15, 60, bh * 0.3); // gold band (inverted: top = hot)
+        const hy = 60 + bh * (1 - z.heat);
+        x.fillStyle = inBand ? '#ffd76a' : '#ff7a4a'; x.beginPath(); x.roundRect(bx + 6, hy, 48, 60 + bh - hy - 6, 8); x.fill();
+        if (z.dur <= 0) nextPhase(z.inBand / 3.2);
+      } else { // SEASON: tap as the shrinking ring meets the plate
+        s.season.ring -= dt * 0.75;
+        if (s.season.ring < 0.2) { s.season.round++; s.season.ring = 1.4; } // missed the window
+        x.font = '58px sans-serif'; x.textAlign = 'center'; x.fillText('🍲', W / 2, H * 0.56);
+        x.strokeStyle = '#b9ff7a'; x.lineWidth = 3; x.beginPath(); x.arc(W / 2, H * 0.52, 62, 0, 6.28); x.stroke(); // the target
+        x.strokeStyle = '#ffd76a'; x.lineWidth = 6; x.beginPath(); x.arc(W / 2, H * 0.52, 120 * s.season.ring, 0, 6.28); x.stroke();
+        x.font = '26px sans-serif'; x.fillText('🧂'.repeat(Math.max(0, 3 - s.season.round)), W / 2, 46);
+        if (s.season.round >= 3 && s.phase === 2) nextPhase(s.season.score / 3);
+      }
+      // juice pops
+      for (let i = s.pops.length - 1; i >= 0; i--) { const p = s.pops[i]; p.r += 90 * dt; p.a -= 2.4 * dt; if (p.a <= 0) { s.pops.splice(i, 1); continue; } x.globalAlpha = p.a; x.strokeStyle = p.col; x.lineWidth = 3; x.beginPath(); x.arc(p.x, p.y, p.r, 0, 6.28); x.stroke(); x.globalAlpha = 1; }
+      x.restore();
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    void ov.offsetWidth; ov.classList.add('show');
+  }
+
+  // ===== the MENU BOOK: your restaurant's living menu — pantry, recipes, mastery, cook-offs =====
+  showMenuBook(game) {
+    this.hideMenuBook();
+    const inv = meta.pantry();
+    const ov = document.createElement('div'); ov.id = 'menubook';
+    const pantryRow = Object.entries(INGREDIENTS).map(([id, ing]) =>
+      `<span class="mb-ing ${ (inv[id] || 0) > 0 ? '' : 'none'}">${ing.icon}×${inv[id] || 0}</span>`).join('');
+    const rows = RECIPES.map(r => {
+      const m = meta.recipeMastery(r.id);
+      const stars = '★'.repeat(m) + '<span class="dim">' + '★'.repeat(5 - m) + '</span>';
+      const needs = Object.entries(r.needs).map(([id, n]) => { const have = inv[id] || 0; return `<span class="${have >= n ? 'ok' : 'lack'}">${INGREDIENTS[id].icon}${have}/${n}</span>`; }).join(' ') || '<span class="ok">always stocked</span>';
+      const price = platePrice(r, m);
+      const cookable = canCook(r, inv) && r.id !== 'alebread';
+      return `<div class="mb-card" data-r="${r.id}">
+        <div class="mb-ico">${r.icon}</div>
+        <div class="mb-mid"><div class="mb-name">${r.name} <span class="mb-stars">${stars}</span></div>
+        <div class="mb-desc">${r.desc}</div><div class="mb-needs">${needs}</div></div>
+        <div class="mb-right"><div class="mb-price">${price}🪙</div>
+        ${r.id !== 'alebread' ? `<button class="btn mb-cook" data-r="${r.id}" ${cookable && m < 5 ? '' : 'disabled'}>COOK-OFF</button>` : ''}</div>
+      </div>`;
+    }).join('');
+    ov.innerHTML = `<div class="mb-frame">
+      <div class="mb-head"><span>THE MENU</span><button class="btn mb-close">✕</button></div>
+      <div class="mb-pantry">🛒 PANTRY · ${pantryRow}</div>
+      <div class="mb-list">${rows}</div>
+      <div class="mb-foot">Hunt cookable beasts for ingredients · practice COOK-OFFS to master dishes · masters charge more</div>
+    </div>`;
+    document.body.appendChild(ov); this._mb = ov;
+    ov.querySelector('.mb-close').onclick = () => { if (game.audio) game.audio.play('click'); this.hideMenuBook(); };
+    for (const btn of ov.querySelectorAll('.mb-cook')) {
+      btn.onclick = () => {
+        const r = RECIPE_BY_ID[btn.dataset.r];
+        if (!meta.pantrySpend(r.needs)) { this.toast('🧺 Not enough ingredients in the pantry.'); return; }
+        this.hideMenuBook();
+        if (game.audio) game.audio.play('levelup');
+        this.showCookOff(game, r, (score) => {
+          if (score >= 0.6) { meta.bumpMastery(r.id); this.toast(`⭐ ${r.name} mastered up! ${meta.recipeMastery(r.id)}/5`); }
+          else this.toast('💨 Burnt it… the ingredients are spent, but so is the lesson.');
+          this.showMenuBook(game); // back to the book with fresh numbers
+        });
+      };
+    }
+    void ov.offsetWidth; ov.classList.add('show');
+  }
+  hideMenuBook() { if (this._mb) { this._mb.remove(); this._mb = null; } }
+
+  // ===== the ZODIAC: an arcane constellation wheel — 12 signs, 12 permanent boons =====
+  showZodiac(game) {
+    this.hideZodiac();
+    const ov = document.createElement('div'); ov.id = 'zodiac';
+    const R = Math.min(200, window.innerWidth * 0.32);
+    const nodes = ZODIAC.map((z, i) => {
+      const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
+      const px = Math.cos(a) * R, py = Math.sin(a) * R;
+      const owned = meta.zodiacHas(z.id);
+      return `<button class="zd-sign ${owned ? 'owned' : ''}" data-z="${z.id}" style="transform:translate(${px.toFixed(0)}px,${py.toFixed(0)}px)">
+        <span class="zd-glyph">${z.icon}</span><span class="zd-name">${z.name}</span>
+        <span class="zd-sub">${owned ? '✓ ' + z.desc : z.desc + ' · ' + z.cost + '💎'}</span></button>`;
+    }).join('');
+    ov.innerHTML = `<div class="zd-sky">
+      <div class="zd-head"><span>THE ZODIAC</span><button class="btn zd-close">✕</button></div>
+      <div class="zd-wheel"><div class="zd-core">✨<div class="zd-gems">${meta.gems()}💎</div></div>${nodes}</div>
+      <div class="zd-foot">Commune with the stars — each sign grants a permanent arcane boon</div>
+    </div>`;
+    document.body.appendChild(ov); this._zd = ov;
+    ov.querySelector('.zd-close').onclick = () => { if (game.audio) game.audio.play('click'); this.hideZodiac(); };
+    for (const btn of ov.querySelectorAll('.zd-sign')) {
+      btn.onclick = () => {
+        const z = ZODIAC_BY_ID[btn.dataset.z];
+        if (meta.zodiacHas(z.id)) { this.toast(`${z.icon} ${z.name} already shines for you.`); return; }
+        if (!meta.unlockZodiac(z.id, z.cost)) { this.toast(`Need ${z.cost}💎 to commune with ${z.name}.`); return; }
+        if (game.audio) game.audio.play('win');
+        this.toast(`${z.icon} ${z.name} awakened — ${z.desc}!`);
+        this.showZodiac(game); // re-render lit
+      };
+    }
+    void ov.offsetWidth; ov.classList.add('show');
+  }
+  hideZodiac() { if (this._zd) { this._zd.remove(); this._zd = null; } }
+
   // hub prompt: show what the wizard can interact with
   updatePrompt(station, isTouch) {
     if (station) {
@@ -1028,12 +1272,19 @@ export class UI {
     }
   }
 
+  // true while a fullscreen cooking/zodiac overlay owns the keyboard — world input must ignore E
+  overlayActive() { return !!(this._mb || this._ct || this._zd || this._coAbort || document.getElementById('cookoff')); }
+
   closeModals() {
     this.el.story.classList.add('hidden');
     this.el.levelup.classList.add('hidden');
     this.el.howto.classList.add('hidden');
     this.el.glyphGuide.classList.add('hidden');
     this.hidePathChoice();
+    this.hideMenuBook();
+    this.hideZodiac();
+    this.hideCookTiming();
+    if (this._coAbort) this._coAbort(); // tear down a live cook-off silently (no reopen)
   }
 
   setScreen(name) {

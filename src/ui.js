@@ -1320,8 +1320,16 @@ export class UI {
 
     const mm = Math.floor(game.elapsed / 60), ss = Math.floor(game.elapsed % 60);
     this.el.timer.textContent = `${mm}:${ss.toString().padStart(2, '0')}`;
-    const d = game.director;
-    if (d && d.active) {
+    const d = game.director, es = game._escort;
+    if (es && es.active) {
+      // escort readout: how far along the trail the snail has crawled + its mood
+      this.el.waveWrap.classList.remove('hidden');
+      this.el.wave.textContent = es.state === 'ambush' ? '⚔ AMBUSH!'
+        : es.state === 'blocked' ? '🚧 Road blocked'
+        : es.state === 'waiting' ? '🐌 …waiting for you'
+        : `🐌 Trail ${Math.round(es.u * 100)}%`;
+      if (this.el.wavePips && this._pipTotal !== 0) { this._pipTotal = 0; this.el.wavePips.innerHTML = ''; }
+    } else if (d && d.active) {
       this.el.waveWrap.classList.remove('hidden');
       this.el.wave.textContent = d.state === 'boss' ? 'BOSS' : `Wave ${d.wave}/${d.total}`;
       this._renderPips(d);

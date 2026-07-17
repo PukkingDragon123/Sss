@@ -318,13 +318,14 @@ export class Game {
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i), z = pos.getZ(i);
       const r = Math.hypot(x, z);
+      const gh = this._groundHeight(x, z);                         // meadow swells + rim banks
       if (r > ARENA * 1.03) {
         const t = Math.min(1, (r - ARENA * 1.03) / 26);            // ramp 0→1 past the edge
         const n = Math.sin(x * 0.13) * Math.cos(z * 0.11) * 2.4
                 + Math.sin(x * 0.31 + z * 0.17) * 1.2
                 + Math.sin(z * 0.23 - x * 0.07) * 0.8;
-        pos.setY(i, Math.max(0, t * (2.2 + n)));                   // rolling hills, never below grade
-      }
+        pos.setY(i, gh + Math.max(0, t * (2.2 + n)));              // hills continue up from the banks
+      } else pos.setY(i, gh);
     }
     const flat = g.toNonIndexed();
     const n = flat.attributes.position.count;
@@ -339,10 +340,11 @@ export class Game {
   }
   // hand-triangulated clearing disc (rings × sectors → even triangles, no pie slivers)
   _makeClearingGeo() {
-    const RINGS = 7, SEC = 40, verts = [], cols = [];
+    const RINGS = 12, SEC = 40, verts = [], cols = [];
     const at = (ri, si) => {
       const r = (ri / RINGS) * ARENA, a = (si / SEC) * Math.PI * 2;
-      return [Math.cos(a) * r, 0, Math.sin(a) * r];
+      const x = Math.cos(a) * r, z = Math.sin(a) * r;
+      return [x, this._groundHeight(x, z), z];                     // the meadow rolls now
     };
     const tri = (a, b, c) => {
       const v = 0.9 + Math.random() * 0.2;                         // per-face patchwork shade
@@ -372,8 +374,8 @@ export class Game {
     //    forest/cave/graveyard wall instead of vanishing into the haze.
     //  - inside(): foliage sprinkled across the playfield. CRUCIAL: it only sets
     //    x/z and PRESERVES the y the build() chose, so nothing gets buried at 0.
-    const DENSITY = 0.58; // thin the scatter out — the arena was too cluttered with foliage
-    const place = (o, x, z, jitterY) => { o.position.set(x, o.position.y + (jitterY || 0), z); o.rotation.y = Math.random() * 6.28; grp.add(o); };
+    const DENSITY = 0.85; // a denser, wilder wood (the escort road keeps it readable)
+    const place = (o, x, z, jitterY) => { o.position.set(x, o.position.y + (jitterY || 0) + this._groundHeight(x, z), z); o.rotation.y = Math.random() * 6.28; grp.add(o); };
     const treeLine = (build, count = 64) => {
       count = Math.round(count * DENSITY);
       for (let i = 0; i < count; i++) {
@@ -397,13 +399,14 @@ export class Game {
     if (kind === 'trees') {
       // handmade forest: 3D trees with 2D leaf-sprite canopies, sprite grass & ferns,
       // textured toadstools, mossy boulders and fallen logs — a real, lived-in wood.
-      treeLine(makeLeafyTree, 46);
-      inside(13, makeLeafyTree, 6, ARENA - 8);     // full trees dotted inside too
-      inside(64, makeGrass, 3, ARENA - 5);         // thick sprite-grass ground cover
-      inside(28, makeFern);                         // leafy ferns tucked between
-      inside(20, makeMushroom);                     // toadstool clusters
-      inside(16, makeRock);                         // mossy boulders
-      inside(9, makeFallenLog, 5, ARENA - 9);       // fallen logs as little landmarks
+      treeLine(makeLeafyTree, 52);
+      inside(16, makeLeafyTree, 6, ARENA - 8);     // full trees dotted inside too
+      inside(80, makeGrass, 3, ARENA - 5);         // thick sprite-grass ground cover
+      inside(30, () => { const g = makeGrass(); g.scale.y *= 1.9; g.scale.x *= 1.25; return g; }, 4, ARENA - 5); // TALL waving grass stands
+      inside(34, makeFern);                         // leafy ferns tucked between
+      inside(24, makeMushroom);                     // toadstool clusters
+      inside(18, makeRock);                         // mossy boulders
+      inside(10, makeFallenLog, 5, ARENA - 9);      // fallen logs as little landmarks
     } else if (kind === 'rocks') {
       const rockMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x4a443e, roughness: 1 });
       const tipMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x5a524a, roughness: 1 });
@@ -788,11 +791,11 @@ export class Game {
 
   // ==== THE HUNT: cookable beasts leave INGREDIENT CORPSES you haul to the caravan ====
   // a chunky "cut of meat" prop: a rounded slab + a bone, tinted by ingredient
-  spawnCorpse(pos, ingId, size = 1) {
+  spawnCorpse(pos, ingId, size = 1, noPick = 0) {
     if (!this._corpses) this._corpses = [];
     if (this._corpses.length > 40) return; // safety valve
     const ing = INGREDIENTS[ingId]; if (!ing) return;
-    const tint = { boarmeat: 0xc05a4a, lizardtail: 0x6aa050, slimejelly: 0x4ad0a8, shroomcap: 0xd8465e, hydrawing: 0xd8905a, chamflank: 0x9a6ad0, whaleblub: 0x8fb6d0, batwing: 0x8c6fb8 }[ingId] || 0xc05a4a;
+    const tint = { boarmeat: 0xc05a4a, lizardtail: 0x6aa050, slimejelly: 0x4ad0a8, shroomcap: 0xd8465e, hydrawing: 0xd8905a, chamflank: 0x9a6ad0, whaleblub: 0x8fb6d0, batwing: 0x8c6fb8, wildherb: 0x6ab04a }[ingId] || 0xc05a4a;
     const g = new THREE.Group();
     const meat = new THREE.Mesh(new THREE.SphereGeometry(0.34, 9, 7), pxMap(new THREE.MeshStandardMaterial({ color: tint, roughness: 0.75, flatShading: true }), 'skin', 2));
     meat.scale.set(1.25, 0.7, 0.95); meat.position.y = 0.26; meat.castShadow = true; g.add(meat);
@@ -804,7 +807,7 @@ export class Game {
     g.position.set(pos.x + (Math.random() - 0.5) * 0.8, 0, pos.z + (Math.random() - 0.5) * 0.8);
     g.rotation.y = Math.random() * 6.28;
     this.arenaGroup.add(g);
-    this._corpses.push({ mesh: g, halo, ing: ingId, phase: Math.random() * 6, t: 0 });
+    this._corpses.push({ mesh: g, halo, ing: ingId, phase: Math.random() * 6, t: 0, noPick });
   }
   _updateCorpses(dt) {
     if (!this._corpses || !this._corpses.length) return;
@@ -812,10 +815,11 @@ export class Game {
     for (let i = this._corpses.length - 1; i >= 0; i--) {
       const c = this._corpses[i];
       c.phase += dt; c.t += dt;
-      c.mesh.position.y = Math.abs(Math.sin(c.phase * 2)) * 0.06;
+      if (c.noPick > 0) c.noPick -= dt;
+      c.mesh.position.y = Math.abs(Math.sin(c.phase * 2)) * 0.06 + this._groundHeight(c.mesh.position.x, c.mesh.position.z);
       c.halo.material.opacity = 0.35 + Math.abs(Math.sin(c.phase * 2.4)) * 0.3;
       const dx = w.pos.x - c.mesh.position.x, dz = w.pos.z - c.mesh.position.z;
-      if (dx * dx + dz * dz < 1.5 * 1.5) {
+      if (c.noPick <= 0 && dx * dx + dz * dz < 1.5 * 1.5) {
         // scoop it up — onto the carry stack (capped: a wizard can only haul so much)
         if (w.carryStack.length >= this.carryCap()) { if (!this._carryWarnT || this.elapsed - this._carryWarnT > 3) { this._carryWarnT = this.elapsed; this.ui.toast('🎒 Arms full! Haul your ingredients to the CARAVAN.'); } continue; }
         w.addCarry(c.ing, c.mesh.children[0].material.color.getHex());
@@ -831,7 +835,24 @@ export class Game {
     this.arenaGroup.remove(c.mesh);
   }
   _clearCorpses() { if (this._corpses) { for (const c of this._corpses) this._disposeCorpse(c); this._corpses.length = 0; } }
-  carryCap() { return 6; }
+  carryCap() { return 3; } // two hands, three slabs — any more and the tower topples
+
+  // drop the whole hand-carried pile at his feet (the escape valve when ambushed)
+  dropCarry() {
+    const w = this.wizard;
+    if (!w.carryStack.length) return false;
+    let i = 0;
+    for (const item of w.carryStack) {
+      const back = new THREE.Vector3(w.pos.x - Math.sin(w.yaw) * 1.1 + (i - 1) * 0.5, 0, w.pos.z - Math.cos(w.yaw) * 1.1);
+      this.spawnCorpse(back, item.ing, 1, 1.4); // brief no-pickup grace so it doesn't bounce right back
+      i++;
+    }
+    w.clearHands(); // hands only — a wind-borne morsel keeps floating
+    this.audio.play('click');
+    this.particles.ring({ pos: w.pos.clone().setY(0.1), color: 0xd8c9a0, r0: 0.2, r1: 1.6, life: 0.35 });
+    this.ui.toast('🙌 Dropped the haul — hands free!');
+    return true;
+  }
 
   // ---- the CARAVAN: a pack-beast cart parked at the clearing edge — bank your haul ----
   _buildCaravan() {
@@ -873,10 +894,12 @@ export class Game {
     // bank the haul when the wizard steps into the ring
     const w = this.wizard;
     const dx = w.pos.x - cv.position.x, dz = w.pos.z - cv.position.z;
-    if (w.carryStack.length && dx * dx + dz * dz < 2.4 * 2.4) {
+    if ((w.carryStack.length || w.floatItem) && dx * dx + dz * dz < 2.4 * 2.4) {
       let n = 0;
-      for (const item of w.carryStack) { meta.pantryAdd(item.ing, 1); n++; }
-      w.clearCarry();
+      const es = this._escort, hold = es && es.active ? es.cargo : null;
+      for (const item of w.carryStack) { meta.pantryAdd(item.ing, 1); n++; if (hold && hold.length < 12) hold.push(item.ing); }
+      if (w.floatItem) { meta.pantryAdd(w.floatItem.ing, 1); n++; if (hold && hold.length < 12) hold.push(w.floatItem.ing); }
+      w.clearCarry(); // clears the float too
       this.audio.play('win');
       this.particles.burst({ pos: cv.position.clone().setY(1.4), color: 0xffd98a, count: 18, speed: 5, size: 0.26, life: 0.7, blend: 'add' });
       this.particles.ring({ pos: cv.position.clone().setY(0.2), color: 0xffd98a, r0: 0.4, r1: 3, life: 0.5 });
@@ -889,6 +912,312 @@ export class Game {
     meta.addGold(n);
     if (pos && this.particles) this.particles.burst({ pos: pos.setY(0.8), color: 0xffd24a, count: 6, speed: 3.5, size: 0.18, life: 0.6, grav: -8, up: 3, blend: 'add' });
     if (this.ui.updateHUD) this.ui.updateHUD(this);
+  }
+
+  // ==== THE ESCORT: no waves. The pack-snail crawls a winding trail to the far gate;
+  // you walk with it, gather the wild larder, fight off ambushes, and GUST whatever
+  // blocks the road (brambles, a river crossing). Arrival = stage cleared. ====
+  _startEscort(opts = {}) {
+    this._clearEscort();
+    // lay a winding trail across the clearing (west → east, S-curved, inside the tree line)
+    const pts = [];
+    const N = 7, sway = (Math.random() < 0.5 ? 1 : -1) * (11 + Math.random() * 6);
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      const x = -37 + t * 74;
+      const z = Math.sin(t * Math.PI * 2) * sway * Math.sin(t * Math.PI) * 0.8 + (i === 0 || i === N ? 0 : (Math.random() - 0.5) * 5);
+      pts.push(new THREE.Vector3(x, 0, z));
+    }
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const samples = curve.getSpacedPoints(140).map(p => { p.y = 0; return p; });
+    let len = 0; for (let i = 1; i < samples.length; i++) len += samples[i].distanceTo(samples[i - 1]);
+    this._escort = {
+      active: true, done: false, samples, len, u: 0, speed: opts.speed || 2.15, state: 'go',
+      tutorial: !!opts.tutorial, hpScale: opts.hpScale || 1, sizeMult: opts.sizeMult || 1,
+      ambushes: [], obstacles: [], cargo: [], hitT: 0, sayT: 0, tut: 0, group: new THREE.Group(),
+    };
+    this._gustables = [];
+    this.arenaGroup.add(this._escort.group);
+    // ambush triggers spread along the road
+    const nA = opts.ambushes != null ? opts.ambushes : 3;
+    for (let i = 0; i < nA; i++) this._escort.ambushes.push({ at: 0.16 + (i + 0.3 + Math.random() * 0.4) * (0.74 / nA), done: false, live: false });
+    // obstacles: brambles choke the road; a river cuts it (the tutorial keeps it simple)
+    if (opts.tutorial) this._addEscortObstacle('bramble', 0.52);
+    else { this._addEscortObstacle('bramble', 0.32 + Math.random() * 0.08); this._addEscortObstacle('river', 0.6 + Math.random() * 0.12); }
+    this._buildEscortRoad();
+    this._plantGustables(opts.tutorial ? 3 : 5);
+    // park the caravan at the trailhead, the wizard beside it
+    const p0 = samples[0];
+    this._caravan.visible = true;
+    this._caravan.position.set(p0.x, this._groundHeight(p0.x, p0.z), p0.z);
+    this._caravan.rotation.y = Math.atan2(-(samples[2].z - p0.z), samples[2].x - p0.x);
+    this.wizard.pos.set(p0.x + 2.5, 0, p0.z + 3);
+    this.ui.wispSay('🐌 Walk with the snail — keep it safe to the far gate!', { ms: 4200 });
+  }
+  // a chunky thorn ball — one GUST puff each
+  _makeBrambleBall() {
+    const g = new THREE.Group();
+    const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(1.05, 0), pxMap(new THREE.MeshStandardMaterial({ color: 0x3a5226, roughness: 1, flatShading: true }), 'leaf', 2));
+    ball.scale.y = 0.85; ball.position.y = 0.8; ball.castShadow = true; g.add(ball);
+    for (let i = 0; i < 7; i++) {
+      const th = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.55, 5), new THREE.MeshStandardMaterial({ color: 0x6a4a30, roughness: 0.9, flatShading: true }));
+      const a = (i / 7) * Math.PI * 2;
+      th.position.set(Math.cos(a) * 0.95, 0.8 + Math.sin(i * 2.2) * 0.4, Math.sin(a) * 0.95);
+      th.rotation.z = -Math.cos(a) * 1.2; th.rotation.x = Math.sin(a) * 1.2;
+      g.add(th);
+    }
+    const berry = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 5), new THREE.MeshStandardMaterial({ color: 0xc84a5a, roughness: 0.6, flatShading: true }));
+    berry.position.set(0.5, 1.3, 0.4); g.add(berry);
+    return g;
+  }
+  _addEscortObstacle(kind, at) {
+    const es = this._escort; if (!es) return;
+    const idx = Math.round(at * (es.samples.length - 1));
+    const p = es.samples[idx];
+    const tang = new THREE.Vector3().subVectors(es.samples[Math.min(es.samples.length - 1, idx + 3)], es.samples[Math.max(0, idx - 3)]).setY(0).normalize();
+    const perp = new THREE.Vector3(-tang.z, 0, tang.x);
+    const g = new THREE.Group();
+    const gy = (x, z) => this._groundHeight(x, z);
+    const ob = { kind, at, cleared: false, group: g, pos: p.clone() };
+    if (kind === 'bramble') {
+      ob.hp = 3;
+      for (let i = -1; i <= 1; i++) {
+        const b = this._makeBrambleBall();
+        b.position.copy(p).addScaledVector(perp, i * 1.9);
+        b.position.y = gy(b.position.x, b.position.z);
+        b.rotation.y = Math.random() * 6.28;
+        g.add(b);
+        this._gustables.push({ kind: 'bramble', pos: b.position.clone().setY(b.position.y + 0.8), mesh: b, ob, done: false });
+      }
+    } else { // river: a water band cutting the road + a mossy log waiting for a good gust
+      const sub = new THREE.Group(); sub.position.copy(p); sub.position.y = 0.001;
+      sub.rotation.y = Math.atan2(tang.x, tang.z); // local +Z runs along the road
+      const water = new THREE.Mesh(new THREE.PlaneGeometry(20, 4.2), new THREE.MeshStandardMaterial({ color: 0x3a7ab0, roughness: 0.3, flatShading: true, transparent: true, opacity: 0.92 }));
+      water.rotation.x = -Math.PI / 2; water.position.y = 0.05; sub.add(water); ob.water = water;
+      const foam = new THREE.Mesh(new THREE.PlaneGeometry(20, 0.4), new THREE.MeshBasicMaterial({ color: 0xcfe8ff, transparent: true, opacity: 0.5, depthWrite: false }));
+      foam.rotation.x = -Math.PI / 2; foam.position.y = 0.09; sub.add(foam); ob.foam = foam;
+      for (const sx of [-1, 1]) { // mossy banks
+        const bank = new THREE.Mesh(new THREE.BoxGeometry(20, 0.24, 0.5), pxMap(new THREE.MeshStandardMaterial({ color: 0x4a6a3a, roughness: 1, flatShading: true }), 'grass', 2));
+        bank.position.set(0, 0.06, sx * 2.3); sub.add(bank);
+      }
+      // the log: parked on the near bank, GUST slides it across as a bridge
+      const log = new THREE.Group();
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.48, 5.4, 8), pxMap(new THREE.MeshStandardMaterial({ color: 0x5a3c22, roughness: 0.9, flatShading: true }), 'wood', 2));
+      trunk.rotation.x = Math.PI / 2; trunk.position.y = 0.45; log.add(trunk);
+      const moss = new THREE.Mesh(new THREE.SphereGeometry(0.3, 7, 6), new THREE.MeshStandardMaterial({ color: 0x4a7a3a, roughness: 1, flatShading: true }));
+      moss.scale.y = 0.4; moss.position.set(0, 0.75, 1.2); log.add(moss);
+      log.position.set(6.5, 0, 0); // waiting off to the side, on the bank
+      sub.add(log);
+      ob.log = log; ob.logFrom = log.position.clone(); ob.logTo = new THREE.Vector3(0, 0.1, 0);
+      g.add(sub);
+      const wp = new THREE.Vector3(); log.getWorldPosition(wp); sub.updateMatrixWorld(true); log.getWorldPosition(wp);
+      this._gustables.push({ kind: 'log', pos: wp.setY(wp.y + 0.5), mesh: log, ob, done: false });
+    }
+    es.group.add(g); es.obstacles.push(ob);
+  }
+  // the visible dirt road the snail follows — flattened segments hugging the terrain
+  _buildEscortRoad() {
+    const es = this._escort; if (!es) return;
+    const mat = pxMap(new THREE.MeshStandardMaterial({ color: 0x6b5236, roughness: 1, flatShading: true }), 'dirt', 4);
+    for (let i = 2; i < es.samples.length - 2; i += 3) {
+      const a = es.samples[i], b = es.samples[i + 3] || es.samples[es.samples.length - 1];
+      const mid = a.clone().add(b).multiplyScalar(0.5);
+        const seg = new THREE.Mesh(new THREE.PlaneGeometry(2.7 + Math.random() * 0.5, a.distanceTo(b) + 0.8), mat);
+      seg.rotation.x = -Math.PI / 2;
+      seg.rotation.z = -Math.atan2(b.x - a.x, b.z - a.z);
+      seg.position.set(mid.x, this._groundHeight(mid.x, mid.z) + 0.03, mid.z);
+      es.group.add(seg);
+      if (i % 9 === 2) { // grass hugging the roadside
+        for (const s of [-1, 1]) {
+          const g = makeGrass(); g.scale.setScalar(0.8 + Math.random() * 0.6); g.scale.y *= 1.6;
+          const px = mid.x + (b.z - a.z) / (a.distanceTo(b) || 1) * s * 2.4, pz = mid.z - (b.x - a.x) / (a.distanceTo(b) || 1) * s * 2.4;
+          g.position.set(px, this._groundHeight(px, pz), pz);
+          es.group.add(g);
+        }
+      }
+    }
+  }
+  // gatherable herb clumps & fat toadstools near the road — GUST pops the goods loose
+  _plantGustables(n) {
+    const es = this._escort; if (!es) return;
+    for (let i = 0; i < n; i++) {
+      const idx = Math.round(((i + 0.5) / n) * (es.samples.length - 1));
+      const p = es.samples[idx];
+      const ang = Math.random() * Math.PI * 2, off = 4 + Math.random() * 4;
+      const x = Math.max(-42, Math.min(42, p.x + Math.cos(ang) * off)), z = Math.max(-42, Math.min(42, p.z + Math.sin(ang) * off));
+      const herb = Math.random() < 0.55;
+      const g = new THREE.Group();
+      if (herb) { // a glowing herb bundle
+        for (let k = 0; k < 4; k++) {
+          const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.9 + Math.random() * 0.4, 5), new THREE.MeshStandardMaterial({ color: 0x5aa04a, roughness: 0.9, flatShading: true, emissive: 0x1a3a10, emissiveIntensity: 0.5 }));
+          leaf.position.set((Math.random() - 0.5) * 0.5, 0.45, (Math.random() - 0.5) * 0.5);
+          leaf.rotation.z = (Math.random() - 0.5) * 0.5;
+          g.add(leaf);
+        }
+        const bloom = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 5), new THREE.MeshBasicMaterial({ color: 0xb9ff7a, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+        bloom.position.y = 1.0; g.add(bloom);
+      } else { // a fat harvest toadstool
+        const m = makeMushroom(); m.scale.setScalar(1.5); g.add(m);
+        const glow2 = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 5), new THREE.MeshBasicMaterial({ color: 0xffd98a, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
+        glow2.position.y = 1.1; g.add(glow2);
+      }
+      g.position.set(x, this._groundHeight(x, z), z);
+      es.group.add(g);
+      this._gustables.push({ kind: 'herb', ing: herb ? 'wildherb' : 'shroomcap', pos: g.position.clone().setY(g.position.y + 0.6), mesh: g, done: false });
+    }
+  }
+  _spawnAmbush() {
+    const es = this._escort; if (!es) return;
+    const w = 1 + Math.floor(es.u * 3.5); // road progress unlocks the deeper roster
+    const roster = ((this.stage && this.stage.roster) || [{ t: 'slime', w: 1 }]).filter(r => r.w <= w);
+    const K = Math.max(2, Math.round((es.tutorial ? 3 : 4 + (this._forksDone || 0) * 0.8) * es.sizeMult));
+    for (let k = 0; k < K; k++) {
+      const t = roster[(Math.random() * roster.length) | 0].t;
+      this.enemies.spawn(t, es.hpScale + es.u * 0.35, this._caravan.position, this,
+        { dist: 12 + Math.random() * 7, caravan: !es.tutorial && Math.random() < 0.5 });
+    }
+    this.shake(0.5); this.audio.play('hit');
+    this.ui.toast('⚔ AMBUSH! Protect the snail!');
+    if (es.tutorial && es.tut < 2) { es.tut = 2; this.ui.wispSay('⚔ Foes! Draw a glyph (hold right-click / right side) and blast them!', { ms: 4200 }); }
+  }
+  // an ambusher sank its teeth into the cart — flinch, maybe spill a banked crate
+  onCaravanHit(dmg, e) {
+    const es = this._escort; if (!es || !es.active) return;
+    if (es.hitT > 0) return;
+    es.hitT = 0.6;
+    const cv = this._caravan;
+    this.shake(0.4); this.audio.play('hurt');
+    this.particles.burst({ pos: cv.position.clone().setY(1.2), color: 0xff6a4a, count: 10, speed: 5, size: 0.22, life: 0.5, blend: 'normal' });
+    if (cv.userData.snail) cv.userData.snail.scale.setScalar(0.86); // flinch into the shell
+    es.u = Math.max(0, es.u - 0.004); // shoved back a step
+    if (es.cargo.length && Math.random() < 0.65) {
+      const ing = es.cargo.pop();
+      if (meta.pantrySpend({ [ing]: 1 })) {
+        this.spawnCorpse(cv.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 4, 0, (Math.random() - 0.5) * 4)), ing, 1, 1.0);
+        if (es.sayT <= 0) { es.sayT = 5; this.ui.wispSay('📦 They knocked a crate loose — grab it back!', { tone: 'warn' }); }
+      }
+    }
+  }
+  // GUST works the land: harvest herb clumps, blow brambles off the road, shove the
+  // river log into place, and levitate ONE waiting morsel (hands stay free).
+  onGustCone(origin, dir, range) {
+    if (this.phase !== 'arena') return;
+    const R = Math.max(range || 9, 9);
+    if (this._gustables) {
+      for (const gp of this._gustables) {
+        if (gp.done) continue;
+        const to = new THREE.Vector3().subVectors(gp.pos, origin).setY(0);
+        const d = to.length(); if (d > R || d < 0.001) continue;
+        if (to.normalize().dot(dir) < 0.4) continue;
+        this._gustHit(gp, dir);
+      }
+    }
+    // levitate one morsel from the cone (nearest first)
+    if (!this.wizard.floatItem && this._corpses && this._corpses.length) {
+      let best = null, bestD = 1e9;
+      for (const c of this._corpses) {
+        if (c.noPick > 0) continue; // fresh harvests settle first — gust AGAIN to lift one
+        const to = new THREE.Vector3().subVectors(c.mesh.position, origin).setY(0);
+        const d = to.length(); if (d > R || d < 0.001) continue;
+        if (to.normalize().dot(dir) < 0.4) continue;
+        if (d < bestD) { best = c; bestD = d; }
+      }
+      if (best) {
+        this.wizard.setFloat(best.ing, best.mesh.children[0].material.color.getHex());
+        this.particles.burst({ pos: best.mesh.position.clone().setY(0.6), color: 0x9fe8ff, count: 10, speed: 4, size: 0.18, life: 0.5, blend: 'add' });
+        this.ui.castWord && this.ui.castWord('WIND-BORNE!', { color: '#9fe8ff' });
+        this._disposeCorpse(best); this._corpses.splice(this._corpses.indexOf(best), 1);
+      }
+    }
+  }
+  _gustHit(gp, dir) {
+    const es = this._escort;
+    if (gp.kind === 'herb') {
+      gp.done = true;
+      this.spawnCorpse(gp.pos.clone(), gp.ing, 1, 0.4);
+      this.particles.burst({ pos: gp.pos.clone(), color: 0xb9ff7a, count: 14, speed: 5, size: 0.2, life: 0.6, blend: 'add' });
+      this.audio.play('xp');
+      if (gp.mesh.parent) gp.mesh.parent.remove(gp.mesh);
+      if (es && es.tutorial && es.tut < 1) { es.tut = 1; this.ui.wispSay('🌿 Harvested! Walk over it to carry it — or gust it again to float it along.', { ms: 4200 }); }
+    } else if (gp.kind === 'bramble') {
+      gp.done = true; gp.ob.hp--;
+      this.particles.burst({ pos: gp.pos.clone(), color: 0x6a8a4a, count: 16, speed: 7, size: 0.24, life: 0.7, grav: -12, blend: 'normal' });
+      this.audio.play('hit'); this.shake(0.3);
+      if (gp.mesh.parent) gp.mesh.parent.remove(gp.mesh);
+      if (gp.ob.hp <= 0 && !gp.ob.cleared) { gp.ob.cleared = true; this.audio.play('win'); this.ui.toast('🌿 The road is clear — onward!'); }
+      else this.ui.toast(`🌿 ${gp.ob.hp} bramble${gp.ob.hp > 1 ? 's' : ''} left!`);
+    } else if (gp.kind === 'log') {
+      gp.done = true;
+      gp.ob.bridging = 0;
+      this.audio.play('gust');
+      this.particles.burst({ pos: gp.pos.clone(), color: 0xdfffe0, count: 12, speed: 6, size: 0.22, life: 0.5, blend: 'add' });
+    }
+  }
+  _updateEscort(sdt) {
+    const es = this._escort; if (!es || !es.active) return;
+    const cv = this._caravan;
+    es.sayT -= sdt;
+    if (es.hitT > 0) { es.hitT -= sdt; if (es.hitT <= 0 && cv.userData.snail) cv.userData.snail.scale.setScalar(1); }
+    // the gusted log glides across the river and settles as a bridge
+    for (const ob of es.obstacles) {
+      if (ob.kind === 'river' && ob.foam) ob.foam.material.opacity = 0.35 + Math.abs(Math.sin(this.elapsed * 2.2)) * 0.25;
+      if (ob.bridging != null && !ob.cleared) {
+        ob.bridging += sdt * 1.1;
+        const k = Math.min(1, ob.bridging);
+        ob.log.position.lerpVectors(ob.logFrom, ob.logTo, 1 - Math.pow(1 - k, 3));
+        if (k >= 1) { ob.cleared = true; this.audio.play('win'); this.ui.toast('🌉 The log settles — a bridge! Onward!'); }
+      }
+    }
+    // ambush triggers by road progress
+    for (const am of es.ambushes) {
+      if (!am.done && es.u >= am.at) { am.done = true; am.live = true; this._spawnAmbush(); }
+      if (am.live && this.enemies.countNonBoss() === 0) am.live = false;
+    }
+    const fighting = es.ambushes.some(a => a.live);
+    const nextOb = es.obstacles.find(o => !o.cleared && o.at > es.u - 0.02);
+    const blocked = !!nextOb && es.u >= nextOb.at - 0.05;
+    const dw = Math.hypot(this.wizard.pos.x - cv.position.x, this.wizard.pos.z - cv.position.z);
+    const waiting = dw > 24; // the snail won't leave you behind
+    es.state = fighting ? 'ambush' : blocked ? 'blocked' : waiting ? 'waiting' : 'go';
+    if (es.state === 'go') es.u = Math.min(1, es.u + sdt * es.speed / es.len);
+    if (es.state === 'blocked' && es.sayT <= 0) {
+      es.sayT = 7;
+      this.ui.wispSay(nextOb.kind === 'river'
+        ? '🌊 A river! GUST the mossy log (draw a straight line —) to bridge it.'
+        : '🌿 Brambles choke the road — GUST them away (draw a straight line —)!', { ms: 4600 });
+      if (es.tutorial && es.tut < 3) es.tut = 3;
+    }
+    // drive the caravan along the trail, hugging the terrain
+    const iS = Math.min(es.samples.length - 1, Math.max(0, Math.floor(es.u * (es.samples.length - 1))));
+    const p = es.samples[iS], pn = es.samples[Math.min(es.samples.length - 1, iS + 1)];
+    cv.position.set(p.x, this._groundHeight(p.x, p.z), p.z);
+    const ddx = pn.x - p.x, ddz = pn.z - p.z;
+    if ((ddx * ddx + ddz * ddz) > 1e-6 && es.state === 'go') {
+      const want = Math.atan2(-ddz, ddx);
+      let dy = want - cv.rotation.y;
+      while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2;
+      cv.rotation.y += dy * Math.min(1, sdt * 3);
+    }
+    // the snail hustles (as much as a snail can)
+    if (cv.userData.snail && es.state === 'go') cv.userData.snail.scale.x = 1 + Math.sin(this.elapsed * 7) * 0.07;
+    // arrival — stage cleared!
+    if (es.u >= 1 && !es.done) {
+      es.done = true; es.active = false;
+      this.audio.play('win');
+      this.particles.burst({ pos: cv.position.clone().setY(1.5), color: 0xb9ff7a, count: 26, speed: 7, size: 0.28, life: 0.9, blend: 'add' });
+      this.ui.toast('🐌 The caravan made it through!');
+      this.onEncounterCleared();
+    }
+  }
+  _clearEscort() {
+    if (this._escort) {
+      const es = this._escort;
+      // geometry-only disposal — grass/mushroom props share module-singleton materials
+      es.group.traverse(o => { if (o.isMesh) o.geometry.dispose(); });
+      this.arenaGroup.remove(es.group);
+      this._escort = null;
+    }
+    this._gustables = [];
   }
 
   // ==== DINNER SERVICE: the Dave-the-Diver loop — side-scroll chef behind the counter,
@@ -1065,7 +1394,7 @@ export class Game {
         it.mesh.position.x += (dx / (d || 1)) * pull * dt;
         it.mesh.position.z += (dz / (d || 1)) * pull * dt;
       }
-      it.mesh.position.y = 0.4 + Math.sin(it.phase) * 0.08;
+      it.mesh.position.y = 0.4 + Math.sin(it.phase) * 0.08 + this._groundHeight(it.mesh.position.x, it.mesh.position.z);
       it.mesh.rotation.y += dt * 3;
       if (it.landT > 0) { it.landT -= dt; const k = Math.max(0, it.landT) / 0.22; it.mesh.scale.set(1 + 0.5 * k, 1 - 0.4 * k, 1 + 0.5 * k); }
       else it.mesh.scale.set(1, 1, 1);
@@ -1117,8 +1446,17 @@ export class Game {
 
   notifySpell(tags, pos) { this.jobs.onSpell(tags, pos, this); }
 
-  // floor is flat now (the room is a separate scene, not an in-scene deck)
-  floorHeightAt() { return 0; }
+  // ---- ARENA ELEVATION: one shared height field — a dead-flat spawn heart, gentle
+  // meadow swells, and banks that climb toward the tree line. Terrain geometry, the
+  // wizard, enemies, corpses, props and the caravan all sample this same function. ----
+  _groundHeight(x, z) {
+    const r = Math.hypot(x, z);
+    const swell = Math.sin(x * 0.16) * Math.cos(z * 0.14) * 0.5 + Math.sin(x * 0.07 + z * 0.11) * 0.4;
+    const centerFlat = Math.min(1, Math.max(0, (r - 8) / 10));  // the heart stays flat
+    const bank = Math.min(1, Math.max(0, (r - 28) / 12));       // rising banks at the rim
+    return Math.max(0, swell * centerFlat * (1 - bank * 0.5) + bank * bank * 2.4);
+  }
+  floorHeightAt(x, z) { return this.phase === 'arena' ? this._groundHeight(x || 0, z || 0) : 0; }
 
   // ---------- story queue ----------
   showStory(speaker, lines, onComplete) {
@@ -1252,14 +1590,13 @@ export class Game {
     this.ui.setMuteIcon(this.audio.muted);
 
     if (!this._opened && !meta.introSeen()) {
-      // FIRST TIME ONLY (per save): a chain of real cutscenes — get drunk, wreck the bar
-      // (QTE), get hurled out, wake in the forest with the wisp — then the guided fight.
-      // Persisted so it never replays on later launches.
+      // FIRST TIME ONLY (per save): the LEGEND prologue — the young mage duels the
+      // Demon King on the spire top (interactive), wins, falls off the world and
+      // forgets everything — then wakes in the forest with the wisp and a plan:
+      // open a restaurant. Persisted so it never replays on later launches.
       this._opened = true; this._hubShown = false;
-      this.cine.play('drunk', () =>
-        this.cine.play('rampage', () =>
-          this.cine.play('thrown', () =>
-            this.cine.play('wisp', () => { meta.setIntroSeen(); this._introRun = true; this.enterArena(STAGES.forest); })))); // mark seen only once it's actually played through
+      this.cine.play('legend', () =>
+        this.cine.play('wisp', () => { meta.setIntroSeen(); this._introRun = true; this.enterArena(STAGES.forest); })); // mark seen only once it's actually played through
     } else {
       // already seen the opening (or returning) — drop straight into the tavern hub
       this._opened = true;
@@ -1340,6 +1677,8 @@ export class Game {
     if (this.ui.overlayActive && this.ui.overlayActive()) return; // a fullscreen overlay owns E right now
     // dinner service captures E: cook at the stove / serve across the counter
     if (this.phase === 'tavern' && this._service && this._service.active) { this._serviceInteract(); return; }
+    // out on the hunt, E drops the hand-carried haul (so you can fight again)
+    if (this.phase === 'arena' && this.wizard.carryStack.length) { this.dropCarry(); return; }
     if (!this.nearStation) return;
     const s = this.nearStation, t = s.type;
     this.audio.play('click');
@@ -1625,7 +1964,7 @@ export class Game {
     meta.applyResearch(this.stats); // completed research bonuses
     meta.applyBrews(this.stats);    // brewed-potion boons (permanent)
     applyZodiacTo(this.stats, meta.zodiacSigns()); // ✨ the zodiac skill tree's permanent boons
-    this._buildCaravan(); this._clearCorpses(); if (this.wizard.clearCarry) this.wizard.clearCarry(); // fresh hunt, empty back
+    this._buildCaravan(); this._clearCorpses(); this._clearEscort(); if (this.wizard.clearCarry) this.wizard.clearCarry(); // fresh hunt, empty back
     // collectible-card passives (tiny): folded once per run
     const cp = applyCardPerks(this, meta.cardsOwned());
     if (cp.dmgMult !== 1) this.stats.damageMult = (this.stats.damageMult || 1) * cp.dmgMult;
@@ -1685,10 +2024,11 @@ export class Game {
     this.ui.setGold(meta.gold());
     this.state = 'play';
     document.body.classList.remove('paused'); // never carry a stale pause dim into a fight
-    if (this.ui.wispSay) this.ui.wispSay('⚔ Clear the waves — the boss guards an ✦ artifact.', { ms: 3600 });
+    if (this.ui.wispSay) this.ui.wispSay('🐌 Guard the snail to the far gate — the region\'s boss guards an ✦ artifact.', { ms: 3600 });
     if (this._introRun) {
-      // the wisp's cutscene already taught casting & mana — drop straight into the guided fight
-      this.director.start(stage, { waves: 3, boss: false, hpScale: 0.9, sizeMult: 0.85 });
+      // the wisp's cutscene already taught casting & mana — the FIRST ESCORT is the tutorial:
+      // one short trail, one gentle ambush, one bramble to gust, herbs to harvest.
+      this._startEscort({ tutorial: true, ambushes: 1, hpScale: 0.9, sizeMult: 0.8, speed: 2.5 });
       this._guideShown = true;
       return;
     }
@@ -1736,7 +2076,7 @@ export class Game {
     meta.addGear(first); meta.equipGear(first.id); meta.save();
     this._giftGear = first;
     this.state = 'blackout'; this.ui.fadeBlack(true); this.audio.play('win');
-    setTimeout(() => this.cine.play('scold', () => { this.enterTavern(); if (this.ui.showGoalSplash) this.ui.showGoalSplash(); }), 900);
+    setTimeout(() => this.cine.play('noone', () => { this.enterTavern(); if (this.ui.showGoalSplash) this.ui.showGoalSplash(); }), 900);
   }
 
   // ---- run path: a left/right fork before each step. Nodes are typed
@@ -1754,7 +2094,10 @@ export class Game {
     const baseScale = (1 + this._forksDone * 0.12) * (elite ? 1.5 : 1);
     const scale = baseScale * gim.hpMult;
     const sizeMult = (1 + this._forksDone * 0.06 + (elite ? 0.2 : 0)) * gim.spawnMult;
-    this.director.start(this.stage, { waves: isBoss ? 1 : 2, boss: isBoss, hpScale: scale, sizeMult });
+    // NO WAVES anymore: fights are snail-caravan ESCORTS; the boss lair goes straight to the boss
+    this.director.reset();
+    if (isBoss) this.startBossCinematic(this.stage);
+    else this._startEscort({ hpScale: scale, sizeMult, ambushes: elite ? 4 : 3 });
     this.shake(0.45); this.wizard.squash(0.2, 1, 0.22); // a landing thump on stage entry
     // arrival poof: a ground dust ring + radial dust kicked up under the wizard
     if (this.particles) {
@@ -1769,6 +2112,7 @@ export class Game {
     meta.setRegionBest(this.stage.id, stageNum); // best X/10, shown on the world map
     // optional stage mission for bonus 💎 (no mission on the boss — beating it IS the goal)
     this._mission = isBoss ? null : { type: gim.mission, goal: gim.goal, reward: gim.reward };
+    if (this._mission && this._mission.type === 'speed') this._mission.goal = Math.round(this._mission.goal * 2.4); // escorts take longer than the old wave fights
     this._stageNoHit = true; this._stageComboPeak = 0; this._stageStartT = this.elapsed;
     if (this._mission) this.ui.showMission(this._missionLabel(this._mission));
     else this.ui.hideMission();
@@ -1817,10 +2161,11 @@ export class Game {
     if (this._introRun) { this._finishIntroRun(); return; } // the guided first fight is over
     this._evalMission(); // judge this stage's optional mission, pay the bonus
     this._awardStageStars(Math.min(STAGES_PER_REGION, (this._forksDone || 0) + 1)); // ⭐ rate this level
-    // the caravan swings past between stages — anything still on your back is banked
-    if (this.wizard.carryStack && this.wizard.carryStack.length) {
-      const n = this.wizard.carryStack.length;
+    // the caravan collects at the gate — anything still in your arms (or on the wind) is banked
+    if ((this.wizard.carryStack && this.wizard.carryStack.length) || this.wizard.floatItem) {
+      let n = this.wizard.carryStack.length;
       for (const item of this.wizard.carryStack) meta.pantryAdd(item.ing, 1);
+      if (this.wizard.floatItem) { meta.pantryAdd(this.wizard.floatItem.ing, 1); n++; }
       this.wizard.clearCarry();
       this.ui.toast(`🛒 The caravan collects your haul — ${n} ingredient${n > 1 ? 's' : ''} banked!`);
     }
@@ -1841,7 +2186,7 @@ export class Game {
 
   _nextFork() {
     this._roomsCleared = this._forksDone;
-    this.enemies.clear(); this._clearPickups(); this._disposeLootChest(); this._clearCorpses(); // a calm clearing to choose your path in
+    this.enemies.clear(); this._clearPickups(); this._disposeLootChest(); this._clearCorpses(); this._clearEscort(); // a calm clearing to choose your path in
     // a wandering merchant drops by every 3 rooms cleared, before the next fork
     if (this._forksDone > 0 && this._forksDone % 3 === 0 && this._lastMerchantFork !== this._forksDone) {
       this._lastMerchantFork = this._forksDone;
@@ -2354,6 +2699,15 @@ export class Game {
   }
 
   _castAt(id, aim, opts) {
+    // hands full of haul = NO magic. Deliver to the snail, or drop the pile (E) to fight.
+    if (this.wizard.carryStack.length) {
+      if ((this._carryCastWarnT || 0) <= this.elapsed) {
+        this._carryCastWarnT = this.elapsed + 2.4;
+        this.ui.wispSay('Hands full — no casting! Deliver to the snail, or press E to drop the pile.', { tone: 'warn' });
+        this.audio.play('click');
+      }
+      return;
+    }
     const saved = this.aimPoint;
     this.aimPoint = aim;
     const ok = this.spells.tryCast(this, id, opts);
@@ -2404,7 +2758,7 @@ export class Game {
       }
     }
     const a = this.input.drawing ? this.gestureAim : this.aimPoint;
-    this.reticle.position.set(a.x, 0.05, a.z);
+    this.reticle.position.set(a.x, 0.05 + this._groundHeight(a.x, a.z), a.z);
     this.reticle.material.opacity = this.input.drawing ? 1 : 0.55;
     this.reticle.material.color.setHex(this.input.drawing ? 0xffcf5c : 0x6f5fd0);
   }
@@ -2790,6 +3144,7 @@ export class Game {
     if (this._drinkCd > 0) this._drinkCd = Math.max(0, this._drinkCd - sdt);
     if (this.heroLight) { this.heroLight.position.set(this.wizard.pos.x, 3.0, this.wizard.pos.z); this.heroLight.intensity = 1.25; this.heroLight.color.setHex(0xffcf8a); this.heroLight.distance = 13; }
     this.director.update(sdt, this);
+    this._updateEscort(sdt); // the snail caravan crawls, blocks, fights and arrives on scaled time
     this.wizard.update(sdt, this);
     this.enemies.update(sdt, this);
     this.spells.update(sdt, this);

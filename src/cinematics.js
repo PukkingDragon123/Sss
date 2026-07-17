@@ -165,6 +165,76 @@ export class Cinematics {
     for (let i = 0; i < 5; i++) { const m = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), glow(0xbfeaff, 0.9)); wisp.add(m); wisp.userData.motes.push(m); }
     wisp.visible = false; forest.add(wisp);
 
+    // ===== the CASTLE TOP set (the legend prologue: the young mage vs the DEMON KING) =====
+    const castle = this.castle = new THREE.Group(); castle.visible = false; this.scene.add(castle);
+    // the spire roof — a broad stone drum you duel on, floating far above the world
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(9.4, 10.4, 1.6, 18), M(0x4e4a58, 0.97)); drum.position.y = -0.8; drum.receiveShadow = true; castle.add(drum);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(6.2, 6.55, 28), M(0x3a3644, 0.95)); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.012; castle.add(ring);
+    const sigil = new THREE.Mesh(new THREE.CircleGeometry(2.6, 6), M(0x5a4030, 0.9)); sigil.rotation.x = -Math.PI / 2; sigil.position.y = 0.01; castle.add(sigil);
+    // crenellated parapet — with a GAP on the south edge (where the hero will fall)
+    for (let i = 0; i < 16; i++) {
+      const a = i / 16 * Math.PI * 2, x = Math.sin(a) * 8.9, z = Math.cos(a) * 8.9;
+      if (z > 7.2) continue; // the fated broken stretch
+      const m = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.1, 0.7), M(0x56525f, 0.96));
+      m.position.set(x, 0.55, z); m.lookAt(0, 0.55, 0); m.castShadow = true; castle.add(m);
+    }
+    // crumbled stones marking the broken edge — they get blasted loose at the end
+    this._rubble = [];
+    for (const [rx, rz, rs] of [[-1.6, 8.6, 0.42], [0.2, 8.9, 0.5], [1.8, 8.5, 0.36], [0.9, 8.2, 0.28]]) {
+      const r = new THREE.Mesh(new THREE.DodecahedronGeometry(rs, 0), M(0x4a4654, 0.97)); r.position.set(rx, rs * 0.6, rz); r.castShadow = true; castle.add(r);
+      this._rubble.push({ mesh: r, home: r.position.clone(), v: null });
+    }
+    // braziers of green demonfire
+    this._braziers = [];
+    for (const bx of [-5.2, 5.2]) {
+      const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.3, 0.5, 10), M(0x2a2630, 0.7, 0.4)); bowl.position.set(bx, 1.15, -3.4); castle.add(bowl);
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 1.0, 8), M(0x232030, 0.8)); stem.position.set(bx, 0.5, -3.4); castle.add(stem);
+      const fl = new THREE.Mesh(new THREE.ConeGeometry(0.4, 1.0, 9), glow(0x6aff9a, 0.9)); fl.position.set(bx, 1.9, -3.4); castle.add(fl);
+      const li = new THREE.PointLight(0x6aff9a, 1.5, 12); li.position.set(bx, 2.1, -3.4); castle.add(li);
+      this._braziers.push({ flame: fl, light: li, seed: bx });
+    }
+    // torn war banners
+    for (const bx of [-7.6, 7.6]) {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 4.6, 7), M(0x232030)); pole.position.set(bx, 2.3, -6.4); castle.add(pole);
+      const cloth = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 2.5), M(0x6a1a24, 0.95)); cloth.position.set(bx, 3.1, -6.35); cloth.material.side = THREE.DoubleSide; castle.add(cloth);
+    }
+    // the blood moon + distant spires poking up from FAR below — you are very, very high up
+    const bloodmoon = new THREE.Mesh(new THREE.CircleGeometry(5.2, 26), glow(0xff5a3a, 0.5)); bloodmoon.position.set(-14, 16, -46); castle.add(bloodmoon);
+    for (const [sx, sz, sh] of [[-22, -34, 18], [14, -40, 24], [26, -28, 14], [-30, -18, 12], [18, 26, 16], [-16, 30, 12]]) {
+      const spire = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.4, sh, 8), M(0x1c1826, 1)); spire.position.set(sx, sh / 2 - 20, sz); castle.add(spire);
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(2.0, 3.2, 8), M(0x14101c, 1)); cap.position.set(sx, sh - 20 + 1.6, sz); castle.add(cap);
+    }
+    // ---- THE DEMON KING — horned, winged, furnace-hearted ----
+    const demon = this._demon = new THREE.Group(); demon.position.set(0, 0, -4.5); castle.add(demon);
+    const dkBody = M(0x4a2a50, 0.85), dkPlate = M(0x2c2040, 0.6, 0.5);
+    const dkTorso = new THREE.Mesh(new THREE.CapsuleGeometry(1.05, 1.5, 6, 12), dkBody); dkTorso.position.y = 2.6; dkTorso.castShadow = true; demon.add(dkTorso);
+    const heart = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 10), glow(0xff7a2a, 0.95)); heart.position.set(0, 2.75, 0.85); demon.add(heart); demon.userData.heart = heart;
+    const hips = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.95, 0.9, 10), dkPlate); hips.position.y = 1.35; demon.add(hips);
+    for (const sx of [-1, 1]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.42, 1.15, 8), dkBody); leg.position.set(sx * 0.55, 0.6, 0); demon.add(leg);
+      const pauld = new THREE.Mesh(new THREE.SphereGeometry(0.55, 10, 8), dkPlate); pauld.position.set(sx * 1.15, 3.45, 0); pauld.scale.y = 0.8; demon.add(pauld);
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.6, 6), dkPlate); spike.position.set(sx * 1.3, 3.95, 0); spike.rotation.z = -sx * 0.5; demon.add(spike);
+      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.17, 1.25, 7), M(0xd8c9a0, 0.6)); horn.position.set(sx * 0.5, 4.75, 0); horn.rotation.z = -sx * 0.6; demon.add(horn);
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.11, 7, 7), glow(0xff3a2a, 0.95)); eye.position.set(sx * 0.24, 4.2, 0.52); demon.add(eye);
+    }
+    const dkHead = new THREE.Mesh(new THREE.SphereGeometry(0.62, 12, 10), dkBody); dkHead.position.y = 4.15; demon.add(dkHead); demon.userData.head = dkHead;
+    const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.22, 0.4), dkPlate); jaw.position.set(0, 3.82, 0.4); demon.add(jaw);
+    demon.userData.wings = [];
+    for (const sx of [-1, 1]) { // two big ragged wing fans
+      const wing = new THREE.Group(); wing.position.set(sx * 0.9, 3.4, -0.7); demon.add(wing);
+      for (let f = 0; f < 3; f++) {
+        const fin = new THREE.Mesh(new THREE.ConeGeometry(0.5 - f * 0.09, 2.6 - f * 0.5, 4), M(0x1a1220, 0.9));
+        fin.position.set(sx * (0.8 + f * 0.75), 0.6 + f * 0.32, -0.15 * f); fin.rotation.z = sx * (1.9 + f * 0.28); wing.add(fin);
+      }
+      demon.userData.wings.push(wing);
+    }
+    // the great cleaver rides an arm group so the duel can telegraph with it
+    const dkArm = new THREE.Group(); dkArm.position.set(-1.25, 3.3, 0); demon.add(dkArm); demon.userData.arm = dkArm;
+    const dkArmMesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.24, 1.0, 4, 8), dkBody); dkArmMesh.position.set(0, -0.55, 0); dkArm.add(dkArmMesh);
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.6, 0.7), dkPlate); blade.position.set(0, -1.3, 0.9); blade.rotation.x = 0.5; dkArm.add(blade);
+    const bladeEdge = new THREE.Mesh(new THREE.BoxGeometry(0.05, 2.5, 0.16), glow(0xff5a3a, 0.8)); bladeEdge.position.set(0, -1.3, 1.24); bladeEdge.rotation.x = 0.5; dkArm.add(bladeEdge);
+    const demonGlow = new THREE.PointLight(0xff5a3a, 2.6, 20); demonGlow.position.set(0, 3, 1.8); demon.add(demonGlow); demon.userData.glow = demonGlow;
+
     // pixel-art grain on both cutscene sets + ink outlines on the cutscene patrons
     const dress = (root) => root.traverse((o) => {
       if (!o.isMesh || o.userData.isOutline || !o.material || !o.material.isMeshStandardMaterial) return;
@@ -173,7 +243,7 @@ export class Cinematics {
       const tk = m.metalness > 0.35 ? 'metal' : (c.g > c.r && c.g > c.b) ? 'leaf' : (c.r > 0.32 && c.b < c.r * 0.85) ? 'wood' : (Math.abs(c.r - c.g) < 0.09 && Math.abs(c.g - c.b) < 0.09) ? 'stone' : 'cloth';
       pxMap(m, tk, 2);
     });
-    dress(bar); dress(forest); // (character models arrive pre-grained + pre-outlined)
+    dress(bar); dress(forest); dress(castle); // (character models arrive pre-grained + pre-outlined)
   }
 
   _bindDom() {
@@ -212,6 +282,15 @@ export class Cinematics {
     for (const p of this._patrons) { p.mesh.position.copy(p.home); p.mesh.rotation.set(0, 0, 0); p.lurch = false; }
     if (this._doorPanel) this._doorPanel.rotation.y = 0;
     this._drunk = null; this._throw = null; this._wispBurst = false;
+    // castle set: stand the Demon King back up, settle the rubble, clear duel state
+    this._die = null; this._fall = null;
+    if (this._demon) {
+      const d = this._demon;
+      d.position.set(0, 0, -4.5); d.rotation.set(0, 0, 0); d.scale.setScalar(1);
+      d.userData.arm.rotation.set(0, 0, 0); d.userData.glow.intensity = 2.6; d.visible = true;
+    }
+    if (this._rubble) for (const r of this._rubble) { r.v = null; r.mesh.position.copy(r.home); r.mesh.rotation.set(0, 0, 0); }
+    if (this.game.wizard.blob) this.game.wizard.blob.visible = true;
   }
 
   _setScene(which) {
@@ -220,13 +299,18 @@ export class Cinematics {
     // _finish() hid the set, so gating visibility behind the guard left the set invisible
     // (the bug where the rampage/thrown bar showed empty). The guard only skips the heavy
     // fog/light churn when the scene is genuinely unchanged.
-    this.bar.visible = which === 'bar'; this.forest.visible = which === 'forest';
+    this.bar.visible = which === 'bar'; this.forest.visible = which === 'forest'; this.castle.visible = which === 'castle';
+    if (this.game.wizard.beard) this.game.wizard.beard.visible = which !== 'castle'; // the YOUNG mage has no beard yet
     if (this.scene_ === which && this._sceneSet) return;
     this.scene_ = which; this._sceneSet = true;
     if (which === 'bar') {
       g.scene.background.setHex(0x241a18); g.scene.fog.color.setHex(0x241a18); g.scene.fog.density = 0.008;
       g.hemi.color.setHex(0xffd9a0); g.hemi.groundColor.setHex(0x3a2418); g.hemi.intensity = 0.5;
       g.dir.color.setHex(0xffd29a); g.dir.intensity = 0.6; g.ambient.color.setHex(0x6a4a3a); g.ambient.intensity = 0.36;
+    } else if (which === 'castle') {
+      g.scene.background.setHex(0x1c1026); g.scene.fog.color.setHex(0x221430); g.scene.fog.density = 0.008;
+      g.hemi.color.setHex(0xb391cc); g.hemi.groundColor.setHex(0x33203a); g.hemi.intensity = 0.95;
+      g.dir.color.setHex(0xffab7a); g.dir.intensity = 1.05; g.ambient.color.setHex(0x54406a); g.ambient.intensity = 0.66;
     } else {
       g.scene.background.setHex(0x0a1020); g.scene.fog.color.setHex(0x0c1426); g.scene.fog.density = 0.011;
       g.hemi.color.setHex(0x8fa6d8); g.hemi.groundColor.setHex(0x16241a); g.hemi.intensity = 0.5;
@@ -239,6 +323,10 @@ export class Cinematics {
     this.beatT = 0;
     if (this.game.fxctx) this.game.fxctx.clearRect(0, 0, this.game.fx2d.width, this.game.fx2d.height);
     if (b.scene) this._setScene(b.scene);
+    // beats flagged empty clear the bar of folk — for the night NO ONE came
+    const folk = !b.empty;
+    if (this._tomas) this._tomas.visible = folk;
+    if (this._patrons) for (const p of this._patrons) p.mesh.visible = folk;
     // pose the actor
     const w = this.game.wizard;
     if (b.pose) { w.pos.copy(V(b.pose)); w.vel.set(0, 0, 0); }
@@ -256,6 +344,9 @@ export class Cinematics {
     else if (b.special === 'drawDemo') this._demo = { t: 0 };
     else if (b.special === 'getDrunk') { this._drunk = { t: 0, done: false }; }
     else if (b.special === 'throw') { this._throw = { t: 0, from: V(b.pose || [4.5, 0.6, -2]) }; }
+    else if (b.special === 'duel') this._startDuel();
+    else if (b.special === 'demondie') this._die = { t: 0 };
+    else if (b.special === 'fall') { this._fall = { t: 0, vy: 0, y: 0 }; }
     // (wispAppear: the wisp grows in once, then keeps bobbing — handled in _updateWisp)
   }
 
@@ -285,7 +376,11 @@ export class Cinematics {
     this.active = false; this.qte = null; this._typer = null;
     window.removeEventListener('pointerdown', this._qteHandler);
     this.el.cinema.classList.add('hidden');
-    this.bar.visible = false; this.forest.visible = false;
+    this.bar.visible = false; this.forest.visible = false; this.castle.visible = false;
+    if (this._tomas) this._tomas.visible = true; // the folk return (the title diorama reuses this set)
+    if (this._patrons) for (const p of this._patrons) p.mesh.visible = true;
+    if (this.game.wizard.beard) this.game.wizard.beard.visible = true; // the beard came with the lost years
+    if (this.game.wizard.blob) this.game.wizard.blob.visible = true;
     if (this.game.fxctx) this.game.fxctx.clearRect(0, 0, this.game.fx2d.width, this.game.fx2d.height);
     const cb = this.onDone; this.onDone = null;
     if (cb) cb();
@@ -300,8 +395,109 @@ export class Cinematics {
     this.el.qteFill.style.width = '0%';
     window.addEventListener('pointerdown', this._qteHandler); // mash anywhere
   }
+  // ---- the DUEL: a timed-dodge + counter-mash minigame against the Demon King ----
+  _startDuel() {
+    this.qte = { kind: 'duel', state: 'windup', t: 0, round: 0, rounds: 3, taps: 0, need: 12 };
+    this.el.qte.classList.remove('hidden');
+    this.el.qtePrompt.textContent = 'HE WINDS UP — TAP AS THE BLADE FALLS!';
+    this.el.qteFill.style.width = '0%';
+    window.addEventListener('pointerdown', this._qteHandler);
+  }
+  _duelTap() {
+    const q = this.qte, g = this.game, w = g.wizard, d = this._demon;
+    if (q.state === 'strike') { // tapped inside the falling-blade window — DODGE!
+      q.state = 'dodged'; q.t = 0;
+      const dir = q.round % 2 ? 1 : -1;
+      w.pos.x += dir * 1.7; w.leanV.x += dir * 10; w.bob -= 0.5;
+      g.audio.play('gust'); g.shake(0.6);
+      g.particles.burst({ pos: w.pos.clone().setY(1.0), color: 0xbfd8ff, count: 10, speed: 5, size: 0.2, life: 0.5, blend: 'add' });
+      this.el.qtePrompt.textContent = 'DODGED!';
+      this.el.qteFill.style.width = '100%';
+    } else if (q.state === 'counter') { // mash the star-spell into him
+      q.taps++;
+      this.el.qteFill.style.width = Math.min(100, q.taps / q.need * 100) + '%';
+      g.audio.play('hit'); g.shake(0.5);
+      g.particles.burst({ pos: d.position.clone().setY(2.8), color: 0xffd166, count: 8, speed: 6, size: 0.22, life: 0.5, blend: 'add' });
+      d.position.z -= 0.05; d.userData.head.position.y = 4.15 + Math.random() * 0.12;
+      if (q.taps >= q.need) {
+        q.state = 'won'; q.t = 0;
+        this.el.qtePrompt.textContent = 'THE SPELL LANDS!';
+        g.shake(2.2); g.audio.play('win');
+        g.particles.burst({ pos: d.position.clone().setY(2.8), color: 0x9fe8ff, count: 30, speed: 9, size: 0.3, life: 0.9, blend: 'add' });
+      }
+    }
+  }
+  _updateDuel(dt) {
+    const q = this.qte; if (!q || q.kind !== 'duel') return;
+    const g = this.game, w = g.wizard, d = this._demon;
+    q.t += dt;
+    w.pos.x += (0 - w.pos.x) * Math.min(1, dt * 0.9); // drift back to centre between dodges
+    if (q.state === 'windup') {
+      d.userData.arm.rotation.x = -Math.min(2.2, q.t * 2.4); // the cleaver rises…
+      this.el.qteFill.style.width = '0%';
+      if (q.t > 1.0) { q.state = 'strike'; q.t = 0; this.el.qtePrompt.textContent = 'NOW! TAP!'; }
+    } else if (q.state === 'strike') {
+      d.userData.arm.rotation.x = -2.2 + q.t * 11; // …and falls FAST
+      this.el.qteFill.style.width = Math.max(0, 100 - q.t / 0.55 * 100) + '%';
+      if (q.t > 0.55) { // too slow — clipped (story armour: it stings, it never kills)
+        q.state = 'hitrec'; q.t = 0;
+        w.leanV.x += (q.round % 2 ? 8 : -8); w.leanV.z += 8; w.bob -= 0.8;
+        g.shake(1.6); g.audio.play('hurt');
+        g.particles.burst({ pos: w.pos.clone().setY(1.2), color: 0xff5a3a, count: 14, speed: 7, size: 0.24, life: 0.6, blend: 'normal' });
+        this.el.qtePrompt.textContent = 'CLIPPED! SHAKE IT OFF…';
+      }
+    } else if (q.state === 'dodged' || q.state === 'hitrec') {
+      d.userData.arm.rotation.x += (0 - d.userData.arm.rotation.x) * Math.min(1, dt * 6);
+      if (q.t > 0.9) {
+        q.round++;
+        if (q.round >= q.rounds) { q.state = 'counter'; q.t = 0; this.el.qtePrompt.textContent = 'HIS GUARD IS DOWN — MASH TO UNLEASH!'; this.el.qteFill.style.width = '0%'; }
+        else { q.state = 'windup'; q.t = 0; this.el.qtePrompt.textContent = 'AGAIN — WAIT FOR IT…'; }
+      }
+    } else if (q.state === 'counter') {
+      if (Math.random() < 0.3) g.particles.burst({ pos: w.pos.clone().setY(1.6), color: 0x9fe8ff, count: 3, speed: 8, size: 0.14, life: 0.4, blend: 'add' });
+    } else if (q.state === 'won') {
+      if (q.t > 0.6) { // linger on the landed spell, then release the beat
+        this.qte = null; this.el.qte.classList.add('hidden');
+        window.removeEventListener('pointerdown', this._qteHandler);
+      }
+    }
+  }
+  // the Demon King dies: sinks, shrinks, detonates — and blows the parapet out
+  _updateDemonDie(dt) {
+    const p = this._die; if (!p) return;
+    const g = this.game, d = this._demon;
+    p.t += dt;
+    d.rotation.x = Math.min(0.55, p.t * 0.4); d.position.y = -p.t * 0.9;
+    d.scale.setScalar(Math.max(0.02, 1 - p.t * 0.42));
+    d.userData.glow.intensity = 1.6 + p.t * 5;
+    if (!p.burst1 && p.t > 0.5) { p.burst1 = true; g.shake(1.4); g.audio.play('hit'); g.particles.burst({ pos: d.position.clone().setY(2.4), color: 0xff7a2a, count: 24, speed: 8, size: 0.28, life: 0.8, blend: 'add' }); }
+    if (!p.burst2 && p.t > 1.6) {
+      p.burst2 = true; g.shake(2.8); g.audio.play('win');
+      g.particles.burst({ pos: d.position.clone().setY(1.4), color: 0xffd166, count: 40, speed: 12, size: 0.34, life: 1.1, blend: 'add' });
+      d.visible = false;
+      for (const r of this._rubble) r.v = new THREE.Vector3((Math.random() - 0.5) * 6, 3 + Math.random() * 4, 4 + Math.random() * 5); // the edge blows OUT
+    }
+    if (this._rubble) for (const r of this._rubble) if (r.v) { r.mesh.position.addScaledVector(r.v, dt); r.v.y -= 22 * dt; r.mesh.rotation.x += dt * 5; }
+  }
+  // the long drop: blasted backward through the broken parapet, then straight down into the mist
+  _updateFall(dt) {
+    const f = this._fall; if (!f) return;
+    const g = this.game, w = g.wizard;
+    f.t += dt;
+    w.vel.set(0, 0, 0);
+    if (f.t < 0.85) { w.pos.z += dt * 11; w.yaw += dt * 4; w.leanV.z += dt * 6; } // hurled backward
+    else { f.vy += dt * 34; f.y -= f.vy * dt; w.yaw += dt * 8; w.leanV.x += dt * 5; } // and DOWN
+    if (this._rubble) for (const r of this._rubble) if (r.v) { r.mesh.position.addScaledVector(r.v, dt); r.v.y -= 22 * dt; r.mesh.rotation.x += dt * 5; }
+    if (w.blob) w.blob.visible = false; // no contact shadow in the sky
+    w.root.position.y += f.y;           // post-update override: he really goes below the tower
+    if (!f.whoosh && f.t > 0.85) { f.whoosh = true; g.shake(1.2); g.audio.play('gust'); }
+    if (Math.random() < 0.25 && f.y < -2) g.particles.burst({ pos: new THREE.Vector3(w.pos.x, f.y + 3, w.pos.z), color: 0x9fb4d8, count: 2, speed: 2, size: 0.16, life: 0.5, blend: 'add' });
+    if (f.y < -42 && !f.gone) { f.gone = true; w.setVisible(false); }
+  }
+
   _qteTap() {
     const q = this.qte; if (!q) return;
+    if (q.kind === 'duel') { this._duelTap(); return; }
     q.taps++;
     this.el.qteFill.style.width = Math.min(100, q.taps / q.target * 100) + '%';
     this.game.audio.play('hit'); this.game.shake(0.7);
@@ -359,6 +555,10 @@ export class Cinematics {
     g.wizard.update(dt, g);
     if (b && b.special === 'throw') {
       this._updateThrow(dt);              // throw drives the wizard's position itself
+    } else if (b && b.special === 'fall') {
+      this._updateFall(dt);               // …and so does the long drop off the spire
+    } else if (b && b.special === 'duel') {
+      // the duel moves him with dodges — don't pin him to a pose
     } else {
       const pose = b && b.pose ? V(b.pose) : g.wizard.pos.clone();
       g.wizard.pos.copy(pose); g.wizard.vel.set(0, 0, 0);
@@ -375,10 +575,25 @@ export class Cinematics {
       if (this._ember) { const e = 0.55 + Math.abs(Math.sin(this.beatT * 1.6)) * 0.4; this._ember.material.opacity = e; this._emberLight.intensity = 0.35 + e * 0.4; }
     }
 
+    // castle life: demonfire braziers, the furnace heart, slow wingbeats, blood-moon shimmer
+    if (this.castle.visible) {
+      for (const br of this._braziers) { br.flame.material.opacity = 0.75 + Math.sin(this.beatT * 12 + br.seed) * 0.15; br.flame.scale.y = 0.9 + Math.sin(this.beatT * 9 + br.seed) * 0.16; br.light.intensity = 1.3 + Math.sin(this.beatT * 11 + br.seed) * 0.35; }
+      const d = this._demon;
+      if (d.visible && !this._die) {
+        d.userData.heart.material.opacity = 0.7 + Math.sin(this.beatT * 3.2) * 0.25;
+        d.userData.head.rotation.y = Math.sin(this.beatT * 0.6) * 0.14;
+        d.userData.wings[0].rotation.z = Math.sin(this.beatT * 1.1) * 0.12;
+        d.userData.wings[1].rotation.z = -Math.sin(this.beatT * 1.1) * 0.12;
+        d.position.y = Math.sin(this.beatT * 1.4) * 0.06; // a heavy, breathing hover
+      }
+    }
+
     // specials
     if (b && b.special === 'wispAppear') this._updateWisp(dt);
     else if (b && b.special === 'drawDemo') this._updateDemo(dt);
     else if (b && b.special === 'getDrunk') this._updateDrunk(dt);
+    else if (b && b.special === 'duel') this._updateDuel(dt);
+    else if (b && b.special === 'demondie') this._updateDemonDie(dt);
     else if (this.wisp.visible && this.forest.visible) this._updateWisp(dt); // keep the wisp bobbing once it's appeared
 
     if (b && !b.text && !this.qte && b.special !== 'drawDemo' && b.special !== 'getDrunk' && b.special !== 'throw' && this.beatT >= (b.dur || 2.2)) this._next();
@@ -461,9 +676,21 @@ export class Cinematics {
   }
 }
 
-// ---------- the 5 cutscenes ----------
+// ---------- the cutscenes ----------
 // cam pos/look in world units. Lines kept short + punchy.
 const SCRIPTS = {
+  // 0) LEGEND — the prologue: the young mage duels the DEMON KING on the spire top,
+  // wins the war with one spell… and falls off the world. Interactive duel included.
+  legend: [
+    { scene: 'castle', pose: [0, 0, 2.6], yaw: Math.PI, cam: { pos: [8.5, 3.6, 8.5], look: [0, 2.4, -2], push: true }, speaker: 'The Legend', text: 'Long ago, on the last night of the war, a young mage climbed the Obsidian Spire alone.' },
+    { scene: 'castle', pose: [0, 0, 2.6], yaw: Math.PI, cam: { pos: [1.4, 4.2, -0.2], look: [0, 3.6, -4.5], push: true }, speaker: 'The Demon King', text: 'A thousand heroes broke on my walls, little mage. You bring a stick and one spark.' },
+    { scene: 'castle', pose: [0, 0, 2.6], yaw: Math.PI, cam: { pos: [-1.9, 2.1, 5.2], look: [0, 3.0, -4.5], push: true }, speaker: 'The Young Mage', text: 'One spark is all it takes.' },
+    { scene: 'castle', cam: { pos: [7.6, 3.0, 1.8], look: [0.4, 2.2, -2.0] }, special: 'duel' },
+    { scene: 'castle', cam: { pos: [2.2, 3.4, 0.8], look: [0, 2.6, -4.5], snap: true }, speaker: 'The Demon King', text: 'No… NO! Kingdoms will crumble, mage. And no one… will remember… your name…' },
+    { scene: 'castle', cam: { pos: [2.6, 3.2, 1.4], look: [0, 2.0, -4.5] }, special: 'demondie', dur: 2.6 },
+    { scene: 'castle', pose: [0, 0, 4.5], yaw: 0, cam: { pos: [0, 4.2, 11.5], look: [0, -12, 10.5], snap: true }, special: 'fall', dur: 4.0 },
+    { scene: 'castle', cam: { pos: [0, 2.5, 8.5], look: [-14, 16, -46], push: true }, speaker: 'The Legend', text: 'The Demon King was dust. The realm was saved. And its greatest hero fell into the mist — and forgot he was ever in the story.' },
+  ],
   // 1) DRUNK — Wobblesworth drinks himself silly at the bar (no spirit — he's just plastered)
   drunk: [
     { scene: 'bar', pose: [0, 0, 0], yaw: 0.2, cam: { pos: [3.2, 1.6, 5], look: [0, 1.5, 0], push: true }, speaker: 'Wobblesworth', text: 'Another ale, Tomas! Keep them coming. It has been a long, dry week.' },
@@ -484,16 +711,23 @@ const SCRIPTS = {
     { scene: 'bar', pose: [4.5, 0, -2], yaw: 2.4, cam: { pos: [1.4, 2.0, 1.5], look: [4.4, 1.4, -4], snap: true }, speaker: 'Barkeep Tomas', text: 'Out! Get out, you clumsy fool!' },
     { scene: 'bar', pose: [4.5, 0.6, -2], cam: { pos: [1.4, 2.7, 2.2], look: [6.0, 1.5, -4.5] }, special: 'throw', speaker: 'The Patrons', text: 'And stay out!' },
   ],
-  // 4) WISP — wake in the forest; the wisp ZOOMS IN and is the SOLE teacher of every
-  // core mechanic (cast, crit, mana/chug, motes/level, gems vs gold). Short lines.
+  // 4) WISP — wake in the forest with NO memory; the wisp ZOOMS IN, names him, and
+  // teaches the core loop (cast, chug, motes) before the escort tutorial run. Short lines.
   wisp: [
-    { scene: 'forest', pose: [0, 0, 0], yaw: 0, cam: { pos: [0, 1.0, 5.5], look: [0, 1.0, 0], push: true }, speaker: 'Wobblesworth', text: 'Ugh. Cold moss and moonlight. This is not home.' },
-    { scene: 'forest', cam: { pos: [1.75, 1.9, 2.6], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', text: 'Hello there, wizard. I am your wisp, your guide. Stay close and I will teach you everything.' },
-    { scene: 'forest', cam: { pos: [0, 1.2, 4.4], look: [0, 1.4, 0] }, special: 'drawDemo', speaker: 'Wisp', text: 'To cast a spell you draw a shape. A triangle makes a fireball. Watch me draw it.' },
-    { scene: 'forest', cam: { pos: [1.6, 1.85, 2.8], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', text: 'Now you try. Hold right click, or draw on the right side on a phone. Neater shapes hit harder, and a perfect one is a critical hit.' },
-    { scene: 'forest', cam: { pos: [1.55, 1.85, 2.9], look: [1.6, 1.78, 0.5] }, special: 'wispAppear', speaker: 'Wisp', text: 'Spells cost mana, and your mana is beer. It does not refill on its own. Tap the beer button to chug and fill it up. It will make the room spin.' },
-    { scene: 'forest', cam: { pos: [1.65, 1.85, 3.0], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', text: 'Beaten foes drop glowing motes. Soak them up to level up and pick a new power. Winning a run earns gems for new spells.' },
-    { scene: 'forest', cam: { pos: [-1.5, 1.4, 4], look: [0, 1.3, 0], push: true }, special: 'wispAppear', speaker: 'Wisp', text: 'Gold you earn back at the bar. That is the gist of it. They are coming now. Get up and draw!' },
+    { scene: 'forest', pose: [0, 0, 0], yaw: 0, cam: { pos: [0, 1.0, 5.5], look: [0, 1.0, 0], push: true }, speaker: '???', text: 'Ugh. Cold moss. Moonlight. A beard? Who… who am I? I cannot remember a single thing.' },
+    { scene: 'forest', cam: { pos: [1.75, 1.9, 2.6], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', text: 'Easy, easy! I found you at the bottom of a ravine, snoring like a landslide. No name, no memory — so I shall call you Wobblesworth.' },
+    { scene: 'forest', cam: { pos: [1.6, 1.85, 2.8], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', text: 'The good news: your hands still remember MAGIC. And I have a plan for a fresh start — a little restaurant, warm hearth, famous stew. A new life!' },
+    { scene: 'forest', cam: { pos: [0, 1.2, 4.4], look: [0, 1.4, 0] }, special: 'drawDemo', speaker: 'Wisp', text: 'First lesson. To cast a spell you draw a shape. A triangle makes a fireball. Watch me draw it.' },
+    { scene: 'forest', cam: { pos: [1.55, 1.85, 2.9], look: [1.6, 1.78, 0.5] }, special: 'wispAppear', speaker: 'Wisp', text: 'Now you try. Hold right click, or draw on the right side on a phone. Neater shapes hit harder, and a perfect one is a critical hit.' },
+    { scene: 'forest', cam: { pos: [1.65, 1.85, 3.0], look: [1.6, 1.78, 0.5], push: true }, special: 'wispAppear', speaker: 'Wisp', text: 'Spells cost mana, and your mana is beer. Tap the beer button to chug and refill it. Beaten foes drop motes — soak them up to grow stronger.' },
+    { scene: 'forest', cam: { pos: [-1.5, 1.4, 4], look: [0, 1.3, 0], push: true }, special: 'wispAppear', speaker: 'Wisp', text: 'A restaurant needs INGREDIENTS, and the forest is full of them. Follow the snail, chef. Your new life starts right now!' },
+  ],
+  // 4b) NOONE — grand opening night… to an empty room. The restaurant dream needs customers.
+  noone: [
+    { scene: 'bar', empty: true, pose: [0, 0, 0], yaw: 0.2, cam: { pos: [0, 2.8, 8], look: [0, 1.4, -1], push: true }, speaker: 'Wobblesworth', text: 'Tables set. Hearth lit. Doors open. Tonight, the Tipsy Toad serves its first supper!' },
+    { scene: 'bar', empty: true, cam: { pos: [-2.2, 2.2, 6.5], look: [0, 1.2, -1] }, dur: 2.4 },
+    { scene: 'bar', empty: true, cam: { pos: [1.8, 1.7, 4.2], look: [0, 1.5, 0], push: true }, speaker: 'Wobblesworth', text: '…No one came. Not one soul. Not even to sniff the stew.' },
+    { scene: 'bar', empty: true, cam: { pos: [-1.5, 2.0, 5], look: [0, 1.6, -1], push: true }, speaker: 'Wisp', text: 'Then we give them a REASON, chef. Hunt the wild larder. Master dishes no one has ever tasted. Cook what legends are made of — and they will come.' },
   ],
   // 5) SCOLD — back at the bar, get an earful and the debt
   scold: [

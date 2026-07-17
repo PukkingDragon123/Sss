@@ -2334,3 +2334,100 @@ body.paused #pause-label{display:flex;}
 .bi-icon .pixi{width:26px;height:26px;}
 .shop-cur-item .pixi{width:19px;height:19px;}
 .abil .abil-ico .pixi{width:18px;height:18px;}
+
+/* ==================================================================== */
+/* ===== FINAL LAYER · COZY HOMESTEAD — flat pixel wood & parchment ===== */
+/* The whole interface reads like a hand-carved farmhouse noticeboard:  */
+/* warm planks, cream parchment, leaf-green trim. Square corners        */
+/* everywhere. Zero glow, zero gradients, zero glossy anything.         */
+/* ==================================================================== */
+:root{
+  --hs-wood:#6a4a2c; --hs-wood-d:#4a2f1a; --hs-wood-l:#8a6238; --hs-edge:#2e1c10;
+  --hs-cream:#f3e7c9; --hs-cream-d:#e2cfa4; --hs-ink:#3a2818;
+  --hs-leaf:#6f9c3f; --hs-leaf-d:#47702c; --hs-gold:#dfa53c; --hs-red:#c85a3a;
+}
+/* the great square-off: every corner square, every glow and drop-shadow gone */
+*, *::before, *::after{
+  border-radius:0 !important;
+  box-shadow:none !important;
+  text-shadow:none !important;
+  backdrop-filter:none !important;
+}
+/* flatten every gradient back to honest paint (scene-mood washes stay) */
+*:not(#stage-tint):not(#nausea):not(#wipe):not(#blackout), *::before, *::after{ background-image:none !important; }
+/* un-tilt the Persona-era slashes — a noticeboard hangs straight */
+#cooktime .ct-card, #cookoff .co-head, #cookoff .co-quit, #cookoff .co-canvas, #cookoff .co-phase,
+#menubook .mb-title, #menubook .mb-pantry, #menubook .mb-card, #menubook .mb-card:hover,
+#teleporter .tp-frame, #teleporter .tp-title, #teleporter .tp-win, #teleporter .tp-spin,
+#zodiac .zd-title, .end-title{ transform:none !important; }
+#menubook .mb-frame, #teleporter .tp-frame{ clip-path:none !important; }
+
+/* ---- wooden chrome: every button is a carved plank ---- */
+.btn, .shop-btn, .iconbtn, button{
+  background:var(--hs-wood) !important; color:var(--hs-cream) !important;
+  border:3px solid var(--hs-edge) !important;
+}
+.btn:hover, .shop-btn:hover, .iconbtn:hover, button:hover{ background:var(--hs-wood-l) !important; }
+.btn:active, .shop-btn:active, button:active{ background:var(--hs-wood-d) !important; }
+.btn:disabled, .shop-btn:disabled, button:disabled{ opacity:.55; }
+
+/* ---- the fullscreen modal wrappers keep a plain, flat dim (their old gradient scrims are gone) ---- */
+#shop, #settings, #howto, #glyph-guide, #merchant, #event-modal, #credits, #goal-splash, #levelup{
+  background-color:rgba(22,15,9,.74) !important;
+}
+#path-choice{ background-color:rgba(22,15,9,.55) !important; }
+/* ---- parchment boards: the actual cards inside shops, books, dialogs, logs ---- */
+.shop-box, .event-box, .chat-box, .gs-card, #levelup .card, .story-box, #quest-panel, .quest-box,
+#menubook .mb-frame, #cooktime .ct-card{
+  background:var(--hs-cream) !important; color:var(--hs-ink) !important;
+  border:4px solid var(--hs-edge) !important;
+}
+.shop-box *, .event-box *, .chat-box *, .gs-card *, #quest-panel *, .story-box *,
+#menubook .mb-frame *, #cooktime .ct-card *{ color:var(--hs-ink); }
+#menubook .mb-card{ background:var(--hs-cream-d) !important; border:3px solid var(--hs-edge) !important; }
+#menubook .mb-card:hover{ border-color:var(--hs-leaf-d) !important; }
+#menubook .mb-pantry{ background:var(--hs-wood-d) !important; }
+#menubook .mb-pantry, #menubook .mb-pantry *{ color:var(--hs-cream) !important; }
+#menubook .mb-stars{ color:var(--hs-gold) !important; }
+#menubook .mb-stars .dim{ color:#c3b28c !important; } /* unearned stars stay faded */
+
+/* ---- HUD: plank trays, honest meters ---- */
+#job-tracker, #wisp-bubble, .toast, #banner, #stage-banner, #combo-hud, #boss-bar,
+#mission-hud, #quest-tracker, #wave-wrap, #kills-wrap, #clock-wrap, #sobriety-wrap, #interact-prompt{
+  background:var(--hs-wood-d) !important; color:var(--hs-cream) !important;
+  border:3px solid var(--hs-edge) !important;
+}
+#wisp-bubble{ background:var(--hs-cream) !important; }
+#wisp-bubble, #wisp-bubble *{ color:var(--hs-ink) !important; }
+.bar{ background:var(--hs-wood-d) !important; border:3px solid var(--hs-edge) !important; }
+#hp-fill{ background:var(--hs-red) !important; }
+#mana-fill{ background:var(--hs-gold) !important; }
+#xp-fill{ background:var(--hs-leaf) !important; }
+#drunk-fill{ background:#b8762e !important; }
+#boss-bar-fill, #cine-qte-fill, #job-fill, #qt-fill, #drink-bar-fill{ background:var(--hs-red) !important; }
+.pip{ background:var(--hs-cream-d) !important; border:2px solid var(--hs-edge) !important; }
+
+/* ---- cutscene chrome: parchment captions on plain black bars ---- */
+#cine-dialogue{ background:var(--hs-cream) !important; border:4px solid var(--hs-edge) !important; }
+#cine-dialogue, #cine-dialogue #cine-line{ color:var(--hs-ink) !important; }
+#cine-qte{ background:var(--hs-wood-d) !important; border:4px solid var(--hs-edge) !important; }
+#cine-qte, #cine-qte *{ color:var(--hs-cream) !important; }
+.cine-qte-track{ background:var(--hs-edge) !important; }
+
+/* ---- the teleporter reads as a carved wooden cabinet now ---- */
+#teleporter .tp-frame{ background:var(--hs-wood) !important; border:4px solid var(--hs-edge) !important; }
+#teleporter .tp-win{ background:var(--hs-cream) !important; border:3px solid var(--hs-edge) !important; }
+#teleporter .tp-title{ color:var(--hs-cream) !important; }
+
+/* ---- little growing things: leaf trim sprouting from the big boards ---- */
+.shop-box, .gs-card, .story-box, #menubook .mb-frame, #cooktime .ct-card{ position:relative; }
+.shop-box::after, #quest-panel::after, .gs-card::after, #menubook .mb-frame::after,
+.story-box::after, #cooktime .ct-card::after{
+  content:'🌿'; position:absolute; top:-15px; left:8px; font-size:24px; line-height:1; pointer-events:none;
+}
+.gs-card::before, #menubook .mb-frame::before, .shop-box::before{
+  content:'🌱'; position:absolute; bottom:-4px; right:10px; font-size:20px; line-height:1; pointer-events:none;
+}
+
+/* crisp pixels stay crisp */
+.pixgear, .pixi, img.pixgear{ image-rendering:pixelated; }

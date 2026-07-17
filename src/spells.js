@@ -436,6 +436,9 @@ export class SpellSystem {
         game.enemies.damage(e, game.stats.gustDmg * game.stats.damageMult * this.power, game, to, force);
       }
     }
+    // gust also works the LAND: harvest herb clumps, clear road obstacles,
+    // and levitate one waiting morsel onto a cushion of wind
+    if (game.onGustCone) game.onGustCone(origin, dir, range);
     game.notifySpell(['wind'], origin.clone().addScaledVector(dir, range * 0.5));
   }
 

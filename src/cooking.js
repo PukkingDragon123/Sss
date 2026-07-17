@@ -13,6 +13,7 @@ export const INGREDIENTS = {
   chamflank:  { id: 'chamflank',  name: 'Chameleon Flank', icon: '🌈', tier: 2, from: 'Shifting chameleons' },
   whaleblub:  { id: 'whaleblub',  name: 'Whale Blubber',   icon: '🐋', tier: 3, from: 'Mud whales' },
   batwing:    { id: 'batwing',    name: 'Bat Wing',        icon: '🦇', tier: 1, from: 'Cave bats' },
+  wildherb:   { id: 'wildherb',   name: 'Wild Herbs',      icon: '🌿', tier: 1, from: 'Gust-harvested meadows' },
 };
 export const INGREDIENT_IDS = Object.keys(INGREDIENTS);
 
@@ -28,6 +29,7 @@ export const RECIPES = [
   { id: 'chamsteak',  name: 'Chameleon Rainbow Steak', icon: '🌈', needs: { chamflank: 1, shroomcap: 1 }, price: 28, desc: 'Changes colour as it sears. Diners gasp.' },
   { id: 'blubberpot', name: 'Whale Blubber Hotpot', icon: '🍲', needs: { whaleblub: 1, lizardtail: 1 }, price: 40, desc: 'Rich, glossy, outrageous. The house legend.' },
   { id: 'batsnack',   name: 'Crispy Bat Bites',    icon: '🦇', needs: { batwing: 2 },                  price: 10, desc: 'Like wings, but spookier.' },
+  { id: 'herbsalad',  name: 'Forager\'s Salad',    icon: '🥗', needs: { wildherb: 2 },                 price: 11, desc: 'Gust-picked greens, still crackling with wind.' },
 ];
 export const RECIPE_BY_ID = {}; for (const r of RECIPES) RECIPE_BY_ID[r.id] = r;
 

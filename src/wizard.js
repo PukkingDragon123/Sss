@@ -49,7 +49,8 @@ export class Wizard {
     this.drinkHold = 0; // seconds left holding the tankard up (the channel)
     this.castDir = new THREE.Vector3(0, 0, 1);
     this.dashT = 0; this.dashCd = 0; this.dashDir = new THREE.Vector3(0, 0, 1); // dodge-dash
-    this.carryStack = []; // hauled ingredient corpses, stacked & swaying on his back
+    this.carryStack = []; // hand-hauled ingredient corpses, cradled & swaying in his arms
+    this.floatItem = null; // ONE gust-levitated morsel drifting beside him (hands stay free)
     this.invuln = 0;
     this.flash = 0;
     this.hiccupIn = 3 + Math.random() * 4;
@@ -217,7 +218,7 @@ export class Wizard {
     outlineGroup(this.armGroup, { thick: 0.05 });
   }
 
-  // hoist one hauled ingredient onto the back-stack (a little tinted meat slab)
+  // hoist one hauled ingredient into his ARMS (hands full: no casting, heavy legs)
   addCarry(ing, tint) {
     const meat = new THREE.Mesh(new THREE.SphereGeometry(0.26, 8, 6),
       new THREE.MeshStandardMaterial({ color: tint || 0xc05a4a, roughness: 0.75, flatShading: true }));
@@ -227,21 +228,50 @@ export class Wizard {
     this._carrySway.push({ x: 0, z: 0, vx: 0, vz: 0 });
     this.squash(0.16, 1, 0.18); // oof — the weight lands
   }
-  clearCarry() {
+  clearHands() {
     for (const it of this.carryStack) { it.mesh.geometry.dispose(); it.mesh.material.dispose(); this.carryGroup.remove(it.mesh); }
     this.carryStack.length = 0; this._carrySway.length = 0;
   }
+  clearCarry() { this.clearHands(); this.clearFloat(); }
+  // ---- the GUST-LIFT: one morsel levitated on a cushion of wind — hands stay free ----
+  setFloat(ing, tint) {
+    this.clearFloat();
+    const g = new THREE.Group();
+    const meat = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 6),
+      new THREE.MeshStandardMaterial({ color: tint || 0xc05a4a, roughness: 0.75, flatShading: true }));
+    meat.scale.set(1.25, 0.6, 1.0); meat.castShadow = true; g.add(meat);
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(0.4, 10, 8),
+      new THREE.MeshBasicMaterial({ color: 0x9fe8ff, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
+    g.add(halo);
+    this.carryGroup.add(g);
+    this.floatItem = { ing, mesh: g, halo, t: 0, p: this.pos.clone() };
+  }
+  clearFloat() {
+    if (!this.floatItem) return;
+    this.floatItem.mesh.traverse(o => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
+    this.carryGroup.remove(this.floatItem.mesh);
+    this.floatItem = null;
+  }
   _updateCarry(dt) {
+    // the levitated morsel drifts at his shoulder, bobbing on the breeze
+    if (this.floatItem) {
+      const f = this.floatItem; f.t += dt;
+      const tx = this.pos.x - Math.sin(this.yaw + 0.9) * 0.95, tz = this.pos.z - Math.cos(this.yaw + 0.9) * 0.95;
+      f.p.x += (tx - f.p.x) * Math.min(1, dt * 6); f.p.z += (tz - f.p.z) * Math.min(1, dt * 6);
+      f.mesh.position.set(f.p.x, (this.floorY || 0) + 1.75 + Math.sin(f.t * 2.6) * 0.12, f.p.z);
+      f.mesh.rotation.y += dt * 1.6;
+      f.halo.material.opacity = 0.3 + Math.abs(Math.sin(f.t * 3.2)) * 0.18;
+    }
     if (!this.carryStack.length) return;
-    // each slab spring-chases the one below — a jelly tower that lags his moves
-    const baseX = this.pos.x - Math.sin(this.yaw) * 0.42, baseZ = this.pos.z - Math.cos(this.yaw) * 0.42;
+    // hand-carry: the pile rides IN FRONT, cradled in both arms, swaying with real lag
+    const baseX = this.pos.x + Math.sin(this.yaw) * 0.62, baseZ = this.pos.z + Math.cos(this.yaw) * 0.62;
     let px = baseX, pz = baseZ;
     for (let i = 0; i < this.carryStack.length; i++) {
       const s = this._carrySway[i], m = this.carryStack[i].mesh;
       const k = 34 - i * 3, damp = 7.5;
       s.vx += ((px - s.x) * k - s.vx * damp) * dt; s.vz += ((pz - s.z) * k - s.vz * damp) * dt;
       s.x += s.vx * dt; s.z += s.vz * dt;
-      m.position.set(s.x, (this.floorY || 0) + 2.35 + i * 0.34, s.z);
+      m.position.set(s.x, (this.floorY || 0) + 1.02 + i * 0.32, s.z);
       m.rotation.y = this.yaw; m.rotation.z = (s.x - px) * 1.4; m.rotation.x = -(s.z - pz) * 1.4;
       px = s.x; pz = s.z;
     }
@@ -457,7 +487,7 @@ export class Wizard {
     // ---- movement with drunk overshoot ----
     const mv = game.moveVector ? game.moveVector() : (game.input ? game.input.moveVector() : { x: 0, z: 0 });
     const accel = 74;                    // snappier, more responsive acceleration
-    const maxSpeed = s.moveSpeed * (1 - Math.min(0.28, this.carryStack.length * 0.04)); // hauled meat weighs you down
+    const maxSpeed = s.moveSpeed * (1 - Math.min(0.45, this.carryStack.length * 0.15)); // arms full of meat — HEAVY (3 = nearly half speed)
     if (this.alive) { this.vel.x += mv.x * accel * dt; this.vel.z += mv.z * accel * dt; }
     // ---- DODGE-DASH: a quick burst (Shift / Ctrl / double-tap the move stick) with i-frames ----
     if (this.dashCd > 0) this.dashCd -= dt;
@@ -580,9 +610,17 @@ export class Wizard {
       // a point just in front of his face — the mug meets the beard
       targetL = aL.clone().addScaledVector(fwd, 0.16).setY(aL.y + 0.52);
     }
+    // ---- hands full: both arms cradle the carried pile out in front ----
+    let targetR2 = targetR, pullR = casting, pullL = drinking;
+    if (this.carryStack.length && !drinking) {
+      const lift = 0.18 + this.carryStack.length * 0.06;
+      targetL = aL.clone().addScaledVector(fwd, 0.5).setY(aL.y - 0.35 + lift);
+      targetR2 = aR.clone().addScaledVector(fwd, 0.5).setY(aR.y - 0.35 + lift);
+      pullL = Math.max(pullL, 0.85); pullR = Math.max(pullR, 0.85);
+    }
     // the left arm "casts" toward the mug-raise target while drinking (reuses the pull)
-    this._verletArm(this.armL, aL, dt, drinking, targetL, grav);
-    this._verletArm(this.armR, aR, dt, casting, targetR, grav);
+    this._verletArm(this.armL, aL, dt, pullL, targetL, grav);
+    this._verletArm(this.armR, aR, dt, pullR, targetR2, grav);
     if (!this._armReady) this._armReady = true;
 
     // the tankard appears only while drinking, tipped toward his mouth

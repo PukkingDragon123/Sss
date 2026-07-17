@@ -365,7 +365,7 @@ export class Enemies {
     return { mesh: g, bodyMat, anim, _baseEmissive: new THREE.Color(def.emissive || 0x000000) };
   }
 
-  spawn(type, hpScale = 1, near = null, game = null) {
+  spawn(type, hpScale = 1, near = null, game = null, opts = null) {
     const def = TYPES[type];
     if (!def) return null;
     if (this.list.length >= MAX_ENEMIES && !def.boss) return null;
@@ -396,12 +396,14 @@ export class Enemies {
 
     const center = near || new THREE.Vector3();
     const ang = Math.random() * Math.PI * 2;
-    const dist = def.boss ? 22 : 24 + Math.random() * 9;
+    const dist = (opts && opts.dist != null) ? opts.dist : (def.boss ? 22 : 24 + Math.random() * 9);
     let x = center.x + Math.cos(ang) * dist;
     let z = center.z + Math.sin(ang) * dist;
     x = Math.max(-ARENA + 1, Math.min(ARENA - 1, x));
     z = Math.max(-ARENA + 1, Math.min(ARENA - 1, z));
-    e.mesh.position.set(x, e.baseY, z);
+    e.wantsCaravan = !!(opts && opts.caravan); // escort ambushers that chomp the snail cart
+    const fy0 = game && game.floorHeightAt ? game.floorHeightAt(x, z) : 0;
+    e.mesh.position.set(x, e.baseY + fy0, z);
     e.mesh.scale.setScalar(0.01);
     // portal effect
     if (game) {
@@ -488,6 +490,8 @@ export class Enemies {
 
   update(dt, game) {
     const player = game.wizard.pos;
+    // escort runs: caravan-hungry ambushers steer at the snail cart instead of the wizard
+    const cvp = (game._escort && game._escort.active && game._caravan) ? game._caravan.position : null;
     // per-stage gimmick mods (e.g. Frenzy = faster, Glass Fangs = bigger bite)
     const mods = game._stageMods, spdM = mods ? mods.speedMult : 1, dmgM = mods ? mods.dmgMult : 1;
     for (let i = this.list.length - 1; i >= 0; i--) {
@@ -496,6 +500,7 @@ export class Enemies {
         if (e.dying > 0) {                                   // death animation before it vanishes — juicy kill
           e.dying -= dt;
           const dsz = TYPES[e.type].size;
+          const dfy = game.floorHeightAt ? game.floorHeightAt(e.mesh.position.x, e.mesh.position.z) : 0;
           const u = 1 - Math.max(0, e.dying) / (e.dyingMax || 0.16); // 0→1
           if (e.deathStyle === 'topple') {
             // RAGDOLL: tip over onto the ground, crash with a tiny bounce, then sink & shrink away
@@ -503,13 +508,13 @@ export class Enemies {
             const ang = (Math.PI / 2 + 0.25) * fall * fall * e.toppleDir; // ease into lying flat
             if (e.toppleAxis === 'x') e.mesh.rotation.x = ang; else e.mesh.rotation.z = ang;
             e.mesh.rotation.y += e.spinV * dt * (1 - u);
-            e.fallVY -= 26 * dt; e.mesh.position.y = Math.max(0.12 * dsz, e.mesh.position.y + e.fallVY * dt);
-            if (e.mesh.position.y <= 0.12 * dsz && e.fallVY < -2) e.fallVY = -e.fallVY * 0.28; // bounce
+            e.fallVY -= 26 * dt; e.mesh.position.y = Math.max(0.12 * dsz + dfy, e.mesh.position.y + e.fallVY * dt);
+            if (e.mesh.position.y <= 0.12 * dsz + dfy && e.fallVY < -2) e.fallVY = -e.fallVY * 0.28; // bounce
             const shrink = u < 0.7 ? 1 : Math.max(0.01, 1 - (u - 0.7) / 0.3);
             e.mesh.scale.set(dsz * shrink * 1.05, dsz * shrink * 0.95, dsz * shrink);
           } else if (e.deathStyle === 'plummet') {
             // FLYER: drop out of the sky, spinning, and shrink as it hits
-            e.fallVY -= 24 * dt; e.mesh.position.y = Math.max(0.1, e.mesh.position.y + e.fallVY * dt);
+            e.fallVY -= 24 * dt; e.mesh.position.y = Math.max(0.1 + dfy, e.mesh.position.y + e.fallVY * dt);
             e.mesh.rotation.z += e.spinV * dt; e.mesh.rotation.x += dt * 4;
             const shrink = u < 0.6 ? 1 : Math.max(0.01, 1 - (u - 0.6) / 0.4);
             e.mesh.scale.setScalar(dsz * shrink);
@@ -536,15 +541,16 @@ export class Enemies {
         const emerge = Math.max(0.01, 1 + c3 * x * x * x + c1 * x * x);
         e.mesh.scale.setScalar(sz * emerge);
         e.mesh.rotation.y = Math.atan2(player.x - e.mesh.position.x, player.z - e.mesh.position.z);
-        e.mesh.position.y = e.baseY;
+        e.mesh.position.y = e.baseY + (game.floorHeightAt ? game.floorHeightAt(e.mesh.position.x, e.mesh.position.z) : 0);
         continue;
       }
 
       if (e.slowT > 0) { e.slowT -= dt; if (e.slowT <= 0) e.slow = 0; }
       const speed = e.speed * (1 - e.slow) * spdM;
 
-      const dx = player.x - e.mesh.position.x;
-      const dz = player.z - e.mesh.position.z;
+      const tgt = (e.wantsCaravan && cvp) ? cvp : player;
+      const dx = tgt.x - e.mesh.position.x;
+      const dz = tgt.z - e.mesh.position.z;
       const d = Math.hypot(dx, dz) || 1;
       // special abilities (ranged shots / summons / shield upkeep); chargers lunge in bursts
       const adef = TYPES[e.type];
@@ -589,7 +595,8 @@ export class Enemies {
       e.mesh.scale.x = baseSz * (2 - squash);
       e.mesh.scale.z = baseSz * (1 + (squash - 1) * 0.4);
       const hover = e.baseY > 0 ? e.baseY + Math.sin(e.phase * 1.4) * 0.35 : Math.abs(Math.sin(e.phase)) * 0.12 * TYPES[e.type].size;
-      e.mesh.position.y = hover;
+      const fy = game.floorHeightAt ? game.floorHeightAt(e.mesh.position.x, e.mesh.position.z) : 0;
+      e.mesh.position.y = hover + fy; // ride the meadow's swells
       if (e.anim.wings) { const f = Math.sin(e.phase * 6); e.anim.wings[0].rotation.y = f * 0.7; e.anim.wings[1].rotation.y = Math.PI - f * 0.7; }
       if (e.anim.cape) e.anim.cape.rotation.x = Math.sin(e.phase * 1.5) * 0.12;
       if (e.anim.aura) { e.anim.aura.material.opacity = 0.1 + Math.abs(Math.sin(e.phase * 1.4)) * 0.12; e.anim.aura.scale.setScalar(1 + Math.sin(e.phase) * 0.06); }
@@ -604,18 +611,24 @@ export class Enemies {
       if (adef.shifty) e.bodyMat.color.setHSL((e.phase * 0.11) % 1, 0.5, 0.55); // chameleon hide cycles through the rainbow
 
       if (e.contactCd > 0) e.contactCd -= dt;
-      const pr = 0.7 + e.r;
+      const pr = (e.wantsCaravan && cvp ? 1.6 : 0.7) + e.r;
       if (d < pr && e.contactCd <= 0) {
         if (adef.explodeDmg) { this._kill(e, game); continue; } // bombers detonate on contact
-        if (game.wizard.takeDamage(e.dmg * dmgM, e.mesh.position)) {
-          game.audio.play('hurt');
-          game.shake(0.5 + e.dmg * 0.02);
-          if (e.type === 'vampire') { // lifesteal
-            e.hp = Math.min(e.maxHp, e.hp + e.dmg * 0.6);
-            game.particles.burst({ pos: e.mesh.position.clone().setY(1), color: 0xff2a3a, count: 5, speed: 3, size: 0.2, life: 0.5 });
+        if (e.wantsCaravan && cvp) {
+          // CHOMP — the snail cart takes the hit, not the wizard
+          if (game.onCaravanHit) game.onCaravanHit(e.dmg * dmgM, e);
+          e.contactCd = 1.1;
+        } else {
+          if (game.wizard.takeDamage(e.dmg * dmgM, e.mesh.position)) {
+            game.audio.play('hurt');
+            game.shake(0.5 + e.dmg * 0.02);
+            if (e.type === 'vampire') { // lifesteal
+              e.hp = Math.min(e.maxHp, e.hp + e.dmg * 0.6);
+              game.particles.burst({ pos: e.mesh.position.clone().setY(1), color: 0xff2a3a, count: 5, speed: 3, size: 0.2, life: 0.5 });
+            }
           }
+          e.contactCd = 0.8;
         }
-        e.contactCd = 0.8;
         e.knock.x -= (dx / d) * 8;
         e.knock.z -= (dz / d) * 8;
       }

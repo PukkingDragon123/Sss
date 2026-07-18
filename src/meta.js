@@ -487,6 +487,9 @@ export function pantrySpend(needs) {
 }
 export const pantryCount = (id) => (state.pantry && state.pantry[id]) || 0;
 export const pantryTotal = () => Object.values(state.pantry || {}).reduce((a, b) => a + b, 0);
+// ---- the DINING HALL floor plan: owned table plots {plotId: {tier, chairs, deco}} ----
+export const restoPlots = () => { state.resto = state.resto || { plots: {} }; return state.resto.plots; };
+export function restoSetPlot(id, data) { state.resto = state.resto || { plots: {} }; state.resto.plots[id] = data; save(); }
 // menu mastery: {recipeId: stars 0..5} — every plate cooked teaches you (learn by doing)
 export const recipeMastery = (id) => (state.menuMastery && state.menuMastery[id]) || 0;
 export function bumpMastery(id, max = 5) {

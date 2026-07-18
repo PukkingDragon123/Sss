@@ -195,16 +195,33 @@
 
   <!-- ===== Title screen ===== -->
   <div id="title" class="overlay">
-    <h1 class="game-title">WONKY<span>WIZARD</span></h1>
-    <p class="tagline">A sloshed sorcerer. A meddling spirit. One very long night.</p>
-    <p class="handmade">v1.6 · handmade with too much ale <i class="pix" data-pix="beer"></i></p>
-    <p class="swipe-hint">⟨ drag to peek into the tavern ⟩</p>
-    <div class="menu">
-      <button class="btn big" id="btn-start">▸ Play</button>
-      <button class="btn" id="btn-how">How to Play</button>
-      <button class="btn" id="btn-settings">Settings</button>
-      <button class="btn" id="btn-credits">Credits</button>
+    <div class="tb-props">
+      <i class="pix tbp p1" data-pix="cog"></i><i class="pix tbp p2" data-pix="lock"></i>
+      <i class="pix tbp p3" data-pix="swords"></i><i class="pix tbp p4" data-pix="quill"></i>
+      <i class="pix tbp p5" data-pix="cog"></i><i class="pix tbp p6" data-pix="beer"></i>
     </div>
+    <h1 class="game-title">WONKY<span>WIZARD</span></h1>
+    <p class="tagline">A fallen legend. An empty restaurant. One long comeback.</p>
+    <div class="title-book">
+      <div class="tb-page left">
+        <div class="tb-slot"></div><div class="tb-slot"></div>
+        <div class="tb-slot wide"></div><div class="tb-slot"></div>
+        <i class="pix tb-deco" data-pix="quill"></i>
+      </div>
+      <div class="menu tb-banners">
+        <button class="btn big tb-banner" id="btn-start">PLAY</button>
+        <button class="btn tb-banner" id="btn-how">HOW TO PLAY</button>
+        <button class="btn tb-banner" id="btn-settings">SETTINGS</button>
+        <button class="btn tb-banner" id="btn-credits">CREDITS</button>
+      </div>
+      <div class="tb-page right">
+        <div class="tb-slot"></div><div class="tb-slot tall"></div>
+        <div class="tb-slot"></div><div class="tb-slot"></div>
+        <i class="pix tb-deco2" data-pix="lock"></i>
+      </div>
+    </div>
+    <p class="handmade">v1.7 · handmade with too much ale <i class="pix" data-pix="beer"></i></p>
+    <p class="swipe-hint">⟨ drag to peek into the tavern ⟩</p>
     <div id="howto" class="howto hidden">
       <h3>How to Play</h3>
       <ul>

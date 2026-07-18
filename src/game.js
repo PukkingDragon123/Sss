@@ -15,6 +15,7 @@ import { applyCardPerks } from './cards.js';
 import { generateRunMap } from './runmap.js';
 import { Jobs } from './jobs.js';
 import { Tavern } from './tavern.js';
+import { Resto } from './resto.js';
 import { World } from './world.js';
 import { LevelMap } from './levelmap.js';
 import { Cinematics } from './cinematics.js';
@@ -170,6 +171,7 @@ export class Game {
     this.spells = new SpellSystem(this.scene);
     this.jobs = new Jobs(this.scene);
     this.tavern = new Tavern(this.scene);
+    this.resto = new Resto(this); // the side-scrolling dining hall (built lazily on first entry)
     this.world = new World(this.scene);
     this.levelMap = new LevelMap(this.scene);
     this.wizard = new Wizard(this.scene);
@@ -1016,24 +1018,40 @@ export class Game {
     es.group.add(g); es.obstacles.push(ob);
   }
   // the visible dirt road the snail follows — flattened segments hugging the terrain
+  // the visible dirt road the snail follows — ONE continuous ribbon hugging the
+  // terrain (no more overlapping segment planes flickering on the curves)
   _buildEscortRoad() {
     const es = this._escort; if (!es) return;
-    const mat = pxMap(new THREE.MeshStandardMaterial({ color: 0x6b5236, roughness: 1, flatShading: true }), 'dirt', 4);
-    for (let i = 2; i < es.samples.length - 2; i += 3) {
-      const a = es.samples[i], b = es.samples[i + 3] || es.samples[es.samples.length - 1];
-      const mid = a.clone().add(b).multiplyScalar(0.5);
-        const seg = new THREE.Mesh(new THREE.PlaneGeometry(2.7 + Math.random() * 0.5, a.distanceTo(b) + 0.8), mat);
-      seg.rotation.x = -Math.PI / 2;
-      seg.rotation.z = -Math.atan2(b.x - a.x, b.z - a.z);
-      seg.position.set(mid.x, this._groundHeight(mid.x, mid.z) + 0.03, mid.z);
-      es.group.add(seg);
-      if (i % 9 === 2) { // grass hugging the roadside
-        for (const s of [-1, 1]) {
-          const g = makeGrass(); g.scale.setScalar(0.8 + Math.random() * 0.6); g.scale.y *= 1.6;
-          const px = mid.x + (b.z - a.z) / (a.distanceTo(b) || 1) * s * 2.4, pz = mid.z - (b.x - a.x) / (a.distanceTo(b) || 1) * s * 2.4;
-          g.position.set(px, this._groundHeight(px, pz), pz);
-          es.group.add(g);
-        }
+    const mat = pxMap(new THREE.MeshStandardMaterial({ color: 0x6b5236, roughness: 1, flatShading: true, side: THREE.DoubleSide }), 'dirt', 4);
+    const S = es.samples, verts = [], idx = [], uvs = [];
+    for (let i = 0; i < S.length; i++) {
+      const a = S[Math.max(0, i - 1)], b = S[Math.min(S.length - 1, i + 1)];
+      let tx = b.x - a.x, tz = b.z - a.z; const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;
+      const nx = -tz, nz = tx;                             // path normal
+      const w = 1.5 * (0.92 + Math.sin(i * 1.7) * 0.12);   // hand-worn width wobble
+      const xL = S[i].x + nx * w, zL = S[i].z + nz * w;
+      const xR = S[i].x - nx * w, zR = S[i].z - nz * w;
+      verts.push(xL, this._groundHeight(xL, zL) + 0.06, zL, xR, this._groundHeight(xR, zR) + 0.06, zR);
+      uvs.push(0, i * 0.35, 1, i * 0.35);
+      if (i > 0) { const k = i * 2; idx.push(k - 2, k, k - 1, k - 1, k, k + 1); } // wound to face the sky
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    const road = new THREE.Mesh(g, mat);
+    road.receiveShadow = true;
+    es.group.add(road);
+    // grass hugging the roadside
+    for (let i = 4; i < S.length - 4; i += 9) {
+      const a = S[i], b = S[i + 1];
+      const dl = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+      for (const s of [-1, 1]) {
+        const gr = makeGrass(); gr.scale.setScalar(0.8 + Math.random() * 0.6); gr.scale.y *= 1.6;
+        const px = a.x + (b.z - a.z) / dl * s * 2.6, pz = a.z - (b.x - a.x) / dl * s * 2.6;
+        gr.position.set(px, this._groundHeight(px, pz), pz);
+        es.group.add(gr);
       }
     }
   }
@@ -1187,10 +1205,14 @@ export class Game {
         : '🌿 Brambles choke the road — GUST them away (draw a straight line —)!', { ms: 4600 });
       if (es.tutorial && es.tut < 3) es.tut = 3;
     }
-    // drive the caravan along the trail, hugging the terrain
-    const iS = Math.min(es.samples.length - 1, Math.max(0, Math.floor(es.u * (es.samples.length - 1))));
-    const p = es.samples[iS], pn = es.samples[Math.min(es.samples.length - 1, iS + 1)];
-    cv.position.set(p.x, this._groundHeight(p.x, p.z), p.z);
+    // drive the caravan along the trail, hugging the terrain — INTERPOLATED between
+    // samples so the snail glides instead of stepping stone to stone
+    const fIdx = es.u * (es.samples.length - 1);
+    const iS = Math.min(es.samples.length - 2, Math.max(0, Math.floor(fIdx)));
+    const frac = fIdx - iS;
+    const p = es.samples[iS], pn = es.samples[iS + 1];
+    const cx = p.x + (pn.x - p.x) * frac, cz = p.z + (pn.z - p.z) * frac;
+    cv.position.set(cx, this._groundHeight(cx, cz), cz);
     const ddx = pn.x - p.x, ddz = pn.z - p.z;
     if ((ddx * ddx + ddz * ddz) > 1e-6 && es.state === 'go') {
       const want = Math.atan2(-ddz, ddx);
@@ -1675,6 +1697,8 @@ export class Game {
   interact() {
     if (this.state !== 'play') return;
     if (this.ui.overlayActive && this.ui.overlayActive()) return; // a fullscreen overlay owns E right now
+    // dining-hall service: E picks up at the pass / serves the lined-up table
+    if (this.phase === 'resto') { this.resto.interact(); return; }
     // dinner service captures E: cook at the stove / serve across the counter
     if (this.phase === 'tavern' && this._service && this._service.active) { this._serviceInteract(); return; }
     // out on the hunt, E drops the hand-carried haul (so you can fight again)
@@ -1685,13 +1709,44 @@ export class Game {
     if (this.phase === 'tavern') {
       if (t === 'door') { this.openWorldMap(); return; }
       if (t === 'stairs') { this.goUpstairs(); return; }
-      if (t === 'kitchen') { this.startService(); return; }
+      if (t === 'kitchen') { this.enterResto(); return; }
       if (t === 'customer') { this.startChat(s); return; }
     } else if (this.phase === 'room') {
       if (t === 'down') { this.goDownstairs(); return; }
       if (t === 'rest') { this.restAtBed(); return; }
       if (t === 'station') { this._openShop(s.kind); return; }
     }
+  }
+
+  // ---- THE DINING HALL: the side-scrolling 2.5D restaurant scene ----
+  enterResto() {
+    this.phase = 'resto'; this.state = 'resto';
+    this._setPixel('menu');
+    this.nearStation = null;
+    this.ui.closeModals();
+    this.tavern.show(false); this.tavern.showRoom(false);
+    this.arenaGroup.visible = false; this.world.show(false);
+    this.resto.build();
+    this.resto.mode = 'manage';
+    this.resto.show(true);
+    this.wizard.setVisible(false);
+    this.input.pointMode = true; // free cam: drag pans, taps pick
+    this.ui.setPhase('resto', this.input.isTouch);
+    this.ui.setScreen('play');
+    this.ui.hideJob(); this.ui.updatePrompt(null, false);
+    this.resto.camX = 4;
+    this.camera.position.set(4, 6.8, 13.5); this.camera.lookAt(4, 2.6, 0);
+    // warm interior grade for the dining hall
+    this.scene.background.setHex(0x1a120c); this.scene.fog.color.setHex(0x1a120c); this.scene.fog.density = 0.004;
+    this.audio.play('click');
+    this.ui.toast('🏮 Your dining hall — tap around to build it up. The BELL opens for the night; the DOOR heads back.');
+  }
+  exitResto() {
+    if (this.resto.svc) this.resto.endService(true);
+    this.resto.closePanel();
+    this.resto.show(false);
+    this.input.pointMode = false;
+    this.enterTavern();
   }
 
   _openShop(kind) { this._shopKind = kind; this.state = 'menu'; this.ui.openShop(kind, this); }
@@ -2574,6 +2629,13 @@ export class Game {
 
   castById(id) { if (this.state === 'play' && this.phase === 'arena' && this.unlocked.has(id)) this._castAt(id, this.aimPoint, { accuracy: 0.8 }); }
   togglePause() {
+    // dining hall: the touch pause button steps back out (service → panel → tavern)
+    if (this.phase === 'resto') {
+      if (this.resto.svc) this.resto.endService(true);
+      else if (this.resto._panel) this.resto.closePanel();
+      else this.exitResto();
+      return;
+    }
     // the touch pause button closes the kitchen instead of freezing mid-service
     if (this._service && this._service.active && this.phase === 'tavern' && this.state === 'play') {
       this.endService(); this.ui.toast('🍳 Kitchen closed early.'); return;
@@ -2642,6 +2704,14 @@ export class Game {
       if (e.type === 'select') {
         if (this.state === 'world') { const id = this.world.pick(e.x, e.y, this.camera); if (id) this.selectWorldRegion(id); }
         else if (this.state === 'levelmap') { const nid = this.levelMap.pick(e.x, e.y, this.camera); if (nid) this.chooseMapNode(nid); }
+        else if (this.state === 'resto') { this.resto.onSelect(e.x, e.y); }
+        continue;
+      }
+      // the dining hall: ESC closes service → panel → the whole scene, in that order
+      if (e.type === 'pause' && this.phase === 'resto') {
+        if (this.resto.svc) { this.resto.endService(true); }
+        else if (this.resto._panel) this.resto.closePanel();
+        else this.exitResto();
         continue;
       }
       if (e.type === 'interact') { if (this.state === 'menu') { if (!this.ui.closeMerchant()) this.closeShop(); } else this.interact(); continue; }
@@ -2888,6 +2958,7 @@ export class Game {
   // via turnCamera). Only active while you control the wizard, never in the fixed build cam.
   _updateCameraControls(dt) {
     if (this.state !== 'play') return;
+    if (this.phase === 'resto') return; // the dining hall owns its own fixed side-scroll cam
     if (this.phase === 'room' && this.ui && this.ui._shopKind === 'build') return;
     const o = this.input.consumeOrbit();
     if (o.dx) this.camYaw += o.dx * 0.006;
@@ -2962,6 +3033,16 @@ export class Game {
     }
     // DINNER SERVICE: a locked side-scrolling chef cam — the counter runs across the
     // screen, diners on the right, the stove down the lane (Dave-the-Diver framing)
+    // THE DINING HALL: a locked 2.5D side-scroll cam — manage mode pans freely,
+    // service mode tracks the running chef along the front lane
+    if (this.phase === 'resto') {
+      const r = this.resto;
+      const cx = (r.mode === 'service') ? Math.max(-10, Math.min(27, this.wizard.pos.x)) : r.camX;
+      this.camera.position.lerp(new THREE.Vector3(cx, 6.6, 13.2), Math.min(1, dt * 4.5));
+      this.camera.rotation.z = 0;
+      this.camera.lookAt(cx, 2.5, -0.5);
+      return;
+    }
     if (this.phase === 'tavern' && this._service && this._service.active) {
       const wz = Math.max(-8.5, Math.min(2, this.wizard.pos.z));
       // high three-quarter side view: diners low in the foreground, the counter a
@@ -3080,7 +3161,10 @@ export class Game {
     if (this.state === 'play') {
       if (this.phase === 'tavern') this._updateTavern(sdt);
       else if (this.phase === 'room') this._updateRoom(sdt);
+      else if (this.phase === 'resto') { this.resto.update(sdt); this.particles.update(sdt); }
       else this._updateArena(sdt);
+    } else if (this.state === 'resto') {
+      this.resto.update(dt); this.particles.update(dt);
     } else if (this.state === 'world') {
       this._updateWorld(dt);
     } else if (this.state === 'levelmap') {

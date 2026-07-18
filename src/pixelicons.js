@@ -1951,6 +1951,156 @@ const RECIPES = {
     if (tier >= 1) sparkle(g, 11, 2);
     if (tier >= 3) sparkle(g, 4, 2);
   },
+
+  // ===== MONSTER CUISINE: plated dishes (menu book, order bubbles, service) =====
+  dish_alebread(g) {
+    rect(g, 1, 12, 14, 2, CREAM); shade(g, CREAM);               // the plate
+    rect(g, 2, 7, 7, 5, '#c98a3f'); rect(g, 3, 6, 5, 1, '#dda257'); shade(g, '#c98a3f'); // black-bread loaf
+    put(g, 4, 8, '#f0d9a2'); put(g, 6, 9, '#f0d9a2');            // flour dusting
+    rect(g, 10, 6, 4, 6, '#d8963f'); rect(g, 10, 5, 4, 1, '#f6e9c9'); // ale mug + foam
+    rect(g, 14, 7, 1, 3, '#8a5a2e'); shade(g, '#d8963f');
+  },
+  dish_boarchop(g) {
+    rect(g, 1, 12, 14, 2, CREAM); shade(g, CREAM);
+    disc(g, 7, 8, 4.2, '#b5493f'); shade(g, '#b5493f');          // seared chop
+    rect(g, 5, 7, 5, 1, '#d87a5a');                              // pink centre stripe
+    line(g, 11, 5, 14, 2, 2, '#f0e8d4'); put(g, 14, 2, '#fff');  // the bone
+  },
+  dish_tailskewer(g) {
+    rect(g, 1, 12, 14, 2, CREAM); shade(g, CREAM);
+    line(g, 2, 12, 13, 2, 1, WOOD);                              // the skewer stick
+    disc(g, 5, 9, 1.9, '#6aa050'); disc(g, 8, 6.5, 1.9, '#8ab060'); disc(g, 11, 4, 1.9, '#6aa050');
+    shade(g, '#6aa050'); shade(g, '#8ab060');
+    put(g, 5, 8, '#3a5a2c'); put(g, 11, 3, '#3a5a2c');           // char marks
+  },
+  dish_jellyflan(g) {
+    rect(g, 1, 12, 14, 2, CREAM); shade(g, CREAM);
+    taper(g, 8, 5, 11, 3.4, 5.4, '#4ad0a8');                     // wobbling flan body
+    rect(g, 5, 4, 6, 2, '#2e8a6e');                              // caramel cap
+    shade(g, '#4ad0a8');
+    put(g, 6, 7, '#bff2e0'); put(g, 7, 7, '#bff2e0');            // jiggle shine
+  },
+  dish_shroomstew(g) {
+    taper(g, 8, 7, 13, 6, 4.6, '#7a4a2a'); shade(g, '#7a4a2a');  // crock bowl
+    rect(g, 3, 6, 10, 2, '#a3542e');                             // stew surface
+    disc(g, 6, 6, 1.4, '#d8465e'); put(g, 6, 5, '#f0d9a2');      // bobbing shroomcap
+    put(g, 10, 6, '#f6e9c9'); put(g, 12, 5, '#f6e9c9');          // bubbles
+    put(g, 8, 3, '#cfd8e0'); put(g, 9, 2, '#cfd8e0');            // steam
+  },
+  dish_wingplatter(g) {
+    rect(g, 1, 12, 14, 2, CREAM); shade(g, CREAM);
+    for (const [wx, wy] of [[4, 9], [8, 7], [11, 9]]) {          // a pile of hydra wings
+      taper(g, wx, wy - 2, wy + 2, 1.2, 2.4, '#d8905a');
+      put(g, wx, wy + 3, '#f0e8d4');                             // bone tip
+    }
+    shade(g, '#d8905a');
+    put(g, 8, 5, AMBER);                                          // glaze glint
+  },
+  dish_chamsteak(g) {
+    rect(g, 1, 12, 14, 2, CREAM); shade(g, CREAM);
+    disc(g, 8, 8, 4.6, '#9a6ad0'); shade(g, '#9a6ad0');          // shifting steak
+    rect(g, 5, 7, 6, 1, '#5fb85f'); rect(g, 5, 9, 6, 1, '#56b8ff'); // rainbow sear stripes
+    put(g, 11, 6, '#ff5d6c');
+  },
+  dish_blubberpot(g) {
+    taper(g, 8, 6, 13, 6.2, 4.8, '#3a3346'); shade(g, '#3a3346'); // iron hotpot
+    rect(g, 2, 7, 2, 1, '#3a3346'); rect(g, 12, 7, 2, 1, '#3a3346'); // handles
+    rect(g, 3, 5, 10, 2, '#8fb6d0');                              // glossy blubber broth
+    put(g, 5, 5, '#d8ecf6'); put(g, 10, 5, '#d8ecf6');
+    put(g, 7, 3, '#cfd8e0'); put(g, 9, 2, '#cfd8e0'); put(g, 6, 1, '#cfd8e0'); // big steam
+  },
+  dish_batsnack(g) {
+    rect(g, 1, 12, 14, 2, CREAM); shade(g, CREAM);
+    for (const [bx, by] of [[4, 9], [8, 8], [11, 10]]) disc(g, bx, by, 1.7, '#8a6a3a'); // crispy bites
+    shade(g, '#8a6a3a');
+    line(g, 10, 4, 13, 3, 1, '#8c6fb8'); line(g, 11, 5, 13, 5, 1, '#8c6fb8'); // a little wing garnish
+  },
+  dish_herbsalad(g) {
+    taper(g, 8, 8, 13, 6, 4.4, '#e2cfa4'); shade(g, '#e2cfa4');  // wooden bowl
+    for (const [lx, ly] of [[4, 6], [7, 5], [10, 6], [6, 7], [9, 7]]) disc(g, lx, ly, 1.5, '#5fb85f');
+    shade(g, '#5fb85f');
+    put(g, 6, 5, '#b9ff7a'); put(g, 9, 5, '#b9ff7a');            // fresh tips
+    put(g, 8, 6, '#ff5d6c');                                      // one berry
+  },
+
+  // ===== raw ingredients (pantry strip, corpse pickups, caravan banking) =====
+  ing_boarmeat(g) {
+    disc(g, 7, 9, 4, '#c05a4a'); shade(g, '#c05a4a');            // the haunch
+    rect(g, 5, 8, 4, 1, '#e8a08a');                              // marbling
+    line(g, 10, 6, 13, 3, 2, '#f0e8d4'); put(g, 13, 2, '#fff');  // bone
+  },
+  ing_lizardtail(g) {
+    for (let i = 0; i < 9; i++) { const a = i / 9 * 2.4; disc(g, 8 + Math.cos(a + 2.2) * 4, 8 + Math.sin(a + 2.2) * 4, 2.2 - i * 0.16, '#6aa050'); }
+    shade(g, '#6aa050');
+    put(g, 4, 5, '#a3d080'); put(g, 5, 6, '#a3d080');            // scale glints
+  },
+  ing_slimejelly(g) {
+    rect(g, 4, 5, 8, 8, '#4ad0a8'); shade(g, '#4ad0a8');         // jelly cube
+    rect(g, 6, 7, 2, 2, '#bff2e0');                              // inner shine
+    put(g, 10, 10, '#2e8a6e');                                    // dense core fleck
+  },
+  ing_shroomcap(g) {
+    disc(g, 8, 6, 5, '#d8465e'); rect(g, 2, 7, 12, 2, null);     // cap dome
+    rect(g, 3, 6, 10, 2, '#d8465e');
+    rect(g, 6, 8, 4, 5, '#f0d9a2');                              // stem
+    shade(g, '#d8465e'); shade(g, '#f0d9a2');
+    put(g, 5, 4, '#f6e9c9'); put(g, 10, 5, '#f6e9c9');           // spots
+  },
+  ing_hydrawing(g) {
+    taper(g, 7, 3, 11, 2, 4.4, '#d8905a'); shade(g, '#d8905a');  // the drumstick
+    rect(g, 6, 11, 3, 2, '#f0e8d4'); put(g, 5, 12, '#fff'); put(g, 9, 12, '#fff'); // bone knuckle
+  },
+  ing_chamflank(g) {
+    rect(g, 3, 5, 10, 7, '#9a6ad0'); shade(g, '#9a6ad0');        // flank slab
+    rect(g, 4, 7, 8, 1, '#56b8ff'); rect(g, 4, 9, 8, 1, '#5fb85f'); // colour-shift bands
+  },
+  ing_whaleblub(g) {
+    rect(g, 3, 5, 10, 8, '#8fb6d0'); shade(g, '#8fb6d0');        // blubber block
+    rect(g, 3, 5, 10, 2, '#d8ecf6');                              // rind
+    put(g, 6, 9, '#eef6fa'); put(g, 9, 10, '#eef6fa');           // glisten
+  },
+  ing_batwing(g) {
+    line(g, 3, 12, 8, 4, 2, '#8c6fb8');                           // leading edge
+    tri(g, 8, 4, 12, 4.6, '#6a4f96');                             // membrane
+    shade(g, '#6a4f96');
+    line(g, 8, 5, 11, 11, 1, '#4a3568'); line(g, 8, 5, 13, 9, 1, '#4a3568'); // finger bones
+  },
+  ing_wildherb(g) {
+    line(g, 8, 13, 8, 6, 1, '#47702c');                           // main stem
+    line(g, 8, 10, 4, 5, 1, '#5fb85f'); line(g, 8, 10, 12, 5, 1, '#5fb85f'); // side sprigs
+    disc(g, 4, 4, 1.4, '#5fb85f'); disc(g, 12, 4, 1.4, '#5fb85f'); disc(g, 8, 4, 1.6, '#7ac86e');
+    shade(g, '#5fb85f');
+    put(g, 8, 3, '#b9ff7a');
+  },
+
+  // ===== restaurant fixtures & flow icons (build plots, book, service bell) =====
+  ico_table(g) {
+    rect(g, 2, 6, 12, 2, WOOD);                                   // table top
+    rect(g, 3, 5, 10, 1, '#f6e9c9');                              // table cloth edge
+    rect(g, 4, 8, 2, 6, darken(WOOD, 0.2)); rect(g, 10, 8, 2, 6, darken(WOOD, 0.2)); // legs
+    shade(g, WOOD);
+  },
+  ico_chair(g) {
+    rect(g, 4, 2, 2, 8, WOOD);                                    // back post
+    rect(g, 4, 8, 8, 2, WOOD);                                    // seat
+    rect(g, 5, 3, 1, 4, darken(WOOD, 0.2));                       // back slat
+    rect(g, 4, 10, 2, 4, darken(WOOD, 0.2)); rect(g, 10, 10, 2, 4, darken(WOOD, 0.2)); // legs
+    shade(g, WOOD);
+  },
+  ico_bell(g) {
+    taper(g, 8, 4, 10, 1.6, 5, GOLD); shade(g, GOLD);             // bell dome
+    rect(g, 3, 11, 10, 1, darken(GOLD, 0.25));                    // rim
+    put(g, 8, 2, darken(GOLD, 0.3)); put(g, 8, 13, '#3a3346');    // knob + clapper
+    rect(g, 2, 13, 12, 1, WOOD);                                  // counter base
+  },
+  ico_book(g) {
+    rect(g, 2, 3, 12, 10, '#7a4a2a'); shade(g, '#7a4a2a');        // leather cover
+    rect(g, 3, 4, 10, 8, CREAM);                                  // pages
+    rect(g, 8, 3, 1, 10, '#7a4a2a');                              // spine split
+    rect(g, 4, 6, 3, 1, '#9aa3ad'); rect(g, 4, 8, 3, 1, '#9aa3ad'); // written lines
+    rect(g, 9, 6, 3, 1, '#9aa3ad'); rect(g, 9, 8, 3, 1, '#9aa3ad');
+    put(g, 12, 10, PURPLE); put(g, 11, 11, PURPLE);               // a whiff of magic
+  },
 };
 
 const TIER = { common: 0, rare: 1, epic: 2, legendary: 3 };

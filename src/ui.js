@@ -364,8 +364,8 @@ export class UI {
 
   // toggle which HUD bits show for the bar / room / world map / fight
   setPhase(phase, isTouch) {
-    const arena = phase === 'arena', world = phase === 'world', tavern = phase === 'tavern', room = phase === 'room';
-    const hub = tavern || room || world;
+    const arena = phase === 'arena', world = phase === 'world', tavern = phase === 'tavern', room = phase === 'room', resto = phase === 'resto';
+    const hub = tavern || room || world || resto;
     this.el.bars.classList.toggle('hidden', hub);        // vitals only in the fight
     this.el.spellbook.classList.toggle('hidden', !arena);
     // toggle the whole stat PILLS (icon + number), not just the inner number
@@ -395,6 +395,7 @@ export class UI {
     if (tavern) this.el.castHint.innerHTML = pixifyHtml(isTouch ? 'Wander to a <b>table</b> for an order, pour at the <b>bar</b>, carry it back · 🪜 room · 🚪 venture' : 'Take an order at a <b>table</b>, pour at the <b>bar</b>, carry it back to <b>serve</b> for tips · <b>🚪</b> venture · <b>🪜</b> room · press <b>E</b>', 'sm');
     else if (room) this.el.castHint.innerHTML = pixifyHtml(isTouch ? 'Tap <b>🔨 Build</b> to place stations & furniture · tap a station to use it' : 'Press <b>🔨 Build</b> to craft & place stations · walk to one and press <b>E</b> to use it · stairs to go down', 'sm');
     else if (world) this.el.castHint.innerHTML = isTouch ? 'Tap a <b>region</b> to scout it · then <b>Venture</b>' : 'Click a <b>region</b> to scout it · then <b>Venture</b>';
+    else if (resto) this.el.castHint.innerHTML = pixifyHtml(isTouch ? 'Drag to look around · tap <b>tables & stations</b> to build · the 🔔 <b>bell</b> opens for the night' : 'Drag to look around · click <b>tables & stations</b> to build · the 🔔 <b>bell</b> opens service · <b>ESC</b> leaves', 'sm');
     else this.el.castHint.innerHTML = pixifyHtml(isTouch ? 'Left = move · <b>draw a glyph</b> on the right to cast · 🍺 hold to chug (fills mana)' : 'Hold <b>Right-Mouse</b> and draw a glyph · <b>WASD</b> move · <b>Q</b> to chug (fills mana) · keys <b>1–3</b>', 'sm');
   }
 
@@ -1107,32 +1108,48 @@ export class UI {
     void ov.offsetWidth; ov.classList.add('show');
   }
 
-  // ===== the MENU BOOK: your restaurant's living menu — pantry, recipes, mastery, cook-offs =====
+  // ===== the MENU: a REAL restaurant menu card — courses, dotted price leaders,
+  // pixel-painted plates, mastery stars, and cook-off practice per dish =====
+  static MENU_SECTIONS = [
+    { title: 'THE HOUSE STAPLE', ids: ['alebread'] },
+    { title: 'GREENS & SMALL PLATES', ids: ['herbsalad', 'batsnack'] },
+    { title: 'FROM THE HUNT', ids: ['boarchop', 'tailskewer', 'shroomstew', 'wingplatter', 'chamsteak', 'blubberpot'] },
+    { title: 'SWEET THINGS', ids: ['jellyflan'] },
+  ];
   showMenuBook(game) {
     this.hideMenuBook();
     const inv = meta.pantry();
     const ov = document.createElement('div'); ov.id = 'menubook';
     const pantryRow = Object.entries(INGREDIENTS).map(([id, ing]) =>
-      `<span class="mb-ing ${ (inv[id] || 0) > 0 ? '' : 'none'}">${ing.icon}×${inv[id] || 0}</span>`).join('');
-    const rows = RECIPES.map(r => {
+      `<span class="mb-ing ${(inv[id] || 0) > 0 ? '' : 'none'}" title="${ing.name}">${spriteImg('ing_' + id, {}, 'mb-ingico', ing.icon)}×${inv[id] || 0}</span>`).join('');
+    const dishRow = (r) => {
       const m = meta.recipeMastery(r.id);
       const stars = '★'.repeat(m) + '<span class="dim">' + '★'.repeat(5 - m) + '</span>';
-      const needs = Object.entries(r.needs).map(([id, n]) => { const have = inv[id] || 0; return `<span class="${have >= n ? 'ok' : 'lack'}">${INGREDIENTS[id].icon}${have}/${n}</span>`; }).join(' ') || '<span class="ok">always stocked</span>';
+      const needs = Object.entries(r.needs).map(([id, n]) => { const have = inv[id] || 0; return `<span class="${have >= n ? 'ok' : 'lack'}">${spriteImg('ing_' + id, {}, 'mb-needico', INGREDIENTS[id].icon)}${have}/${n}</span>`; }).join(' ') || '<span class="ok">always stocked</span>';
       const price = platePrice(r, m);
       const cookable = canCook(r, inv) && r.id !== 'alebread';
       return `<div class="mb-card" data-r="${r.id}">
-        <div class="mb-ico">${r.icon}</div>
-        <div class="mb-mid"><div class="mb-name">${r.name} <span class="mb-stars">${stars}</span></div>
-        <div class="mb-desc">${r.desc}</div><div class="mb-needs">${needs}</div></div>
-        <div class="mb-right"><div class="mb-price">${price}🪙</div>
+        <div class="mb-ico">${spriteImg('dish_' + r.id, { scale: 4 }, 'mb-dish', r.icon)}</div>
+        <div class="mb-mid">
+          <div class="mb-name"><span>${r.name}</span><span class="mb-lead"></span><span class="mb-price">${price} ${iconImg('🪙', {}, 'sm')}</span></div>
+          <div class="mb-stars">${stars}</div>
+          <div class="mb-desc">${r.desc}</div>
+          <div class="mb-needs">${needs}</div>
+        </div>
+        <div class="mb-right">
         ${r.id !== 'alebread' ? `<button class="btn mb-cook" data-r="${r.id}" ${cookable && m < 5 ? '' : 'disabled'}>COOK-OFF</button>` : ''}</div>
       </div>`;
+    };
+    const sections = UI.MENU_SECTIONS.map(sec => {
+      const rows = sec.ids.map(id => RECIPE_BY_ID[id]).filter(Boolean).map(dishRow).join('');
+      return `<div class="mb-section"><div class="mb-sechead">✦ ${sec.title} ✦</div>${rows}</div>`;
     }).join('');
     ov.innerHTML = `<div class="mb-frame">
-      <div class="mb-head"><span>THE MENU</span><button class="btn mb-close">✕</button></div>
-      <div class="mb-pantry">🛒 PANTRY · ${pantryRow}</div>
-      <div class="mb-list">${rows}</div>
-      <div class="mb-foot">Hunt cookable beasts for ingredients · practice COOK-OFFS to master dishes · masters charge more</div>
+      <div class="mb-head"><span class="mb-title">${iconImg('🍳', {}, 'sm')} THE TIPSY TOAD</span><button class="btn mb-close">✕</button></div>
+      <div class="mb-tagline">— wildwood kitchen · est. the night no one came —</div>
+      <div class="mb-pantry">${iconImg('🧺', {}, 'sm')} PANTRY · ${pantryRow}</div>
+      <div class="mb-list">${sections}</div>
+      <div class="mb-foot">hunt the wild larder · practice COOK-OFFS to master dishes · masters charge more</div>
     </div>`;
     document.body.appendChild(ov); this._mb = ov;
     ov.querySelector('.mb-close').onclick = () => { if (game.audio) game.audio.play('click'); this.hideMenuBook(); };
@@ -1153,37 +1170,107 @@ export class UI {
   }
   hideMenuBook() { if (this._mb) { this._mb.remove(); this._mb = null; } }
 
-  // ===== the ZODIAC: an arcane constellation wheel — 12 signs, 12 permanent boons =====
+  // ===== the ZODIAC: step through the book into the ASTRAL REALM — a branching
+  // constellation skill tree adrift in deep space. Three star-paths climb from the
+  // Fallen Star; each sign must wake in order along its path. Icons are the game's
+  // own spell pixel sprites — the stars remember the hero's old magic. =====
+  static ZODIAC_BRANCHES = [
+    { name: 'PATH OF FLAME', signs: ['aries', 'leo', 'sagittarius', 'scorpio'] },
+    { name: 'PATH OF TIDES', signs: ['taurus', 'cancer', 'pisces', 'virgo'] },
+    { name: 'PATH OF GALES', signs: ['gemini', 'libra', 'aquarius', 'capricorn'] },
+  ];
+  static ZODIAC_ICON = {
+    aries: 'spell_fireball', leo: 'spell_nova', sagittarius: 'spell_lightning', scorpio: 'spell_spike',
+    taurus: 'spell_quake', cancer: 'spell_shield', pisces: 'spell_heal', virgo: 'spell_orb',
+    gemini: 'spell_blink', libra: 'spell_gust', aquarius: 'spell_frost', capricorn: 'spell_acid',
+  };
   showZodiac(game) {
     this.hideZodiac();
+    const BR = UI.ZODIAC_BRANCHES, ICON = UI.ZODIAC_ICON;
     const ov = document.createElement('div'); ov.id = 'zodiac';
-    const R = Math.min(200, window.innerWidth * 0.32);
-    const nodes = ZODIAC.map((z, i) => {
-      const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
-      const px = Math.cos(a) * R, py = Math.sin(a) * R;
-      const owned = meta.zodiacHas(z.id);
-      return `<button class="zd-sign ${owned ? 'owned' : ''}" data-z="${z.id}" style="transform:translate(${px.toFixed(0)}px,${py.toFixed(0)}px)">
-        <span class="zd-glyph">${z.icon}</span><span class="zd-name">${z.name}</span>
-        <span class="zd-sub">${owned ? '✓ ' + z.desc : z.desc + ' · ' + z.cost + '💎'}</span></button>`;
-    }).join('');
-    ov.innerHTML = `<div class="zd-sky">
-      <div class="zd-head"><span>THE ZODIAC</span><button class="btn zd-close">✕</button></div>
-      <div class="zd-wheel"><div class="zd-core">✨<div class="zd-gems">${meta.gems()}💎</div></div>${nodes}</div>
-      <div class="zd-foot">Commune with the stars — each sign grants a permanent arcane boon</div>
-    </div>`;
+    // node positions (percent of the tree area): root left-centre, branches fan right
+    const pos = { root: [10, 50] };
+    BR.forEach((br, bi) => {
+      const y0 = [22, 50, 78][bi], drift = bi === 0 ? -2.2 : bi === 2 ? 2.2 : 0;
+      br.signs.forEach((id, si) => { pos[id] = [28 + si * 20, y0 + drift * si]; });
+    });
+    // constellation lines (SVG under the nodes; lit segments glow gold)
+    let lines = '';
+    BR.forEach(br => {
+      let prev = 'root';
+      for (const id of br.signs) {
+        const a = pos[prev], b = pos[id];
+        const lit = meta.zodiacHas(id);
+        lines += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" class="${lit ? 'lit' : ''}"/>`;
+        prev = id;
+      }
+    });
+    const nodeHtml = (id) => {
+      const z = ZODIAC_BY_ID[id], owned = meta.zodiacHas(id);
+      const br = BR.find(b => b.signs.includes(id)), idx = br.signs.indexOf(id);
+      const open = idx === 0 || meta.zodiacHas(br.signs[idx - 1]);
+      const cls = owned ? 'owned' : open ? 'open' : 'locked';
+      return `<button class="zd-node ${cls}" data-z="${id}" style="left:${pos[id][0]}%;top:${pos[id][1]}%">
+        ${spriteImg(ICON[id], { color: owned ? '#ffcf5c' : open ? '#bcd8ff' : '#565672' }, 'zd-ico')}
+        <span class="zd-nname">${z.name}</span>
+        <span class="zd-nsub">${owned ? '★ ' + z.desc : open ? z.desc + ' · ' + z.cost + '💎' : 'wake the star before it'}</span>
+      </button>`;
+    };
+    const branchTags = BR.map((br, bi) => `<span class="zd-branch" style="top:${[22, 50, 78][bi]}%">${br.name}</span>`).join('');
+    ov.innerHTML = `
+      <canvas class="zd-stars"></canvas>
+      <div class="zd-head"><span class="zd-title">✦ THE ASTRAL REALM ✦</span>
+        <span class="zd-gems">${iconImg('💎', {}, 'sm')} ${meta.gems()}</span>
+        <button class="btn zd-close">✕</button></div>
+      <div class="zd-tree">
+        <svg class="zd-lines" viewBox="0 0 100 100" preserveAspectRatio="none">${lines}</svg>
+        ${branchTags}
+        <div class="zd-node root owned" style="left:10%;top:50%">
+          ${spriteImg('spell_orb', { color: '#dff4ff' }, 'zd-ico')}
+          <span class="zd-nname">THE FALLEN STAR</span><span class="zd-nsub">you — a legend, forgotten</span>
+        </div>
+        ${Object.keys(ICON).map(nodeHtml).join('')}
+      </div>
+      <div class="zd-foot">each awakened star grants a permanent boon · paths wake in order, root to sky</div>`;
     document.body.appendChild(ov); this._zd = ov;
+    this._paintAstralSky(ov.querySelector('.zd-stars'));
     ov.querySelector('.zd-close').onclick = () => { if (game.audio) game.audio.play('click'); this.hideZodiac(); };
-    for (const btn of ov.querySelectorAll('.zd-sign')) {
+    for (const btn of ov.querySelectorAll('.zd-node[data-z]')) {
       btn.onclick = () => {
         const z = ZODIAC_BY_ID[btn.dataset.z];
-        if (meta.zodiacHas(z.id)) { this.toast(`${z.icon} ${z.name} already shines for you.`); return; }
-        if (!meta.unlockZodiac(z.id, z.cost)) { this.toast(`Need ${z.cost}💎 to commune with ${z.name}.`); return; }
+        if (meta.zodiacHas(z.id)) { this.toast(`${z.name} already shines for you.`); return; }
+        if (btn.classList.contains('locked')) { this.toast('✦ Wake the star before it first.'); return; }
+        if (!meta.unlockZodiac(z.id, z.cost)) { this.toast(`Need ${z.cost}💎 to wake ${z.name}.`); return; }
         if (game.audio) game.audio.play('win');
-        this.toast(`${z.icon} ${z.name} awakened — ${z.desc}!`);
+        this.toast(`✦ ${z.name} awakened — ${z.desc}!`);
         this.showZodiac(game); // re-render lit
       };
     }
     void ov.offsetWidth; ov.classList.add('show');
+  }
+  // a crunchy pixel starfield + dithered nebulae, painted once per open
+  _paintAstralSky(cv) {
+    if (!cv) return;
+    cv.width = 480; cv.height = 300;
+    const x = cv.getContext('2d');
+    x.fillStyle = '#0a0a1e'; x.fillRect(0, 0, 480, 300);
+    for (const [nx, ny, nr, col] of [[120, 80, 62, '#221a48'], [350, 210, 84, '#16294a'], [410, 60, 46, '#381a3e'], [40, 250, 50, '#1a3040']]) {
+      for (let i = 0; i < nr * 12; i++) {
+        const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * nr;
+        if (Math.random() < 0.55) { x.fillStyle = col; x.fillRect((nx + Math.cos(a) * r) | 0, (ny + Math.sin(a) * r * 0.6) | 0, 2, 2); }
+      }
+    }
+    for (let i = 0; i < 240; i++) {
+      const s = Math.random();
+      x.fillStyle = s > 0.92 ? '#ffffff' : s > 0.6 ? '#cdd6ff' : '#7e88b0';
+      x.fillRect((Math.random() * 480) | 0, (Math.random() * 300) | 0, s > 0.96 ? 2 : 1, s > 0.96 ? 2 : 1);
+    }
+    for (let i = 0; i < 9; i++) { // four-point twinkles
+      const px = (Math.random() * 470 + 2) | 0, py = (Math.random() * 290 + 2) | 0;
+      x.fillStyle = '#ffffff'; x.fillRect(px, py, 1, 1);
+      x.fillStyle = '#9fb0ff';
+      x.fillRect(px - 1, py, 1, 1); x.fillRect(px + 1, py, 1, 1); x.fillRect(px, py - 1, 1, 1); x.fillRect(px, py + 1, 1, 1);
+    }
   }
   hideZodiac() { if (this._zd) { this._zd.remove(); this._zd = null; } }
 

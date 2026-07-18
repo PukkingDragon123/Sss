@@ -2431,3 +2431,165 @@ body.paused #pause-label{display:flex;}
 
 /* crisp pixels stay crisp */
 .pixgear, .pixi, img.pixgear{ image-rendering:pixelated; }
+
+/* ==================================================================== */
+/* ===== FINAL LAYER · THE PIXEL PACK: chained-book title + green  ===== */
+/* banner panels, matching the medieval GUI reference sheet:           */
+/* parchment cards, green header bars with pixel ✕, inset slot grids.  */
+/* ==================================================================== */
+:root{
+  --pk-parch:#e8d5a9; --pk-parch-d:#d3ba85; --pk-ink:#463322;
+  --pk-green:#4fae52; --pk-green-d:#2e7a38; --pk-green-l:#7ed07f;
+  --pk-brown:#6a3a20; --pk-brown-d:#3a1c0e; --pk-slot:#cdb488; --pk-slot-b:#ac9166;
+  --pk-purple:#4c3069; --pk-navy:#2e3a52;
+}
+/* ---- every parchment card takes the pack's tone ---- */
+.shop-box, .event-box, .chat-box, .gs-card, #levelup .card, .story-box, #quest-panel, .quest-box,
+#menubook .mb-frame, #cooktime .ct-card, .rp-card{
+  background:var(--pk-parch) !important; border:4px solid var(--pk-brown-d) !important; color:var(--pk-ink) !important;
+}
+/* ---- green banner headers with a pixel ✕, exactly like the sheet ---- */
+#menubook .mb-head, #restopanel .rp-head, #zodiac .zd-head, .shop-head, #cookoff .co-head{
+  background:var(--pk-green) !important; border:3px solid var(--pk-green-d) !important;
+  color:#fff !important; padding:7px 12px; display:flex; align-items:center; justify-content:space-between;
+  font-weight:900; letter-spacing:2px;
+}
+#menubook .mb-head *, #restopanel .rp-head *, #zodiac .zd-head *, #cookoff .co-head *{ color:#fff !important; }
+.mb-close, .rp-x, .zd-close, .co-quit{
+  background:var(--pk-navy) !important; border:3px solid #1c2436 !important; color:#fff !important;
+  width:34px; height:34px; padding:0 !important; font-weight:900; line-height:1;
+}
+/* ---- every button goes pack-green ---- */
+.btn, .shop-btn, button{
+  background:var(--pk-green) !important; border:3px solid var(--pk-green-d) !important; color:#fff !important;
+}
+.btn:hover, .shop-btn:hover, button:hover{ background:var(--pk-green-l) !important; }
+.btn:active, .shop-btn:active, button:active{ background:var(--pk-green-d) !important; }
+.btn:disabled, .shop-btn:disabled, button:disabled{ opacity:.5; background:#8a9a8a !important; }
+
+/* ================= THE TITLE: an open book bound in chains ================= */
+#title{ background:var(--pk-purple) !important; overflow:hidden; }
+#title .swipe-hint{ display:none; }
+#title .game-title{ color:#f6ecd2; z-index:2; }
+#title .game-title span{ color:#ffd23a; }
+#title .tagline{ color:#cdb8e8; z-index:2; }
+#title .handmade{ color:#9a86b8; z-index:2; }
+.tb-props{ position:absolute !important; inset:0; pointer-events:none; margin:0; }
+.tb-props .tbp{ position:absolute; width:52px; height:52px; opacity:.85; image-rendering:pixelated; }
+.tb-props .tbp img{ width:100%; height:100%; }
+.tb-props .p1{ top:4%; right:8%; } .tb-props .p2{ top:38%; right:3%; width:40px; }
+.tb-props .p3{ bottom:8%; right:12%; } .tb-props .p4{ top:8%; left:6%; }
+.tb-props .p5{ bottom:12%; left:4%; width:64px; } .tb-props .p6{ top:44%; left:2.5%; width:38px; }
+.title-book{
+  position:relative; z-index:2; display:flex; align-items:stretch; justify-content:center;
+  width:min(880px,94vw); min-height:min(430px,56vh); margin:8px auto;
+  background:#8a5a34; border:6px solid #3a2210; padding:14px 10px;
+}
+.tb-page{
+  flex:1; background:var(--pk-parch); border:4px solid #b09468; margin:0 6px; position:relative;
+  display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:22px 18px; align-content:start;
+}
+.tb-page::after{ content:''; position:absolute; inset:6px; border:2px dashed #c3aa7c; pointer-events:none; }
+.tb-slot{ background:var(--pk-slot); border:3px solid var(--pk-slot-b); min-height:52px; }
+.tb-slot.wide{ grid-column:span 2; min-height:44px; }
+.tb-slot.tall{ grid-row:span 2; }
+.tb-deco, .tb-deco2{ position:absolute; bottom:14px; width:44px; height:44px; image-rendering:pixelated; }
+.tb-deco{ left:16px; } .tb-deco2{ right:16px; }
+/* the chained banner column riding the spine */
+.tb-banners{ display:flex; flex-direction:column; justify-content:center; gap:26px; z-index:3; margin:0 -34px; min-width:min(300px,56vw); }
+.tb-banner{
+  position:relative; font-size:20px !important; letter-spacing:3px; padding:14px 10px !important;
+  background:var(--pk-brown) !important; border:4px solid var(--pk-brown-d) !important; color:#f2e2c2 !important;
+  border-top-color:#8a5232 !important; /* carved plank highlight */
+}
+.tb-banner.big{ font-size:24px !important; }
+.tb-banner:hover{ background:#7e4a2a !important; color:#ffd23a !important; }
+.tb-banner:hover::before{ content:'▸'; position:absolute; left:-26px; top:50%; transform:translateY(-50%); color:#ffd23a; font-size:24px; }
+/* chain links between banners */
+.tb-banner::after{
+  content:''; position:absolute; left:50%; top:-26px; transform:translateX(-50%);
+  width:12px; height:22px; border:4px solid #4a6a9a; background:transparent;
+}
+.tb-banner:first-child::after{ top:-30px; height:26px; }
+
+/* ================= THE ASTRAL REALM (zodiac skill tree in space) ================= */
+#zodiac{
+  position:fixed; inset:0; z-index:62; background:#0a0a1e; display:flex; flex-direction:column;
+  align-items:stretch; justify-content:flex-start; /* the old wheel layer centered+shrink-wrapped */
+  opacity:0; transition:opacity .3s, transform .35s; transform:scale(1.12);
+}
+#zodiac .zd-tree{ width:auto; align-self:stretch; }
+#zodiac.show{ opacity:1; transform:scale(1); }
+#zodiac .zd-stars{ position:absolute; inset:0; width:100%; height:100%; image-rendering:pixelated; }
+#zodiac .zd-head{ position:relative; z-index:2; margin:10px 12px 0; }
+#zodiac .zd-title{ font-weight:900; letter-spacing:4px; }
+#zodiac .zd-gems{ font-weight:900; }
+#zodiac .zd-tree{ position:relative; z-index:1; flex:1; margin:10px 4vw 6px; }
+#zodiac .zd-lines{ position:absolute; inset:0; width:100%; height:100%; }
+#zodiac .zd-lines line{ stroke:#33335a; stroke-width:.45; }
+#zodiac .zd-lines line.lit{ stroke:#ffcf5c; stroke-width:.7; }
+#zodiac .zd-branch{ position:absolute; left:0; transform:translateY(-50%); color:#6a6a96; font-size:11px; letter-spacing:3px; font-weight:900; }
+#zodiac .zd-node{
+  position:absolute; transform:translate(-50%,-50%); width:128px; padding:8px 6px 7px;
+  background:#14142c !important; border:3px solid #34345c !important; color:#cfd0ea !important;
+  display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer;
+}
+#zodiac .zd-node .zd-ico{ width:44px; height:44px; image-rendering:pixelated; }
+#zodiac .zd-node .zd-nname{ font-size:12px; font-weight:900; letter-spacing:1px; color:#e8e9ff; }
+#zodiac .zd-node .zd-nsub{ font-size:9.5px; line-height:1.2; text-align:center; color:#8a8ab4; }
+#zodiac .zd-node.open{ border-color:var(--pk-green-l) !important; }
+#zodiac .zd-node.open .zd-nsub{ color:#b9d8a0; }
+#zodiac .zd-node.open{ animation:zdPulse 1.6s ease-in-out infinite; }
+@keyframes zdPulse{ 0%,100%{ transform:translate(-50%,-50%) scale(1);} 50%{ transform:translate(-50%,-50%) scale(1.05);} }
+#zodiac .zd-node.owned{ border-color:#ffcf5c !important; background:#241d38 !important; }
+#zodiac .zd-node.owned .zd-nname{ color:#ffe9a0; }
+#zodiac .zd-node.owned .zd-nsub{ color:#cbb87e; }
+#zodiac .zd-node.locked{ opacity:.55; cursor:not-allowed; }
+#zodiac .zd-node.root{ width:150px; border-color:#7fd0ff !important; cursor:default; }
+#zodiac .zd-foot{ position:relative; z-index:2; text-align:center; color:#8a8ab4; font-size:12px; padding:6px 0 10px; letter-spacing:1px; }
+
+/* ================= THE MENU — a real restaurant menu card ================= */
+#menubook{ position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; background:rgba(14,10,6,.72); opacity:0; transition:opacity .25s; }
+#menubook.show{ opacity:1; }
+#menubook .mb-frame{ width:min(680px,94vw); max-height:92vh; display:flex; flex-direction:column; }
+#menubook .mb-title{ display:flex; align-items:center; gap:8px; }
+#menubook .mb-tagline{ text-align:center; font-size:12px; color:#8a6f4e; padding:6px 0 2px; letter-spacing:1px; font-style:italic; }
+#menubook .mb-pantry{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:8px 12px; margin:6px 10px; background:var(--pk-slot) !important; border:3px solid var(--pk-slot-b) !important; font-weight:900; font-size:13px; }
+#menubook .mb-pantry, #menubook .mb-pantry *{ color:var(--pk-ink) !important; }
+#menubook .mb-ing{ display:inline-flex; align-items:center; gap:2px; background:var(--pk-parch); border:2px solid var(--pk-slot-b); padding:2px 6px 2px 3px; }
+#menubook .mb-ing.none{ opacity:.45; }
+#menubook .mb-ingico, #menubook .mb-needico{ width:22px; height:22px; image-rendering:pixelated; vertical-align:-5px; }
+#menubook .mb-list{ overflow:auto; padding:2px 14px 10px; }
+#menubook .mb-sechead{ text-align:center; font-weight:900; letter-spacing:3px; font-size:13px; color:#7a5a34; margin:12px 0 4px; }
+#menubook .mb-card{ display:flex; gap:12px; align-items:center; padding:8px 6px; background:transparent !important; border:none !important; border-bottom:2px dotted #c3aa7c !important; }
+#menubook .mb-card:hover{ background:var(--pk-parch-d) !important; }
+#menubook .mb-dish{ width:56px; height:56px; image-rendering:pixelated; flex:none; }
+#menubook .mb-mid{ flex:1; min-width:0; }
+#menubook .mb-name{ display:flex; align-items:baseline; gap:8px; font-weight:900; font-size:16px; }
+#menubook .mb-lead{ flex:1; border-bottom:2px dotted #a98f62; transform:translateY(-4px); }
+#menubook .mb-price{ font-weight:900; white-space:nowrap; }
+#menubook .mb-stars{ color:#dfa53c !important; font-size:12px; letter-spacing:2px; }
+#menubook .mb-stars .dim{ color:#c3b28c !important; }
+#menubook .mb-desc{ font-size:12px; font-style:italic; color:#6d5537; }
+#menubook .mb-needs{ font-size:11.5px; display:flex; gap:8px; align-items:center; margin-top:2px; }
+#menubook .mb-needs .lack{ color:#a83a2e; font-weight:700; }
+#menubook .mb-needs .ok{ color:#4e7a34; font-weight:700; }
+#menubook .mb-cook{ font-size:12px !important; padding:8px 10px !important; }
+#menubook .mb-foot{ text-align:center; font-size:11px; color:#8a6f4e; padding:8px; letter-spacing:1px; }
+
+/* ================= dining-hall management pop-ups ================= */
+#restopanel{ position:fixed; inset:0; z-index:58; display:flex; align-items:center; justify-content:center; background:rgba(14,10,6,.55); opacity:0; transition:opacity .2s; }
+#restopanel.show{ opacity:1; }
+#restopanel .rp-card{ width:min(460px,92vw); display:flex; flex-direction:column; }
+#restopanel .rp-body{ padding:14px 16px 6px; font-size:14.5px; line-height:1.45; }
+#restopanel .rp-dim{ font-size:12px; color:#8a6f4e; font-style:italic; }
+#restopanel .rp-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:12px 16px 16px; }
+#restopanel .rp-gold{ margin-left:auto; font-weight:900; background:var(--pk-slot); border:2px solid var(--pk-slot-b); padding:4px 10px; }
+
+/* title layout: keep the book + heading on screen together */
+#title{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
+#title .game-title{ font-size:clamp(30px,5.2vw,54px); margin:0; transform:rotate(-2deg); }
+#title .game-title span{ transform:rotate(2deg) translateX(12px); }
+#title .tagline{ margin:2px 0 6px; font-size:14px; }
+#title .handmade{ border:none !important; background:transparent !important; margin-top:6px; }
+.title-book{ min-height:min(400px,52vh); }

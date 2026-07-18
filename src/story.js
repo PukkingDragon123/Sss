@@ -15,7 +15,7 @@ export const STAGES = {
     roster: [{ t: 'goblin', w: 1 }, { t: 'boar', w: 1 }, { t: 'slime', w: 1 }, { t: 'lizardman', w: 2 }, { t: 'bat', w: 2 }, { t: 'brigand', w: 2 }, { t: 'mushroomcap', w: 3 }, { t: 'hydrabird', w: 3 }, { t: 'chameleon', w: 4 }, { t: 'greatboar', w: 5 }, { t: 'splitslime', w: 4 }, { t: 'bomber', w: 5 }],
     // bright MORNING woodland by default — warm sun, soft blue sky, lush green
     theme: {
-      bg: 0x8fc6e8, fog: 0xc3ddec, fogD: 0.006, hemi: 0xcfe6ff, hemiG: 0x40663a, dir: 0xfff2d2, dirI: 1.75, amb: 0x6f8a72, floor: 0x4f8a48, rug: 0x5fa055, scatter: 'trees', rim: 0xfff0d0, rimI: 1.2,
+      bg: 0x9ccfda, fog: 0xcbe0cf, fogD: 0.0094, hemi: 0xd6ecdc, hemiG: 0x3c6238, dir: 0xffeec2, dirI: 1.85, amb: 0x6f8a72, floor: 0x467c3e, rug: 0x5fa055, scatter: 'trees', rim: 0xffe6b0, rimI: 1.45,
       // the guided TUTORIAL fight plays at NIGHT (moonlit) — set apart from the rest
       night: { bg: 0x16223a, fog: 0x1b2b44, fogD: 0.011, hemi: 0x9fb6e8, hemiG: 0x223a2a, dir: 0xcdd8ff, dirI: 1.5, amb: 0x3a4a6a, floor: 0x2f4a32, rug: 0x3f6440, rim: 0xbfe0ff, rimI: 1.25 },
     },

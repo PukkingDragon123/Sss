@@ -615,12 +615,12 @@ export class Game {
     this.rugMat.color.setHex(t.rug);
     this._buildScatter(t.scatter);
     this.renderer.toneMappingExposure = 1.14; // brighter, still saturated & rich
-    if (this._gradePass) { const u = this._gradePass.uniforms; // deep felt low-poly grade
-      u.uContrast.value = 1.1; u.uSaturation.value = 1.18;
-      u.uShadowTint.value.set(0.9, 0.95, 1.08); u.uHighlightTint.value.set(1.05, 1.01, 0.95);
-      u.uTintStrength.value = 0.22; u.uVignette.value = 0.3; u.uVignetteSoft.value = 0.58;
-      u.uGrain.value = 0.01;
-      this._baseVig = 0.3; // authoritative vignette base for the low-HP pulse (lighter, less gloomy)
+    if (this._gradePass) { const u = this._gradePass.uniforms; // deep felt low-poly grade — richer & more cinematic
+      u.uContrast.value = 1.15; u.uSaturation.value = 1.26;
+      u.uShadowTint.value.set(0.88, 0.94, 1.1); u.uHighlightTint.value.set(1.07, 1.02, 0.93);
+      u.uTintStrength.value = 0.24; u.uVignette.value = 0.4; u.uVignetteSoft.value = 0.55;
+      u.uGrain.value = 0.012;
+      this._baseVig = 0.4; // authoritative vignette base for the low-HP pulse — a framed, cinematic edge
     }
   }
 
@@ -2836,8 +2836,11 @@ export class Game {
       }
       return;
     }
+    // auto-aim: re-lock onto the nearest foe at the instant of casting (the target may
+    // have shifted while a glyph was being drawn) so the shot always tracks true.
+    const tgt = (this.phase === 'arena') ? this._autoAimTarget() : null;
     const saved = this.aimPoint;
-    this.aimPoint = aim;
+    this.aimPoint = tgt ? new THREE.Vector3(tgt.x, 0, tgt.z) : aim;
     const ok = this.spells.tryCast(this, id, opts);
     this.aimPoint = saved;
     if (ok) {
@@ -2870,32 +2873,21 @@ export class Game {
       return;
     }
     if (this.state !== 'play') return;
-    const projectNdc = () => {
-      this._ray.setFromCamera(this.input.ndc, this.camera);
-      const hit = new THREE.Vector3();
-      if (this._ray.ray.intersectPlane(this._groundPlane, hit)) {
-        hit.x = Math.max(-ARENA, Math.min(ARENA, hit.x));
-        hit.z = Math.max(-ARENA, Math.min(ARENA, hit.z));
-        return hit;
-      }
-      return null;
-    };
-    if (this.input.drawing) {
-      // DRAG-TO-AIM: on touch the spell aims wherever your finger is right now (the
-      // drawing finger keeps input.ndc live); on desktop it stays where the draw began.
-      if (this.input.isTouch) {
-        const hit = projectNdc();
-        if (hit) { this.aimPoint.copy(hit); this.gestureAim.copy(hit); }
-      }
-    } else if (this.input.isTouch) {
-      // not drawing on touch — soft auto-aim the nearest foe so idle facing reads right
-      const near = this.enemies.nearest(this.wizard.pos, 34);
-      if (near) this.aimPoint.set(near.mesh.position.x, 0, near.mesh.position.z);
-      else this.aimPoint.set(this.wizard.pos.x + Math.sin(this.wizard.yaw) * 6, 0, this.wizard.pos.z + Math.cos(this.wizard.yaw) * 6);
-    } else {
-      const hit = projectNdc();
-      if (hit) this.aimPoint.copy(hit);
+    // AUTO-AIM: every cast homes on the nearest foe. There is no manual aiming any
+    // more — you just move and trigger a spell (tap / 1-3 / glyph) and it locks on.
+    const tgt = this._autoAimTarget();
+    if (tgt) { this.aimPoint.set(tgt.x, 0, tgt.z); this.gestureAim.copy(this.aimPoint); }
+    else {
+      // no foes in range → aim straight ahead so idle facing still reads right
+      this.aimPoint.set(this.wizard.pos.x + Math.sin(this.wizard.yaw) * 6, 0, this.wizard.pos.z + Math.cos(this.wizard.yaw) * 6);
+      this.gestureAim.copy(this.aimPoint);
     }
+  }
+  // pick the auto-aim target: the nearest live enemy within a generous radius.
+  _autoAimTarget() {
+    if (!this.enemies || !this.enemies.nearest) return null;
+    const near = this.enemies.nearest(this.wizard.pos, 40);
+    return near ? near.mesh.position : null;
   }
 
   // ---------- gesture trail rendering ----------
@@ -3664,11 +3656,27 @@ export class Game {
       const b = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.1, 0.46), M(spineCols[i * 2], 0.85));
       b.userData = { ox: -2.6, oy: 2.1 + i * 0.3, oz: -2.2 }; b.castShadow = true; g.add(b); g.userData.books.push(b);
     }
-    for (let i = 0; i < 9; i++) {
-      const m = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 5), glow(0xffe6b0, 0.5));
-      m.position.set(-4 + Math.random() * 9, 0.8 + Math.random() * 3.4, -5 + Math.random() * 4.5);
+    for (let i = 0; i < 16; i++) {
+      const mc = [0xffe6b0, 0xbfa3ff, 0x8fd0ff][i % 3];
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.04 + Math.random() * 0.03, 6, 5), glow(mc, 0.5));
+      m.position.set(-5 + Math.random() * 10, 0.6 + Math.random() * 3.8, -5 + Math.random() * 5);
       m.userData = { oy: m.position.y, sp: 0.5 + Math.random() * 0.8 }; g.add(m); g.userData.motes.push(m);
     }
+    // ===== extra polish: a glowing arcane summoning circle underfoot =====
+    const circle = new THREE.Group(); circle.position.set(0.4, 0.03, -0.6); circle.rotation.x = -Math.PI / 2;
+    const ring1 = new THREE.Mesh(new THREE.RingGeometry(2.0, 2.15, 40), glow(0x9fd8ff, 0.5)); circle.add(ring1);
+    const ring2 = new THREE.Mesh(new THREE.RingGeometry(1.5, 1.58, 40), glow(0xbfa3ff, 0.42)); circle.add(ring2);
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; const rune = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), glow(0x8fe0ff, 0.6)); rune.position.set(Math.cos(a) * 1.78, Math.sin(a) * 1.78, 0.01); rune.rotation.z = a; circle.add(rune); }
+    g.add(circle); g.userData.circle = circle;
+    // ===== a tall arched moonlit window on the back wall — cool blue counter-light =====
+    const winFrame = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.6, 0.3), M(0x2a1c12, 0.9)); winFrame.position.set(6.2, 4.0, -5.7); g.add(winFrame);
+    const night = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 3.0), glow(0x2a4a8a, 0.7)); night.position.set(6.2, 4.0, -5.53); g.add(night);
+    const moon = new THREE.Mesh(new THREE.CircleGeometry(0.34, 16), glow(0xeef4ff, 0.95)); moon.position.set(6.5, 5.0, -5.5); g.add(moon);
+    for (let s = 0; s < 10; s++) { const st = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.05), glow(0xdfeaff, 0.8)); st.position.set(6.2 + (Math.random() - 0.5) * 1.4, 4.0 + (Math.random() - 0.5) * 2.6, -5.49); g.add(st); }
+    const cross = new THREE.Mesh(new THREE.BoxGeometry(0.08, 3.0, 0.1), M(0x2a1c12, 0.9)); cross.position.set(6.2, 4.0, -5.48); g.add(cross);
+    const moonLight = new THREE.PointLight(0x9fc4ff, 1.1, 16); moonLight.position.set(6.0, 4.4, -3.6); g.add(moonLight); g.userData.moon = moonLight;
+    // a soft violet fill light so the whole study glows magically
+    const fill = new THREE.PointLight(0x9b7bff, 0.7, 20); fill.position.set(0.4, 4.2, 2.4); g.add(fill);
     // pixel grain on the woodwork (same dressing pass as every other set)
     g.traverse((o) => {
       if (!o.isMesh || !o.material || !o.material.isMeshStandardMaterial) return;
@@ -3693,6 +3701,8 @@ export class Game {
       const ud = lib.userData;
       ud.books.forEach((b, i) => { const a = t * 0.55 + i * 2.1; b.position.set(b.userData.ox + Math.cos(a) * 0.62, b.userData.oy + Math.sin(t * 1.3 + i) * 0.16, b.userData.oz + Math.sin(a) * 0.62); b.rotation.y = a + 1.2; b.rotation.z = Math.sin(t + i) * 0.16; });
       if (ud.orb) { ud.orb.rotation.y += dt * 0.8; ud.orb.material.opacity = 0.72 + Math.sin(t * 2.2) * 0.2; }
+      if (ud.circle) { ud.circle.rotation.z += dt * 0.25; ud.circle.children.forEach((c, i) => { c.material.opacity = (i < 2 ? 0.42 : 0.5) + Math.abs(Math.sin(t * 1.6 + i)) * 0.28; }); }
+      if (ud.moon) ud.moon.intensity = 1.0 + Math.sin(t * 0.8) * 0.15;
       if (ud.candle) ud.candle.intensity = 1.15 + Math.sin(t * 9 + Math.sin(t * 3.3) * 2) * 0.22;
       ud.motes.forEach((m, i) => { m.position.y = m.userData.oy + Math.sin(t * m.userData.sp + i) * 0.4; m.material.opacity = 0.3 + Math.abs(Math.sin(t * 1.4 + i * 1.3)) * 0.3; });
     }

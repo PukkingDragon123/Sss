@@ -379,6 +379,10 @@ export class UI {
   setPhase(phase, isTouch) {
     const arena = phase === 'arena', world = phase === 'world', tavern = phase === 'tavern', room = phase === 'room', resto = phase === 'resto';
     const hub = tavern || room || world || resto;
+    // CLEAN, STEAM-STYLE COMBAT: during the fight the screen is nearly bare — just a
+    // slim health/mana readout, the spell buttons and a discreet corner of controls.
+    // Everything else (stats pills, spins bar, glyph hint, ability tray) is stripped.
+    document.body.classList.toggle('lean-combat', arena);
     this.el.bars.classList.toggle('hidden', hub);        // vitals only in the fight
     this.el.spellbook.classList.toggle('hidden', !arena);
     // toggle the whole stat PILLS (icon + number), not just the inner number
@@ -925,7 +929,7 @@ export class UI {
         <button class="btn tp-back">◀ Back to the bar</button>
       </div>`;
     document.body.appendChild(ov); this._tp = ov; this._tpTimers = [];
-    const set = (win, e) => { win.querySelector('.tp-i').textContent = e.i; win.querySelector('.tp-t').textContent = e.t; };
+    const set = (win, e) => { win.querySelector('.tp-i').innerHTML = iconImg(e.i, { scale: 5 }, 'tp-pix'); win.querySelector('.tp-t').textContent = e.t; };
     const spinBtn = ov.querySelector('.tp-spin'), launchBtn = ov.querySelector('.tp-launch');
     ov.querySelector('.tp-back').onclick = () => { if (game.audio) game.audio.play('click'); game.retreatFromMap(); };
     let spinning = false;
@@ -958,9 +962,13 @@ export class UI {
     const ov = document.createElement('div'); ov.id = 'catapult';
     ov.innerHTML = `
       <div class="cp-sky"></div>
+      <div class="cp-sun"></div>
+      <div class="cp-hills"></div>
       <div class="cp-ground"></div>
       <div class="cp-machine"><div class="cp-base"></div><div class="cp-arm"><div class="cp-bucket"></div></div></div>
-      <div class="cp-wiz">🧙</div>
+      <div class="cp-dust"></div>
+      <div class="cp-wiz">${iconImg('🧙', { scale: 8 }, 'cp-pix')}</div>
+      <div class="cp-trail"></div>
       <div class="cp-word">WHEEE!</div>`;
     document.body.appendChild(ov);
     void ov.offsetWidth; ov.classList.add('go');

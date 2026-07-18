@@ -1150,7 +1150,7 @@ body::after{content:"";position:fixed;inset:0;z-index:4;pointer-events:none;
 /* ===== CATAPULT launch cutscene ===== */
 #catapult{position:fixed;inset:0;z-index:61;overflow:hidden;}
 #catapult .cp-sky{position:absolute;inset:0;background:linear-gradient(180deg,#8fc6e8 0%,#bfe0ec 60%,#cfe4c0 100%);}
-#catapult .cp-ground{position:absolute;left:0;right:0;bottom:0;height:24%;background:linear-gradient(180deg,#4f8a48,#3a6a34);border-top:6px solid #2f5a2c;}
+#catapult .cp-ground{position:absolute;left:0;right:0;bottom:0;height:24%;background:#437a3c;border-top:6px solid #2f5a2c;}
 #catapult .cp-machine{position:absolute;left:9%;bottom:22%;width:150px;height:120px;}
 #catapult .cp-base{position:absolute;bottom:0;left:24px;width:96px;height:44px;background:#6a4526;border:4px solid #3a2414;border-radius:6px;}
 #catapult .cp-base::after{content:"";position:absolute;bottom:-14px;left:-6px;width:22px;height:22px;background:#3a2414;border-radius:50%;box-shadow:84px 0 0 #3a2414;}
@@ -2724,3 +2724,131 @@ html,body{ font-size:19px; }
   #cookoff.cook3d .co-phase{ font-size:30px; }
   #cookoff.cook3d .co-meter{ right:8px; }
 }
+
+/* ==================================================================
+   REQUEST 27 — clean Steam-style combat HUD + much bigger UI text
+   ================================================================== */
+
+/* --- LEAN COMBAT: strip the fight screen down to a slim vitals readout,
+       the spell buttons and the discreet corner controls. Everything else
+       (stat pills, the spins bar, the glyph hint, ability tray, chore
+       tracker) is hidden while you fight. --- */
+body.lean-combat #hud .stats,
+body.lean-combat #drunk-wrap,
+body.lean-combat #cast-hint,
+body.lean-combat #ability-tray,
+body.lean-combat #job-tracker{ display:none !important; }
+/* keep spells tappable but drop their word labels — glyph + hotkey only */
+body.lean-combat #spellbook .name{ display:none; }
+body.lean-combat #spellbook{ gap:10px; }
+body.lean-combat #spellbook .spell-chip{ padding:10px 14px; }
+/* trim the top button cluster to the essentials during a fight */
+body.lean-combat #btn-cookbook,
+body.lean-combat #btn-zodiac,
+body.lean-combat #btn-quests,
+body.lean-combat #btn-inv{ display:none !important; }
+
+/* --- BIG, READABLE TEXT (req: "make text x3 bigger") — a bold uniform
+       bump on everything the player actually reads. Dense HUD pills get a
+       gentler lift so nothing overflows. --- */
+html,body{ font-size:23px; }
+.btn{ font-size:23px; padding:13px 24px; }
+.btn.big{ font-size:31px; padding:18px 34px; }
+.stat{ font-size:22px; }
+.vital-num{ font-size:21px; }
+.bar-label{ font-size:16px; }
+.spell-chip .name{ font-size:20px; }
+.spell-chip .glyph{ font-size:28px; }
+.spell-chip .key{ font-size:15px; }
+.story-text{ font-size:clamp(23px,3.6vw,34px) !important; line-height:1.5; }
+.story-speaker{ font-size:18px !important; }
+.card .card-name{ font-size:26px; }
+.card .card-desc{ font-size:19px; }
+.card .card-tag{ font-size:14px; }
+.job-desc{ font-size:19px; }
+.job-title{ font-size:14px; }
+#cast-hint{ font-size:19px; }
+#map-hint{ font-size:20px; }
+#map-title-text{ font-size:24px; }
+.tagline{ font-size:clamp(18px,2.8vw,27px) !important; }
+.handmade{ font-size:16px; }
+.wmd-name{ font-size:26px; }
+.wmd-sub,.wmd-row{ font-size:18px; }
+.tp-title{ font-size:30px !important; }
+.cr-title{ font-size:28px; }
+.shop-title,.co-title{ font-size:28px !important; }
+.mb-frame{ font-size:20px; }
+
+/* --- STEAM-STYLE 3D TITLE: reveal the arcane-library diorama behind the menu
+       (was a flat opaque book panel) and float a clean menu over the scene. --- */
+#title{
+  background:transparent !important;   /* reveal the 3D arcane-library diorama behind the menu */
+  /* a cinematic vignette via inset shadow (gradients are globally banned) */
+  box-shadow:inset 0 0 240px 70px rgba(6,4,12,.72), inset 0 -80px 120px -40px rgba(6,4,12,.6);
+  overflow:hidden;
+}
+#title .title-book{
+  background:transparent !important; border:none !important; padding:0 !important;
+  min-height:auto; width:auto; margin:6px auto;
+}
+#title .tb-page{ display:none !important; }        /* drop the empty parchment filler pages */
+#title .tb-props{ opacity:.42; }                    /* keep a few drifting props, subtler */
+#title .tb-banners{ margin:0 auto; gap:18px; min-width:min(360px,82vw); }
+#title .tb-banner{
+  background:rgba(26,15,10,.8) !important; border:3px solid #caa15a !important; border-radius:14px !important;
+  box-shadow:0 8px 24px rgba(0,0,0,.55), inset 0 0 0 2px rgba(0,0,0,.28), 0 0 22px rgba(255,200,90,.14);
+  text-shadow:0 2px 3px #000;
+}
+#title .tb-banner:hover{ background:rgba(46,26,14,.92) !important; box-shadow:0 8px 26px rgba(0,0,0,.6), 0 0 30px rgba(255,210,58,.45); }
+#title .tb-banner::after{ display:none; }           /* drop the chain-link doodads */
+#title .game-title{ text-shadow:0 0 26px rgba(155,123,255,.55), 4px 6px 0 rgba(0,0,0,.6); }
+#title .tagline{ text-shadow:0 2px 6px rgba(0,0,0,.75); }
+
+/* --- SLOT-MACHINE TELEPORTER: dress the reels up like a real arcade machine --- */
+#teleporter{ background:radial-gradient(90% 90% at 50% 40%, rgba(40,22,58,.72), rgba(6,4,12,.94)) !important; }
+#teleporter .tp-frame{
+  box-shadow:0 20px 60px rgba(0,0,0,.6), 0 0 40px rgba(155,123,255,.28), inset 0 0 0 3px rgba(255,207,92,.22) !important;
+  border-radius:20px !important; position:relative;
+}
+#teleporter .tp-frame::before{ /* a warm marquee glow behind the title (solid — gradients are globally banned) */
+  content:''; position:absolute; left:14%; right:14%; top:-5px; height:10px; border-radius:10px;
+  background:#ffd23a !important; box-shadow:0 0 18px 4px rgba(255,210,58,.7); opacity:.9;
+}
+#teleporter .tp-win{
+  border:3px solid #6a4ea0 !important;
+  box-shadow:inset 0 0 22px rgba(0,0,0,.5), inset 0 2px 0 rgba(255,255,255,.06); border-radius:12px !important;
+  position:relative; overflow:hidden;
+}
+#teleporter .tp-win::after{ /* the pay-line */
+  content:''; position:absolute; left:0; right:0; top:50%; height:2px; transform:translateY(-50%);
+  background:rgba(255,207,92,.5); box-shadow:0 0 8px rgba(255,207,92,.6);
+}
+#teleporter .tp-i{ line-height:0; }
+#teleporter .tp-i .tp-pix{ width:72px; height:72px; image-rendering:pixelated; filter:drop-shadow(0 3px 5px rgba(0,0,0,.6)); }
+#teleporter .tp-t{ color:#f2e2c2 !important; text-shadow:0 1px 2px #000; }
+#teleporter .tp-reel.landed .tp-win{ box-shadow:0 0 28px rgba(255,207,92,.85), inset 0 0 18px rgba(0,0,0,.6) !important; }
+#teleporter .tp-spin, #teleporter .tp-launch{
+  background:#ecac2e !important; color:#3a1f00 !important;
+  border:3px solid #8a5a1a !important; border-radius:14px !important; box-shadow:0 6px 0 #7a4e14, 0 10px 20px rgba(0,0,0,.5);
+}
+#teleporter .tp-launch{ background:#7ec84a !important; border-color:#3a7a2a !important; box-shadow:0 6px 0 #2f6a22, 0 0 30px rgba(155,255,122,.5); }
+
+/* --- CATAPULT CUTSCENE: a punchier, pixel-wizard fling.
+       NB: a global rule (background-image:none !important) bans gradients, so the
+       backdrop uses SOLID colours + box-shadow, never linear/radial-gradient. --- */
+#catapult .cp-sky{ background:#8fc6e8 !important; }
+#catapult .cp-sun{ position:absolute; right:14%; top:12%; width:80px; height:80px; border-radius:50%;
+  background:#fff2c8 !important; box-shadow:0 0 60px 24px rgba(255,240,180,.6); }
+#catapult .cp-hills{ position:absolute; left:0; right:0; bottom:22%; height:16%;
+  background:#5a9a52 !important; border-radius:50% 50% 0 0 / 100% 100% 0 0; }
+#catapult .cp-machine{ width:180px; height:140px; left:8%; }
+#catapult .cp-wiz{ left:10%; bottom:44%; }
+#catapult .cp-wiz .cp-pix{ width:96px; height:96px; image-rendering:pixelated; filter:drop-shadow(0 6px 8px rgba(0,0,0,.45)); }
+#catapult .cp-dust{ position:absolute; left:12%; bottom:24%; width:26px; height:26px; border-radius:50%;
+  background:#fff !important; box-shadow:0 0 22px 14px rgba(255,255,255,.55); opacity:0; }
+#catapult.go .cp-dust{ animation:cpDust 1.6s ease-out forwards; }
+#catapult .cp-trail{ position:absolute; left:12%; bottom:46%; width:8px; height:8px; border-radius:50%;
+  background:#fff; box-shadow:0 0 12px 4px rgba(255,240,180,.7); opacity:0; }
+#catapult.go .cp-trail{ animation:cpArc 1.6s cubic-bezier(.3,-0.2,.6,1) forwards, cpTrailFade 1.6s ease-out forwards; }
+@keyframes cpDust{ 0%{opacity:0;transform:scale(.4);} 20%{opacity:.9;transform:scale(1);} 100%{opacity:0;transform:scale(2.2);} }
+@keyframes cpTrailFade{ 0%,18%{opacity:0;} 24%{opacity:.9;} 100%{opacity:0;} }

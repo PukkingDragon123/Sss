@@ -277,13 +277,13 @@ export class UI {
   // ---- the quest log side panel (debt + bounty + the learn-the-ropes checklist) ----
   toggleQuestPanel(game) {
     const p = this.el.questPanel; if (!p) return;
-    if (game && game.state !== 'play' && !p.classList.contains('show')) return; // not while a chat/menu/cutscene owns the screen
+    if (game && game.state !== 'play' && game.state !== 'resto' && !p.classList.contains('show')) return; // not while a chat/menu/cutscene owns the screen
     if (p.classList.contains('show')) { p.classList.remove('show'); return; }
     this.renderQuestPanel(game); p.classList.add('show');
   }
   openInventory(game) {
-    if (game && game.state !== 'play') return; // not mid-chat/cutscene
-    if (!meta.stationBuilt('wardrobe')) { this.wispSay('🧙 Build the Character Hall in your room first — claim your first bounty to unlock it, then manage gear, spells & your satchel there.', { tone: 'warn', ms: 4200 }); return; }
+    if (game && game.state !== 'play' && game.state !== 'resto') return; // not mid-chat/cutscene
+    // the Character Hall room is gone — the satchel opens straight from the dining hall now
     this._charTab = 'satchel'; if (game._openShop) game._openShop('character'); else this.openShop('character', game);
   }
   // dead-simple quest log: just your GOAL (debt + the one bounty) and your JOBS.
@@ -389,10 +389,10 @@ export class UI {
     if (this.el.bossBar) this.el.bossBar.classList.add('hidden');
     this.el.tavernHud.classList.add('hidden');
     this.el.btnGuide.classList.toggle('hidden', !arena);
-    if (this.el.btnQuests) this.el.btnQuests.classList.toggle('hidden', !(tavern || room)); // quest log + satchel in the hub
-    if (this.el.btnCookbook) this.el.btnCookbook.classList.toggle('hidden', !(tavern || room)); // the menu book lives in the hub
-    if (this.el.btnZodiac) this.el.btnZodiac.classList.toggle('hidden', !(tavern || room));     // the star chart too
-    if (this.el.btnInv) this.el.btnInv.classList.toggle('hidden', !(tavern || room));
+    if (this.el.btnQuests) this.el.btnQuests.classList.toggle('hidden', !(tavern || room || resto)); // quest log in the hub
+    if (this.el.btnCookbook) this.el.btnCookbook.classList.toggle('hidden', !(tavern || room)); // the menu book opens from the resto book station
+    if (this.el.btnZodiac) this.el.btnZodiac.classList.toggle('hidden', !(tavern || room));     // the star chart opens from the resto book too
+    if (this.el.btnInv) this.el.btnInv.classList.toggle('hidden', !(tavern || room || resto));  // gear satchel reachable from the hall
     if (this.el.questPanel && !(tavern || room)) this.el.questPanel.classList.remove('show');
     if (this.el.btnDrink) this.el.btnDrink.classList.toggle('hidden', !arena); // drink only in the fight
     if (this.el.drinkBar && !arena) this.el.drinkBar.classList.add('hidden');

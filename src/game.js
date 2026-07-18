@@ -1760,8 +1760,20 @@ export class Game {
     this.ui.setPhase('resto', this.input.isTouch);
     this.ui.setScreen('play');
     this.ui.hideJob(); this.ui.updatePrompt(null, false);
+    this.ui.setStageTint(null); this.ui.hideMission(); // no arena colour-wash / mission HUD bleeding into the hall
     this.ui.fadeBlack(false);
+    // sweep any idle-banked earnings home so nothing's stranded (the Ledger is gone)
+    if (meta.tavernBank && meta.tavernBank() > 0 && meta.collectTavern) {
+      const swept = meta.collectTavern();
+      if (swept > 0) this.ui.wispSay(`🍺 The Toad earned ${swept} gold while you were out.`, { ms: 3200 });
+    }
     this.ui.setGold(meta.gold()); if (this.ui.setGems) this.ui.setGems(meta.gems());
+    // the intro gift-staff reveal (was lost with the tavern) — surface it here, once
+    if (this._giftGear) {
+      const g0 = this._giftGear; this._giftGear = null;
+      setTimeout(() => { if (this.phase === 'resto') { if (this.ui.lootToast) this.ui.lootToast(g0); this.audio.play('levelup'); this.ui.wispSay('🎁 Your first staff — new loot changes how you look. Tap 🎒 to manage gear.', { big: true, ms: 5000 }); } }, 2400);
+    }
+    this._justInherited = false; // the inheritance beat lived in the old tavern; clear the dangling flag
     this.resto.camX = 4;
     this.camera.position.set(4, 6.8, 13.5); this.camera.lookAt(4, 2.6, 0);
     // warm interior grade for the dining hall
@@ -1830,6 +1842,7 @@ export class Game {
   openWorldMap() {
     this.phase = 'world'; this.state = 'world'; this._worldDive = false; this._setPixel('menu');
     // tear the dining hall down cleanly — the DOOR (and ESC) reach the hunt map through here
+    this.ui.closeModals(); // never strand a menu book / zodiac / cook-off over the map
     if (this.resto) { if (this.resto.svc) this.resto.endService(true); this.resto.closePanel(); this.resto.show(false); }
     if (this.ui.el.btnRestoServe) this.ui.el.btnRestoServe.classList.add('hidden');
     const arrows = document.getElementById('resto-arrows'); if (arrows) arrows.classList.add('hidden');
@@ -2024,7 +2037,7 @@ export class Game {
     this.ui.closeShop();
     this.tavern.refreshRoom(meta);   // reflect any newly built/sold furniture
     this.ui.setGold(meta.gold());
-    this.state = 'play';
+    this.state = (this.phase === 'resto') ? 'resto' : 'play'; // return to the dining-hall state, not generic play
   }
 
   // Leave the world map -> black out -> drop straight into the chosen level.
@@ -2662,9 +2675,10 @@ export class Game {
 
   castById(id) { if (this.state === 'play' && this.phase === 'arena' && this.unlocked.has(id)) this._castAt(id, this.aimPoint, { accuracy: 0.8 }); }
   togglePause() {
-    // dining hall: the touch pause button steps back out (service → panel → tavern)
+    // dining hall: the pause button backs out — overlay → service → panel → out
     if (this.phase === 'resto') {
-      if (this.resto.svc) this.resto.endService(true);
+      if (this.ui.overlayActive && this.ui.overlayActive()) this.ui.closeModals();
+      else if (this.resto.svc) this.resto.endService(true);
       else if (this.resto._panel) this.resto.closePanel();
       else this.exitResto();
       return;
@@ -2737,12 +2751,13 @@ export class Game {
       if (e.type === 'select') {
         if (this.state === 'world') { const id = this.world.pick(e.x, e.y, this.camera); if (id) this.selectWorldRegion(id); }
         else if (this.state === 'levelmap') { const nid = this.levelMap.pick(e.x, e.y, this.camera); if (nid) this.chooseMapNode(nid); }
-        else if (this.state === 'resto') { this.resto.onSelect(e.x, e.y); }
+        else if (this.state === 'resto' || this.phase === 'resto') { this.resto.onSelect(e.x, e.y); }
         continue;
       }
-      // the dining hall: ESC closes service → panel → the whole scene, in that order
+      // the dining hall: ESC closes overlay → service → panel → the whole scene, in order
       if (e.type === 'pause' && this.phase === 'resto') {
-        if (this.resto.svc) { this.resto.endService(true); }
+        if (this.ui.overlayActive && this.ui.overlayActive()) { this.ui.closeModals(); }
+        else if (this.resto.svc) { this.resto.endService(true); }
         else if (this.resto._panel) this.resto.closePanel();
         else this.exitResto();
         continue;

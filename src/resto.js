@@ -352,10 +352,12 @@ export class Resto {
     if (g.ui.el.btnRestoServe) { g.ui.el.btnRestoServe.classList.remove('hidden'); if (g.ui.el.btnRestoServe.lastChild) g.ui.el.btnRestoServe.lastChild.textContent = ' Send Wisp'; }
     const arrows = document.getElementById('resto-arrows'); if (arrows) arrows.classList.remove('hidden');
   }
+  _disposeSprite(s) { if (!s) return; if (s.parent) s.parent.remove(s); if (s.material) { if (s.material.map) s.material.map.dispose(); s.material.dispose(); } }
   endService(early) {
     const g = this.game, sv = this.svc;
     for (const d of (sv ? [...sv.seated] : [])) this._removeDiner(d, true);
     if (sv) for (const p of sv.plates) if (p.mesh) this.group.remove(p.mesh);
+    if (sv && sv.wispJob && sv.wispJob.carried) this._disposeSprite(sv.wispJob.carried); // the wisp was mid-flight — don't leave a phantom plate stuck to it
     this.svc = null;
     this.mode = 'manage';
     g.state = 'resto';
@@ -450,10 +452,11 @@ export class Resto {
     if (this.game.ui.updatePantryChip) this.game.ui.updatePantryChip();
     g.audio.play('click');
     // the fast cook mini-game (flame timing) — quality feeds the plate & the tip
-    sv.busy = true;
+    sv.busy = true; sv.cookingFor = d;
     g.ui.showCookTiming(d.order, (quality) => {
-      sv.busy = false;
-      if (!this.svc || this.svc !== sv) return; // service ended under the overlay
+      sv.busy = false; sv.cookingFor = null;
+      if (!this.svc || this.svc !== sv) return;                     // service ended under the overlay
+      if (!sv.seated.includes(d) || d.state !== 'ordered') return;  // guest walked out mid-cook — bin the plate
       this._plateUp(d, quality);
     });
   }
@@ -539,6 +542,18 @@ export class Resto {
   }
   _updateService(dt) {
     const g = this.game, sv = this.svc;
+    // recover if the cook overlay was torn down externally (ESC / pause) without ever
+    // resolving its callback — otherwise sv.busy sticks true and every tap is ignored.
+    if (sv.busy && !document.getElementById('cooktime')) {
+      sv.busy = false;
+      const dc = sv.cookingFor; sv.cookingFor = null;
+      if (dc && sv.seated.includes(dc) && dc.state === 'ordered') { // order abandoned — refund & let them re-order
+        if (dc.order && dc.order.needs) for (const k in dc.order.needs) meta.pantryAdd(k, dc.order.needs[k]);
+        if (this.game.ui.updatePantryChip) this.game.ui.updatePantryChip();
+        if (dc.bubble) { if (dc.bubble.material.map) dc.bubble.material.map.dispose(); dc.bubble.material.dispose(); this.group.remove(dc.bubble); dc.bubble = null; }
+        dc.state = 'ready'; if (dc.ask) dc.ask.visible = true;
+      }
+    }
     // seat & spawn flow
     sv.spawnT -= dt;
     if (sv.spawnT <= 0 && sv.walked < sv.covers) { this._spawnDiner(); sv.spawnT = 3.2 + Math.random() * 2.4; }
@@ -586,7 +601,7 @@ export class Resto {
       w.position.y = 2.4 + Math.sin(this.t * 8) * 0.12;
       if (Math.abs(w.position.x - tx) < 0.3 && Math.abs(w.position.z - tz) < 0.3) {
         // drop the plate: serve
-        if (job.carried) w.remove(job.carried);
+        if (job.carried) { this._disposeSprite(job.carried); job.carried = null; }
         if (d.state === 'cooked') this._serve(d); // (guest may have been removed by an edge case)
         job.phase = 'back';
       }

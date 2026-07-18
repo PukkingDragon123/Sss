@@ -181,6 +181,43 @@ export function makeFallenLog() {
   return g;
 }
 
+// a leafy shrub: a dark 3D core wrapped in a few billboard leaf-clumps — a rounded bush
+export function makeBush() {
+  const g = new THREE.Group();
+  const coreMat = new THREE.MeshStandardMaterial({ color: 0x2f5f2e, roughness: 1, flatShading: true });
+  pxMap(coreMat, 'leaf', 2);
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5 + Math.random() * 0.3, 0), coreMat);
+  core.position.y = 0.42; core.scale.y = 0.8; core.castShadow = true; g.add(core);
+  const lm = leafMat();
+  const clumps = 2 + ((Math.random() * 2) | 0);
+  for (let i = 0; i < clumps; i++) {
+    const sz = 0.9 + Math.random() * 0.6;
+    const cq = crossQuads(lm, sz, sz, 2);
+    cq.position.set((Math.random() - 0.5) * 0.5, 0.35 + Math.random() * 0.25, (Math.random() - 0.5) * 0.5);
+    g.add(cq);
+  }
+  // a berry or two on some bushes
+  if (Math.random() < 0.5) { const berryMat = new THREE.MeshStandardMaterial({ color: 0xc0324a, roughness: 0.6, flatShading: true }); for (let i = 0; i < 3; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 5), berryMat); b.position.set((Math.random() - 0.5) * 0.7, 0.5 + Math.random() * 0.3, (Math.random() - 0.5) * 0.4 + 0.2); g.add(b); } }
+  return g;
+}
+// a little wildflower cluster: green stems topped with bright pixel-bright blooms
+export function makeFlower() {
+  const g = new THREE.Group();
+  const stemMat = new THREE.MeshStandardMaterial({ color: 0x3f7a3a, roughness: 1, flatShading: true });
+  const cols = [0xe86a9a, 0xe8d24a, 0xe0e8f0, 0x9a6ad0, 0xe88a4a];
+  const n = 2 + ((Math.random() * 3) | 0);
+  for (let i = 0; i < n; i++) {
+    const ox = (Math.random() - 0.5) * 0.6, oz = (Math.random() - 0.5) * 0.6;
+    const h = 0.35 + Math.random() * 0.35;
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, h, 5), stemMat);
+    stem.position.set(ox, h / 2, oz); g.add(stem);
+    const bloomMat = new THREE.MeshStandardMaterial({ color: cols[(Math.random() * cols.length) | 0], roughness: 0.7, flatShading: true, emissive: 0x201010, emissiveIntensity: 0.2 });
+    for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2; const p = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 5), bloomMat); p.position.set(ox + Math.cos(a) * 0.08, h, oz + Math.sin(a) * 0.08); p.scale.set(1, 0.5, 1); g.add(p); }
+    const center = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), new THREE.MeshStandardMaterial({ color: 0xf4d24a, roughness: 0.6, flatShading: true })); center.position.set(ox, h + 0.02, oz); g.add(center);
+  }
+  return g;
+}
+
 // ===== ambient critters: little animals that wander & hop around the clearing =====
 // Each critter is a tiny low-poly animal with a simple wander AI + a hop/scurry gait.
 // They flee from the wizard so they feel alive without ever being in the way.

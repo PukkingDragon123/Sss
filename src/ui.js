@@ -10,6 +10,7 @@ import { ARTIFACTS, artifactById, UPGRADES, upgradeRarity } from './upgrades.js'
 import { MINIGAMES, setIconDrawer } from './minigames.js';
 import { CARDS, CARD_BY_ID, CARD_RARITY } from './cards.js';
 import { spriteImg, gearImg, iconImg, iconCanvas, pixify, pixifyHtml, SPELL_SPRITE, COMBO_SPRITE, PET_SPRITE } from './pixelicons.js';
+import { pxMap } from './pixeltex.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -972,10 +973,12 @@ export class UI {
   showCookTiming(recipe, onDone) {
     this.hideCookTiming();
     const ov = document.createElement('div'); ov.id = 'cooktime';
+    const dishPix = spriteImg('dish_' + recipe.id, { scale: 3 }, 'ct-dish', recipe.icon || '');
+    const firePix = spriteImg('fire', { scale: 2 }, 'ct-fire', '🔥');
     ov.innerHTML = `
       <div class="ct-card">
-        <div class="ct-name">${recipe.icon} ${recipe.name}</div>
-        <div class="ct-bar"><div class="ct-zone"></div><div class="ct-perfect"></div><div class="ct-marker">🔥</div></div>
+        <div class="ct-name">${dishPix} ${recipe.name}</div>
+        <div class="ct-bar"><div class="ct-zone"></div><div class="ct-perfect"></div><div class="ct-marker">${firePix}</div></div>
         <div class="ct-hint">E / tap — stop the flame in the gold!</div>
       </div>`;
     document.body.appendChild(ov); this._ct = ov;
@@ -1044,24 +1047,27 @@ export class UI {
     const warm = new THREE.PointLight(0xffb060, 0.8, 22); warm.position.set(-2.6, 3, 2.4); scene.add(warm);
     const disposables = [];
     const M = (c, r = 0.82, m = 0, e = 0) => { const mat = new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m, emissive: e, emissiveIntensity: e ? 0.9 : 0, flatShading: true }); disposables.push(mat); return mat; };
+    // pixel-art grain stamped onto a 3D surface — the "pixel + 3d texture" cook look.
+    // NB: pxMap hands back a SHARED cached texture, so never dispose mat.map here.
+    const PX = (c, kind, rep, r = 0.82, m = 0) => { const mat = M(c, r, m); pxMap(mat, kind, rep); return mat; };
     const geo = (g) => { disposables.push(g); return g; };
     const glowMat = (c) => { const mat = new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }); disposables.push(mat); return mat; };
-    // ---- kitchen dressing ----
-    const counter = new THREE.Mesh(geo(new THREE.BoxGeometry(14, 0.7, 7)), M(0x6a4a2c, 0.9)); counter.position.y = -0.35; scene.add(counter);
-    const wall = new THREE.Mesh(geo(new THREE.BoxGeometry(14, 7, 0.4)), M(0x9a7250, 0.95)); wall.position.set(0, 3, -3.2); scene.add(wall);
-    for (let i = -2; i <= 2; i++) { const tile = new THREE.Mesh(geo(new THREE.BoxGeometry(2.2, 2.2, 0.1)), M(i % 2 ? 0xa88058 : 0xb89060, 0.9)); tile.position.set(i * 2.4, 2.4, -2.98); scene.add(tile); }
-    const board = new THREE.Mesh(geo(new THREE.BoxGeometry(4.4, 0.26, 2.7)), M(0xcaa06a, 0.7)); board.position.set(0, 0.13, 0.3); scene.add(board);
+    // ---- kitchen dressing (pixel-textured wood, stone tiles & butcher board) ----
+    const counter = new THREE.Mesh(geo(new THREE.BoxGeometry(14, 0.7, 7)), PX(0x6a4a2c, 'wood', 8, 0.9)); counter.position.y = -0.35; scene.add(counter);
+    const wall = new THREE.Mesh(geo(new THREE.BoxGeometry(14, 7, 0.4)), PX(0x9a7250, 'stone', 6, 0.95)); wall.position.set(0, 3, -3.2); scene.add(wall);
+    for (let i = -2; i <= 2; i++) { const tile = new THREE.Mesh(geo(new THREE.BoxGeometry(2.2, 2.2, 0.1)), PX(i % 2 ? 0xa88058 : 0xb89060, 'stone', 2, 0.9)); tile.position.set(i * 2.4, 2.4, -2.98); scene.add(tile); }
+    const board = new THREE.Mesh(geo(new THREE.BoxGeometry(4.4, 0.26, 2.7)), PX(0xcaa06a, 'wood', 4, 0.7)); board.position.set(0, 0.13, 0.3); scene.add(board);
     // ---- actors, reused across phases ----
-    const food = new THREE.Mesh(geo(new THREE.CapsuleGeometry(0.62, 1.9, 6, 12)), M(tintHex, 0.6)); food.rotation.z = Math.PI / 2; food.position.set(0, 0.55, 0.3); scene.add(food);
+    const food = new THREE.Mesh(geo(new THREE.CapsuleGeometry(0.62, 1.9, 6, 12)), PX(tintHex, 'skin', 3, 0.6)); food.rotation.z = Math.PI / 2; food.position.set(0, 0.55, 0.3); scene.add(food);
     const knife = new THREE.Group();
-    const blade = new THREE.Mesh(geo(new THREE.BoxGeometry(0.1, 0.9, 1.5)), M(0xd6dde4, 0.25, 0.7)); blade.position.y = -0.45; knife.add(blade);
-    const handle = new THREE.Mesh(geo(new THREE.BoxGeometry(0.16, 0.7, 0.22)), M(0x4a2f1a, 0.7)); handle.position.y = 0.35; knife.add(handle);
+    const blade = new THREE.Mesh(geo(new THREE.BoxGeometry(0.1, 0.9, 1.5)), PX(0xd6dde4, 'metal', 2, 0.25, 0.7)); blade.position.y = -0.45; knife.add(blade);
+    const handle = new THREE.Mesh(geo(new THREE.BoxGeometry(0.16, 0.7, 0.22)), PX(0x4a2f1a, 'wood', 2, 0.7)); handle.position.y = 0.35; knife.add(handle);
     knife.position.set(-1.4, 1.7, 0.3); scene.add(knife);
     const pan = new THREE.Group();
-    const panBody = new THREE.Mesh(geo(new THREE.CylinderGeometry(1.5, 1.35, 0.3, 22)), M(0x2a2632, 0.4, 0.6)); pan.add(panBody);
+    const panBody = new THREE.Mesh(geo(new THREE.CylinderGeometry(1.5, 1.35, 0.3, 22)), PX(0x2a2632, 'metal', 3, 0.4, 0.6)); pan.add(panBody);
     const panHandle = new THREE.Mesh(geo(new THREE.BoxGeometry(2.4, 0.18, 0.28)), M(0x1a1622, 0.5, 0.4)); panHandle.position.set(2.3, 0.02, 0); pan.add(panHandle);
     pan.position.set(0, 0.3, 0.3); pan.visible = false; scene.add(pan);
-    const plate = new THREE.Mesh(geo(new THREE.CylinderGeometry(1.7, 1.5, 0.16, 26)), M(0xf0ead8, 0.45)); plate.position.set(0, 0.24, 0.3); plate.visible = false; scene.add(plate);
+    const plate = new THREE.Mesh(geo(new THREE.CylinderGeometry(1.7, 1.5, 0.16, 26)), PX(0xf0ead8, 'stone', 2, 0.45)); plate.position.set(0, 0.24, 0.3); plate.visible = false; scene.add(plate);
     const ring = new THREE.Mesh(geo(new THREE.TorusGeometry(1.2, 0.06, 8, 32)), glowMat(0xffd76a)); ring.rotation.x = -Math.PI / 2; ring.position.set(0, 0.5, 0.3); ring.visible = false; scene.add(ring);
     // ---- juice pops ----
     const pops = [];

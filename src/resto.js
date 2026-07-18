@@ -13,12 +13,14 @@ import * as meta from './meta.js';
 import { RECIPES, RECIPE_BY_ID, INGREDIENTS, canCook, platePrice } from './cooking.js';
 import { spriteCanvas } from './pixelicons.js';
 
-// five table plots along the dining floor + fixed landmarks
-const PLOTS = [{ id: 'p0', x: 1.5 }, { id: 'p1', x: 7.5 }, { id: 'p2', x: 13.5 }, { id: 'p3', x: 19.5 }, { id: 'p4', x: 25.5 }];
+// six table plots along the dining floor + fixed landmarks
+const PLOTS = [{ id: 'p0', x: 1.5 }, { id: 'p1', x: 7.5 }, { id: 'p2', x: 13.5 }, { id: 'p3', x: 19.5 }, { id: 'p4', x: 25.5 }, { id: 'p5', x: 31.5 }];
 const TABLE_Z = -1.1, LANE_Z = 2.0;         // tables sit back; the chef runs the front lane
 const PASS_X = -5.2;                        // where finished plates wait
-const KITCHEN_X = -10.5, BOOK_X = -1.8, DOOR_X = 30.5, BELL_X = -4.2;
-const COSTS = { table: [140, 260, 460], chairs: [90, 170], deco: [70, 130] };
+const KITCHEN_X = -10.5, BOOK_X = -1.8, DOOR_X = 36.5, BELL_X = -4.2;
+const CAM_MIN = -13, CAM_MAX = 35;          // how far the diner-cam pans
+// table has 4 tiers (buy + 3 upgrades); chairs 4 tiers; accessories 3 tiers
+const COSTS = { table: [140, 260, 460, 720], chairs: [90, 170, 280], deco: [70, 130, 210] };
 
 const M = (c, r = 0.85, m = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m, flatShading: true });
 const glowM = (c, o = 0.9) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false });
@@ -112,6 +114,54 @@ export class Resto {
     this._addHit('book', BOOK_X, 1.4, -3.3, 2.2, 2.4, 1.6);
     this._addHit('bell', BELL_X, 1.4, -0.3, 1.4, 1.2, 1.2);
     this._addHit('door', DOOR_X, 2, -4.8, 3, 4.4, 1.6);
+
+    // ===== the DÉCOR pass — what makes the hall feel warm & lived-in =====
+    this._plants = []; this._candles = [];
+    const leafM = pxMap(M(0x3f7a3a, 0.85), 'leaf', 3), leafM2 = pxMap(M(0x5aa04a, 0.85), 'leaf', 3);
+    const potM = pxMap(M(0xb0623a, 0.8), 'stone', 3);
+    // ceiling beams running the length of the hall
+    for (const bx of [-6, 4, 14, 24]) { const beam = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 11), woodD); beam.position.set(bx, 7.4, -0.4); G.add(beam); }
+    const ridge = new THREE.Mesh(new THREE.BoxGeometry(70, 0.6, 0.6), woodD); ridge.position.set(9, 7.6, -2.5); G.add(ridge);
+    // a grand stone HEARTH between two windows, with a live fire
+    const hx = 7.0;
+    const hearth = new THREE.Mesh(new THREE.BoxGeometry(3.4, 3.2, 0.8), pxMap(M(0x6a6660, 0.96), 'stone', 4)); hearth.position.set(hx, 1.6, -4.7); G.add(hearth);
+    const hMouth = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.7, 0.4), M(0x140a06, 1)); hMouth.position.set(hx, 1.15, -4.4); G.add(hMouth);
+    const mantel = new THREE.Mesh(new THREE.BoxGeometry(3.9, 0.34, 1.1), woodD); mantel.position.set(hx, 3.4, -4.55); G.add(mantel);
+    const logs = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 1.4, 7), pxMap(M(0x3a2414, 0.9), 'wood', 2)); logs.rotation.z = Math.PI / 2; logs.position.set(hx, 0.6, -4.35); G.add(logs);
+    this._hearthFire = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.3, 10), glowM(0xff9a3a, 0.9)); this._hearthFire.position.set(hx, 1.15, -4.3); G.add(this._hearthFire);
+    const hCore = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.8, 8), glowM(0xffe27a, 0.95)); hCore.position.set(hx, 1.1, -4.25); G.add(hCore);
+    const hLight = new THREE.PointLight(0xff8a3a, 2.2, 16); hLight.position.set(hx, 1.4, -3.6); G.add(hLight);
+    const pot2 = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.14, 0.4, 8), M(0x8a5a34, 0.6)); pot2.position.set(hx, 3.75, -4.5); G.add(pot2); // a mantel jar
+    // framed paintings on the plaster
+    for (const [px, col] of [[-2, 0x2a5a7a], [16.5, 0x6a4a2a], [22.5, 0x5a2a4a]]) {
+      const fr = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.9, 0.12), pxMap(M(0x6a4a28, 0.7), 'wood', 2)); fr.position.set(px, 5.2, -4.94); G.add(fr);
+      const pic = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.6), pxMap(M(col, 0.9), 'cloth', 3)); pic.position.set(px, 5.2, -4.86); G.add(pic);
+    }
+    // wall candle sconces (warm, flickering)
+    for (const cx of [-3.5, 13, 20]) {
+      const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.13, 0.28, 8), pxMap(M(0x3a2a1a, 0.8), 'metal', 2)); cup.position.set(cx, 3.6, -4.85); G.add(cup);
+      const fl = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 8), glowM(0xffd9a0, 0.95)); fl.position.set(cx, 3.82, -4.8); G.add(fl); this._candles.push(fl);
+      const sl = new THREE.PointLight(0xffca88, 0.7, 8); sl.position.set(cx, 3.9, -4.2); G.add(sl);
+    }
+    // potted plants standing along the floor (gently sway)
+    for (const px of [-6.5, -0.5, 5.5, 11.5, 17.5, 23.5, 29]) {
+      const plant = new THREE.Group(); plant.position.set(px, 0, -4.2);
+      const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.26, 0.55, 9), potM); pot.position.y = 0.28; plant.add(pot);
+      for (let k = 0; k < 5; k++) { const blade = new THREE.Mesh(new THREE.ConeGeometry(0.12, 1.0 + Math.random() * 0.5, 5), k % 2 ? leafM : leafM2); blade.position.set((Math.random() - 0.5) * 0.35, 0.9 + Math.random() * 0.2, (Math.random() - 0.5) * 0.35); blade.rotation.z = (Math.random() - 0.5) * 0.5; plant.add(blade); }
+      G.add(plant); this._plants.push(plant);
+    }
+    // hanging herb bundles + copper pots over the kitchen
+    for (const hxk of [KITCHEN_X - 2.6, KITCHEN_X - 1.4, KITCHEN_X - 0.2]) {
+      const str = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 5), woodD); str.position.set(hxk, 3.7, -4.6); G.add(str);
+      const bundle = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.5, 6), leafM); bundle.position.set(hxk, 3.3, -4.6); bundle.rotation.x = Math.PI; G.add(bundle);
+    }
+    // a bar shelf of colourful bottles beside the pass
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.14, 0.5), woodD); shelf.position.set(PASS_X, 2.5, -4.6); G.add(shelf);
+    const bottleCols = [0x6fb08a, 0xb04a4a, 0x4a7ab0, 0xc9a24a, 0x8a5ad0, 0x6fb08a, 0xb04a4a];
+    for (let i = 0; i < 7; i++) { const bot = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.42, 8), M(bottleCols[i], 0.4)); bot.position.set(PASS_X - 1.9 + i * 0.62, 2.78, -4.6); G.add(bot); }
+    // a welcome runner from the door
+    const runner = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.03, 4.5), pxMap(M(0x8a4a3a, 0.98), 'cloth', 4)); runner.position.set(DOOR_X - 0.5, 0.04, -2.4); G.add(runner);
+
     pxDress(G);
     outlineGroup(G, { thick: 0.035 });
     this.refreshPlots();
@@ -146,26 +196,40 @@ export class Resto {
       } else {
         // the TABLE, by tier
         const tier = own.tier || 1;
-        const top = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 0.14, 12), pxMap(M(tier >= 3 ? 0x8a5a34 : 0x6a4a2c, 0.8), 'wood', 3));
+        const topCol = tier >= 4 ? 0xd8cdb4 : tier >= 3 ? 0x8a5a34 : 0x6a4a2c;
+        const top = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 0.14, 12), pxMap(M(topCol, tier >= 4 ? 0.5 : 0.8), tier >= 4 ? 'stone' : 'wood', 3));
         top.position.y = 0.95; top.castShadow = true; g.add(top);
         const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.2, 0.95, 8), M(0x4a3018, 0.9)); leg.position.y = 0.47; g.add(leg);
-        if (tier >= 2) { const cloth = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.05, 0.1, 12), pxMap(M(0xf3e7c9, 0.95), 'cloth', 3)); cloth.position.y = 1.03; g.add(cloth); }
+        if (tier >= 2) { const cloth = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.05, 0.1, 12), pxMap(M(tier >= 4 ? 0x7a2a28 : 0xf3e7c9, 0.95), 'cloth', 3)); cloth.position.y = 1.03; g.add(cloth); }
         if (tier >= 3) { const trim = new THREE.Mesh(new THREE.TorusGeometry(1.16, 0.05, 6, 18), M(0xf4c04a, 0.5, 0.5)); trim.rotation.x = Math.PI / 2; trim.position.y = 1.0; g.add(trim); }
+        if (tier >= 4) { // a gilded centrepiece candelabra for the finest tables
+          const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.09, 0.5, 8), M(0xf4c04a, 0.4, 0.6)); stem.position.y = 1.28; g.add(stem);
+          for (const ax of [-0.3, 0, 0.3]) { const cw = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.22, 6), M(0xf6efe2, 0.9)); cw.position.set(ax, 1.6, 0); g.add(cw); const cf = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), glowM(0xffd07a, 0.95)); cf.position.set(ax, 1.78, 0); g.add(cf); g.userData.flame = cf; }
+        }
         // CHAIRS, by tier (two, flanking)
         const ct = own.chairs || 1;
         for (const sx of [-1, 1]) {
           const ch = new THREE.Group(); ch.position.set(sx * 1.7, 0, 0.1); ch.rotation.y = -sx * Math.PI / 2;
           const seat = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.14, 0.72), pxMap(M(0x6a4a2c, 0.9), 'wood', 2)); seat.position.y = 0.62; ch.add(seat);
           for (const [lx2, lz2] of [[-0.26, -0.26], [0.26, -0.26], [-0.26, 0.26], [0.26, 0.26]]) { const l2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.62, 0.1), M(0x4a3018, 0.9)); l2.position.set(lx2, 0.31, lz2); ch.add(l2); }
-          if (ct >= 2) { const back = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.8, 0.12), pxMap(M(0x6a4a2c, 0.9), 'wood', 2)); back.position.set(0, 1.1, -0.3); ch.add(back); }
-          if (ct >= 3) { const cush = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.1, 0.66), pxMap(M(0x7a2a28, 0.95), 'cloth', 2)); cush.position.y = 0.72; ch.add(cush); }
+          if (ct >= 2) { const back = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.8, 0.12), pxMap(M(ct >= 4 ? 0x8a5a34 : 0x6a4a2c, 0.9), 'wood', 2)); back.position.set(0, 1.1, -0.3); ch.add(back); }
+          if (ct >= 3) { const cush = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.1, 0.66), pxMap(M(ct >= 4 ? 0x7a2a5a : 0x7a2a28, 0.95), 'cloth', 2)); cush.position.y = 0.72; ch.add(cush); }
+          if (ct >= 4) { // padded armrests + a carved crown — a throne to dine in
+            for (const ax of [-0.42, 0.42]) { const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.6), pxMap(M(0x8a5a34, 0.9), 'wood', 2)); arm.position.set(ax, 0.86, -0.02); ch.add(arm); }
+            const crown = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.14, 0.14), M(0xf4c04a, 0.4, 0.5)); crown.position.set(0, 1.56, -0.3); ch.add(crown);
+          }
           ch.userData.seatX = plot.x + sx * 1.7; ch.userData.side = sx;
           g.add(ch);
         }
         // ACCESSORY, by tier
         const deco = own.deco || 0;
-        if (deco >= 1) { const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.3, 6), M(0xf6efe2, 0.9)); candle.position.y = 1.2; g.add(candle); const fl = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 6), glowM(0xffd07a, 0.95)); fl.position.y = 1.42; g.add(fl); g.userData.flame = fl; }
-        if (deco >= 2) { const vase = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 0.26, 8), M(0x56b8ff, 0.6)); vase.position.set(0.4, 1.15, 0.2); g.add(vase); const flower = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 6), M(0xff9ad0, 0.8)); flower.position.set(0.4, 1.36, 0.2); g.add(flower); }
+        if (deco >= 1 && tier < 4) { const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.3, 6), M(0xf6efe2, 0.9)); candle.position.y = 1.2; g.add(candle); const fl = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 6), glowM(0xffd07a, 0.95)); fl.position.y = 1.42; g.add(fl); g.userData.flame = fl; }
+        if (deco >= 2) { const vase = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 0.26, 8), M(0x56b8ff, 0.6)); vase.position.set(0.4, 1.15, 0.2); g.add(vase); const flower = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 6), M(0xff9ad0, 0.8)); flower.position.set(0.4, 1.36, 0.2); g.add(flower); const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.16, 5), M(0x3f7a3a, 0.85)); stem.position.set(0.4, 1.26, 0.2); g.add(stem); }
+        if (deco >= 3) { // a little brass lantern strung on a hook — cosy glow
+          const hook = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.02, 5, 10), M(0x8a5a2e, 0.5)); hook.position.set(-0.45, 1.5, 0.2); g.add(hook);
+          const lant = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.3, 0.22), pxMap(M(0xc9a24a, 0.6), 'metal', 2)); lant.position.set(-0.45, 1.22, 0.2); g.add(lant);
+          const glow = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 8), glowM(0xffcf7a, 0.95)); glow.position.set(-0.45, 1.22, 0.2); g.add(glow); g.userData.flame2 = glow;
+        }
       }
       pxDress(g);
       outlineGroup(g, { thick: 0.03 });
@@ -179,10 +243,12 @@ export class Resto {
   // ---------- mode & scene flow ----------
   show(v) { this.group.visible = v; if (!v) this.closePanel(); }
 
-  // ---------- clicks (manage mode) ----------
+  // ---------- clicks ----------
   onSelect(x, y) {
-    if (this.mode !== 'manage' || this._panel) return;
+    if (this._panel) return;
+    if (this.game.ui.overlayActive && this.game.ui.overlayActive()) return; // a cook overlay owns the tap
     const ndc = new THREE.Vector2((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
+    if (this.mode === 'service') { this._serviceSelect(ndc); return; }
     this._ray.setFromCamera(ndc, this.game.camera);
     const hits = this._ray.intersectObjects(this._hit, false);
     if (!hits.length) return;
@@ -217,11 +283,11 @@ export class Resto {
         <div class="rp-row"><button class="btn rp-buy" data-a="buy" ${g >= COSTS.table[0] ? '' : 'disabled'}>BUY TABLE · ${COSTS.table[0]} g</button>${this._goldChip()}</div>`;
     } else {
       const rows = [];
-      if ((own.tier || 1) < 3) { const c = COSTS.table[own.tier || 1]; rows.push(`<button class="btn rp-buy" data-a="table" ${g >= c ? '' : 'disabled'}>FANCIER TABLE · ${c} g</button>`); }
-      if ((own.chairs || 1) < 3) { const c = COSTS.chairs[(own.chairs || 1) - 1]; rows.push(`<button class="btn rp-buy" data-a="chairs" ${g >= c ? '' : 'disabled'}>BETTER CHAIRS · ${c} g</button>`); }
-      if ((own.deco || 0) < 2) { const c = COSTS.deco[own.deco || 0]; rows.push(`<button class="btn rp-buy" data-a="deco" ${g >= c ? '' : 'disabled'}>ADD ACCESSORY · ${c} g</button>`); }
+      if ((own.tier || 1) < 4) { const c = COSTS.table[own.tier || 1]; rows.push(`<button class="btn rp-buy" data-a="table" ${g >= c ? '' : 'disabled'}>FANCIER TABLE · ${c} g</button>`); }
+      if ((own.chairs || 1) < 4) { const c = COSTS.chairs[(own.chairs || 1) - 1]; rows.push(`<button class="btn rp-buy" data-a="chairs" ${g >= c ? '' : 'disabled'}>BETTER CHAIRS · ${c} g</button>`); }
+      if ((own.deco || 0) < 3) { const c = COSTS.deco[own.deco || 0]; rows.push(`<button class="btn rp-buy" data-a="deco" ${g >= c ? '' : 'disabled'}>ADD ACCESSORY · ${c} g</button>`); }
       html = `<div class="rp-head"><span>TABLE ${pid.slice(1) * 1 + 1}</span><button class="btn rp-x">✕</button></div>
-        <div class="rp-body">table ★${own.tier || 1} · chairs ★${own.chairs || 1} · accessories ${own.deco || 0}/2<br>
+        <div class="rp-body">table ★${own.tier || 1} · chairs ★${own.chairs || 1} · accessories ${own.deco || 0}/3<br>
         <span class="rp-dim">finer furniture = happier, more patient diners</span></div>
         <div class="rp-row">${rows.join('') || '<span class="rp-dim">fully appointed — a lovely corner</span>'}${this._goldChip()}</div>`;
     }
@@ -268,27 +334,28 @@ export class Resto {
     ov.querySelector('.rp-open').onclick = () => { this.closePanel(); this.startService(); };
   }
 
-  // ---------- SERVICE: the wisp cooks, you serve ----------
+  // ---------- SERVICE (click-driven): guests arrive & wait; TAP a guest with a
+  // ❓ to take their order; a quick cook mini-game plays; then tap the WISP (or the
+  // SERVE button) and it flies the plate over to them. ----------
   startService() {
     const g = this.game;
     this.mode = 'service';
-    g.state = 'play';
-    g.input.pointMode = false;
-    g.wizard.setVisible(true);
-    g.wizard.pos.set(-2.5, 0, LANE_Z); g.wizard.vel.set(0, 0, 0);
+    g.state = 'resto';
+    g.input.pointMode = true;          // taps pick guests / the wisp
+    g.wizard.setVisible(false);        // you manage; the wisp does the running
     const covers = 3 + this.ownedPlots().length * 2;
-    this.svc = { covers, seated: [], queue: [], cooking: null, cookT: 0, cookMax: 1, ready: [], carrying: [], served: 0, walked: 0, earned: 0, spawnT: 1.0, endT: 0, done: false };
+    this.svc = { covers, seated: [], plates: [], served: 0, walked: 0, earned: 0, spawnT: 0.7, endT: 0, done: false, busy: false, wispJob: null };
     g.audio.play('levelup');
-    g.ui.wispSay('🔔 We are OPEN! I cook, you carry — grab plates at the pass and match the orders!', { ms: 5200 });
-    g.ui.showJob('🍽 Service Night', 'the wisp cooks · YOU serve');
+    g.ui.wispSay('🔔 Open! Tap a guest showing ❓ to take their order, cook it, then tap ME to serve it.', { ms: 6000 });
+    g.ui.showJob('🍽 Service Night', 'tap a ❓ guest → cook → tap the wisp to serve');
     g.ui.updateJob(0, covers);
-    if (g.ui.el.btnRestoServe) g.ui.el.btnRestoServe.classList.remove('hidden'); // the big SERVE button
+    if (g.ui.el.btnRestoServe) { g.ui.el.btnRestoServe.classList.remove('hidden'); if (g.ui.el.btnRestoServe.lastChild) g.ui.el.btnRestoServe.lastChild.textContent = ' Send Wisp'; }
     const arrows = document.getElementById('resto-arrows'); if (arrows) arrows.classList.remove('hidden');
   }
   endService(early) {
     const g = this.game, sv = this.svc;
-    for (const d of (sv ? sv.seated : [])) this._removeDiner(d, true);
-    if (sv) { for (const pl of sv.ready) this.group.remove(pl.mesh); for (const c of sv.carrying) g.wizard.facer.remove(c.mesh); }
+    for (const d of (sv ? [...sv.seated] : [])) this._removeDiner(d, true);
+    if (sv) for (const p of sv.plates) if (p.mesh) this.group.remove(p.mesh);
     this.svc = null;
     this.mode = 'manage';
     g.state = 'resto';
@@ -296,7 +363,7 @@ export class Resto {
     g._restoNudge = 0;
     g.wizard.setVisible(false);
     g.ui.hideJob();
-    if (g.ui.el.btnRestoServe) g.ui.el.btnRestoServe.classList.add('hidden'); // serve button is service-only
+    if (g.ui.el.btnRestoServe) g.ui.el.btnRestoServe.classList.add('hidden');
     if (sv) g.ui.toast(early ? `🔔 Closed early — ${sv.earned} g earned.` : `🌙 A fine night! ${sv.served}/${sv.covers} served · ${sv.earned} g earned.`);
     if (!early && sv && sv.served >= sv.covers && g.audio) g.audio.play('win');
   }
@@ -324,6 +391,19 @@ export class Resto {
     s.scale.set(scale, scale, scale);
     return s;
   }
+  // a round "?" thought bubble sprite for a guest ready to order
+  _askBubble() {
+    const c = document.createElement('canvas'); c.width = c.height = 96;
+    const x = c.getContext('2d');
+    x.fillStyle = 'rgba(250,244,226,0.98)'; x.beginPath(); x.arc(48, 42, 34, 0, 6.28); x.fill();
+    x.lineWidth = 5; x.strokeStyle = '#2a1a10'; x.stroke();
+    x.beginPath(); x.moveTo(36, 70); x.lineTo(48, 90); x.lineTo(58, 68); x.closePath(); x.fillStyle = 'rgba(250,244,226,0.98)'; x.fill(); x.stroke();
+    x.fillStyle = '#c85a3a'; x.font = 'bold 48px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('?', 48, 40);
+    const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    s.material.color.setScalar(0.85); s.scale.set(1.1, 1.1, 1.1);
+    return s;
+  }
   _spawnDiner() {
     const seat = this._freeSeat(); if (!seat) return;
     const kinds = ['patron', 'dwarf', 'barmaid', 'noble', 'rogue'];
@@ -331,69 +411,96 @@ export class Resto {
     mesh.scale.multiplyScalar(0.9);
     mesh.position.set(DOOR_X - 1, 0, LANE_Z - 0.6);
     this.group.add(mesh);
-    const patience = 42 + (meta.restoPlots()[seat.plot.id].chairs || 1) * 6 + (meta.restoPlots()[seat.plot.id].deco || 0) * 5;
-    const d = { mesh, seat, seatKey: seat.key, state: 'walk', t: 0, order: null, bubble: null, patience, patMax: patience, served: false };
+    const plot = meta.restoPlots()[seat.plot.id];
+    const patience = 46 + (plot.chairs || 1) * 7 + (plot.deco || 0) * 6;
+    const bub = this._askBubble(); bub.visible = false; bub.position.set(seat.x, 3.15, TABLE_Z); this.group.add(bub);
+    const d = { mesh, seat, seatKey: seat.key, state: 'walk', t: 0, order: null, bubble: null, ask: bub, quality: 1, patience, patMax: patience };
     this.svc.seated.push(d);
     this.svc.walked++;
   }
-  _removeDiner(d, silent) {
-    if (d.bubble) { if (d.bubble.material.map) d.bubble.material.map.dispose(); d.bubble.material.dispose(); this.group.remove(d.bubble); }
+  _removeDiner(d) {
+    if (d.bubble) { if (d.bubble.material.map) d.bubble.material.map.dispose(); d.bubble.material.dispose(); this.group.remove(d.bubble); d.bubble = null; }
+    if (d.ask) { if (d.ask.material.map) d.ask.material.map.dispose(); d.ask.material.dispose(); this.group.remove(d.ask); d.ask = null; }
     this.group.remove(d.mesh);
     const i = this.svc ? this.svc.seated.indexOf(d) : -1;
     if (i >= 0) this.svc.seated.splice(i, 1);
   }
-  _orderUp(d) {
-    const r = this._pickOrder();
-    // spend the pantry when the ORDER is taken (the wisp grabs ingredients)
-    if (r.id !== 'alebread' && !meta.pantrySpend(r.needs)) { d.order = RECIPE_BY_ID.alebread; }
-    else d.order = r;
-    d.bubble = this._dishSprite(d.order.id, 1.25);
-    d.bubble.position.set(d.seat.x, 3.2, TABLE_Z);
-    this.group.add(d.bubble);
-    this.svc.queue.push(d);
-    if (this.game.ui.updatePantryChip) this.game.ui.updatePantryChip();
-  }
-  // E pressed on the floor: pick up at the pass, or serve the nearest waiting table
-  interact() {
-    const g = this.game, sv = this.svc;
-    if (!sv) return;
-    const wx = g.wizard.pos.x;
-    // serve first if lined up with a hungry table and carrying their dish
+  // a click landed while serving: on a ❓ guest → take order + cook; on the wisp → serve
+  _serviceSelect(ndc) {
+    const sv = this.svc; if (!sv || sv.busy) return;
+    this._ray.setFromCamera(ndc, this.game.camera);
+    const wh = this._ray.intersectObject(this.wisp, true);
+    let bestD = null, bestDist = wh.length ? wh[0].distance : Infinity;
     for (const d of sv.seated) {
-      if (d.state !== 'waitfood' || Math.abs(d.seat.x - wx) > 1.9) continue;
-      const ci = sv.carrying.findIndex(c => c.recipe === d.order.id);
-      if (ci >= 0) { this._serve(d, sv.carrying[ci]); return; }
+      if (d.state !== 'ready') continue;
+      const h = this._ray.intersectObject(d.mesh, true);
+      if (h.length && h[0].distance < bestDist) { bestDist = h[0].distance; bestD = d; }
     }
-    // otherwise pick up at the pass
-    if (Math.abs(wx - PASS_X) < 2.2 && sv.ready.length && sv.carrying.length < 2) {
-      const pl = sv.ready.shift();
-      this.group.remove(pl.mesh);
-      const carry = this._dishSprite(pl.recipe, 0.95);
-      carry.position.set(sv.carrying.length ? -0.55 : 0.55, 1.6, 0.3);
-      g.wizard.facer.add(carry);
-      sv.carrying.push({ recipe: pl.recipe, mesh: carry });
-      g.audio.play('xp');
+    if (bestD) { this._takeOrder(bestD); return; }
+    if (wh.length || sv.plates.length) this.sendWisp();
+  }
+  // take a guest's order, then play the quick cook mini-game
+  _takeOrder(d) {
+    const sv = this.svc; const g = this.game;
+    const r = this._pickOrder();
+    if (r.id !== 'alebread' && !meta.pantrySpend(r.needs)) d.order = RECIPE_BY_ID.alebread; else d.order = r;
+    if (d.ask) d.ask.visible = false;
+    d.bubble = this._dishSprite(d.order.id, 1.3); d.bubble.position.set(d.seat.x, 3.2, TABLE_Z); this.group.add(d.bubble);
+    d.state = 'ordered';
+    if (this.game.ui.updatePantryChip) this.game.ui.updatePantryChip();
+    g.audio.play('click');
+    // the fast cook mini-game (flame timing) — quality feeds the plate & the tip
+    sv.busy = true;
+    g.ui.showCookTiming(d.order, (quality) => {
+      sv.busy = false;
+      if (!this.svc || this.svc !== sv) return; // service ended under the overlay
+      this._plateUp(d, quality);
+    });
+  }
+  // a finished plate lands on the pass, tagged to its guest
+  _plateUp(d, quality) {
+    const sv = this.svc, g = this.game;
+    d.quality = quality; d.state = 'cooked';
+    const slot = sv.plates.length;
+    const plate = new THREE.Group();
+    const dishS = this._dishSprite(d.order.id, 0.95); dishS.position.y = 0.34; plate.add(dishS);
+    const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.3, 0.06, 12), M(0xf0ead8, 0.5)); plate.add(dish);
+    const steam = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), glowM(0xffffff, 0.5)); steam.position.y = 0.55; plate.add(steam);
+    plate.position.set(PASS_X - 1.6 + Math.min(slot, 3) * 1.2, 1.42, -0.5);
+    this.group.add(plate);
+    sv.plates.push({ diner: d, recipe: d.order.id, quality, mesh: plate });
+    g.audio.play(quality >= 1.3 ? 'win' : 'xp');
+    if (quality >= 1.3) g.ui.castWord && g.ui.castWord('PERFECT!', { color: '#ffd76a', big: true });
+    g.ui.wispSay('🍽 Plated! Tap me to run it over.', { ms: 1800 });
+  }
+  // send the wisp to deliver the oldest ready plate
+  sendWisp() {
+    const sv = this.svc; if (!sv || sv.wispJob || !sv.plates.length) {
+      if (sv && !sv.plates.length && !sv.wispJob) this.game.ui.wispSay('Nothing plated yet — take an order first!', { tone: 'warn' });
       return;
     }
-    // helpful nudges
-    if (sv.ready.length && sv.carrying.length >= 2) g.ui.wispSay('Hands full, chef — serve those first!', { tone: 'warn' });
-    else if (!sv.ready.length && Math.abs(wx - PASS_X) < 2.2) g.ui.wispSay('Nothing plated yet — give me a moment!', { tone: 'warn' });
+    const p = sv.plates.shift();
+    if (!p.diner || p.diner.state !== 'cooked') { this.group.remove(p.mesh); this.sendWisp(); return; } // guest already gone; try next
+    this.group.remove(p.mesh);
+    // a floating plate rides under the wisp
+    const carried = this._dishSprite(p.recipe, 0.8); carried.position.set(0, -0.5, 0); this.wisp.add(carried);
+    sv.wispJob = { plate: p, carried, phase: 'go', from: this.wisp.position.clone() };
+    this.game.audio.play('gust');
   }
-  _serve(d, carry) {
+  interact() { this.sendWisp(); } // the SERVE button / E routes here during service
+  _serve(d) {
     const g = this.game, sv = this.svc;
-    g.wizard.facer.remove(carry.mesh);
-    sv.carrying.splice(sv.carrying.indexOf(carry), 1);
     const mastery = meta.recipeMastery(d.order.id);
-    const quality = 0.85 + Math.random() * 0.15 + mastery * 0.05;
-    const tip = d.patience / d.patMax > 0.55 ? 1.2 : 1;
+    const tip = d.patience / d.patMax > 0.5 ? 1.25 : 1;
     const zg = meta.zodiacHas('capricorn') ? 1.2 : 1;
-    const pay = Math.max(1, Math.round(platePrice(d.order, mastery, Math.min(1.5, quality)) * tip * zg));
+    const pay = Math.max(1, Math.round(platePrice(d.order, mastery, Math.min(1.5, d.quality)) * tip * zg));
     meta.addGold(pay); sv.earned += pay; sv.served++;
+    if (d.quality >= 1.3 || Math.random() < 0.28) meta.bumpMastery && meta.bumpMastery(d.order.id);
     meta.notePlateServed && meta.notePlateServed();
-    d.state = 'eating'; d.t = 0; d.served = true;
+    d.state = 'eating'; d.t = 0;
     if (d.bubble) { if (d.bubble.material.map) d.bubble.material.map.dispose(); d.bubble.material.dispose(); this.group.remove(d.bubble); d.bubble = null; }
     g.audio.play('win');
-    g.particles.burst({ pos: new THREE.Vector3(d.seat.x, 2, TABLE_Z), color: 0xffd98a, count: 10, speed: 3.5, size: 0.2, life: 0.6, blend: 'add' });
+    g.particles.burst({ pos: new THREE.Vector3(d.seat.x, 2, TABLE_Z), color: 0xffd98a, count: 12, speed: 3.5, size: 0.2, life: 0.6, blend: 'add' });
     g.ui.castWord && g.ui.castWord('+' + pay + ' g' + (tip > 1 ? ' ★TIP' : ''), { color: '#ffd76a' });
     g.ui.setGold(meta.gold());
     g.ui.updateJob(sv.served, sv.covers);
@@ -404,99 +511,91 @@ export class Resto {
     if (!this._built) return;
     this.t += dt;
     const g = this.game;
-    // ambience: lamps flicker, stove fire dances, book breathes, bell glints
+    // ambience: lamps flicker, stove fire dances, book breathes, plants sway, bell glints
     for (const l of this._lamps) { l.bulb.material.opacity = 0.75 + Math.sin(this.t * 8 + l.seed) * 0.14; l.li.intensity = 1.35 + Math.sin(this.t * 10 + l.seed) * 0.22; }
-    this._stoveFire.scale.y = 0.9 + Math.sin(this.t * 11) * 0.2; this._stoveFire.material.opacity = 0.8 + Math.sin(this.t * 13) * 0.12;
+    if (this._stoveFire) { this._stoveFire.scale.y = 0.9 + Math.sin(this.t * 11) * 0.2; this._stoveFire.material.opacity = 0.8 + Math.sin(this.t * 13) * 0.12; }
+    if (this._hearthFire) { this._hearthFire.scale.y = 0.85 + Math.sin(this.t * 9) * 0.18; this._hearthFire.material.opacity = 0.8 + Math.sin(this.t * 12) * 0.14; }
     this._bookGlow.material.opacity = 0.1 + Math.abs(Math.sin(this.t * 1.4)) * 0.12;
     for (const f of this._forSale) f.children.forEach(c => { c.material.opacity = 0.3 + Math.abs(Math.sin(this.t * 2.2)) * 0.3; });
-    for (const id in this._plotGroups) { const fl = this._plotGroups[id].userData && this._plotGroups[id].userData.flame; }
-    // the wisp: idle bob in manage, busy stove-dance while cooking
+    for (const id in this._plotGroups) { const ud = this._plotGroups[id].userData; if (ud.flame) ud.flame.material.opacity = 0.7 + Math.abs(Math.sin(this.t * 6 + ud.flame.position.x)) * 0.28; if (ud.flame2) ud.flame2.material.opacity = 0.72 + Math.abs(Math.sin(this.t * 5.3 + id.length)) * 0.24; }
+    if (this._plants) for (const p of this._plants) p.rotation.z = Math.sin(this.t * 1.3 + p.position.x) * 0.05;
+    if (this._candles) for (const fl of this._candles) fl.material.opacity = 0.7 + Math.abs(Math.sin(this.t * 7 + fl.position.x)) * 0.25;
+    // camera pans in BOTH modes (drag / arrows)
+    const orb = g.input.consumeOrbit ? g.input.consumeOrbit() : { dx: 0, dy: 0 };
+    this.camX = Math.max(CAM_MIN, Math.min(CAM_MAX, this.camX - orb.dx * 0.035));
+    const mv = g.moveVector ? g.moveVector() : { x: 0 };
+    this.camX = Math.max(CAM_MIN, Math.min(CAM_MAX, this.camX + mv.x * dt * 14));
+    // the wisp: idle bob when free, an eager wiggle when a plate's up to run
     const w = this.wisp, sv = this.svc;
-    const busy = sv && sv.cooking;
-    const tx = busy ? KITCHEN_X - 2 + Math.sin(this.t * 6) * 0.9 : KITCHEN_X - 1.4 + Math.sin(this.t * 1.2) * 0.5;
-    w.position.x += (tx - w.position.x) * Math.min(1, dt * 5);
-    w.position.y = 2.3 + Math.sin(this.t * (busy ? 7 : 2)) * (busy ? 0.16 : 0.1);
-    w.userData.core.material.opacity = 0.75 + Math.sin(this.t * 6) * 0.2;
-    if (this.mode === 'manage') {
-      // free cam: drag pans the floor
-      const orb = g.input.consumeOrbit ? g.input.consumeOrbit() : { dx: 0, dy: 0 };
-      this.camX = Math.max(-13, Math.min(29, this.camX - orb.dx * 0.035));
-      const mv = g.moveVector ? g.moveVector() : { x: 0 };
-      this.camX = Math.max(-13, Math.min(29, this.camX + mv.x * dt * 14));
-      return;
+    if (!sv || !sv.wispJob) {
+      const eager = sv && sv.plates.length;
+      const tx = KITCHEN_X - 1.4 + Math.sin(this.t * 1.2) * 0.5;
+      w.position.x += (tx - w.position.x) * Math.min(1, dt * 5);
+      w.position.y = 2.3 + Math.sin(this.t * (eager ? 5 : 2)) * (eager ? 0.2 : 0.1);
     }
-    // ===== SERVICE =====
-    if (!sv) return;
-    g.wizard.update(dt, g);
-    // keep the chef on the service lane
-    g.wizard.pos.z += (LANE_Z - g.wizard.pos.z) * Math.min(1, dt * 8);
-    g.wizard.pos.x = Math.max(-12, Math.min(29, g.wizard.pos.x));
+    w.userData.core.material.opacity = 0.75 + Math.sin(this.t * 6) * 0.2;
+    if (this.mode !== 'service' || !sv) return;
+    this._updateService(dt);
+  }
+  _updateService(dt) {
+    const g = this.game, sv = this.svc;
     // seat & spawn flow
     sv.spawnT -= dt;
-    if (sv.spawnT <= 0 && sv.walked < sv.covers) { this._spawnDiner(); sv.spawnT = 3.5 + Math.random() * 2.5; }
+    if (sv.spawnT <= 0 && sv.walked < sv.covers) { this._spawnDiner(); sv.spawnT = 3.2 + Math.random() * 2.4; }
     for (const d of [...sv.seated]) {
       d.t += dt;
       if (d.state === 'walk') {
         const dx = d.seat.x - d.mesh.position.x;
-        d.mesh.position.x += Math.sign(dx) * Math.min(Math.abs(dx), dt * 2.6);
+        d.mesh.position.x += Math.sign(dx) * Math.min(Math.abs(dx), dt * 3.8);
         d.mesh.position.z += (TABLE_Z + 0.2 - d.mesh.position.z) * Math.min(1, dt * 2);
         d.mesh.rotation.y = dx > 0 ? Math.PI / 2 : -Math.PI / 2;
-        d.mesh.position.y = Math.abs(Math.sin(d.t * 9)) * 0.08; // walk bob
+        d.mesh.position.y = Math.abs(Math.sin(d.t * 9)) * 0.08;
         if (Math.abs(dx) < 0.15) { d.state = 'think'; d.t = 0; d.mesh.rotation.y = Math.PI; d.mesh.position.y = 0.45; d.mesh.position.x = d.seat.x; }
       } else if (d.state === 'think') {
-        if (d.t > 1.1) { d.state = 'waitfood'; d.t = 0; this._orderUp(d); }
-      } else if (d.state === 'waitfood') {
+        if (d.t > 0.9) { d.state = 'ready'; d.t = 0; if (d.ask) d.ask.visible = true; }
+      } else if (d.state === 'ready' || d.state === 'ordered' || d.state === 'cooked') {
         d.patience -= dt;
-        if (d.bubble) {
-          d.bubble.position.y = 3.15 + Math.sin(this.t * 2.4) * 0.08;
+        const bob = d.state === 'ready' ? d.ask : d.bubble;
+        if (bob) {
+          bob.position.y = 3.1 + Math.sin(this.t * 2.4) * 0.08;
           const frac = Math.max(0, d.patience / d.patMax);
-          d.bubble.material.color.setScalar(frac < 0.3 ? (Math.sin(this.t * 8) > 0 ? 1 : 0.45) : 0.85); // angry blink
+          bob.material.color.setScalar(frac < 0.3 ? (Math.sin(this.t * 8) > 0 ? 1 : 0.4) : 0.85); // angry blink low on patience
         }
-        if (d.patience <= 0) { // stormed out
-          const qi = sv.queue.indexOf(d); if (qi >= 0) sv.queue.splice(qi, 1);
-          if (sv.cooking === d) { sv.cooking = null; }
+        if (d.patience <= 0 && d.state !== 'cooked') { // walked out (a cooked plate is safe — the wisp is coming)
           this._removeDiner(d);
-          g.ui.wispSay('💢 One walked out — faster on the pass, chef!', { tone: 'warn' });
+          g.ui.wispSay('💢 A guest gave up and left — quicker next time!', { tone: 'warn' });
           g.audio.play('hurt');
         }
       } else if (d.state === 'eating') {
-        if (d.t > 1.4) {
-          this._removeDiner(d);
-          g.particles.burst({ pos: new THREE.Vector3(d.seat.x, 1.4, TABLE_Z), color: 0xb9ff7a, count: 6, speed: 2.5, size: 0.16, life: 0.5, blend: 'add' });
-        }
+        if (d.t > 1.5) { this._removeDiner(d); g.particles.burst({ pos: new THREE.Vector3(d.seat.x, 1.4, TABLE_Z), color: 0xb9ff7a, count: 6, speed: 2.5, size: 0.16, life: 0.5, blend: 'add' }); }
       }
     }
-    // the WISP cooks the queue, one order at a time
-    if (!sv.cooking && sv.queue.length && sv.ready.length < 3) {
-      sv.cooking = sv.queue.shift();
-      const needsN = Object.keys(sv.cooking.order.needs).length;
-      sv.cookMax = 3.4 + needsN * 1.2 - meta.recipeMastery(sv.cooking.order.id) * 0.35;
-      sv.cookT = 0;
-    }
-    if (sv.cooking) {
-      sv.cookT += dt;
-      if (Math.random() < dt * 6) g.particles.burst({ pos: this.wisp.position.clone().add(new THREE.Vector3(0, -0.6, 0.4)), color: 0xffb35a, count: 2, speed: 1.6, size: 0.12, life: 0.4, blend: 'add' });
-      if (sv.cookT >= sv.cookMax) {
-        const recipe = sv.cooking.order.id;
-        const slot = sv.ready.length;
-        const plate = new THREE.Group();
-        const dishS = this._dishSprite(recipe, 0.9); dishS.position.y = 0.35; plate.add(dishS);
-        const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.28, 0.06, 10), M(0xf0ead8, 0.5));
-        plate.add(dish);
-        plate.position.set(PASS_X - 1.4 + slot * 1.4, 1.4, -0.6);
-        this.group.add(plate);
-        sv.ready.push({ recipe, mesh: plate });
-        sv.cooking = null;
-        g.audio.play('click');
-        g.ui.wispSay('🍽 Order up!', { ms: 1400 });
-      }
-    }
+    // the wisp delivers
+    if (sv.wispJob) this._flyWisp(dt);
     // night over?
-    const active = sv.seated.length > 0 || sv.queue.length > 0 || !!sv.cooking;
-    if (!sv.done && sv.walked >= sv.covers && !active) {
-      sv.done = true; sv.endT = 1.0;
-    }
+    const active = sv.seated.length > 0 || sv.plates.length > 0 || !!sv.wispJob;
+    if (!sv.done && sv.walked >= sv.covers && !active) { sv.done = true; sv.endT = 0.9; }
     if (sv.done) { sv.endT -= dt; if (sv.endT <= 0) this.endService(false); }
+  }
+  _flyWisp(dt) {
+    const sv = this.svc, w = this.wisp, job = sv.wispJob, d = job.plate.diner;
+    if (job.phase === 'go') {
+      const tx = d.seat.x, tz = TABLE_Z + 0.9;
+      w.position.x += (tx - w.position.x) * Math.min(1, dt * 3.2);
+      w.position.z += (tz - w.position.z) * Math.min(1, dt * 3.2);
+      w.position.y = 2.4 + Math.sin(this.t * 8) * 0.12;
+      if (Math.abs(w.position.x - tx) < 0.3 && Math.abs(w.position.z - tz) < 0.3) {
+        // drop the plate: serve
+        if (job.carried) w.remove(job.carried);
+        if (d.state === 'cooked') this._serve(d); // (guest may have been removed by an edge case)
+        job.phase = 'back';
+      }
+    } else {
+      const tx = KITCHEN_X - 1.4, tz = -3.2;
+      w.position.x += (tx - w.position.x) * Math.min(1, dt * 3);
+      w.position.z += (tz - w.position.z) * Math.min(1, dt * 3);
+      if (Math.abs(w.position.x - tx) < 0.4) { sv.wispJob = null; w.position.z = -3.2; }
+    }
   }
 }
 

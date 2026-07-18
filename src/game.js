@@ -27,7 +27,7 @@ import { makeFace } from './facesprite.js';
 import { outlineGroup } from './outline.js';
 import { buildCharModel } from './charmodels.js';
 import { INGREDIENTS, RECIPES, RECIPE_BY_ID, platePrice, canCook, applyZodiacTo } from './cooking.js';
-import { makeLeafyTree, makeGrass, makeFern, makeRock, makeMushroom, makeFallenLog, Critters, BIOME_CRITTERS } from './props.js';
+import { makeLeafyTree, makeGrass, makeFern, makeRock, makeMushroom, makeFallenLog, makeBush, makeFlower, Critters, BIOME_CRITTERS } from './props.js';
 import { iconCanvas, PET_SPRITE } from './pixelicons.js';
 
 // Cinematic color grade — runs LAST (after OutputPass), so it operates on sRGB display
@@ -377,7 +377,7 @@ export class Game {
     //    forest/cave/graveyard wall instead of vanishing into the haze.
     //  - inside(): foliage sprinkled across the playfield. CRUCIAL: it only sets
     //    x/z and PRESERVES the y the build() chose, so nothing gets buried at 0.
-    const DENSITY = 0.62; // a calmer, less-cluttered wood (the escort road stays the focus)
+    const DENSITY = 0.82; // a lush, leafy wood — thick ground cover, animals still kept sparse
     const place = (o, x, z, jitterY) => { o.position.set(x, o.position.y + (jitterY || 0) + this._groundHeight(x, z), z); o.rotation.y = Math.random() * 6.28; grp.add(o); };
     const treeLine = (build, count = 64) => {
       count = Math.round(count * DENSITY);
@@ -402,14 +402,16 @@ export class Game {
     if (kind === 'trees') {
       // handmade forest: 3D trees with 2D leaf-sprite canopies, sprite grass & ferns,
       // textured toadstools, mossy boulders and fallen logs — a real, lived-in wood.
-      treeLine(makeLeafyTree, 52);
-      inside(16, makeLeafyTree, 6, ARENA - 8);     // full trees dotted inside too
-      inside(80, makeGrass, 3, ARENA - 5);         // thick sprite-grass ground cover
-      inside(30, () => { const g = makeGrass(); g.scale.y *= 1.9; g.scale.x *= 1.25; return g; }, 4, ARENA - 5); // TALL waving grass stands
-      inside(34, makeFern);                         // leafy ferns tucked between
-      inside(24, makeMushroom);                     // toadstool clusters
+      treeLine(makeLeafyTree, 56);
+      inside(20, makeLeafyTree, 6, ARENA - 8);     // full trees dotted inside too
+      inside(96, makeGrass, 3, ARENA - 5);         // thick sprite-grass ground cover
+      inside(38, () => { const g = makeGrass(); g.scale.y *= 1.9; g.scale.x *= 1.25; return g; }, 4, ARENA - 5); // TALL waving grass stands
+      inside(46, makeFern);                         // leafy ferns tucked between
+      inside(34, makeBush, 4, ARENA - 6);           // rounded leafy shrubs fill the mid-story
+      inside(30, makeFlower, 3, ARENA - 5);         // wildflower clusters for pops of colour
+      inside(26, makeMushroom);                     // toadstool clusters
       inside(18, makeRock);                         // mossy boulders
-      inside(10, makeFallenLog, 5, ARENA - 9);      // fallen logs as little landmarks
+      inside(12, makeFallenLog, 5, ARENA - 9);      // fallen logs as little landmarks
     } else if (kind === 'rocks') {
       const rockMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x4a443e, roughness: 1 });
       const tipMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x5a524a, roughness: 1 });
@@ -1719,10 +1721,10 @@ export class Game {
   }
 
   interact() {
-    if (this.state !== 'play') return;
+    if (this.state !== 'play' && this.state !== 'resto') return;
     if (this.ui.overlayActive && this.ui.overlayActive()) return; // a fullscreen overlay owns E right now
-    // dining-hall service: E picks up at the pass / serves the lined-up table
-    if (this.phase === 'resto') { this.resto.interact(); return; }
+    // dining-hall service: the SERVE button / E sends the wisp to deliver
+    if (this.phase === 'resto') { if (this.resto.svc) this.resto.interact(); return; }
     // dinner service captures E: cook at the stove / serve across the counter
     if (this.phase === 'tavern' && this._service && this._service.active) { this._serviceInteract(); return; }
     // out on the hunt, E drops the hand-carried haul (so you can fight again)
@@ -3098,11 +3100,10 @@ export class Game {
     }
     // DINNER SERVICE: a locked side-scrolling chef cam — the counter runs across the
     // screen, diners on the right, the stove down the lane (Dave-the-Diver framing)
-    // THE DINING HALL: a locked 2.5D side-scroll cam — manage mode pans freely,
-    // service mode tracks the running chef along the front lane
+    // THE DINING HALL: a locked 2.5D side-scroll cam — pan the floor freely with
+    // drag / arrows in both manage and (click-driven) service
     if (this.phase === 'resto') {
-      const r = this.resto;
-      const cx = (r.mode === 'service') ? Math.max(-10, Math.min(27, this.wizard.pos.x)) : r.camX;
+      const cx = this.resto.camX;
       this.camera.position.lerp(new THREE.Vector3(cx, 6.6, 13.2), Math.min(1, dt * 4.5));
       this.camera.rotation.z = 0;
       this.camera.lookAt(cx, 2.5, -0.5);

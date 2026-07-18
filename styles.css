@@ -2593,3 +2593,132 @@ body.paused #pause-label{display:flex;}
 #title .tagline{ margin:2px 0 6px; font-size:14px; }
 #title .handmade{ border:none !important; background:transparent !important; margin-top:6px; }
 .title-book{ min-height:min(400px,52vh); }
+
+/* ==================================================================== */
+/* ===== FINAL LAYER · MOBILE POLISH — rounded, bigger, tactile   ===== */
+/* A pro pass over the pixel pack: soft-rounded cards & buttons, larger */
+/* readable type, gentle depth, big touch targets — a real mobile game. */
+/* Panels round; pixel-art <img> icons stay crisp.                      */
+/* ==================================================================== */
+:root{
+  --mp-r:16px; --mp-r-sm:11px; --mp-r-lg:22px;
+  --mp-shadow:0 6px 0 rgba(0,0,0,.22), 0 10px 22px rgba(0,0,0,.28);
+  --mp-shadow-sm:0 3px 0 rgba(0,0,0,.2), 0 6px 12px rgba(0,0,0,.22);
+}
+html,body{ font-size:19px; }
+
+/* ---- rounded, floating cards ---- */
+.shop-box, .event-box, .chat-box, .gs-card, #levelup .card, .story-box, .quest-box,
+#menubook .mb-frame, #cooktime .ct-card, .rp-card, #restopanel .rp-card, #cookoff{
+  border-radius:var(--mp-r-lg) !important; box-shadow:var(--mp-shadow) !important;
+  overflow:hidden;
+}
+/* headers hug the rounded top */
+#menubook .mb-head, #restopanel .rp-head, #zodiac .zd-head, .shop-head, #cookoff .co-head{
+  border-radius:0 !important;
+}
+#menubook .mb-frame, #restopanel .rp-card, .shop-box{ overflow:hidden; }
+
+/* ---- buttons: chunky, rounded, springy ---- */
+.btn, .shop-btn, button, .mb-cook, .rp-buy{
+  border-radius:var(--mp-r) !important; box-shadow:var(--mp-shadow-sm) !important;
+  font-size:18px !important; padding:12px 20px !important;
+  transition:transform .08s ease, filter .12s ease, background .12s ease;
+}
+.btn:active, .shop-btn:active, button:active, .mb-cook:active, .rp-buy:active{
+  transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.2) !important;
+}
+.btn.big{ font-size:24px !important; padding:16px 34px !important; }
+/* close chips stay square-ish but softened */
+.mb-close, .rp-x, .zd-close, .co-quit{ border-radius:12px !important; }
+
+/* ---- HUD chips & pills: rounded, readable, floating ---- */
+.stat, .toast, #interact-prompt, #wisp-bubble, .spell-chip, #mission-hud, #job-tracker,
+#combo-hud, #wave-wrap, #boss-bar, #clock-wrap, #sobriety-wrap, #kills-wrap, .iconbtn,
+#gold, #gems, .inv-coin{
+  border-radius:var(--mp-r) !important; box-shadow:var(--mp-shadow-sm) !important;
+}
+.stat, #clock-wrap, #sobriety-wrap, #kills-wrap{ font-size:18px !important; }
+.iconbtn{ border-radius:16px !important; }
+#wisp-bubble{ border-radius:20px !important; font-size:18px !important; padding:14px 20px !important; max-width:min(560px,88vw); }
+#wisp-bubble.big{ font-size:21px !important; }
+.toast{ border-radius:16px !important; font-size:17px !important; padding:11px 18px !important; }
+.toast.warn{ background:#8a2d2d !important; color:#ffe1d8 !important; border:2px solid #c85a4a !important; }
+#cast-hint{ font-size:15px !important; }
+
+/* ---- the meters get soft caps ---- */
+.bar{ border-radius:12px !important; box-shadow:var(--mp-shadow-sm) !important; }
+.bar > *{ border-radius:10px !important; }
+
+/* ---- menu book: roomier, rounder cards ---- */
+#menubook .mb-card{ border-radius:14px !important; }
+#menubook .mb-pantry{ border-radius:14px !important; }
+#menubook .mb-name{ font-size:18px !important; }
+#menubook .mb-desc{ font-size:13.5px !important; }
+
+/* ---- zodiac nodes: rounded star-tiles ---- */
+#zodiac .zd-node{ border-radius:16px !important; box-shadow:var(--mp-shadow-sm) !important; }
+#zodiac .zd-node .zd-nname{ font-size:13px !important; }
+
+/* ---- restaurant management panels ---- */
+#restopanel .rp-body{ font-size:16px !important; }
+#restopanel .rp-gold{ border-radius:12px !important; }
+
+/* ================= dining-hall walk arrows + serve button ================= */
+#resto-arrows{ position:fixed; inset:auto 0 0 0; z-index:16; display:flex; justify-content:space-between; padding:0 14px 22px; pointer-events:none; }
+.resto-arrow{
+  pointer-events:auto; width:76px; height:76px; border-radius:50% !important;
+  font-size:44px !important; font-weight:900; line-height:1; padding:0 !important;
+  background:rgba(74,58,40,.82) !important; color:#f2e2c2 !important; border:4px solid #2e1c10 !important;
+  box-shadow:var(--mp-shadow) !important; display:flex; align-items:center; justify-content:center;
+  -webkit-user-select:none; user-select:none; touch-action:none;
+}
+.resto-arrow:active{ background:#7e4a2a !important; transform:translateY(3px); }
+#btn-resto-serve{
+  position:fixed; right:16px; bottom:120px; z-index:17; pointer-events:auto;
+  font-size:22px !important; padding:16px 26px !important; border-radius:20px !important;
+  background:var(--pk-green,#4fae52) !important; color:#fff !important; border:4px solid var(--pk-green-d,#2e7a38) !important;
+  box-shadow:var(--mp-shadow) !important; display:flex; align-items:center; gap:8px;
+}
+#btn-resto-serve .pix{ width:26px; height:26px; }
+
+/* ================= 3D COOK-OFF overlay ================= */
+#cookoff.cook3d{
+  position:fixed; inset:0; z-index:62; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:10px; background:rgba(10,6,4,.82); opacity:0; transition:opacity .25s;
+}
+#cookoff.cook3d.show{ opacity:1; }
+#cookoff.cook3d .co-head{
+  display:flex; align-items:center; gap:16px; width:min(660px,94vw); justify-content:space-between;
+  background:var(--pk-green,#4fae52) !important; color:#fff !important; padding:10px 16px;
+  border:3px solid var(--pk-green-d,#2e7a38) !important; border-radius:16px 16px 0 0 !important;
+}
+#cookoff.cook3d .co-title{ font-weight:900; letter-spacing:3px; font-size:22px; }
+#cookoff.cook3d .co-dish{ opacity:.95; font-weight:700; }
+#cookoff.cook3d .co-canvas3d{
+  border:4px solid #2e1c10; border-radius:0 0 18px 18px; box-shadow:var(--mp-shadow,0 10px 30px rgba(0,0,0,.4));
+  background:#1a120c; display:block; image-rendering:auto;
+}
+#cookoff.cook3d .co-phase{
+  position:absolute; top:15%; font-family:var(--font-head,sans-serif); font-weight:900; font-size:40px; letter-spacing:5px;
+  color:#fff4dc; text-shadow:0 3px 0 #6b3d00, 0 0 24px rgba(255,180,80,.6) !important; pointer-events:none;
+}
+#cookoff.cook3d .co-hint{
+  position:absolute; bottom:12%; font-size:17px; font-weight:800; color:#ffe9c4; background:rgba(40,24,12,.7);
+  padding:8px 18px; border-radius:14px; pointer-events:none;
+}
+#cookoff.cook3d .co-meter{
+  position:absolute; right:calc(50% - min(330px,47vw) - 6px); top:32%; width:34px; height:210px;
+  background:#0e0a08; border:3px solid #2e1c10; border-radius:12px; overflow:hidden; display:none;
+}
+#cookoff.cook3d .co-band{ position:absolute; left:0; right:0; background:rgba(255,215,106,.35); }
+#cookoff.cook3d .co-fill{ position:absolute; left:2px; right:2px; bottom:0; height:0%; background:#ff7a4a; border-radius:8px; transition:height .05s linear; }
+#cookoff.cook3d .co-quit{
+  width:36px; height:36px; padding:0 !important; font-size:16px !important; background:#2e3a52 !important;
+  border:3px solid #1c2436 !important; color:#fff !important; border-radius:12px !important;
+}
+#cookoff.cook3d.co-done .co-hint{ display:none; }
+@media (max-width:560px){
+  #cookoff.cook3d .co-phase{ font-size:30px; }
+  #cookoff.cook3d .co-meter{ right:8px; }
+}

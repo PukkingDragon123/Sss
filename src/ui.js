@@ -132,7 +132,7 @@ export class UI {
       ctx.drawImage(c, x - size / 2, y - size / 2, size, size);
     });
     this.el.btnStart.addEventListener('click', () => { game.audio.resume(); game.audio.play('click'); this.showSlots(); });
-    this.el.btnAgain.addEventListener('click', () => { game.audio.play('click'); this.wipe('iris', () => game.enterTavern()); });
+    this.el.btnAgain.addEventListener('click', () => { game.audio.play('click'); this.wipe('iris', () => game.enterResto()); });
     this.el.btnHow.addEventListener('click', () => { game.audio.play('click'); this.el.howto.classList.toggle('hidden'); });
     this.el.btnHowClose.addEventListener('click', () => { game.audio.play('click'); this.el.howto.classList.add('hidden'); });
     this.el.btnSettings.addEventListener('click', () => { game.audio.resume(); game.audio.play('click'); this.showSettings(); });
@@ -161,6 +161,18 @@ export class UI {
     const btnZod = document.getElementById('btn-zodiac');
     if (btnZod) { this.el.btnZodiac = btnZod; btnZod.addEventListener('click', () => { if (inService()) return; game.audio.play('click'); this._zd ? this.hideZodiac() : this.showZodiac(game); }); }
     if (this.el.btnInv) this.el.btnInv.addEventListener('click', () => { game.audio.play('click'); this.openInventory(game); });
+    // dining-hall walk arrows: hold to move (feeds game._restoNudge)
+    const wireArrow = (el, dir) => {
+      if (!el) return;
+      const down = (e) => { e.preventDefault(); game._restoNudge = dir; };
+      const up = () => { if (game._restoNudge === dir) game._restoNudge = 0; };
+      el.addEventListener('pointerdown', down); el.addEventListener('pointerup', up);
+      el.addEventListener('pointerleave', up); el.addEventListener('pointercancel', up);
+    };
+    wireArrow(document.getElementById('resto-left'), -1);
+    wireArrow(document.getElementById('resto-right'), 1);
+    const bServe = document.getElementById('btn-resto-serve');
+    if (bServe) { this.el.btnRestoServe = bServe; bServe.addEventListener('click', () => { game.audio.play('click'); game.interact(); }); }
     if (this.el.qpClose) this.el.qpClose.addEventListener('click', () => { game.audio.play('click'); this.el.questPanel.classList.remove('show'); });
     if (this.el.questPanel) this.el.questPanel.addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]'); if (!b) return;
@@ -385,6 +397,10 @@ export class UI {
     if (this.el.btnDrink) this.el.btnDrink.classList.toggle('hidden', !arena); // drink only in the fight
     if (this.el.drinkBar && !arena) this.el.drinkBar.classList.add('hidden');
     if (this.el.btnBuild) this.el.btnBuild.classList.toggle('hidden', !room);  // build only in your room
+    // dining-hall walk arrows: shown whenever you're in the restaurant
+    const arrows = document.getElementById('resto-arrows');
+    if (arrows) arrows.classList.toggle('hidden', !resto);
+    if (this.el.btnRestoServe) this.el.btnRestoServe.classList.toggle('hidden', true); // shown only during service (game toggles it)
     if (this.el.abilityTray) this.el.abilityTray.classList.toggle('hidden', !arena || !this.el.abilityTray.innerHTML);
     if (this.el.drunkWrap) this.el.drunkWrap.classList.toggle('hidden', !arena);
     if (!arena) this.hideCombo();   // never let the combo counter linger outside a fight
@@ -995,9 +1011,197 @@ export class UI {
     if (this._ct) { this._ct.remove(); this._ct = null; }
   }
 
+  // ===== 3D COOKING-MAMA: a real little kitchen scene rendered in THREE —
+  // CHOP the ingredient, SIZZLE it to a golden brown, PLATE it with a flourish.
+  // Returns true if it spun up; false (so the caller falls back to 2D) if WebGL
+  // couldn't start. Contract: onDone(score 0..1) once; ✕ → onDone(0). =====
+  _showCookOff3D(game, recipe, onDone) {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const ing = Object.keys(recipe.needs || {})[0];
+    const tintHex = { boarmeat: 0xc05a4a, lizardtail: 0x6aa050, slimejelly: 0x4ad0a8, shroomcap: 0xd8465e,
+      hydrawing: 0xd8905a, chamflank: 0x9a6ad0, whaleblub: 0x8fb6d0, batwing: 0x8c6fb8, wildherb: 0x6ab04a }[ing] || 0xc9704a;
+    const ov = document.createElement('div'); ov.id = 'cookoff'; ov.className = 'cook3d';
+    ov.innerHTML = `
+      <div class="co-head"><span class="co-title">COOK-OFF</span><span class="co-dish">${recipe.icon || ''} ${recipe.name}</span><button class="btn co-quit">✕</button></div>
+      <canvas class="co-canvas3d"></canvas>
+      <div class="co-phase"></div>
+      <div class="co-hint"></div>
+      <div class="co-meter"><div class="co-band"></div><div class="co-fill"></div></div>`;
+    document.body.appendChild(ov);
+    const cv = ov.querySelector('.co-canvas3d');
+    const W = Math.min(660, window.innerWidth - 28), H = Math.max(240, Math.min(420, Math.round(window.innerHeight * 0.5)));
+    cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    let renderer;
+    try { renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true }); }
+    catch (e) { ov.remove(); return false; }
+    if (!renderer) { ov.remove(); return false; }
+    renderer.setPixelRatio(dpr); renderer.setSize(W, H, false);
+    const scene = new THREE.Scene();
+    const cam = new THREE.PerspectiveCamera(42, W / H, 0.1, 100);
+    cam.position.set(0, 3.9, 5.6); cam.lookAt(0, 0.3, -0.1);
+    scene.add(new THREE.HemisphereLight(0xfff2e0, 0x2a2018, 1.05));
+    const key = new THREE.DirectionalLight(0xfff0d2, 1.5); key.position.set(3.4, 7, 4.5); scene.add(key);
+    const warm = new THREE.PointLight(0xffb060, 0.8, 22); warm.position.set(-2.6, 3, 2.4); scene.add(warm);
+    const disposables = [];
+    const M = (c, r = 0.82, m = 0, e = 0) => { const mat = new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m, emissive: e, emissiveIntensity: e ? 0.9 : 0, flatShading: true }); disposables.push(mat); return mat; };
+    const geo = (g) => { disposables.push(g); return g; };
+    const glowMat = (c) => { const mat = new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }); disposables.push(mat); return mat; };
+    // ---- kitchen dressing ----
+    const counter = new THREE.Mesh(geo(new THREE.BoxGeometry(14, 0.7, 7)), M(0x6a4a2c, 0.9)); counter.position.y = -0.35; scene.add(counter);
+    const wall = new THREE.Mesh(geo(new THREE.BoxGeometry(14, 7, 0.4)), M(0x9a7250, 0.95)); wall.position.set(0, 3, -3.2); scene.add(wall);
+    for (let i = -2; i <= 2; i++) { const tile = new THREE.Mesh(geo(new THREE.BoxGeometry(2.2, 2.2, 0.1)), M(i % 2 ? 0xa88058 : 0xb89060, 0.9)); tile.position.set(i * 2.4, 2.4, -2.98); scene.add(tile); }
+    const board = new THREE.Mesh(geo(new THREE.BoxGeometry(4.4, 0.26, 2.7)), M(0xcaa06a, 0.7)); board.position.set(0, 0.13, 0.3); scene.add(board);
+    // ---- actors, reused across phases ----
+    const food = new THREE.Mesh(geo(new THREE.CapsuleGeometry(0.62, 1.9, 6, 12)), M(tintHex, 0.6)); food.rotation.z = Math.PI / 2; food.position.set(0, 0.55, 0.3); scene.add(food);
+    const knife = new THREE.Group();
+    const blade = new THREE.Mesh(geo(new THREE.BoxGeometry(0.1, 0.9, 1.5)), M(0xd6dde4, 0.25, 0.7)); blade.position.y = -0.45; knife.add(blade);
+    const handle = new THREE.Mesh(geo(new THREE.BoxGeometry(0.16, 0.7, 0.22)), M(0x4a2f1a, 0.7)); handle.position.y = 0.35; knife.add(handle);
+    knife.position.set(-1.4, 1.7, 0.3); scene.add(knife);
+    const pan = new THREE.Group();
+    const panBody = new THREE.Mesh(geo(new THREE.CylinderGeometry(1.5, 1.35, 0.3, 22)), M(0x2a2632, 0.4, 0.6)); pan.add(panBody);
+    const panHandle = new THREE.Mesh(geo(new THREE.BoxGeometry(2.4, 0.18, 0.28)), M(0x1a1622, 0.5, 0.4)); panHandle.position.set(2.3, 0.02, 0); pan.add(panHandle);
+    pan.position.set(0, 0.3, 0.3); pan.visible = false; scene.add(pan);
+    const plate = new THREE.Mesh(geo(new THREE.CylinderGeometry(1.7, 1.5, 0.16, 26)), M(0xf0ead8, 0.45)); plate.position.set(0, 0.24, 0.3); plate.visible = false; scene.add(plate);
+    const ring = new THREE.Mesh(geo(new THREE.TorusGeometry(1.2, 0.06, 8, 32)), glowMat(0xffd76a)); ring.rotation.x = -Math.PI / 2; ring.position.set(0, 0.5, 0.3); ring.visible = false; scene.add(ring);
+    // ---- juice pops ----
+    const pops = [];
+    const popGeo = geo(new THREE.BoxGeometry(0.16, 0.16, 0.16));
+    const spawnPops = (pos, color, n = 10, up = 4) => {
+      for (let i = 0; i < n; i++) {
+        const m = new THREE.Mesh(popGeo, glowMat(color));
+        m.position.copy(pos); scene.add(m);
+        pops.push({ m, vx: (Math.random() - 0.5) * 4, vy: up + Math.random() * 3, vz: (Math.random() - 0.5) * 4, life: 0.7 });
+      }
+    };
+    // ---- phase machine ----
+    const phaseLbl = ov.querySelector('.co-phase'), hintLbl = ov.querySelector('.co-hint');
+    const meter = ov.querySelector('.co-meter'), fill = ov.querySelector('.co-fill'), band = ov.querySelector('.co-band');
+    band.style.bottom = '55%'; band.style.height = '30%';
+    const names = ['CHOP!', 'SIZZLE!', 'PLATE!'];
+    const s = { phase: 0, t: 0, scores: [], chop: { taps: 0, hits: 0, kAnim: 0 }, sizzle: { heat: 0, inBand: 0, dur: 5, done: 0 }, plate: { r: 1.4, round: 0, score: 0 } };
+    let held = false, done = false, raf = 0, last = performance.now(), torn = false, shake = 0;
+    const setPhaseUI = () => {
+      phaseLbl.textContent = names[s.phase];
+      meter.style.display = s.phase === 1 ? 'block' : 'none';
+      hintLbl.textContent = s.phase === 0 ? 'TAP as the knife crosses the food' : s.phase === 1 ? 'HOLD to keep the heat in the golden band' : 'TAP when the ring meets the plate';
+      if (s.phase === 1) { food.visible = true; knife.visible = false; pan.visible = true; food.position.set(0, 0.55, 0.3); food.scale.setScalar(1); food.rotation.set(Math.PI / 2, 0, 0); }
+      if (s.phase === 2) { pan.visible = false; food.visible = true; plate.visible = true; ring.visible = true; food.position.set(0, 0.4, 0.3); food.scale.setScalar(0.7); }
+    };
+    const nextPhase = (score) => {
+      s.scores.push(Math.max(0, Math.min(1, score)));
+      s.phase++; s.t = 0;
+      if (s.phase >= 3) {
+        const total = s.scores.reduce((a, b) => a + b, 0) / 3;
+        finish(total); return;
+      }
+      setPhaseUI(); if (game.audio) game.audio.play('levelup');
+    };
+    const press = () => {
+      if (done) return;
+      if (s.phase === 0) {
+        s.chop.taps++; s.chop.kAnim = 1;
+        const near = Math.abs(knife.position.x - (food.position.x)) < 0.55; // knife over the food
+        if (near) { s.chop.hits++; if (game.audio) game.audio.play('hit'); shake = 6; spawnPops(new THREE.Vector3(knife.position.x, 0.6, 0.3), tintHex, 12, 5); }
+        if (s.chop.taps >= 5) nextPhase(s.chop.hits / 5);
+      } else if (s.phase === 2) {
+        const d = Math.abs(s.plate.r - 1.15);
+        s.plate.score += Math.max(0, 1 - d * 3.5);
+        spawnPops(new THREE.Vector3((Math.random() - 0.5) * 1.6, 0.6, 0.3), 0xb9ff7a, 8, 3); if (game.audio) game.audio.play('click');
+        s.plate.round++; s.plate.r = 1.4;
+        if (s.plate.round >= 3) nextPhase(s.plate.score / 3);
+      }
+    };
+    const onDown = (e) => { if (e.target.closest('.co-quit')) return; held = true; press(); e.preventDefault(); };
+    const onUp = () => { held = false; };
+    const onKey = (e) => { const k = e.key.toLowerCase(); if (k === 'e' || k === ' ' || k === 'enter') { if (!e.repeat) press(); held = true; e.preventDefault(); } };
+    const onKeyUp = (e) => { const k = e.key.toLowerCase(); if (k === 'e' || k === ' ' || k === 'enter') held = false; };
+    cv.addEventListener('pointerdown', onDown); window.addEventListener('pointerup', onUp);
+    window.addEventListener('keydown', onKey); window.addEventListener('keyup', onKeyUp);
+    const cleanup = () => { cv.removeEventListener('pointerdown', onDown); window.removeEventListener('pointerup', onUp); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp); };
+    const teardown = () => {
+      if (torn) return; torn = true;
+      cancelAnimationFrame(raf); cleanup();
+      for (const p of pops) scene.remove(p.m);
+      for (const d of disposables) { if (d.dispose) d.dispose(); }
+      try { renderer.dispose(); renderer.forceContextLoss && renderer.forceContextLoss(); } catch (e) {}
+      ov.remove();
+    };
+    const quitBtn = ov.querySelector('.co-quit');
+    quitBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    this._coAbort = () => { if (this._coTimer) { clearTimeout(this._coTimer); this._coTimer = null; } teardown(); this._coAbort = null; };
+    quitBtn.onclick = () => { if (done) return; done = true; const ab = this._coAbort; if (ab) ab(); onDone(0); };
+    const finish = (total) => {
+      if (done) return; done = true;
+      ov.classList.add('co-done');
+      phaseLbl.textContent = total >= 0.85 ? '✨ MASTERFUL! ✨' : total >= 0.6 ? '😋 Delicious!' : '💨 A bit rough…';
+      hintLbl.textContent = '';
+      if (game.audio) game.audio.play(total >= 0.6 ? 'win' : 'hurt');
+      spawnPops(new THREE.Vector3(0, 1, 0.3), total >= 0.6 ? 0xffd76a : 0x8a6a4a, 26, 6);
+      this._coTimer = setTimeout(() => { this._coTimer = null; this._coAbort = null; teardown(); onDone(total); }, 1300);
+    };
+    setPhaseUI();
+    const loop = (now) => {
+      if (done && !this._coTimer) { return; }
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      s.t += dt; shake = Math.max(0, shake - dt * 30);
+      // per-phase sim
+      if (!done) {
+        if (s.phase === 0) {
+          knife.position.x = Math.sin(s.t * 3.2) * 1.5;
+          s.chop.kAnim = Math.max(0, s.chop.kAnim - dt * 4);
+          knife.position.y = 1.7 - (1 - Math.pow(1 - s.chop.kAnim, 2)) * 1.0; // chop down-bob
+          knife.rotation.z = s.chop.kAnim * 0.3;
+          food.scale.x = 1 - s.chop.hits * 0.13; // the log shortens as it's sliced
+        } else if (s.phase === 1) {
+          const z = s.sizzle;
+          z.heat += (held ? 1.5 : -1.1) * dt; z.heat = Math.max(0, Math.min(1, z.heat));
+          const inBand = z.heat > 0.55 && z.heat < 0.85;
+          if (inBand) z.inBand += dt;
+          z.dur -= dt;
+          fill.style.height = (z.heat * 100).toFixed(0) + '%';
+          fill.style.background = inBand ? '#ffd76a' : '#ff7a4a';
+          // brown the patty as it cooks
+          const cook = Math.min(1, z.inBand / 3);
+          food.material.color.lerpColors(new THREE.Color(tintHex), new THREE.Color(0x6a3a1e), cook);
+          if (inBand && Math.random() < 0.35) spawnPops(new THREE.Vector3((Math.random() - 0.5) * 1.5, 0.55, 0.3), 0xffb35a, 2, 3);
+          pan.position.y = 0.3 + Math.sin(s.t * 20) * (held ? 0.04 : 0.01);
+          if (z.dur <= 0) nextPhase(Math.min(1, z.inBand / 3));
+        } else if (s.phase === 2) {
+          s.plate.r -= dt * 0.85;
+          if (s.plate.r < 0.25) { s.plate.round++; s.plate.r = 1.4; if (s.plate.round >= 3) nextPhase(s.plate.score / 3); }
+          ring.scale.setScalar(Math.max(0.05, s.plate.r));
+          food.rotation.y += dt * 1.5;
+        }
+      }
+      // pops
+      for (let i = pops.length - 1; i >= 0; i--) {
+        const p = pops[i]; p.life -= dt;
+        if (p.life <= 0) { scene.remove(p.m); pops.splice(i, 1); continue; }
+        p.vy -= 12 * dt; p.m.position.x += p.vx * dt; p.m.position.y += p.vy * dt; p.m.position.z += p.vz * dt;
+        p.m.material.opacity = Math.max(0, p.life / 0.7); p.m.rotation.x += dt * 8;
+      }
+      cam.position.x = Math.sin(shake) * 0.05 * shake; cam.lookAt(0, 0.3, -0.1);
+      renderer.render(scene, cam);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    void ov.offsetWidth; ov.classList.add('show');
+    return true;
+  }
+
   // ===== COOK-OFF: the Cooking-Mama practice minigame — CHOP! SIZZLE! SEASON! =====
   // A full-screen canvas with three juicy phases; onDone(score 0..1).
+  // Entry point: try the juicy 3D cooking-mama scene; fall back to the 2D canvas
+  // minigame if a WebGL context can't be spun up. Same contract either way:
+  // onDone(score in [0,1]) fires exactly once; ✕ quit → onDone(0); this._coAbort
+  // is a silent teardown (no onDone) for closeModals/scene changes.
   showCookOff(game, recipe, onDone) {
+    try {
+      if (this._showCookOff3D(game, recipe, onDone)) return;
+    } catch (e) { /* fall through to the trusty 2D version */ }
+    this._showCookOff2D(game, recipe, onDone);
+  }
+  _showCookOff2D(game, recipe, onDone) {
     const ov = document.createElement('div'); ov.id = 'cookoff';
     ov.innerHTML = `<div class="co-head"><span class="co-title">COOK-OFF</span><span class="co-dish">${recipe.icon} ${recipe.name}</span><button class="btn co-quit">✕</button></div>
       <canvas class="co-canvas"></canvas><div class="co-phase"></div>`;
@@ -1450,12 +1654,17 @@ export class UI {
     setTimeout(() => chip.classList.remove('flash'), 160);
   }
 
-  toast(text) {
+  // Notifications are quiet now: routine info is spoken by the WISP (its bubble
+  // pops out and tells you). Only warnings — or messages explicitly forced —
+  // surface as a chip. Pass { warn:true } for a red alert, { force:true } to
+  // guarantee a chip regardless.
+  toast(text, opts = {}) {
+    if (!opts.warn && !opts.force && this.el.wispBubble) { this.wispSay(text, { ms: opts.ms || 2400 }); return; }
     const t = document.createElement('div');
-    t.className = 'toast';
+    t.className = 'toast' + (opts.warn ? ' warn' : '');
     t.innerHTML = pixify(text, 'sm');
     this.el.toastArea.appendChild(t);
-    setTimeout(() => t.remove(), 1700);
+    setTimeout(() => t.remove(), opts.warn ? 2400 : 1700);
   }
 
   // a quick spray of little DOM motes (sparkle / bubble / fire / gem) at an element or {x,y}
@@ -1552,7 +1761,7 @@ export class UI {
   // tone:'warn' tints the edge red; big:true makes the wisp "zoom in" with a bigger pop for key tips.
   wispSay(text, opts = {}) {
     const { ms = 2600, tone = 'tip', big = false } = opts;
-    const b = this.el.wispBubble; if (!b) { this.toast(text); return; }
+    const b = this.el.wispBubble; if (!b) { this.toast(text, { force: true }); return; }
     this.el.wispText.innerHTML = pixify(text, 'sm');
     b.classList.toggle('warn', tone === 'warn');
     b.classList.toggle('big', !!big);
@@ -1682,7 +1891,7 @@ export class UI {
       ${info.artifact ? `<div class="end-artifact">✦ Artifact: <b>${info.artifact}</b></div>` : ''}
       <div class="loot-box"><div class="loot-row loot-total"><span>Gems won</span><b>+${info.earnedGems} ${iconImg('💎', {}, 'sm')}</b></div></div>
       ${(() => { const up = meta.nextGoals ? meta.nextGoals() : []; return up.length ? `<div class="end-next">▸ ${pixify(up[0].text, 'sm')}</div>` : ''; })()}`;
-    this.el.btnAgain.textContent = '▸ Tavern';
+    this.el.btnAgain.textContent = '▸ Restaurant';
     this.el.end.classList.remove('hidden');
   }
 

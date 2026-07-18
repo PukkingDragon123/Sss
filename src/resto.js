@@ -191,7 +191,7 @@ export class Resto {
     if (id === 'kitchen') this._panelKitchen();
     else if (id === 'book') this._panelBook();
     else if (id === 'bell') this._panelBell();
-    else if (id === 'door') this.game.exitResto();
+    else if (id === 'door') this.game.openWorldMap(); // the door heads out to hunt ingredients
     else if (id.startsWith('plot:')) this._panelPlot(id.slice(5));
   }
 
@@ -279,9 +279,11 @@ export class Resto {
     const covers = 3 + this.ownedPlots().length * 2;
     this.svc = { covers, seated: [], queue: [], cooking: null, cookT: 0, cookMax: 1, ready: [], carrying: [], served: 0, walked: 0, earned: 0, spawnT: 1.0, endT: 0, done: false };
     g.audio.play('levelup');
-    g.ui.wispSay('🔔 We are OPEN! I cook, you carry — grab plates at the pass (E) and match the orders!', { ms: 5200 });
-    g.ui.showJob('🍽 Service Night', 'the wisp cooks · YOU serve · E = pick up / serve');
+    g.ui.wispSay('🔔 We are OPEN! I cook, you carry — grab plates at the pass and match the orders!', { ms: 5200 });
+    g.ui.showJob('🍽 Service Night', 'the wisp cooks · YOU serve');
     g.ui.updateJob(0, covers);
+    if (g.ui.el.btnRestoServe) g.ui.el.btnRestoServe.classList.remove('hidden'); // the big SERVE button
+    const arrows = document.getElementById('resto-arrows'); if (arrows) arrows.classList.remove('hidden');
   }
   endService(early) {
     const g = this.game, sv = this.svc;
@@ -291,8 +293,10 @@ export class Resto {
     this.mode = 'manage';
     g.state = 'resto';
     g.input.pointMode = true;
+    g._restoNudge = 0;
     g.wizard.setVisible(false);
     g.ui.hideJob();
+    if (g.ui.el.btnRestoServe) g.ui.el.btnRestoServe.classList.add('hidden'); // serve button is service-only
     if (sv) g.ui.toast(early ? `🔔 Closed early — ${sv.earned} g earned.` : `🌙 A fine night! ${sv.served}/${sv.covers} served · ${sv.earned} g earned.`);
     if (!early && sv && sv.served >= sv.covers && g.audio) g.audio.play('win');
   }

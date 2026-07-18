@@ -308,6 +308,7 @@ export class Game {
       new THREE.MeshBasicMaterial({ color: 0x6f5fd0, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false })
     );
     this.reticle.rotation.x = -Math.PI / 2; this.reticle.position.y = 0.05;
+    this.reticle.visible = false; // aim-circle removed — you aim by dragging the glyph
     G.add(this.reticle);
   }
 
@@ -376,7 +377,7 @@ export class Game {
     //    forest/cave/graveyard wall instead of vanishing into the haze.
     //  - inside(): foliage sprinkled across the playfield. CRUCIAL: it only sets
     //    x/z and PRESERVES the y the build() chose, so nothing gets buried at 0.
-    const DENSITY = 0.85; // a denser, wilder wood (the escort road keeps it readable)
+    const DENSITY = 0.62; // a calmer, less-cluttered wood (the escort road stays the focus)
     const place = (o, x, z, jitterY) => { o.position.set(x, o.position.y + (jitterY || 0) + this._groundHeight(x, z), z); o.rotation.y = Math.random() * 6.28; grp.add(o); };
     const treeLine = (build, count = 64) => {
       count = Math.round(count * DENSITY);
@@ -497,7 +498,7 @@ export class Game {
     });
 
     // ambient wildlife suited to the biome — kept sparse so it feels alive, not crowded
-    if (this.critters) this.critters.populate(BIOME_CRITTERS[kind] || null, kind === 'trees' ? 5 : 3);
+    if (this.critters) this.critters.populate(BIOME_CRITTERS[kind] || null, kind === 'trees' ? 2 : 1); // fewer animals roaming the scene
   }
 
   // addon-free image-based lighting: bake a tiny gradient sky + a couple of bright
@@ -818,19 +819,42 @@ export class Game {
       const c = this._corpses[i];
       c.phase += dt; c.t += dt;
       if (c.noPick > 0) c.noPick -= dt;
-      c.mesh.position.y = Math.abs(Math.sin(c.phase * 2)) * 0.06 + this._groundHeight(c.mesh.position.x, c.mesh.position.z);
-      c.halo.material.opacity = 0.35 + Math.abs(Math.sin(c.phase * 2.4)) * 0.3;
+      // ingredients FLOAT in the air on a little cushion of light — a clear "come grab me"
+      const gy = this._groundHeight(c.mesh.position.x, c.mesh.position.z);
+      c.mesh.position.y = gy + 0.75 + Math.sin(c.phase * 2) * 0.16;
+      c.mesh.rotation.y += dt * 0.9;
+      c.halo.material.opacity = 0.45 + Math.abs(Math.sin(c.phase * 2.4)) * 0.35;
       const dx = w.pos.x - c.mesh.position.x, dz = w.pos.z - c.mesh.position.z;
-      if (c.noPick <= 0 && dx * dx + dz * dz < 1.5 * 1.5) {
-        // scoop it up — onto the carry stack (capped: a wizard can only haul so much)
-        if (w.carryStack.length >= this.carryCap()) { if (!this._carryWarnT || this.elapsed - this._carryWarnT > 3) { this._carryWarnT = this.elapsed; this.ui.toast('🎒 Arms full! Haul your ingredients to the CARAVAN.'); } continue; }
-        w.addCarry(c.ing, c.mesh.children[0].material.color.getHex());
-        this.audio.play('xp');
-        this.particles.burst({ pos: c.mesh.position.clone().setY(0.5), color: 0xffd98a, count: 8, speed: 3, size: 0.2, life: 0.5, blend: 'add' });
-        this.ui.castWord && this.ui.castWord(INGREDIENTS[c.ing].name, { color: '#ffd98a' });
-        this._disposeCorpse(c); this._corpses.splice(i, 1);
-      }
+      if (c.noPick <= 0 && dx * dx + dz * dz < 1.6 * 1.6) this._scoopCorpse(i);
     }
+  }
+  // pull one floating ingredient into the wizard's arms (walk-over OR click)
+  _scoopCorpse(i) {
+    const c = this._corpses[i]; if (!c) return false;
+    const w = this.wizard;
+    if (w.carryStack.length >= this.carryCap()) {
+      if (!this._carryWarnT || this.elapsed - this._carryWarnT > 3) { this._carryWarnT = this.elapsed; this.ui.wispSay('🎒 Arms full — haul these to the caravan!', { tone: 'warn' }); }
+      return false;
+    }
+    w.addCarry(c.ing, c.mesh.children[0].material.color.getHex());
+    this.audio.play('xp');
+    this.particles.burst({ pos: c.mesh.position.clone(), color: 0xffd98a, count: 10, speed: 3, size: 0.2, life: 0.5, blend: 'add' });
+    this.ui.castWord && this.ui.castWord(INGREDIENTS[c.ing].name, { color: '#ffd98a' });
+    this._disposeCorpse(c); this._corpses.splice(i, 1);
+    return true;
+  }
+  // click/tap an airborne ingredient to grab it from afar
+  _clickCorpse(ndc) {
+    if (!this._corpses || !this._corpses.length) return false;
+    this._ray.setFromCamera(ndc, this.camera);
+    let bestI = -1, bestD = 1e9;
+    for (let i = 0; i < this._corpses.length; i++) {
+      const c = this._corpses[i]; if (c.noPick > 0) continue;
+      const hits = this._ray.intersectObject(c.mesh, true);
+      if (hits.length && hits[0].distance < bestD) { bestD = hits[0].distance; bestI = i; }
+    }
+    if (bestI >= 0) return this._scoopCorpse(bestI);
+    return false;
   }
   _disposeCorpse(c) {
     c.mesh.traverse(o => { if (o.isMesh) { o.geometry.dispose(); if (o.material && !o.material.userData?.keep) { if (o.material.map && !o.material.map.userData?.keep) o.material.map.dispose(); o.material.dispose(); } } });
@@ -1620,9 +1644,9 @@ export class Game {
       this.cine.play('legend', () =>
         this.cine.play('wisp', () => { meta.setIntroSeen(); this._introRun = true; this.enterArena(STAGES.forest); })); // mark seen only once it's actually played through
     } else {
-      // already seen the opening (or returning) — drop straight into the tavern hub
+      // already seen the opening (or returning) — drop straight into the dining hall (the hub)
       this._opened = true;
-      this.enterTavern();
+      this.enterResto();
     }
   }
 
@@ -1719,13 +1743,15 @@ export class Game {
   }
 
   // ---- THE DINING HALL: the side-scrolling 2.5D restaurant scene ----
-  enterResto() {
+  // THE DINING HALL is the whole game's home now — every run and result returns here.
+  enterResto(firstVisit) {
     this.phase = 'resto'; this.state = 'resto';
     this._setPixel('menu');
-    this.nearStation = null;
+    this.nearStation = null; this._restoNudge = 0; this.camYaw = 0;
     this.ui.closeModals();
     this.tavern.show(false); this.tavern.showRoom(false);
     this.arenaGroup.visible = false; this.world.show(false);
+    if (this.levelMap && this.levelMap.show) this.levelMap.show(false);
     this.resto.build();
     this.resto.mode = 'manage';
     this.resto.show(true);
@@ -1734,19 +1760,21 @@ export class Game {
     this.ui.setPhase('resto', this.input.isTouch);
     this.ui.setScreen('play');
     this.ui.hideJob(); this.ui.updatePrompt(null, false);
+    this.ui.fadeBlack(false);
+    this.ui.setGold(meta.gold()); if (this.ui.setGems) this.ui.setGems(meta.gems());
     this.resto.camX = 4;
     this.camera.position.set(4, 6.8, 13.5); this.camera.lookAt(4, 2.6, 0);
     // warm interior grade for the dining hall
     this.scene.background.setHex(0x1a120c); this.scene.fog.color.setHex(0x1a120c); this.scene.fog.density = 0.004;
     this.audio.play('click');
-    this.ui.toast('🏮 Your dining hall — tap around to build it up. The BELL opens for the night; the DOOR heads back.');
+    document.body.classList.remove('paused');
+    this.ui.wispSay(firstVisit
+      ? '🏮 Welcome home, chef! Tap tables to build, the book for the menu & magic, the 🔔 bell to open — the 🚪 door heads out to hunt.'
+      : '🏮 The dining hall. Build it up, or ring the 🔔 to open for the night. The 🚪 door heads out to hunt ingredients.', { ms: 4600 });
   }
+  // ESC / pause out of the resto steps back to the hunt map (the resto IS the hub)
   exitResto() {
-    if (this.resto.svc) this.resto.endService(true);
-    this.resto.closePanel();
-    this.resto.show(false);
-    this.input.pointMode = false;
-    this.enterTavern();
+    this.openWorldMap();
   }
 
   _openShop(kind) { this._shopKind = kind; this.state = 'menu'; this.ui.openShop(kind, this); }
@@ -1801,6 +1829,11 @@ export class Game {
   // ---- the 3D top-down WORLD MAP: scout a region, then venture straight in ----
   openWorldMap() {
     this.phase = 'world'; this.state = 'world'; this._worldDive = false; this._setPixel('menu');
+    // tear the dining hall down cleanly — the DOOR (and ESC) reach the hunt map through here
+    if (this.resto) { if (this.resto.svc) this.resto.endService(true); this.resto.closePanel(); this.resto.show(false); }
+    if (this.ui.el.btnRestoServe) this.ui.el.btnRestoServe.classList.add('hidden');
+    const arrows = document.getElementById('resto-arrows'); if (arrows) arrows.classList.add('hidden');
+    this._restoNudge = 0;
     this.world.refresh((id) => this._stageUnlocked(id), (id) => meta.stageCleared(id));
     this.tavern.show(false); this.tavern.showRoom(false); this.arenaGroup.visible = false;
     this.world.show(true);
@@ -1855,7 +1888,7 @@ export class Game {
     this._worldSel = id; this.world.select(id); this._worldDive = true; this.audio.play('jobDone');
     setTimeout(() => { this._worldDive = false; this.ui.wipe('iris', () => this.openRegionMap(id)); }, 820);
   }
-  closeWorldMap() { this.ui.hideWorldHud(); this.world.show(false); this.input.pointMode = false; this.enterTavern(); }
+  closeWorldMap() { this.ui.hideWorldHud(); this.world.show(false); this.input.pointMode = false; this.enterResto(); }
   openBuild() { if (this.state === 'play' && this.phase === 'room') { this.audio.play('click'); this._openShop('build'); } }
   // ---- in-world building: the ROOM is the grid. Hover the floor to preview a hologram of
   // the selected piece snapped to a cell; click to place; rotate before placing. ----
@@ -1981,7 +2014,7 @@ export class Game {
     this._shopKind = null;
     if (this.ui.closeShop) this.ui.closeShop();
     if (this.ui.el.questPanel) this.ui.el.questPanel.classList.remove('show');
-    this.cine.play('deed', () => this.enterTavern());
+    this.cine.play('deed', () => this.enterResto());
   }
   startRun(stageId) { this._shopKind = null; this.beginRun(stageId); }
   closeShop() {
@@ -2131,7 +2164,7 @@ export class Game {
     meta.addGear(first); meta.equipGear(first.id); meta.save();
     this._giftGear = first;
     this.state = 'blackout'; this.ui.fadeBlack(true); this.audio.play('win');
-    setTimeout(() => this.cine.play('noone', () => { this.enterTavern(); if (this.ui.showGoalSplash) this.ui.showGoalSplash(); }), 900);
+    setTimeout(() => this.cine.play('noone', () => { this.enterResto(true); if (this.ui.showGoalSplash) this.ui.showGoalSplash(); }), 900);
   }
 
   // ---- run path: a left/right fork before each step. Nodes are typed
@@ -2279,7 +2312,7 @@ export class Game {
     let targetId;
     if (this._mapNodeId == null) targetId = map.startId;
     else { const cur = map.byId[this._mapNodeId]; targetId = cur && cur.next && cur.next[0]; }
-    if (!targetId) { this.ui.wipe('fade', () => this.enterTavern()); return; } // ran out of trail → home
+    if (!targetId) { this.ui.wipe('fade', () => this.enterResto()); return; } // ran out of trail → home to the hall
     this._teleTarget = targetId;
     const tnode = map.byId[targetId];
     const isBoss = tnode.type === 'boss';
@@ -2296,7 +2329,7 @@ export class Game {
   // called by the slot UI on LAUNCH with the rolled result {encounter, twistIdx, bounty}
   resolveTeleport(result) {
     const map = this._runMap, targetId = this._teleTarget;
-    if (!map || !targetId) { this.enterTavern(); return; }
+    if (!map || !targetId) { this.enterResto(); return; }
     const tnode = map.byId[targetId];
     this._slotGimmick = result.twistIdx;
     this._slotBounty = result.bounty;
@@ -2402,7 +2435,7 @@ export class Game {
   retreatFromMap() {
     this._leaveLevelMap();
     if (this._mapNodeId == null) { this.openWorldMap(); }   // hadn't started — back to the realm map
-    else { this._runMap = null; this._mapNodeId = null; this.audio.play('click'); this.ui.wipe('fade', () => this.enterTavern()); } // give up the run — clean fade home
+    else { this._runMap = null; this._mapNodeId = null; this.audio.play('click'); this.ui.wipe('fade', () => this.enterResto()); } // give up the run — clean fade home to the hall
   }
   choosePath(i) {
     if (this.state !== 'path') return;
@@ -2740,6 +2773,7 @@ export class Game {
 
       if (e.type === 'drawstart') { this.gestureAim.copy(this.aimPoint); }
       else if (e.type === 'gesture') { this._resolveGesture(e.points); }
+      else if (e.type === 'primary') { this._clickCorpse(this.input.ndc); } // left-click an airborne ingredient to grab it
       else if (e.type === 'quickcast') {
         const id = this.loadout ? this.loadout[e.index] : null;
         if (id) this._castAt(id, this.aimPoint, { accuracy: 0.8 });
@@ -2748,7 +2782,14 @@ export class Game {
   }
 
   _resolveGesture(points) {
-    if (!points || points.length < 7) return;
+    // a short "tap" (too few samples for a glyph) grabs an airborne ingredient under the finger
+    if (!points || points.length < 7) {
+      if (points && points.length) {
+        const p = points[points.length - 1];
+        this._clickCorpse({ x: (p.x / window.innerWidth) * 2 - 1, y: -(p.y / window.innerHeight) * 2 + 1 });
+      }
+      return;
+    }
     const res = this.recognizer.recognize(points);
     if (res && res.score > 0.6) {
       const id = GESTURE_TO_SPELL[res.name];
@@ -2803,7 +2844,8 @@ export class Game {
   }
 
   _updateAim() {
-    this.reticle.visible = (this.state === 'play' && this.phase === 'arena');
+    if (this.reticle) this.reticle.visible = false; // no aim circle anymore — you aim by dragging
+    if (this.phase === 'resto') return;             // the dining hall drives the wizard itself
     if (this.phase === 'tavern') {
       // the wizard faces the way he's staggering
       const mv = this.moveVector();
@@ -2811,26 +2853,32 @@ export class Game {
       return;
     }
     if (this.state !== 'play') return;
-    if (this.input.drawing) {
-      // aim is locked to where you started drawing
-    } else if (this.input.isTouch) {
-      // no mouse on touch — auto-aim the nearest foe
-      const near = this.enemies.nearest(this.wizard.pos, 34);
-      if (near) this.aimPoint.set(near.mesh.position.x, 0, near.mesh.position.z);
-      else this.aimPoint.set(this.wizard.pos.x + Math.sin(this.wizard.yaw) * 6, 0, this.wizard.pos.z + Math.cos(this.wizard.yaw) * 6);
-    } else {
+    const projectNdc = () => {
       this._ray.setFromCamera(this.input.ndc, this.camera);
       const hit = new THREE.Vector3();
       if (this._ray.ray.intersectPlane(this._groundPlane, hit)) {
         hit.x = Math.max(-ARENA, Math.min(ARENA, hit.x));
         hit.z = Math.max(-ARENA, Math.min(ARENA, hit.z));
-        this.aimPoint.copy(hit);
+        return hit;
       }
+      return null;
+    };
+    if (this.input.drawing) {
+      // DRAG-TO-AIM: on touch the spell aims wherever your finger is right now (the
+      // drawing finger keeps input.ndc live); on desktop it stays where the draw began.
+      if (this.input.isTouch) {
+        const hit = projectNdc();
+        if (hit) { this.aimPoint.copy(hit); this.gestureAim.copy(hit); }
+      }
+    } else if (this.input.isTouch) {
+      // not drawing on touch — soft auto-aim the nearest foe so idle facing reads right
+      const near = this.enemies.nearest(this.wizard.pos, 34);
+      if (near) this.aimPoint.set(near.mesh.position.x, 0, near.mesh.position.z);
+      else this.aimPoint.set(this.wizard.pos.x + Math.sin(this.wizard.yaw) * 6, 0, this.wizard.pos.z + Math.cos(this.wizard.yaw) * 6);
+    } else {
+      const hit = projectNdc();
+      if (hit) this.aimPoint.copy(hit);
     }
-    const a = this.input.drawing ? this.gestureAim : this.aimPoint;
-    this.reticle.position.set(a.x, 0.05 + this._groundHeight(a.x, a.z), a.z);
-    this.reticle.material.opacity = this.input.drawing ? 1 : 0.55;
-    this.reticle.material.color.setHex(this.input.drawing ? 0xffcf5c : 0x6f5fd0);
   }
 
   // ---------- gesture trail rendering ----------
@@ -2948,6 +2996,8 @@ export class Game {
   // "up" always means "away from the camera", however the player has turned it.
   moveVector() {
     const mv = this.input.moveVector();
+    // dining-hall on-screen arrows feed straight into movement (pan in manage, run in service)
+    if (this.phase === 'resto' && this._restoNudge) mv.x = Math.max(-1, Math.min(1, mv.x + this._restoNudge));
     const y = this.camYaw || 0;
     if (!y) return mv;
     const c = Math.cos(y), s = Math.sin(y);

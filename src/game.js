@@ -1304,6 +1304,7 @@ export class Game {
     this._gustables = [];
     this._tut = null; this._tutHold = false; this._tutChug = false; // drop any tutorial gate/spotlight
     if (this.ui.wispPoint) this.ui.wispPoint(null);
+    if (this.ui) this.ui._stlSig = null; // force the next escort's timeline pips to rebuild
   }
 
   // ==== DINNER SERVICE: the Dave-the-Diver loop — side-scroll chef behind the counter,

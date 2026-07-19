@@ -1650,8 +1650,10 @@ export class UI {
   updateSnailTimeline(es) {
     const el = this.el; if (!el.snailTimeline) return;
     el.snailTimeline.classList.remove('hidden');
-    // build the fixed event markers once (obstacles + ambushes don't move along the trail)
-    const sig = es.obstacles.length + ':' + es.ambushes.length;
+    // build the fixed event markers once per TRAIL LAYOUT — key on the actual event
+    // positions (not just the count) so a fresh escort with the same number of trials
+    // still repaints its pips at the new spots.
+    const sig = es.obstacles.map(o => o.at.toFixed(3)).join(',') + '|' + es.ambushes.map(a => a.at.toFixed(3)).join(',');
     if (this._stlSig !== sig && el.stlEvents) {
       this._stlSig = sig;
       let h = '';

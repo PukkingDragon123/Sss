@@ -2356,7 +2356,7 @@ body.paused #pause-label{display:flex;}
   backdrop-filter:none !important;
 }
 /* flatten every gradient back to honest paint (scene-mood washes stay) */
-*:not(#stage-tint):not(#nausea):not(#wipe):not(#blackout), *::before, *::after{ background-image:none !important; }
+*:not(#stage-tint):not(#nausea):not(#wipe):not(#blackout):not(.story-box):not(.card):not(.card-name):not(.levelup-title), *::before, *::after{ background-image:none !important; }
 /* un-tilt the Persona-era slashes — a noticeboard hangs straight */
 #cooktime .ct-card, #cookoff .co-head, #cookoff .co-quit, #cookoff .co-canvas, #cookoff .co-phase,
 #menubook .mb-title, #menubook .mb-pantry, #menubook .mb-card, #menubook .mb-card:hover,
@@ -2852,3 +2852,99 @@ html,body{ font-size:23px; }
 #catapult.go .cp-trail{ animation:cpArc 1.6s cubic-bezier(.3,-0.2,.6,1) forwards, cpTrailFade 1.6s ease-out forwards; }
 @keyframes cpDust{ 0%{opacity:0;transform:scale(.4);} 20%{opacity:.9;transform:scale(1);} 100%{opacity:0;transform:scale(2.2);} }
 @keyframes cpTrailFade{ 0%,18%{opacity:0;} 24%{opacity:.9;} 100%{opacity:0;} }
+
+/* ===================================================================
+   REQUEST 28 — the big SNAIL TIMELINE (escort journey bar)
+   =================================================================== */
+#snail-timeline{ position:absolute; top:12px; left:50%; transform:translateX(-50%); width:min(680px,86vw); z-index:6;
+  display:flex; flex-direction:column; align-items:center; gap:7px; pointer-events:none; }
+#snail-timeline.hidden{ display:none; }
+#snail-timeline .stl-hp{ display:flex; align-items:center; gap:8px; }
+.stl-hp-label{ font-family:var(--font-head,sans-serif); font-weight:900; letter-spacing:2px; font-size:14px; color:#ffe6b0; text-shadow:0 2px 3px #000; }
+.stl-hp-track{ width:210px; height:15px; background:#2a1410; border:3px solid #3a2414; border-radius:9px; overflow:hidden; box-shadow:inset 0 0 8px rgba(0,0,0,.6); }
+.stl-hp-fill{ height:100%; width:100%; background:#5fd06a; border-radius:6px; transition:width .25s ease, background .2s; box-shadow:0 0 10px rgba(120,220,120,.5); }
+.stl-hp-fill.low{ background:#ff5a4a; box-shadow:0 0 12px rgba(255,90,74,.7); }
+.stl-track{ position:relative; width:100%; height:48px; background:#241a12; border:4px solid #3a2414; border-radius:16px;
+  box-shadow:0 8px 22px rgba(0,0,0,.5), inset 0 0 14px rgba(0,0,0,.5); }
+.stl-line{ position:absolute; left:18px; right:38px; top:50%; height:7px; transform:translateY(-50%); background:#6b5236; border-radius:4px;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.4); }
+.stl-events{ position:absolute; left:18px; right:38px; top:0; bottom:0; }
+.stl-ev{ position:absolute; top:50%; transform:translate(-50%,-50%); width:28px; height:28px; display:flex; align-items:center; justify-content:center;
+  background:#3a2a1a; border:2px solid #6a4a2c; border-radius:8px; transition:opacity .3s, filter .3s; }
+.stl-ev .stl-ico{ width:20px; height:20px; image-rendering:pixelated; }
+.stl-ev.stl-am{ border-color:#c05a4a; box-shadow:0 0 8px rgba(192,90,74,.4); }
+.stl-ev.done{ opacity:.34; filter:grayscale(1); }
+.stl-gate{ position:absolute; right:2px; top:50%; transform:translateY(-50%); font-size:26px; filter:drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
+.stl-snail{ position:absolute; top:50%; left:0; transform:translate(-50%,-50%); width:24px; height:19px; transition:left .2s linear; z-index:2;
+  background:#b0623a; border:2px solid #2a1a10; border-radius:50% 60% 55% 45%; box-shadow:0 0 12px rgba(255,210,120,.6); }
+.stl-snail::before{ content:''; position:absolute; left:-9px; top:3px; width:13px; height:11px; background:#c9a86a; border:2px solid #2a1a10; border-radius:60% 40% 40% 60%; }
+.stl-status{ font-family:var(--font-head,sans-serif); font-weight:800; letter-spacing:1px; font-size:16px; color:#ffe6b0; text-shadow:0 2px 3px #000; }
+.stl-status.warn{ color:#ff9a6a; }
+
+/* ===== REQUEST 28 — the ARCANE PORTAL warp cutscene ===== */
+#portal{ position:fixed; inset:0; z-index:62; overflow:hidden; }
+#portal .pt-void{ position:absolute; inset:0; background:#0a0818; opacity:0; transition:opacity .4s; }
+#portal.go .pt-void{ opacity:.94; }
+#portal .pt-ring{ position:absolute; inset:0; margin:auto; width:120px; height:120px; border-radius:50%; border-style:dashed; opacity:0; }
+#portal.go .pt-ring{ animation:ptRing 1.55s ease-in forwards; }
+#portal .pt-r1{ border:8px dashed #9b7bff; box-shadow:0 0 40px rgba(155,123,255,.7); }
+#portal .pt-r2{ border:6px dashed #6fd0ff; box-shadow:0 0 30px rgba(111,208,255,.6); animation-direction:reverse; }
+#portal .pt-r3{ border:4px dotted #ffd23a; }
+#portal .pt-core{ position:absolute; inset:0; margin:auto; width:22px; height:22px; border-radius:50%; background:#e8ddff; box-shadow:0 0 30px 14px rgba(155,123,255,.85); opacity:0; }
+#portal.go .pt-core{ animation:ptCore 1.55s ease-in forwards; }
+#portal .pt-wiz{ position:absolute; inset:0; margin:auto; width:92px; height:92px; }
+#portal .pt-wiz .pt-pix{ width:92px; height:92px; image-rendering:pixelated; filter:drop-shadow(0 0 12px rgba(155,123,255,.85)); }
+#portal.go .pt-wiz{ animation:ptWiz 1.55s ease-in forwards; transform-origin:center; }
+#portal .pt-word{ position:absolute; top:22%; left:0; right:0; text-align:center; font-family:var(--font-head,sans-serif); font-weight:900; font-size:44px; letter-spacing:6px; color:#e8ddff; text-shadow:0 0 20px rgba(155,123,255,.9); opacity:0; }
+#portal.go .pt-word{ animation:ptWord 1.55s ease-out forwards; }
+#portal.flash::after{ content:''; position:absolute; inset:0; background:#e8ddff; animation:cpFlash .2s ease-out; }
+@keyframes ptRing{ 0%{ transform:scale(.2) rotate(0deg); opacity:0; } 18%{ opacity:1; } 80%{ transform:scale(6) rotate(380deg); opacity:.85; } 100%{ transform:scale(11) rotate(520deg); opacity:0; } }
+@keyframes ptCore{ 0%{ transform:scale(0); opacity:0; } 30%{ transform:scale(1); opacity:1; } 75%{ transform:scale(2.6); opacity:1; } 100%{ transform:scale(9); opacity:1; } }
+@keyframes ptWiz{ 0%{ transform:translateY(60px) scale(1); opacity:0; } 26%{ transform:translateY(0) scale(1); opacity:1; } 70%{ transform:translateY(-6px) scale(.5) rotate(180deg); opacity:1; } 100%{ transform:translateY(-12px) scale(0) rotate(560deg); opacity:0; } }
+@keyframes ptWord{ 0%,14%{ opacity:0; transform:translateY(10px); } 34%{ opacity:1; transform:translateY(0); } 80%{ opacity:1; } 100%{ opacity:0; } }
+
+/* ===================================================================
+   REQUEST 28 — bring back GRADIENT / 3D / BOUNCY dialogue + skill UI
+   (.story-box / .card / .card-name / .levelup-title are exempted from
+    the global gradient ban a few thousand lines up)
+   =================================================================== */
+/* --- the level-up / skill CHOICE cards: glossy, glowing, 3D, bouncy --- */
+#levelup .levelup-title{ color:#ffe08a !important; text-shadow:0 0 18px rgba(255,207,92,.6), 0 3px 0 rgba(0,0,0,.5) !important; }
+#levelup .levelup-sub{ color:#cdb8f0 !important; text-shadow:0 2px 4px rgba(0,0,0,.6) !important; }
+#levelup .card{
+  background:linear-gradient(165deg, #453a6e 0%, #2a2148 55%, #1b1533 100%) !important;
+  border:3px solid var(--rc, #6a4ea0) !important; border-radius:18px !important;
+  box-shadow:0 14px 34px rgba(0,0,0,.55), 0 0 26px var(--rc, rgba(155,123,255,.4)), inset 0 2px 0 rgba(255,255,255,.14), inset 0 -14px 24px rgba(0,0,0,.4) !important;
+  color:#f0e8ff !important;
+}
+#levelup .card:hover{ transform:translateY(-10px) rotate(-1deg) scale(1.05) !important; box-shadow:0 22px 46px rgba(0,0,0,.6), 0 0 40px var(--rc, rgba(155,123,255,.6)), inset 0 2px 0 rgba(255,255,255,.18) !important; }
+#levelup .card .card-name{ color:#fff2c8 !important; text-shadow:0 2px 4px rgba(0,0,0,.6) !important; }
+#levelup .card .card-desc{ color:#d8cff0 !important; }
+#levelup .card .card-tag{ color:#b79bff !important; }
+#levelup .card .card-icon{ filter:drop-shadow(0 0 12px var(--rc, rgba(155,123,255,.7))) !important; }
+#levelup .card::before{ background:var(--rc, #9b7bff) !important; box-shadow:0 0 12px var(--rc, rgba(155,123,255,.6)) !important; }
+#levelup .card.card-unique{ border-color:#ffd23a !important; box-shadow:0 14px 34px rgba(0,0,0,.55), 0 0 34px rgba(255,210,58,.6), inset 0 2px 0 rgba(255,255,255,.2) !important; }
+
+/* --- the DIALOGUE box: a polished, glowing arcane panel --- */
+.story-box{
+  background:linear-gradient(180deg, #322a52 0%, #211a3a 60%, #17122c 100%) !important;
+  border:3px solid #6a4ea0 !important; border-radius:20px !important;
+  box-shadow:0 18px 44px rgba(0,0,0,.6), 0 0 28px rgba(155,123,255,.28), inset 0 2px 0 rgba(255,255,255,.12) !important;
+}
+.story-box, .story-box .story-text{ color:#efe8ff !important; text-shadow:0 2px 4px rgba(0,0,0,.5) !important; }
+.story-box .story-speaker{ color:#ffd98a !important; text-shadow:0 0 12px rgba(255,207,92,.5) !important; }
+.story-box #story-next{
+  background:#6a4ea0 !important; color:#fff !important; border:2px solid #2a1a4a !important;
+  border-radius:12px !important; box-shadow:0 5px 0 #2a1a4a, 0 8px 16px rgba(0,0,0,.5) !important; text-shadow:0 1px 2px rgba(0,0,0,.5) !important;
+}
+.story-box #story-next:hover{ background:#7e5ec0 !important; transform:translateY(-2px) !important; }
+
+/* ===== REQUEST 28 — interactive tutorial: the wisp spotlights what to tap ===== */
+.tut-point{ position:relative; z-index:40 !important;
+  outline:4px solid #ffd23a !important; outline-offset:3px !important; border-radius:14px;
+  animation:tutPulse 1s ease-in-out infinite !important; }
+@keyframes tutPulse{
+  0%,100%{ outline-color:#ffd23a; box-shadow:0 0 0 4px rgba(255,210,58,.3), 0 0 22px 5px rgba(255,210,58,.5) !important; }
+  50%{ outline-color:#fff2a0; box-shadow:0 0 0 9px rgba(255,210,58,.45), 0 0 36px 12px rgba(255,210,58,.85) !important; }
+}
+#wisp-bubble.big{ bottom:30%; }

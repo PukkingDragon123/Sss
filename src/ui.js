@@ -84,6 +84,7 @@ export class UI {
       settings: $('settings'), settingsClose: $('settings-close'), setVol: $('set-vol'), setMute: $('set-mute'), setShake: $('set-shake'), setErase: $('set-erase'),
       credits: $('credits'), creditsClose: $('credits-close'),
       waveWrap: $('wave-wrap'), wavePips: $('wave-pips'),
+      snailTimeline: $('snail-timeline'), stlTrack: $('stl-track'), stlEvents: $('stl-events'), stlSnail: $('stl-snail'), stlHpFill: $('stl-hp-fill'), stlStatus: $('stl-status'),
       bossBar: $('boss-bar'), bossBarName: $('boss-bar-name'), bossBarFill: $('boss-bar-fill'),
       minigame: $('minigame'), mgTitle: $('mg-title'), mgSub: $('mg-sub'), mgCanvas: $('mg-canvas'),
       mgControls: $('mg-controls'), mgHud: $('mg-hud'), mgTimer: $('mg-timer'), mgQuit: $('mg-quit'),
@@ -977,6 +978,25 @@ export class UI {
     setTimeout(finish, 1650);
   }
 
+  // ===== the ARCANE PORTAL warp: the wizard's own teleport spell — a spinning rune
+  // circle swallows the screen, then flashes into the next scene. =====
+  showPortal(onDone) {
+    const ov = document.createElement('div'); ov.id = 'portal';
+    ov.innerHTML = `
+      <div class="pt-void"></div>
+      <div class="pt-ring pt-r1"></div>
+      <div class="pt-ring pt-r2"></div>
+      <div class="pt-ring pt-r3"></div>
+      <div class="pt-core"></div>
+      <div class="pt-wiz">${iconImg('🧙', { scale: 8 }, 'pt-pix')}</div>
+      <div class="pt-word">✦ WARP ✦</div>`;
+    document.body.appendChild(ov);
+    void ov.offsetWidth; ov.classList.add('go');
+    let done = false;
+    const finish = () => { if (done) return; done = true; ov.classList.add('flash'); setTimeout(() => { ov.remove(); if (onDone) onDone(); }, 200); };
+    setTimeout(finish, 1550);
+  }
+
   // ===== COOK TIMING: the quick service-cook — stop the sweeping flame in the gold zone =====
   showCookTiming(recipe, onDone) {
     this.hideCookTiming();
@@ -1028,9 +1048,21 @@ export class UI {
   // couldn't start. Contract: onDone(score 0..1) once; ✕ → onDone(0). =====
   _showCookOff3D(game, recipe, onDone) {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const ing = Object.keys(recipe.needs || {})[0];
-    const tintHex = { boarmeat: 0xc05a4a, lizardtail: 0x6aa050, slimejelly: 0x4ad0a8, shroomcap: 0xd8465e,
-      hydrawing: 0xd8905a, chamflank: 0x9a6ad0, whaleblub: 0x8fb6d0, batwing: 0x8c6fb8, wildherb: 0x6ab04a }[ing] || 0xc9704a;
+    // each MENU cooks differently — its own palette, food shape and counter accent
+    const COOK_LOOK = {
+      alebread:   { c: 0xd8a15a, shape: 'loaf',    accent: 0xe8c98a, wall: 0x9a7250 },
+      boarchop:   { c: 0xc05a4a, shape: 'capsule', accent: 0xff8a6a, wall: 0x8a5a44 },
+      tailskewer: { c: 0x7aa84a, shape: 'capsule', accent: 0xbfe07a, wall: 0x6a7a4a },
+      jellyflan:  { c: 0x5ad8b0, shape: 'dome',    accent: 0x9ff0d0, wall: 0x4a7a6a },
+      shroomstew: { c: 0xd06a4a, shape: 'bowl',    accent: 0xffb08a, wall: 0x7a5040 },
+      wingplatter:{ c: 0xd8905a, shape: 'capsule', accent: 0xffc48a, wall: 0x8a6a4a },
+      chamsteak:  { c: 0x9a6ad0, shape: 'capsule', accent: 0xe0a0ff, wall: 0x5a4a7a },
+      blubberpot: { c: 0x8fb6d0, shape: 'bowl',    accent: 0xcfe8f4, wall: 0x4a6a7a },
+      batsnack:   { c: 0x8c6fb8, shape: 'capsule', accent: 0xc4a8e4, wall: 0x4a4060 },
+      herbsalad:  { c: 0x6ab04a, shape: 'dome',    accent: 0xbfe07a, wall: 0x5a7a4a },
+    };
+    const look = COOK_LOOK[recipe.id] || { c: 0xc9704a, shape: 'capsule', accent: 0xffd07a, wall: 0x9a7250 };
+    const tintHex = look.c;
     const ov = document.createElement('div'); ov.id = 'cookoff'; ov.className = 'cook3d';
     ov.innerHTML = `
       <div class="co-head"><span class="co-title">COOK-OFF</span><span class="co-dish">${recipe.icon || ''} ${recipe.name}</span><button class="btn co-quit">✕</button></div>
@@ -1062,11 +1094,20 @@ export class UI {
     const glowMat = (c) => { const mat = new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }); disposables.push(mat); return mat; };
     // ---- kitchen dressing (pixel-textured wood, stone tiles & butcher board) ----
     const counter = new THREE.Mesh(geo(new THREE.BoxGeometry(14, 0.7, 7)), PX(0x6a4a2c, 'wood', 8, 0.9)); counter.position.y = -0.35; scene.add(counter);
-    const wall = new THREE.Mesh(geo(new THREE.BoxGeometry(14, 7, 0.4)), PX(0x9a7250, 'stone', 6, 0.95)); wall.position.set(0, 3, -3.2); scene.add(wall);
+    const wall = new THREE.Mesh(geo(new THREE.BoxGeometry(14, 7, 0.4)), PX(look.wall, 'stone', 6, 0.95)); wall.position.set(0, 3, -3.2); scene.add(wall);
     for (let i = -2; i <= 2; i++) { const tile = new THREE.Mesh(geo(new THREE.BoxGeometry(2.2, 2.2, 0.1)), PX(i % 2 ? 0xa88058 : 0xb89060, 'stone', 2, 0.9)); tile.position.set(i * 2.4, 2.4, -2.98); scene.add(tile); }
     const board = new THREE.Mesh(geo(new THREE.BoxGeometry(4.4, 0.26, 2.7)), PX(0xcaa06a, 'wood', 4, 0.7)); board.position.set(0, 0.13, 0.3); scene.add(board);
-    // ---- actors, reused across phases ----
-    const food = new THREE.Mesh(geo(new THREE.CapsuleGeometry(0.62, 1.9, 6, 12)), PX(tintHex, 'skin', 3, 0.6)); food.rotation.z = Math.PI / 2; food.position.set(0, 0.55, 0.3); scene.add(food);
+    // ---- actors, reused across phases — the food takes the menu's own shape ----
+    let foodGeo;
+    if (look.shape === 'loaf') foodGeo = new THREE.BoxGeometry(2.0, 1.05, 1.2);
+    else if (look.shape === 'dome') foodGeo = new THREE.SphereGeometry(1.02, 14, 10);
+    else if (look.shape === 'bowl') foodGeo = new THREE.SphereGeometry(1.05, 14, 11);
+    else foodGeo = new THREE.CapsuleGeometry(0.62, 1.9, 6, 12);
+    const food = new THREE.Mesh(geo(foodGeo), PX(tintHex, look.shape === 'dome' ? 'stone' : 'skin', 3, look.shape === 'dome' ? 0.35 : 0.6));
+    if (look.shape === 'capsule') food.rotation.z = Math.PI / 2;
+    food.position.set(0, 0.55, 0.3); scene.add(food);
+    // a per-menu crock cradles the stews/pots
+    if (look.shape === 'bowl') { const crock = new THREE.Mesh(geo(new THREE.CylinderGeometry(1.15, 0.9, 0.9, 16)), PX(0x3a2a34, 'stone', 3, 0.7)); crock.position.set(0, 0.2, 0.3); scene.add(crock); }
     const knife = new THREE.Group();
     const blade = new THREE.Mesh(geo(new THREE.BoxGeometry(0.1, 0.9, 1.5)), PX(0xd6dde4, 'metal', 2, 0.25, 0.7)); blade.position.y = -0.45; knife.add(blade);
     const handle = new THREE.Mesh(geo(new THREE.BoxGeometry(0.16, 0.7, 0.22)), PX(0x4a2f1a, 'wood', 2, 0.7)); handle.position.y = 0.35; knife.add(handle);
@@ -1077,6 +1118,10 @@ export class UI {
     pan.position.set(0, 0.3, 0.3); pan.visible = false; scene.add(pan);
     const plate = new THREE.Mesh(geo(new THREE.CylinderGeometry(1.7, 1.5, 0.16, 26)), PX(0xf0ead8, 'stone', 2, 0.45)); plate.position.set(0, 0.24, 0.3); plate.visible = false; scene.add(plate);
     const ring = new THREE.Mesh(geo(new THREE.TorusGeometry(1.2, 0.06, 8, 32)), glowMat(0xffd76a)); ring.rotation.x = -Math.PI / 2; ring.position.set(0, 0.5, 0.3); ring.visible = false; scene.add(ring);
+    // the finished PLATED dish — the menu's own pixel-art sprite, shown in the PLATE beat
+    let dishSprite = null;
+    const dishCv = iconCanvas('dish_' + recipe.id, { scale: 8 });
+    if (dishCv) { const dt = new THREE.CanvasTexture(dishCv); dt.magFilter = THREE.NearestFilter; dt.minFilter = THREE.NearestFilter; const dm = new THREE.SpriteMaterial({ map: dt, transparent: true, depthWrite: false }); disposables.push(dt, dm); dishSprite = new THREE.Sprite(dm); dishSprite.scale.setScalar(2.0); dishSprite.position.set(0, 1.0, 0.3); dishSprite.visible = false; scene.add(dishSprite); }
     // ---- juice pops ----
     const pops = [];
     const popGeo = geo(new THREE.BoxGeometry(0.16, 0.16, 0.16));
@@ -1099,7 +1144,7 @@ export class UI {
       meter.style.display = s.phase === 1 ? 'block' : 'none';
       hintLbl.textContent = s.phase === 0 ? 'TAP as the knife crosses the food' : s.phase === 1 ? 'HOLD to keep the heat in the golden band' : 'TAP when the ring meets the plate';
       if (s.phase === 1) { food.visible = true; knife.visible = false; pan.visible = true; food.position.set(0, 0.55, 0.3); food.scale.setScalar(1); food.rotation.set(Math.PI / 2, 0, 0); }
-      if (s.phase === 2) { pan.visible = false; food.visible = true; plate.visible = true; ring.visible = true; food.position.set(0, 0.4, 0.3); food.scale.setScalar(0.7); }
+      if (s.phase === 2) { pan.visible = false; plate.visible = true; ring.visible = true; food.position.set(0, 0.4, 0.3); food.scale.setScalar(0.7); if (dishSprite) { dishSprite.visible = true; food.visible = false; } else food.visible = true; }
     };
     const nextPhase = (score) => {
       s.scores.push(Math.max(0, Math.min(1, score)));
@@ -1589,6 +1634,7 @@ export class UI {
     this.hideMenuBook();
     this.hideZodiac();
     this.hideCookTiming();
+    if (this.hideTeleporter) this.hideTeleporter(); // don't let the slot machine linger across a scene change
     if (this._coAbort) this._coAbort(); // tear down a live cook-off silently (no reopen)
   }
 
@@ -1599,6 +1645,37 @@ export class UI {
   }
 
   // ---- HUD ----
+  // the big escort TIMELINE: the snail's journey to the gate, the trials marked ahead,
+  // and the caravan's health — replaces the old "Trail 42%" text.
+  updateSnailTimeline(es) {
+    const el = this.el; if (!el.snailTimeline) return;
+    el.snailTimeline.classList.remove('hidden');
+    // build the fixed event markers once (obstacles + ambushes don't move along the trail)
+    const sig = es.obstacles.length + ':' + es.ambushes.length;
+    if (this._stlSig !== sig && el.stlEvents) {
+      this._stlSig = sig;
+      let h = '';
+      for (const ob of es.obstacles) h += `<div class="stl-ev stl-ob" style="left:${(ob.at * 100).toFixed(1)}%">${iconImg('🌿', { scale: 2 }, 'stl-ico')}</div>`;
+      for (const am of es.ambushes) h += `<div class="stl-ev stl-am" style="left:${(am.at * 100).toFixed(1)}%">${iconImg('⚔', { scale: 2 }, 'stl-ico')}</div>`;
+      el.stlEvents.innerHTML = h;
+      this._stlEvNodes = Array.from(el.stlEvents.children);
+    }
+    const pct = Math.max(0, Math.min(100, es.u * 100));
+    if (el.stlSnail) el.stlSnail.style.left = pct + '%';
+    // fade markers the snail has already passed / cleared
+    let i = 0;
+    for (const ob of es.obstacles) { const n = this._stlEvNodes && this._stlEvNodes[i]; if (n) n.classList.toggle('done', ob.cleared || es.u > ob.at + 0.02); i++; }
+    for (const am of es.ambushes) { const n = this._stlEvNodes && this._stlEvNodes[i]; if (n) n.classList.toggle('done', am.done && !am.live); i++; }
+    // caravan health
+    if (el.stlHpFill) { const hp = Math.max(0, Math.min(1, (es.hp || 0) / (es.hpMax || 1))); el.stlHpFill.style.width = (hp * 100) + '%'; el.stlHpFill.classList.toggle('low', hp < 0.34); }
+    if (el.stlStatus) {
+      el.stlStatus.textContent = es.state === 'ambush' ? 'Ambush — defend the snail!'
+        : es.state === 'blocked' ? 'Blocked — GUST the brambles away!'
+        : es.state === 'waiting' ? 'The snail waits for you…'
+        : `${Math.round(es.u * 100)}% to the gate`;
+      el.stlStatus.className = 'stl-status' + (es.state === 'ambush' || es.state === 'blocked' ? ' warn' : '');
+    }
+  }
   updateHUD(game) {
     this.updateJoystick(game.input);
     this._updateNausea(game); // queasy overlay — runs in the hubs AND the fight
@@ -1627,18 +1704,18 @@ export class UI {
     this.el.timer.textContent = `${mm}:${ss.toString().padStart(2, '0')}`;
     const d = game.director, es = game._escort;
     if (es && es.active) {
-      // escort readout: how far along the trail the snail has crawled + its mood
-      this.el.waveWrap.classList.remove('hidden');
-      this.el.wave.textContent = es.state === 'ambush' ? '⚔ AMBUSH!'
-        : es.state === 'blocked' ? '🚧 Road blocked'
-        : es.state === 'waiting' ? '🐌 …waiting for you'
-        : `🐌 Trail ${Math.round(es.u * 100)}%`;
-      if (this.el.wavePips && this._pipTotal !== 0) { this._pipTotal = 0; this.el.wavePips.innerHTML = ''; }
-    } else if (d && d.active) {
-      this.el.waveWrap.classList.remove('hidden');
-      this.el.wave.textContent = d.state === 'boss' ? 'BOSS' : `Wave ${d.wave}/${d.total}`;
-      this._renderPips(d);
-    } else this.el.waveWrap.classList.add('hidden');
+      // escort readout: a big journey TIMELINE — the snail crawling toward the gate,
+      // with the ambushes & brambles ahead marked, plus the caravan's health.
+      this.el.waveWrap.classList.add('hidden');
+      this.updateSnailTimeline(es);
+    } else {
+      if (this.el.snailTimeline) this.el.snailTimeline.classList.add('hidden');
+      if (d && d.active) {
+        this.el.waveWrap.classList.remove('hidden');
+        this.el.wave.textContent = d.state === 'boss' ? 'BOSS' : `Wave ${d.wave}/${d.total}`;
+        this._renderPips(d);
+      } else this.el.waveWrap.classList.add('hidden');
+    }
     this.el.kills.textContent = `${game.kills}`;
     // boss health bar
     const be = game._bossEnemy;
@@ -1774,17 +1851,25 @@ export class UI {
   // the wisp speaks — a cozy, non-blocking bubble for warnings & tips (replaces blunt toasts).
   // tone:'warn' tints the edge red; big:true makes the wisp "zoom in" with a bigger pop for key tips.
   wispSay(text, opts = {}) {
-    const { ms = 2600, tone = 'tip', big = false } = opts;
+    const { ms = 2600, tone = 'tip', big = false, sticky = false, point = null } = opts;
     const b = this.el.wispBubble; if (!b) { this.toast(text, { force: true }); return; }
     this.el.wispText.innerHTML = pixify(text, 'sm');
     b.classList.toggle('warn', tone === 'warn');
-    b.classList.toggle('big', !!big);
+    b.classList.toggle('big', !!big || sticky);
     b.classList.remove('hidden');
     void b.offsetWidth;                 // reflow so a repeated line re-animates
     b.classList.add('show');
+    this.wispPoint(point);              // spotlight the HUD thing the wisp is pointing at
     clearTimeout(this._wispT);
-    this._wispT = setTimeout(() => { b.classList.remove('show'); setTimeout(() => b.classList.add('hidden'), 220); }, ms);
+    // sticky lines (tutorial) stay until the step is done and we say something new
+    if (!sticky) this._wispT = setTimeout(() => { b.classList.remove('show'); setTimeout(() => b.classList.add('hidden'), 220); this.wispPoint(null); }, ms);
   }
+  // spotlight a HUD element the wisp wants you to tap (or clear the spotlight)
+  wispPoint(selector) {
+    if (this._wispPointEl) { this._wispPointEl.classList.remove('tut-point'); this._wispPointEl = null; }
+    if (selector) { const el = document.querySelector(selector); if (el && !el.classList.contains('hidden')) { el.classList.add('tut-point'); this._wispPointEl = el; } }
+  }
+  wispHide() { const b = this.el.wispBubble; if (b) { clearTimeout(this._wispT); b.classList.remove('show'); setTimeout(() => b.classList.add('hidden'), 220); } this.wispPoint(null); }
 
   // persistent main-quest tracker — read-only over meta; repaint only when the state signature changes
   updateQuestTracker(game) {

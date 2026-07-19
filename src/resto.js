@@ -278,9 +278,12 @@ export class Resto {
     const g = meta.gold();
     let html;
     if (!own) {
+      const freeFirst = this.ownedPlots().length === 0;   // your very first table is on the house
+      const c0 = freeFirst ? 0 : COSTS.table[0];
+      const label = freeFirst ? 'CLAIM FIRST TABLE · FREE' : `BUY TABLE · ${c0} g`;
       html = `<div class="rp-head"><span>AN EMPTY CORNER</span><button class="btn rp-x">✕</button></div>
-        <div class="rp-body">A table would fit right here. More tables, more hungry mouths a night.</div>
-        <div class="rp-row"><button class="btn rp-buy" data-a="buy" ${g >= COSTS.table[0] ? '' : 'disabled'}>BUY TABLE · ${COSTS.table[0]} g</button>${this._goldChip()}</div>`;
+        <div class="rp-body">${freeFirst ? 'Your first table is <b>free</b> — claim it and open for the night!' : 'A table would fit right here. More tables, more hungry mouths a night.'}</div>
+        <div class="rp-row"><button class="btn rp-buy" data-a="buy" ${(freeFirst || g >= c0) ? '' : 'disabled'}>${label}</button>${this._goldChip()}</div>`;
     } else {
       const rows = [];
       if ((own.tier || 1) < 4) { const c = COSTS.table[own.tier || 1]; rows.push(`<button class="btn rp-buy" data-a="table" ${g >= c ? '' : 'disabled'}>FANCIER TABLE · ${c} g</button>`); }
@@ -297,7 +300,7 @@ export class Resto {
       const a = b.dataset.a;
       const cur = meta.restoPlots()[pid];
       let cost, next;
-      if (a === 'buy') { cost = COSTS.table[0]; next = { tier: 1, chairs: 1, deco: 0 }; }
+      if (a === 'buy') { cost = this.ownedPlots().length === 0 ? 0 : COSTS.table[0]; next = { tier: 1, chairs: 1, deco: 0 }; } // first table free
       else if (a === 'table') { cost = COSTS.table[cur.tier || 1]; next = { ...cur, tier: (cur.tier || 1) + 1 }; }
       else if (a === 'chairs') { cost = COSTS.chairs[(cur.chairs || 1) - 1]; next = { ...cur, chairs: (cur.chairs || 1) + 1 }; }
       else { cost = COSTS.deco[cur.deco || 0]; next = { ...cur, deco: (cur.deco || 0) + 1 }; }

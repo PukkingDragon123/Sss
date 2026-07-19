@@ -377,7 +377,7 @@ export class Game {
     //    forest/cave/graveyard wall instead of vanishing into the haze.
     //  - inside(): foliage sprinkled across the playfield. CRUCIAL: it only sets
     //    x/z and PRESERVES the y the build() chose, so nothing gets buried at 0.
-    const DENSITY = 0.82; // a lush, leafy wood — thick ground cover, animals still kept sparse
+    const DENSITY = 0.98; // a really lush, leafy wood — thick ground cover, animals still kept sparse
     const place = (o, x, z, jitterY) => { o.position.set(x, o.position.y + (jitterY || 0) + this._groundHeight(x, z), z); o.rotation.y = Math.random() * 6.28; grp.add(o); };
     const treeLine = (build, count = 64) => {
       count = Math.round(count * DENSITY);
@@ -402,14 +402,14 @@ export class Game {
     if (kind === 'trees') {
       // handmade forest: 3D trees with 2D leaf-sprite canopies, sprite grass & ferns,
       // textured toadstools, mossy boulders and fallen logs — a real, lived-in wood.
-      treeLine(makeLeafyTree, 56);
-      inside(20, makeLeafyTree, 6, ARENA - 8);     // full trees dotted inside too
-      inside(96, makeGrass, 3, ARENA - 5);         // thick sprite-grass ground cover
-      inside(38, () => { const g = makeGrass(); g.scale.y *= 1.9; g.scale.x *= 1.25; return g; }, 4, ARENA - 5); // TALL waving grass stands
-      inside(46, makeFern);                         // leafy ferns tucked between
-      inside(34, makeBush, 4, ARENA - 6);           // rounded leafy shrubs fill the mid-story
-      inside(30, makeFlower, 3, ARENA - 5);         // wildflower clusters for pops of colour
-      inside(26, makeMushroom);                     // toadstool clusters
+      treeLine(makeLeafyTree, 62);
+      inside(24, makeLeafyTree, 6, ARENA - 8);     // full trees dotted inside too
+      inside(128, makeGrass, 3, ARENA - 5);        // thick sprite-grass ground cover
+      inside(52, () => { const g = makeGrass(); g.scale.y *= 1.9; g.scale.x *= 1.25; return g; }, 4, ARENA - 5); // TALL waving grass stands
+      inside(60, makeFern);                         // leafy ferns tucked between
+      inside(46, makeBush, 4, ARENA - 6);           // rounded leafy shrubs fill the mid-story
+      inside(40, makeFlower, 3, ARENA - 5);         // wildflower clusters for pops of colour
+      inside(30, makeMushroom);                     // toadstool clusters
       inside(18, makeRock);                         // mossy boulders
       inside(12, makeFallenLog, 5, ARENA - 9);      // fallen logs as little landmarks
     } else if (kind === 'rocks') {
@@ -802,17 +802,22 @@ export class Game {
     const ing = INGREDIENTS[ingId]; if (!ing) return;
     const tint = { boarmeat: 0xc05a4a, lizardtail: 0x6aa050, slimejelly: 0x4ad0a8, shroomcap: 0xd8465e, hydrawing: 0xd8905a, chamflank: 0x9a6ad0, whaleblub: 0x8fb6d0, batwing: 0x8c6fb8, wildherb: 0x6ab04a }[ingId] || 0xc05a4a;
     const g = new THREE.Group();
-    const meat = new THREE.Mesh(new THREE.SphereGeometry(0.34, 9, 7), pxMap(new THREE.MeshStandardMaterial({ color: tint, roughness: 0.75, flatShading: true }), 'skin', 2));
-    meat.scale.set(1.25, 0.7, 0.95); meat.position.y = 0.26; meat.castShadow = true; g.add(meat);
-    const bone = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.5, 6), new THREE.MeshStandardMaterial({ color: 0xf0e8d4, roughness: 0.6, flatShading: true }));
-    bone.rotation.z = 1.1; bone.position.set(0.3, 0.34, 0); g.add(bone);
-    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), bone.material); knob.position.set(0.5, 0.44, 0); g.add(knob);
-    const halo = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.52, 20), new THREE.MeshBasicMaterial({ color: 0xffd98a, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }));
+    // the dropped ingredient floats as a crisp PIXEL-ART sprite (billboards to camera)
+    let sprite = null;
+    const cv = iconCanvas('ing_' + ingId, { scale: 8 });
+    if (cv) {
+      const tex = new THREE.CanvasTexture(cv); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter;
+      sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+      sprite.scale.setScalar(1.15 * size); sprite.position.y = 0.62; g.add(sprite);
+    } else { // ultra-defensive fallback — every ing_ sprite exists, so this shouldn't fire
+      const meat = new THREE.Mesh(new THREE.SphereGeometry(0.34, 9, 7), pxMap(new THREE.MeshStandardMaterial({ color: tint, roughness: 0.75, flatShading: true }), 'skin', 2));
+      meat.scale.set(1.25, 0.7, 0.95); meat.position.y = 0.26; meat.castShadow = true; g.add(meat);
+    }
+    const halo = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.56, 22), new THREE.MeshBasicMaterial({ color: 0xffd98a, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }));
     halo.rotation.x = -Math.PI / 2; halo.position.y = 0.05; g.add(halo);
     g.position.set(pos.x + (Math.random() - 0.5) * 0.8, 0, pos.z + (Math.random() - 0.5) * 0.8);
-    g.rotation.y = Math.random() * 6.28;
     this.arenaGroup.add(g);
-    this._corpses.push({ mesh: g, halo, ing: ingId, phase: Math.random() * 6, t: 0, noPick });
+    this._corpses.push({ mesh: g, halo, sprite, tint, ing: ingId, phase: Math.random() * 6, t: 0, noPick });
   }
   _updateCorpses(dt) {
     if (!this._corpses || !this._corpses.length) return;
@@ -838,7 +843,7 @@ export class Game {
       if (!this._carryWarnT || this.elapsed - this._carryWarnT > 3) { this._carryWarnT = this.elapsed; this.ui.wispSay('🎒 Arms full — haul these to the caravan!', { tone: 'warn' }); }
       return false;
     }
-    w.addCarry(c.ing, c.mesh.children[0].material.color.getHex());
+    w.addCarry(c.ing, c.tint);
     this.audio.play('xp');
     this.particles.burst({ pos: c.mesh.position.clone(), color: 0xffd98a, count: 10, speed: 3, size: 0.2, life: 0.5, blend: 'add' });
     this.ui.castWord && this.ui.castWord(INGREDIENTS[c.ing].name, { color: '#ffd98a' });
@@ -859,7 +864,10 @@ export class Game {
     return false;
   }
   _disposeCorpse(c) {
-    c.mesh.traverse(o => { if (o.isMesh) { o.geometry.dispose(); if (o.material && !o.material.userData?.keep) { if (o.material.map && !o.material.map.userData?.keep) o.material.map.dispose(); o.material.dispose(); } } });
+    c.mesh.traverse(o => {
+      if (o.isMesh) { o.geometry.dispose(); if (o.material && !o.material.userData?.keep) { if (o.material.map && !o.material.map.userData?.keep) o.material.map.dispose(); o.material.dispose(); } }
+      else if (o.isSprite && o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } // the pixel-sprite ingredient
+    });
     this.arenaGroup.remove(c.mesh);
   }
   _clearCorpses() { if (this._corpses) { for (const c of this._corpses) this._disposeCorpse(c); this._corpses.length = 0; } }
@@ -963,15 +971,16 @@ export class Game {
       active: true, done: false, samples, len, u: 0, speed: opts.speed || 2.15, state: 'go',
       tutorial: !!opts.tutorial, hpScale: opts.hpScale || 1, sizeMult: opts.sizeMult || 1,
       ambushes: [], obstacles: [], cargo: [], hitT: 0, sayT: 0, tut: 0, group: new THREE.Group(),
+      hp: 6, hpMax: 6, regenT: 0, // the snail's shell can take a few chomps, and heals if left alone
     };
     this._gustables = [];
     this.arenaGroup.add(this._escort.group);
     // ambush triggers spread along the road
     const nA = opts.ambushes != null ? opts.ambushes : 3;
     for (let i = 0; i < nA; i++) this._escort.ambushes.push({ at: 0.16 + (i + 0.3 + Math.random() * 0.4) * (0.74 / nA), done: false, live: false });
-    // obstacles: brambles choke the road; a river cuts it (the tutorial keeps it simple)
+    // obstacles: brambles choke the road (the river crossing was removed — brambles only)
     if (opts.tutorial) this._addEscortObstacle('bramble', 0.52);
-    else { this._addEscortObstacle('bramble', 0.32 + Math.random() * 0.08); this._addEscortObstacle('river', 0.6 + Math.random() * 0.12); }
+    else { this._addEscortObstacle('bramble', 0.30 + Math.random() * 0.08); this._addEscortObstacle('bramble', 0.60 + Math.random() * 0.10); }
     this._buildEscortRoad();
     this._plantGustables(opts.tutorial ? 3 : 5);
     // park the caravan at the trailhead, the wizard beside it
@@ -980,7 +989,21 @@ export class Game {
     this._caravan.position.set(p0.x, this._groundHeight(p0.x, p0.z), p0.z);
     this._caravan.rotation.y = Math.atan2(-(samples[2].z - p0.z), samples[2].x - p0.x);
     this.wizard.pos.set(p0.x + 2.5, 0, p0.z + 3);
-    this.ui.wispSay('🐌 Walk with the snail — keep it safe to the far gate!', { ms: 4200 });
+    if (opts.tutorial) {
+      // an interactive, wisp-guided first lesson: the snail WAITS until you cast a spell
+      this._tut = 'cast'; this._tutHold = true; this._tutChug = false;
+      this.ui.wispSay('✨ First, magic! Tap a glowing spell below (or draw its glyph) to cast — the snail waits for you.', { sticky: true, point: '#spellbook' });
+    } else { this._tut = null; this._tutHold = false; this.ui.wispSay('🐌 Walk with the snail — keep it safe to the far gate!', { ms: 4200 }); }
+  }
+  // advance the interactive tutorial as the player performs each taught action
+  _tutAdvance(what) {
+    if (this._tut === 'cast' && what === 'cast') {
+      this._tut = 'follow'; this._tutHold = false;
+      this.ui.wispSay('🐌 Perfect! Now WALK beside the snail to the far gate — grab any ingredients that float up on the way!', { ms: 5200 });
+    } else if (this._tut === 'chug' && what === 'chug') {
+      this._tut = 'follow'; this._tutHold = false;
+      this.ui.wispSay('🍺 Topped up! Mana is beer — it won\'t refill on its own, so chug when it runs low.', { ms: 4600 });
+    }
   }
   // a chunky thorn ball — one GUST puff each
   _makeBrambleBall() {
@@ -1129,11 +1152,16 @@ export class Game {
     const es = this._escort; if (!es || !es.active) return;
     if (es.hitT > 0) return;
     es.hitT = 0.6;
+    es.hp = Math.max(0, es.hp - 1); es.regenT = 6; // a chomp; the shell mends if left unhit
     const cv = this._caravan;
     this.shake(0.4); this.audio.play('hurt');
     this.particles.burst({ pos: cv.position.clone().setY(1.2), color: 0xff6a4a, count: 10, speed: 5, size: 0.22, life: 0.5, blend: 'normal' });
     if (cv.userData.snail) cv.userData.snail.scale.setScalar(0.86); // flinch into the shell
     es.u = Math.max(0, es.u - 0.004); // shoved back a step
+    if (es.hp <= 0) { // shell-shocked — a bigger shove + a plea, but never a hard fail (cozy game)
+      es.u = Math.max(0, es.u - 0.03);
+      if (es.sayT <= 0) { es.sayT = 6; this.ui.wispSay('🐌💥 The snail is overwhelmed — clear the foes and it will recover!', { tone: 'warn' }); }
+    }
     if (es.cargo.length && Math.random() < 0.65) {
       const ing = es.cargo.pop();
       if (meta.pantrySpend({ [ing]: 1 })) {
@@ -1167,7 +1195,7 @@ export class Game {
         if (d < bestD) { best = c; bestD = d; }
       }
       if (best) {
-        this.wizard.setFloat(best.ing, best.mesh.children[0].material.color.getHex());
+        this.wizard.setFloat(best.ing, best.tint);
         this.particles.burst({ pos: best.mesh.position.clone().setY(0.6), color: 0x9fe8ff, count: 10, speed: 4, size: 0.18, life: 0.5, blend: 'add' });
         this.ui.castWord && this.ui.castWord('WIND-BORNE!', { color: '#9fe8ff' });
         this._disposeCorpse(best); this._corpses.splice(this._corpses.indexOf(best), 1);
@@ -1201,6 +1229,8 @@ export class Game {
     const es = this._escort; if (!es || !es.active) return;
     const cv = this._caravan;
     es.sayT -= sdt;
+    // the snail's shell slowly mends once the coast is clear
+    if (es.regenT > 0) es.regenT -= sdt; else if (es.hp < es.hpMax) es.hp = Math.min(es.hpMax, es.hp + sdt * 0.6);
     if (es.hitT > 0) { es.hitT -= sdt; if (es.hitT <= 0 && cv.userData.snail) cv.userData.snail.scale.setScalar(1); }
     // the gusted log glides across the river and settles as a bridge
     for (const ob of es.obstacles) {
@@ -1223,7 +1253,13 @@ export class Game {
     const dw = Math.hypot(this.wizard.pos.x - cv.position.x, this.wizard.pos.z - cv.position.z);
     const waiting = dw > 24; // the snail won't leave you behind
     es.state = fighting ? 'ambush' : blocked ? 'blocked' : waiting ? 'waiting' : 'go';
-    if (es.state === 'go') es.u = Math.min(1, es.u + sdt * es.speed / es.len);
+    // the tutorial HOLDS the snail until you've done the taught action (cast / chug)
+    if (es.state === 'go' && !this._tutHold) es.u = Math.min(1, es.u + sdt * es.speed / es.len);
+    // tutorial: when mana first runs low, point at the Drink button and hold until you chug
+    if (es.tutorial && this._tut === 'follow' && !this._tutChug && this.wizard.mana < this.stats.manaMax * 0.35) {
+      this._tutChug = true; this._tut = 'chug'; this._tutHold = true;
+      this.ui.wispSay('🍺 Mana\'s low! Tap DRINK (or Q) to chug a brew and refill — the snail waits.', { sticky: true, point: '#btn-drink' });
+    }
     if (es.state === 'blocked' && es.sayT <= 0) {
       es.sayT = 7;
       this.ui.wispSay(nextOb.kind === 'river'
@@ -1266,6 +1302,8 @@ export class Game {
       this._escort = null;
     }
     this._gustables = [];
+    this._tut = null; this._tutHold = false; this._tutChug = false; // drop any tutorial gate/spotlight
+    if (this.ui.wispPoint) this.ui.wispPoint(null);
   }
 
   // ==== DINNER SERVICE: the Dave-the-Diver loop — side-scroll chef behind the counter,
@@ -1754,6 +1792,8 @@ export class Game {
     this.tavern.show(false); this.tavern.showRoom(false);
     this.arenaGroup.visible = false; this.world.show(false);
     if (this.levelMap && this.levelMap.show) this.levelMap.show(false);
+    if (this._titleLib) this._titleLib.visible = false;        // stow the title dioramas so they
+    if (this.cine && this.cine.bar) this.cine.bar.visible = false; // don't bleed over the dining hall
     this.resto.build();
     this.resto.mode = 'manage';
     this.resto.show(true);
@@ -2113,6 +2153,8 @@ export class Game {
     this.world.show(false); this.tavern.show(false); this.tavern.showRoom(false); this.arenaGroup.visible = true;
     if (this._titleLib) this._titleLib.visible = false;
     if (this.cine && this.cine.bar) this.cine.bar.visible = false;
+    if (this.resto) this.resto.show(false);          // never let the dining hall bleed into a fight
+    if (this.levelMap && this.levelMap.show) this.levelMap.show(false);
     this.wizard.setVisible(true);
     this.wizard.reset(this.stats); this.wizard.pos.set(0, 0, 0);
     this.input.pointMode = false;
@@ -2327,7 +2369,7 @@ export class Game {
     let targetId;
     if (this._mapNodeId == null) targetId = map.startId;
     else { const cur = map.byId[this._mapNodeId]; targetId = cur && cur.next && cur.next[0]; }
-    if (!targetId) { this.ui.wipe('fade', () => this.enterResto()); return; } // ran out of trail → home to the hall
+    if (!targetId) { this._playPortal(() => this.ui.wipe('fade', () => this.enterResto())); return; } // end of the trail → an arcane portal warps you home
     this._teleTarget = targetId;
     const tnode = map.byId[targetId];
     const isBoss = tnode.type === 'boss';
@@ -2349,8 +2391,8 @@ export class Game {
     this._slotGimmick = result.twistIdx;
     this._slotBounty = result.bounty;
     if (tnode.type !== 'boss') tnode.type = result.encounter; // the reel decides the encounter
-    // catapult into mid-run fights; the very first venture keeps its "out the door" intro
-    this._launchNext = ['combat', 'elite', 'boss'].includes(tnode.type) && this._mapNodeId != null;
+    // warp into EVERY fight (entrance included) — the launch cutscene always plays now
+    this._launchNext = ['combat', 'elite', 'boss'].includes(tnode.type);
     if (this.ui.hideTeleporter) this.ui.hideTeleporter();
     this.state = 'levelmap'; // chooseMapNode guards on this
     this.chooseMapNode(targetId);
@@ -2360,6 +2402,13 @@ export class Game {
     this.state = 'loading';
     this.audio.play('gust');
     if (this.ui.showCatapult) this.ui.showCatapult(() => cb()); else cb();
+  }
+  // an ARCANE PORTAL warp cutscene — the wizard's own teleport spell (replaces the
+  // catapult as the "launch" and plays again at the end of the trail heading home)
+  _playPortal(cb) {
+    this.state = 'loading';
+    this.audio.play('levelup');
+    if (this.ui.showPortal) this.ui.showPortal(() => cb()); else cb();
   }
   _mapStarsOf(nodeId) { const m = this._runMap; if (!m) return 0; const n = m.byId[nodeId]; return n ? meta.stageStars(this._runRegion, n.row + 1) : 0; }
   // build + reveal the 3D level-map scene (from the world map AND between stages in a run)
@@ -2410,7 +2459,7 @@ export class Game {
       if (nodeId !== map.startId) return;
       this.audio.play('click'); this._leaveLevelMap();
       this._mapNodeId = map.startId; if (this._mapVisited) this._mapVisited.add(map.startId);
-      if (this._launchNext) this._playCatapult(() => this.beginRun(this._runRegion)); else this.beginRun(this._runRegion);
+      if (this._launchNext) this._playPortal(() => this.beginRun(this._runRegion)); else this.beginRun(this._runRegion);
       return;
     }
     const cur = map.byId[this._mapNodeId];
@@ -2420,13 +2469,13 @@ export class Game {
     if (this._mapVisited) this._mapVisited.add(nodeId);
     this._mapNodeId = nodeId;
     this._forksDone = mnode.row;     // depth drives difficulty + the stage banner (stageNum = row+1)
-    if (mnode.type === 'boss') { const go = () => { this.state = 'play'; this._beginRoom(true); }; if (this._launchNext) this._playCatapult(go); else this._travel('Approaching the lair…', go); return; }
+    if (mnode.type === 'boss') { const go = () => { this.state = 'play'; this._beginRoom(true); }; if (this._launchNext) this._playPortal(go); else this._travel('Approaching the lair…', go); return; }
     const node = this._makeNode(mnode.type); // live reward / event / gameKey for this stage
     if (node.type === 'combat' || node.type === 'elite') {
       this._pendingReward = node.reward || null;
       const elite = node.type === 'elite';
       const go = () => { this.state = 'play'; this._beginRoom(false, elite); };
-      if (this._launchNext) this._playCatapult(go); else this._travel(null, go);
+      if (this._launchNext) this._playPortal(go); else this._travel(null, go);
     } else if (node.type === 'treasure') {
       this._awardStageStars(mnode.row + 1, 3); // ⭐ a cache level: full marks for the loot
       this._grantReward(node.reward); this._nextFork();
@@ -2618,6 +2667,7 @@ export class Game {
   }
 
   _registerCast(id) {
+    if (this._tut === 'cast') this._tutAdvance('cast');
     this._learn('cast');
     const now = performance.now() / 1000;
     if (this._lastCast && now - this._lastCast.t < 1.4) {
@@ -2718,6 +2768,7 @@ export class Game {
   }
   _cancelDrink() { this._drinking = false; this.wizard.endDrink(); this.ui.hideDrinkBar(); }
   _finishDrink() {
+    if (this._tut === 'chug') this._tutAdvance('chug');
     this._learn('chug');
     const w = this.wizard, s = this.stats;
     this._drinking = false; w.endDrink(); this.ui.hideDrinkBar();
@@ -2883,11 +2934,26 @@ export class Game {
       this.gestureAim.copy(this.aimPoint);
     }
   }
-  // pick the auto-aim target: the nearest live enemy within a generous radius.
+  // pick the auto-aim target: the nearest live enemy within a generous radius, and
+  // failing that, the nearest road obstacle (brambles) so casts blast the way clear too.
   _autoAimTarget() {
-    if (!this.enemies || !this.enemies.nearest) return null;
-    const near = this.enemies.nearest(this.wizard.pos, 40);
-    return near ? near.mesh.position : null;
+    const wp = this.wizard.pos;
+    if (this.enemies && this.enemies.nearest) {
+      const near = this.enemies.nearest(wp, 40);
+      if (near) return near.mesh.position;
+    }
+    // no foes — during the escort, lock onto the nearest uncleared obstacle in range
+    const es = this._escort;
+    if (es && es.active && es.obstacles) {
+      let best = null, bestD = 36 * 36;
+      for (const ob of es.obstacles) {
+        if (ob.cleared || !ob.pos) continue;
+        const d = (ob.pos.x - wp.x) ** 2 + (ob.pos.z - wp.z) ** 2;
+        if (d < bestD) { bestD = d; best = ob.pos; }
+      }
+      if (best) return best;
+    }
+    return null;
   }
 
   // ---------- gesture trail rendering ----------
@@ -3594,6 +3660,8 @@ export class Game {
     this.stats = DEFAULT_STATS();
     this.tavern.show(false); this.tavern.showRoom(false); this.world.show(false);
     this.arenaGroup.visible = false;
+    if (this.resto) this.resto.show(false);          // returning to the title from the hall
+    if (this.levelMap && this.levelMap.show) this.levelMap.show(false);
     this.enemies.clear(); this.spells.reset(); this._clearPickups();
     this.cine.bar.visible = true;
     if (!this._titleLib) this._titleLib = this._buildTitleLibrary();

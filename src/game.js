@@ -3022,7 +3022,7 @@ export class Game {
 
       if (e.type === 'drawstart') { this.gestureAim.copy(this.aimPoint); }
       else if (e.type === 'gesture') { this._resolveGesture(e.points); }
-      else if (e.type === 'primary') { if (!this._clickSnail(this.input.ndc)) this._clickCorpse(this.input.ndc); } // tap the snail → saddle bags; else grab an airborne ingredient
+      else if (e.type === 'primary') { if (!this.ui._snailBag && !this._clickSnail(this.input.ndc)) this._clickCorpse(this.input.ndc); } // tap the snail → saddle bags; else grab an airborne ingredient (bag open = taps are the panel's)
       else if (e.type === 'quickcast') {
         const id = this.loadout ? this.loadout[e.index] : null;
         if (id) this._castAt(id, this.aimPoint, { accuracy: 0.8 });
@@ -3036,7 +3036,7 @@ export class Game {
       if (points && points.length) {
         const p = points[points.length - 1];
         const ndcTap = { x: (p.x / window.innerWidth) * 2 - 1, y: -(p.y / window.innerHeight) * 2 + 1 };
-        if (!this._clickSnail(ndcTap)) this._clickCorpse(ndcTap);
+        if (!this.ui._snailBag && !this._clickSnail(ndcTap)) this._clickCorpse(ndcTap);
       }
       return;
     }

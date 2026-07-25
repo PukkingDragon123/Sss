@@ -1633,7 +1633,7 @@ export class UI {
   }
 
   // true while a fullscreen cooking/zodiac overlay owns the keyboard — world input must ignore E
-  overlayActive() { return !!(this._mb || this._ct || this._zd || this._coAbort || document.getElementById('cookoff')); }
+  overlayActive() { return !!(this._mb || this._ct || this._zd || this._coAbort || this._snailBag || document.getElementById('cookoff') || document.getElementById('nightsum')); }
 
   closeModals() {
     this.el.story.classList.add('hidden');
@@ -1645,6 +1645,8 @@ export class UI {
     this.hideZodiac();
     this.hideCookTiming();
     if (this.hideTeleporter) this.hideTeleporter(); // don't let the slot machine linger across a scene change
+    this.hideSnailBag();
+    const ns = document.getElementById('nightsum'); if (ns) ns.remove(); // nor the night summary
     if (this._coAbort) this._coAbort(); // tear down a live cook-off silently (no reopen)
   }
 

@@ -181,6 +181,49 @@ export function makeFallenLog() {
   return g;
 }
 
+// a BIRCH: slender white trunk with dark flecks and a light, airy crown
+export function makeBirch() {
+  const t = new THREE.Group();
+  const h = 3.6 + Math.random() * 2.0;
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0xe8e2d4, roughness: 0.9, flatShading: true });
+  const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.3, h, 7), trunkMat);
+  tr.position.y = h / 2; tr.castShadow = true; t.add(tr);
+  const fleckMat = new THREE.MeshStandardMaterial({ color: 0x3a352c, roughness: 1, flatShading: true });
+  for (let i = 0; i < 4; i++) { const f = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.1, 0.05), fleckMat); const a = Math.random() * 6.28; f.position.set(Math.cos(a) * 0.2, 0.7 + i * (h - 1.4) / 4, Math.sin(a) * 0.2); f.rotation.y = a; t.add(f); }
+  const lm = leafMat();
+  for (let i = 0; i < 3; i++) {
+    const sz = 1.2 + Math.random() * 0.8;
+    const cq = crossQuads(lm, sz, sz, 2);
+    cq.position.set((Math.random() - 0.5) * 0.9, h - 0.4 + i * 0.7 - sz / 2 + 0.6, (Math.random() - 0.5) * 0.9);
+    t.add(cq);
+  }
+  return t;
+}
+// a golden OAK: a stout dark trunk under a broad autumn-gold crown
+let _oakMat;
+function oakLeafMat() { return _oakMat || (_oakMat = new THREE.MeshStandardMaterial({ map: spriteTexture('leaf', paintLeaf, 20), color: 0xe8b45a, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.9, flatShading: true })); }
+export function makeOak() {
+  const t = new THREE.Group();
+  const h = 2.6 + Math.random() * 1.4;
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3f2c1c, roughness: 0.95, flatShading: true });
+  pxMap(trunkMat, 'wood', 3);
+  const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.66, h, 7), trunkMat);
+  tr.position.y = h / 2; tr.castShadow = true; t.add(tr);
+  const root = new THREE.Mesh(new THREE.ConeGeometry(0.85, 0.7, 7), trunkMat); root.position.y = 0.3; t.add(root);
+  const lm = oakLeafMat();
+  const clumps = 5 + ((Math.random() * 2) | 0);
+  for (let i = 0; i < clumps; i++) {
+    const a = (i / clumps) * Math.PI * 2 + Math.random();
+    const rad = 0.7 + Math.random() * 1.1;
+    const sz = 1.8 + Math.random() * 1.2;
+    const cq = crossQuads(lm, sz, sz, 2);
+    cq.position.set(Math.cos(a) * rad, h + 0.2 + Math.random() * 1.2 - sz / 2, Math.sin(a) * rad);
+    t.add(cq);
+  }
+  const top = crossQuads(lm, 2.3, 2.3, 3); top.position.set(0, h + 1.5, 0); t.add(top);
+  return t;
+}
+
 // a leafy shrub: a dark 3D core wrapped in a few billboard leaf-clumps — a rounded bush
 export function makeBush() {
   const g = new THREE.Group();

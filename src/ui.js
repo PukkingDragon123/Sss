@@ -175,6 +175,8 @@ export class UI {
     wireArrow(document.getElementById('resto-right'), 1);
     const bServe = document.getElementById('btn-resto-serve');
     if (bServe) { this.el.btnRestoServe = bServe; bServe.addEventListener('click', () => { game.audio.play('click'); game.interact(); }); }
+    const bHome = document.getElementById('btn-home');
+    if (bHome) { this.el.btnHome = bHome; bHome.addEventListener('click', () => { game.audio.play('click'); this.hideSnailBag(); game.goHome(); }); }
     if (this.el.qpClose) this.el.qpClose.addEventListener('click', () => { game.audio.play('click'); this.el.questPanel.classList.remove('show'); });
     if (this.el.questPanel) this.el.questPanel.addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]'); if (!b) return;
@@ -1386,6 +1388,14 @@ export class UI {
     const pantryRow = Object.entries(INGREDIENTS).map(([id, ing]) =>
       `<span class="mb-ing ${(inv[id] || 0) > 0 ? '' : 'none'}" title="${ing.name}">${spriteImg('ing_' + id, {}, 'mb-ingico', ing.icon)}×${inv[id] || 0}</span>`).join('');
     const dishRow = (r) => {
+      // dishes unlock by PLAYER LEVEL — locked ones show as a mystery entry
+      if (meta.recipeUnlocked && !meta.recipeUnlocked(r.id)) {
+        return `<div class="mb-card mb-locked">
+          <div class="mb-ico">${iconImg('lock', { scale: 4 }, 'mb-dish')}</div>
+          <div class="mb-mid"><div class="mb-name"><span>? ? ?</span></div>
+          <div class="mb-desc">Reach <b>LEVEL ${meta.recipeUnlockLevel(r.id)}</b> in the wild to learn this dish.</div></div>
+          <div class="mb-right"></div></div>`;
+      }
       const m = meta.recipeMastery(r.id);
       const stars = '★'.repeat(m) + '<span class="dim">' + '★'.repeat(5 - m) + '</span>';
       const needs = Object.entries(r.needs).map(([id, n]) => { const have = inv[id] || 0; return `<span class="${have >= n ? 'ok' : 'lack'}">${spriteImg('ing_' + id, {}, 'mb-needico', INGREDIENTS[id].icon)}${have}/${n}</span>`; }).join(' ') || '<span class="ok">always stocked</span>';
@@ -1645,6 +1655,52 @@ export class UI {
   }
 
   // ---- HUD ----
+  // ===== OPEN WILD helpers: the 🏠 HOME button, the snail's saddle-bag inventory,
+  // and the restaurant's end-of-night summary card =====
+  showHomeBtn(v) { if (this.el.btnHome) this.el.btnHome.classList.toggle('hidden', !v); }
+  // tap the pack-snail → a cozy satchel panel of everything loaded this trip
+  showSnailBag(game) {
+    this.hideSnailBag();
+    const counts = {};
+    for (const ing of (game._wildCargo || [])) counts[ing] = (counts[ing] || 0) + 1;
+    const carrying = game.wizard.carryStack.length + (game.wizard.floatItem ? 1 : 0);
+    const rows = Object.entries(counts).map(([id, n]) =>
+      `<div class="sb-row">${spriteImg('ing_' + id, { scale: 3 }, 'sb-ico', (INGREDIENTS[id] || {}).icon || '')}<span class="sb-name">${(INGREDIENTS[id] || {}).name || id}</span><b class="sb-n">×${n}</b></div>`).join('')
+      || '<div class="sb-empty">The saddle bags are empty — hunt & gather, then walk the haul over!</div>';
+    const ov = document.createElement('div'); ov.id = 'snailbag';
+    ov.innerHTML = `<div class="sb-card">
+      <div class="sb-head"><span>🐌 SADDLE BAGS</span><button class="btn sb-x">✕</button></div>
+      <div class="sb-list">${rows}</div>
+      ${carrying ? `<div class="sb-carry">…and ${carrying} in your arms — walk to the snail to load them.</div>` : ''}
+      <button class="btn big sb-home">🏠 HEAD HOME</button>
+    </div>`;
+    document.body.appendChild(ov); this._snailBag = ov;
+    ov.addEventListener('pointerdown', (e) => { if (e.target === ov) this.hideSnailBag(); });
+    ov.querySelector('.sb-x').onclick = () => this.hideSnailBag();
+    ov.querySelector('.sb-home').onclick = () => { this.hideSnailBag(); game.goHome(); };
+    void ov.offsetWidth; ov.classList.add('show');
+  }
+  hideSnailBag() { if (this._snailBag) { this._snailBag.remove(); this._snailBag = null; } }
+  // the restaurant night wrapped up — a warm results card instead of a passing toast
+  showNightSummary(data, onDone) {
+    const ov = document.createElement('div'); ov.id = 'nightsum';
+    const stars = data.served >= data.covers ? '★★★' : data.served >= data.covers * 0.6 ? '★★' : '★';
+    ov.innerHTML = `<div class="ns-card">
+      <div class="ns-title">🌙 NIGHT COMPLETE</div>
+      <div class="ns-stars">${stars}</div>
+      <div class="ns-rows">
+        <div class="ns-row"><span>Guests served</span><b>${data.served} / ${data.covers}</b></div>
+        <div class="ns-row"><span>Gold earned</span><b>${data.earned} g</b></div>
+        <div class="ns-row"><span>Best serve streak</span><b>${data.streak || 0}× combo</b></div>
+        ${data.walked > data.served ? `<div class="ns-row ns-sad"><span>Walked out hungry</span><b>${data.walked - data.served}</b></div>` : ''}
+      </div>
+      <button class="btn big ns-ok">CONTINUE</button>
+    </div>`;
+    document.body.appendChild(ov);
+    void ov.offsetWidth; ov.classList.add('show');
+    ov.querySelector('.ns-ok').onclick = () => { ov.remove(); if (onDone) onDone(); };
+  }
+
   // the big escort TIMELINE: the snail's journey to the gate, the trials marked ahead,
   // and the caravan's health — replaces the old "Trail 42%" text.
   updateSnailTimeline(es) {

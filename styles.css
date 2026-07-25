@@ -2356,7 +2356,7 @@ body.paused #pause-label{display:flex;}
   backdrop-filter:none !important;
 }
 /* flatten every gradient back to honest paint (scene-mood washes stay) */
-*:not(#stage-tint):not(#nausea):not(#wipe):not(#blackout):not(.story-box):not(.card):not(.card-name):not(.levelup-title), *::before, *::after{ background-image:none !important; }
+*:not(#stage-tint):not(#nausea):not(#wipe):not(#blackout):not(.story-box):not(.card):not(.card-name):not(.levelup-title):not(#story-next):not(#btn-home):not(.sb-card):not(.sb-home):not(.ns-card):not(.ns-ok), *::before, *::after{ background-image:none !important; }
 /* un-tilt the Persona-era slashes — a noticeboard hangs straight */
 #cooktime .ct-card, #cookoff .co-head, #cookoff .co-quit, #cookoff .co-canvas, #cookoff .co-phase,
 #menubook .mb-title, #menubook .mb-pantry, #menubook .mb-card, #menubook .mb-card:hover,
@@ -2948,3 +2948,84 @@ html,body{ font-size:23px; }
   50%{ outline-color:#fff2a0; box-shadow:0 0 0 9px rgba(255,210,58,.45), 0 0 36px 12px rgba(255,210,58,.85) !important; }
 }
 #wisp-bubble.big{ bottom:30%; }
+
+/* ===================================================================
+   REQUEST 29 — COZY MEDIEVAL: a warm LIGHT parchment-and-wood theme
+   (replaces the dark purple dialogue/cards — the game reads sunny now)
+   =================================================================== */
+/* dialogue: warm parchment with a gold-leaf speaker band */
+.story-box{
+  background:linear-gradient(180deg, #fdf3d6 0%, #f3e2b4 70%, #e9d29c 100%) !important;
+  border:3px solid #8a5a2c !important; border-radius:20px !important;
+  box-shadow:0 16px 40px rgba(60,38,14,.35), 0 0 0 6px rgba(138,90,44,.15), inset 0 2px 0 rgba(255,255,255,.7) !important;
+}
+.story-box, .story-box .story-text{ color:#3a2812 !important; text-shadow:none !important; }
+.story-box .story-speaker{ color:#8a4a10 !important; text-shadow:none !important; }
+.story-box #story-next{
+  background:linear-gradient(180deg,#e8b45a,#c98a34) !important; color:#3a2008 !important; border:2px solid #8a5a1a !important;
+  border-radius:12px !important; box-shadow:0 5px 0 #7a4e14, 0 8px 16px rgba(60,38,14,.35) !important; text-shadow:none !important;
+}
+.story-box #story-next:hover{ background:linear-gradient(180deg,#f2c46a,#d89a3e) !important; transform:translateY(-2px) !important; }
+/* skill cards: sunlit parchment with the rarity as a warm banner glow */
+#levelup .card{
+  background:linear-gradient(170deg, #fdf4da 0%, #f2e0b2 60%, #e6cf9a 100%) !important;
+  border:3px solid var(--rc, #8a5a2c) !important; color:#3a2812 !important;
+  box-shadow:0 14px 34px rgba(60,38,14,.35), 0 0 22px var(--rc, rgba(200,150,60,.35)), inset 0 2px 0 rgba(255,255,255,.7) !important;
+}
+#levelup .card .card-name{ color:#5a3410 !important; text-shadow:none !important; }
+#levelup .card .card-desc{ color:#6a4a26 !important; }
+#levelup .card .card-tag{ color:#8a4a10 !important; }
+#levelup .levelup-title{ color:#ffe9b0 !important; }
+/* warm scrims instead of cold black-purple */
+.overlay{ background:rgba(52,34,16,.72) !important; }
+#title{ background:transparent !important; }
+/* the 🏠 HOME button — big, warm, thumb-friendly */
+#btn-home{
+  position:absolute; right:16px; bottom:170px; z-index:8;
+  font-family:var(--font-head,sans-serif); font-weight:900; letter-spacing:2px; font-size:22px;
+  padding:14px 22px; border-radius:16px; cursor:pointer;
+  background:linear-gradient(180deg,#8fce6a,#5fa842); color:#1e3a10; border:3px solid #3a6a24;
+  box-shadow:0 6px 0 #2f5a1e, 0 10px 22px rgba(0,0,0,.4);
+}
+#btn-home:hover{ transform:translateY(-2px); }
+#btn-home.hidden{ display:none; }
+/* the snail's SADDLE BAGS panel */
+#snailbag{ position:fixed; inset:0; z-index:63; display:flex; align-items:center; justify-content:center;
+  background:rgba(40,26,12,.5); opacity:0; transition:opacity .2s; }
+#snailbag.show{ opacity:1; }
+#snailbag .sb-card{ width:min(430px,92vw); max-height:76vh; overflow:auto; padding:18px 20px; border-radius:20px;
+  background:linear-gradient(180deg,#fdf3d6,#efdcae); border:4px solid #8a5a2c; box-shadow:0 18px 44px rgba(60,38,14,.45);
+  display:flex; flex-direction:column; gap:10px; color:#3a2812; }
+#snailbag .sb-head{ display:flex; justify-content:space-between; align-items:center; font-family:var(--font-head,sans-serif);
+  font-weight:900; letter-spacing:2px; font-size:22px; color:#5a3410; }
+#snailbag .sb-x{ padding:6px 12px !important; }
+#snailbag .sb-row{ display:flex; align-items:center; gap:10px; padding:7px 8px; border-bottom:2px dotted #c9ac74; }
+#snailbag .sb-ico{ width:34px; height:34px; image-rendering:pixelated; }
+#snailbag .sb-name{ flex:1; font-weight:700; }
+#snailbag .sb-n{ color:#8a4a10; }
+#snailbag .sb-empty{ padding:14px 6px; color:#7a5a34; }
+#snailbag .sb-carry{ font-size:16px; color:#7a5a34; }
+#snailbag .sb-home{ background:linear-gradient(180deg,#8fce6a,#5fa842) !important; color:#1e3a10 !important; border:3px solid #3a6a24 !important;
+  border-radius:14px !important; box-shadow:0 5px 0 #2f5a1e !important; }
+/* the NIGHT SUMMARY card */
+#nightsum{ position:fixed; inset:0; z-index:64; display:flex; align-items:center; justify-content:center;
+  background:rgba(40,26,12,.55); opacity:0; transition:opacity .25s; }
+#nightsum.show{ opacity:1; }
+#nightsum .ns-card{ width:min(430px,92vw); padding:22px 24px; border-radius:22px; text-align:center;
+  background:linear-gradient(180deg,#fdf3d6,#eed9a8); border:4px solid #8a5a2c; box-shadow:0 20px 50px rgba(60,38,14,.5);
+  display:flex; flex-direction:column; gap:12px; color:#3a2812; animation:cardPop .4s cubic-bezier(.34,1.56,.64,1) both; }
+#nightsum .ns-title{ font-family:var(--font-head,sans-serif); font-weight:900; letter-spacing:3px; font-size:26px; color:#5a3410; }
+#nightsum .ns-stars{ font-size:38px; color:#e0982a; text-shadow:0 2px 0 #8a5a1a; }
+#nightsum .ns-row{ display:flex; justify-content:space-between; padding:7px 10px; border-bottom:2px dotted #c9ac74; font-size:19px; }
+#nightsum .ns-row.ns-sad{ color:#a04a3a; }
+#nightsum .ns-ok{ background:linear-gradient(180deg,#e8b45a,#c98a34) !important; color:#3a2008 !important; border:3px solid #8a5a1a !important;
+  border-radius:14px !important; box-shadow:0 5px 0 #7a4e14 !important; }
+/* locked menu-book dishes read as parchment mysteries */
+#menubook .mb-card.mb-locked{ opacity:.62; filter:saturate(.4); }
+/* wild daylight: keep the fight HUD airy — vitals + spells only (lean-combat already trims) */
+body.lean-combat #btn-home{ display:block; }
+body.lean-combat #btn-home.hidden{ display:none; }
+/* solid fallbacks so the action buttons never lose their fill (ban-proof) */
+#btn-home{ background-color:#6fb64e; }
+#snailbag .sb-home{ background-color:#6fb64e !important; }
+#nightsum .ns-ok{ background-color:#d89a3e !important; }

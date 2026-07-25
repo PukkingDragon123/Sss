@@ -257,7 +257,7 @@ export class Resto {
     if (id === 'kitchen') this._panelKitchen();
     else if (id === 'book') this._panelBook();
     else if (id === 'bell') this._panelBell();
-    else if (id === 'door') this.game.openWorldMap(); // the door heads out to hunt ingredients
+    else if (id === 'door') this.game.enterWildFromDoor(); // the door portals out to the OPEN WILD
     else if (id.startsWith('plot:')) this._panelPlot(id.slice(5));
   }
 
@@ -369,7 +369,11 @@ export class Resto {
     g.wizard.setVisible(false);
     g.ui.hideJob();
     if (g.ui.el.btnRestoServe) g.ui.el.btnRestoServe.classList.add('hidden');
-    if (sv) g.ui.toast(early ? `🔔 Closed early — ${sv.earned} g earned.` : `🌙 A fine night! ${sv.served}/${sv.covers} served · ${sv.earned} g earned.`);
+    if (sv) {
+      if (early) g.ui.toast(`🔔 Closed early — ${sv.earned} g earned.`);
+      else if (g.ui.showNightSummary) g.ui.showNightSummary({ served: sv.served, covers: sv.covers, earned: sv.earned, streak: sv.streakBest || 0, walked: sv.walked });
+      else g.ui.toast(`🌙 A fine night! ${sv.served}/${sv.covers} served · ${sv.earned} g earned.`);
+    }
     if (!early && sv && sv.served >= sv.covers && g.audio) g.audio.play('win');
   }
   _freeSeat() {
@@ -382,7 +386,7 @@ export class Resto {
   }
   _pickOrder() {
     const inv = meta.pantry();
-    const options = RECIPES.filter(r => r.id === 'alebread' || canCook(r, inv));
+    const options = RECIPES.filter(r => (!meta.recipeUnlocked || meta.recipeUnlocked(r.id)) && (r.id === 'alebread' || canCook(r, inv)));
     const fancy = options.filter(r => r.id !== 'alebread');
     return (fancy.length && Math.random() < 0.75) ? fancy[(Math.random() * fancy.length) | 0] : options[(Math.random() * options.length) | 0];
   }
@@ -499,7 +503,13 @@ export class Resto {
     const mastery = meta.recipeMastery(d.order.id);
     const tip = d.patience / d.patMax > 0.5 ? 1.25 : 1;
     const zg = meta.zodiacHas('capricorn') ? 1.2 : 1;
-    const pay = Math.max(1, Math.round(platePrice(d.order, mastery, Math.min(1.5, d.quality)) * tip * zg));
+    // SERVE STREAK: back-to-back serves chain a combo — faster service, fatter tips
+    sv.streak = (this.t - (sv.lastServeT ?? -99) < 10) ? (sv.streak || 0) + 1 : 1;
+    sv.lastServeT = this.t; sv.streakBest = Math.max(sv.streakBest || 0, sv.streak);
+    const streakM = 1 + Math.min(0.3, (sv.streak - 1) * 0.08);
+    if (sv.streak >= 2) g.ui.castWord && g.ui.castWord(`COMBO ×${sv.streak}!`, { color: '#ff9ad0', big: sv.streak >= 4 });
+    g.particles.burst({ pos: new THREE.Vector3(d.seat.x, 2.6, TABLE_Z), color: 0xff9ad0, count: 6, speed: 2.5, size: 0.18, life: 0.7, up: 3, blend: 'add' }); // happy hearts
+    const pay = Math.max(1, Math.round(platePrice(d.order, mastery, Math.min(1.5, d.quality)) * tip * zg * streakM));
     meta.addGold(pay); sv.earned += pay; sv.served++;
     if (d.quality >= 1.3 || Math.random() < 0.28) meta.bumpMastery && meta.bumpMastery(d.order.id);
     meta.notePlateServed && meta.notePlateServed();

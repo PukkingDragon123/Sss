@@ -9,7 +9,7 @@ import { outlineGroup } from './outline.js';
 import { pxMap } from './pixeltex.js';
 import { makeFace } from './facesprite.js';
 
-const ARENA = 46;
+const ARENA = 70; // the OPEN WILD — one big roamable map (was a small 46-unit stage ring)
 const UP = new THREE.Vector3(0, 1, 0);
 
 function spring(cur, vel, target, k, damp, dt) {

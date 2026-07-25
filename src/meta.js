@@ -613,6 +613,33 @@ export function buyDecor(id) {
 }
 export function rest() { if (state.rested) return false; state.rested = true; save(); return true; } // the room is always yours now
 
+// ===== the PLAYER LEVEL: one persistent level that unlocks spells, recipes &
+// ingredients as you adventure (replaces the old stage/region gating) =====
+export const LEVEL_UNLOCKS = {
+  1: { spells: ['fireball', 'gust'], recipes: ['alebread', 'boarchop'], ings: ['boarmeat', 'wildherb', 'shroomcap'] },
+  2: { recipes: ['herbsalad', 'shroomstew'] },
+  3: { ings: ['lizardtail'], recipes: ['tailskewer'] },
+  4: { spells: ['lightning'], ings: ['slimejelly'], recipes: ['jellyflan'] },
+  5: { ings: ['batwing'], recipes: ['batsnack'] },
+  6: { spells: ['frost'], ings: ['hydrawing'], recipes: ['wingplatter'] },
+  7: { ings: ['chamflank'], recipes: ['chamsteak'] },
+  8: { spells: ['heal'], ings: ['whaleblub'], recipes: ['blubberpot'] },
+};
+export function playerLevel() { return state.plevel || 1; }
+export function playerXp() { return state.pxp || 0; }
+export function setPlayerProgress(level, xp) { state.plevel = Math.max(1, level | 0); state.pxp = Math.max(0, Math.round(xp || 0)); save(); }
+export function grantSpell(id) {
+  if (state.owned[id]) return false;
+  state.owned[id] = true; state.level[id] = state.level[id] || 1;
+  if (Array.isArray(state.loadout) && state.loadout.length < 3 && !state.loadout.includes(id)) state.loadout.push(id);
+  save(); return true;
+}
+const _unlockLevelOf = (kind, id) => { for (const lv in LEVEL_UNLOCKS) { const u = LEVEL_UNLOCKS[lv]; if (u[kind] && u[kind].includes(id)) return +lv; } return 1; };
+export const recipeUnlockLevel = (id) => _unlockLevelOf('recipes', id);
+export const recipeUnlocked = (id) => playerLevel() >= recipeUnlockLevel(id);
+export const ingredientUnlocked = (id) => playerLevel() >= _unlockLevelOf('ings', id);
+export const unlocksAtLevel = (lv) => LEVEL_UNLOCKS[lv] || null;
+
 // ---- world-map stage unlock (each boss opens the next haunt) ----
 export const introSeen = () => !!state.introSeen;
 export function setIntroSeen() { state.introSeen = true; save(); }

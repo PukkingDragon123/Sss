@@ -27,7 +27,7 @@ import { makeFace } from './facesprite.js';
 import { outlineGroup } from './outline.js';
 import { buildCharModel } from './charmodels.js';
 import { INGREDIENTS, RECIPES, RECIPE_BY_ID, platePrice, canCook, applyZodiacTo } from './cooking.js';
-import { makeLeafyTree, makeGrass, makeFern, makeRock, makeMushroom, makeFallenLog, makeBush, makeFlower, Critters, BIOME_CRITTERS } from './props.js';
+import { makeLeafyTree, makeBirch, makeOak, makeGrass, makeFern, makeRock, makeMushroom, makeFallenLog, makeBush, makeFlower, Critters, BIOME_CRITTERS } from './props.js';
 import { iconCanvas, PET_SPRITE } from './pixelicons.js';
 
 // Cinematic color grade — runs LAST (after OutputPass), so it operates on sRGB display
@@ -402,16 +402,18 @@ export class Game {
     if (kind === 'trees') {
       // handmade forest: 3D trees with 2D leaf-sprite canopies, sprite grass & ferns,
       // textured toadstools, mossy boulders and fallen logs — a real, lived-in wood.
-      treeLine(makeLeafyTree, 62);
-      inside(24, makeLeafyTree, 6, ARENA - 8);     // full trees dotted inside too
-      inside(128, makeGrass, 3, ARENA - 5);        // thick sprite-grass ground cover
-      inside(52, () => { const g = makeGrass(); g.scale.y *= 1.9; g.scale.x *= 1.25; return g; }, 4, ARENA - 5); // TALL waving grass stands
-      inside(60, makeFern);                         // leafy ferns tucked between
-      inside(46, makeBush, 4, ARENA - 6);           // rounded leafy shrubs fill the mid-story
-      inside(40, makeFlower, 3, ARENA - 5);         // wildflower clusters for pops of colour
-      inside(30, makeMushroom);                     // toadstool clusters
-      inside(18, makeRock);                         // mossy boulders
-      inside(12, makeFallenLog, 5, ARENA - 9);      // fallen logs as little landmarks
+      // a MIXED wood: leafy greens, white birches and golden oaks — real variety
+      const mixTree = () => { const r = Math.random(); return r < 0.5 ? makeLeafyTree() : r < 0.82 ? makeBirch() : makeOak(); };
+      treeLine(mixTree, 96);
+      inside(40, mixTree, 6, ARENA - 8);           // full trees dotted across the open wild
+      inside(220, makeGrass, 3, ARENA - 5);        // thick sprite-grass ground cover
+      inside(86, () => { const g = makeGrass(); g.scale.y *= 1.9; g.scale.x *= 1.25; return g; }, 4, ARENA - 5); // TALL waving grass stands
+      inside(96, makeFern);                         // leafy ferns tucked between
+      inside(74, makeBush, 4, ARENA - 6);           // rounded leafy shrubs fill the mid-story
+      inside(64, makeFlower, 3, ARENA - 5);         // wildflower clusters for pops of colour
+      inside(48, makeMushroom);                     // toadstool clusters
+      inside(30, makeRock);                         // mossy boulders
+      inside(18, makeFallenLog, 5, ARENA - 9);      // fallen logs as little landmarks
     } else if (kind === 'rocks') {
       const rockMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x4a443e, roughness: 1 });
       const tipMat = new THREE.MeshStandardMaterial({ flatShading: true, color: 0x5a524a, roughness: 1 });
@@ -670,13 +672,38 @@ export class Game {
   gainXP(n) {
     n = Math.round(n * (this.stats.xpMult || 1));
     this.xp += n;
+    let gained = 0;
     while (this.xp >= this.xpNeed) {
       this.xp -= this.xpNeed;
       this.level++;
       this.pendingLevels++;
+      gained++;
       this.xpNeed = this._xpForLevel(this.level);
     }
+    if (gained) {
+      meta.setPlayerProgress(this.level, this.xp); // the level is forever — it survives the trip home
+      this._announceUnlocks(this.level - gained + 1, this.level);
+    }
     if (this.pendingLevels > 0 && this.state === 'play') this._openLevelUp();
+  }
+  // each level can unlock spells / recipes / ingredients — grant + celebrate them
+  _announceUnlocks(from, to) {
+    for (let lv = from; lv <= to; lv++) {
+      const u = meta.unlocksAtLevel(lv); if (!u) continue;
+      const bits = [];
+      for (const s of (u.spells || [])) {
+        if (meta.grantSpell(s)) {
+          bits.push('✨ ' + (SPELLS[s] ? SPELLS[s].name : s));
+          const g = SPELLS[s] && SPELLS[s].gesture;
+          if (g && this.recognizer) this.recognizer.add(g, TEMPLATES[g]);
+          this.loadout = meta.getLoadout(); this.unlocked = new Set(this.loadout);
+          if (this.ui.setLoadout) this.ui.setLoadout(this.loadout);
+        }
+      }
+      for (const r of (u.recipes || [])) bits.push('🍲 ' + (RECIPE_BY_ID[r] ? RECIPE_BY_ID[r].name : r));
+      for (const ing of (u.ings || [])) bits.push('🥩 ' + (INGREDIENTS[ing] ? INGREDIENTS[ing].name : ing));
+      if (bits.length) this.ui.wispSay(`🎉 LEVEL ${lv}! Unlocked: ${bits.join(' · ')}`, { ms: 6500, big: true });
+    }
   }
 
   _openLevelUp() {
@@ -844,6 +871,7 @@ export class Game {
       return false;
     }
     w.addCarry(c.ing, c.tint);
+    if (this._wild) this.gainXP(2); // every gathered morsel feeds the level
     this.audio.play('xp');
     this.particles.burst({ pos: c.mesh.position.clone(), color: 0xffd98a, count: 10, speed: 3, size: 0.2, life: 0.5, blend: 'add' });
     this.ui.castWord && this.ui.castWord(INGREDIENTS[c.ing].name, { color: '#ffd98a' });
@@ -862,6 +890,23 @@ export class Game {
     }
     if (bestI >= 0) return this._scoopCorpse(bestI);
     return false;
+  }
+  // tap the pack-snail → peek inside the saddle bags (the trip's haul so far)
+  _clickSnail(ndc) {
+    if (!this._wild || !this._caravan || !this._caravan.visible) return false;
+    this._ray.setFromCamera(ndc, this.camera);
+    const hits = this._ray.intersectObject(this._caravan, true);
+    if (!hits.length || hits[0].distance > 80) return false;
+    this.audio.play('click');
+    if (this.ui.showSnailBag) this.ui.showSnailBag(this);
+    return true;
+  }
+  // the wild's scattered harvest props (herbs/toadstools) — cleared on every fresh trip
+  _clearWildPlants() {
+    if (this._wildPlants) {
+      for (const g of this._wildPlants) { g.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); this.arenaGroup.remove(g); }
+    }
+    this._wildPlants = [];
   }
   _disposeCorpse(c) {
     c.mesh.traverse(o => {
@@ -932,14 +977,15 @@ export class Game {
     const dx = w.pos.x - cv.position.x, dz = w.pos.z - cv.position.z;
     if ((w.carryStack.length || w.floatItem) && dx * dx + dz * dz < 2.4 * 2.4) {
       let n = 0;
-      const es = this._escort, hold = es && es.active ? es.cargo : null;
-      for (const item of w.carryStack) { meta.pantryAdd(item.ing, 1); n++; if (hold && hold.length < 12) hold.push(item.ing); }
-      if (w.floatItem) { meta.pantryAdd(w.floatItem.ing, 1); n++; if (hold && hold.length < 12) hold.push(w.floatItem.ing); }
+      const es = this._escort, hold = (es && es.active) ? es.cargo : (this._wild ? (this._wildCargo = this._wildCargo || []) : null);
+      for (const item of w.carryStack) { meta.pantryAdd(item.ing, 1); n++; if (hold && hold.length < 48) hold.push(item.ing); }
+      if (w.floatItem) { meta.pantryAdd(w.floatItem.ing, 1); n++; if (hold && hold.length < 48) hold.push(w.floatItem.ing); }
       w.clearCarry(); // clears the float too
       this.audio.play('win');
       this.particles.burst({ pos: cv.position.clone().setY(1.4), color: 0xffd98a, count: 18, speed: 5, size: 0.26, life: 0.7, blend: 'add' });
       this.particles.ring({ pos: cv.position.clone().setY(0.2), color: 0xffd98a, r0: 0.4, r1: 3, life: 0.5 });
-      this.ui.toast(`🛒 Banked ${n} ingredient${n > 1 ? 's' : ''} in the caravan!`);
+      if (this._wild) { this._updateSaddleCrates(); this.gainXP(n * 2); } // hauling feeds the level too
+      this.ui.wispSay(this._wild ? `🐌 ${n} loaded onto the saddle!` : `🛒 Banked ${n} ingredient${n > 1 ? 's' : ''} in the caravan!`, { ms: 2200 });
       if (this.ui.updatePantryChip) this.ui.updatePantryChip();
     }
   }
@@ -1617,6 +1663,24 @@ export class Game {
   _loseRun() {
     if (this.state === 'win' || this.state === 'gameover') return;
     if (this._introRun) { this._finishIntroRun(); return; } // you can't fail the tutorial — just stagger home
+    if (this._wild) {
+      // cozy: no game-over in the open wild — the snail drags you home, haul intact
+      this.state = 'gameover';
+      this.audio.play('gameover');
+      this.shake(1.2);
+      this.ui.deathTumble(() => {
+        const stray = [];
+        for (const it of this.wizard.carryStack) stray.push(it.ing);
+        if (this.wizard.floatItem) stray.push(this.wizard.floatItem.ing);
+        for (const ing of stray) meta.pantryAdd(ing, 1);
+        meta.setPlayerProgress(this.level, this.xp);
+        this._wild = false;
+        if (this.ui.showHomeBtn) this.ui.showHomeBtn(false);
+        this.enterResto();
+        this.ui.wispSay('😵 The snail dragged you home… every crate made it. Rest up, chef.', { ms: 5200 });
+      });
+      return;
+    }
     this.state = 'gameover';
     this.audio.play('gameover');
     this.shake(1.2);
@@ -1787,6 +1851,7 @@ export class Game {
   // THE DINING HALL is the whole game's home now — every run and result returns here.
   enterResto(firstVisit) {
     this.phase = 'resto'; this.state = 'resto';
+    this._wild = false; if (this.ui.showHomeBtn) this.ui.showHomeBtn(false); // the trip is over
     this._setPixel('menu');
     this.nearStation = null; this._restoNudge = 0; this.camYaw = 0;
     this.ui.closeModals();
@@ -1829,7 +1894,7 @@ export class Game {
   }
   // ESC / pause out of the resto steps back to the hunt map (the resto IS the hub)
   exitResto() {
-    this.openWorldMap();
+    this.enterWildFromDoor(); // ESC out of the hall = out the door into the open wild
   }
 
   _openShop(kind) { this._shopKind = kind; this.state = 'menu'; this.ui.openShop(kind, this); }
@@ -2097,8 +2162,13 @@ export class Game {
     }, 1250);
   }
 
-  // ---- one full level: a long survival fight, six waves then the boss ----
-  enterArena(stage) {
+  // ==== THE OPEN WILD: one big free-roam map — no stages, no waves, no forks.
+  // Hunt beasts, gust the harvest, load the snail's saddle, head 🏠 home when full. ====
+  enterWild() { this.enterArena(STAGES.forest, { wild: true }); }
+  enterWildFromDoor() { this.ui.closeModals(); this._playPortal(() => this.enterWild()); }
+  // ---- the wild venture (also hosts the guided intro escort) ----
+  enterArena(stage, opts = {}) {
+    this._wild = !!opts.wild && !this._introRun; // the guided intro stays a snail-trail lesson
     this.stage = stage; this.phase = 'arena';
     this._setPixel('arena'); // subtle pixelation during the fight (legible action)
     this.stats = DEFAULT_STATS();
@@ -2108,7 +2178,7 @@ export class Game {
     meta.applyResearch(this.stats); // completed research bonuses
     meta.applyBrews(this.stats);    // brewed-potion boons (permanent)
     applyZodiacTo(this.stats, meta.zodiacSigns()); // ✨ the zodiac skill tree's permanent boons
-    this._buildCaravan(); this._clearCorpses(); this._clearEscort(); if (this.wizard.clearCarry) this.wizard.clearCarry(); // fresh hunt, empty back
+    this._buildCaravan(); this._clearCorpses(); this._clearEscort(); this._clearWildPlants(); if (this.wizard.clearCarry) this.wizard.clearCarry(); // fresh hunt, empty back
     // collectible-card passives (tiny): folded once per run
     const cp = applyCardPerks(this, meta.cardsOwned());
     if (cp.dmgMult !== 1) this.stats.damageMult = (this.stats.damageMult || 1) * cp.dmgMult;
@@ -2119,7 +2189,8 @@ export class Game {
     this.activeCombos = meta.activeCombos(this.unlocked);
     this.recognizer = new Recognizer();
     for (const id of this.loadout) { const g = SPELLS[id].gesture; this.recognizer.add(g, TEMPLATES[g]); }
-    this.level = 1; this.xp = 0; this.xpNeed = this._xpForLevel(1);
+    // the PLAYER LEVEL persists between trips — spells, recipes & ingredients hang off it
+    this.level = meta.playerLevel(); this.xp = meta.playerXp(); this.xpNeed = this._xpForLevel(this.level);
     this.kills = 0; this.chores = 0; this.pendingLevels = 0; this.elapsed = 0;
     this.combo = 0; this.comboBest = 0; this.comboT = 0; this._hitstopT = 0; if (this.ui) this.ui.hideCombo();
     this.drunkenness = 0.22; this._drunkSurge = 0; this._drinkCd = 0; this._drinking = false;
@@ -2170,7 +2241,6 @@ export class Game {
     this.ui.setGold(meta.gold());
     this.state = 'play';
     document.body.classList.remove('paused'); // never carry a stale pause dim into a fight
-    if (this.ui.wispSay) this.ui.wispSay('🐌 Guard the snail to the far gate — the region\'s boss guards an ✦ artifact.', { ms: 3600 });
     if (this._introRun) {
       // the wisp's cutscene already taught casting & mana — the FIRST ESCORT is the tutorial:
       // one short trail, one gentle ambush, one bramble to gust, herbs to harvest.
@@ -2178,8 +2248,118 @@ export class Game {
       this._guideShown = true;
       return;
     }
+    if (this._wild) { this._setupWild(); return; } // free roam — no waves, no story gate
+    if (this.ui.wispSay) this.ui.wispSay('🐌 Guard the snail to the far gate — the region\'s boss guards an ✦ artifact.', { ms: 3600 });
     this._beginRoom(false); // the entrance fight (no choice before it)
     this.showStory('Wisp', stage.intro);
+  }
+  // ---- wild setup: the pack-snail companion, harvest scattered everywhere, HOME button ----
+  _setupWild() {
+    this._wildCargo = [];
+    this._wildSpawnT = 3;
+    const cv = this._caravan;
+    cv.visible = true;
+    cv.position.set(4, this._groundHeight(4, 2), 2); cv.rotation.y = Math.PI;
+    this._plantWildHarvest(16);
+    this._updateSaddleCrates();
+    if (this.ui.showHomeBtn) this.ui.showHomeBtn(true);
+    this.ui.wispSay('🌲 The open wild! Hunt & gather — walk to the snail to load its saddle, tap it to peek the bags, and tap 🏠 HOME when you\'re done.', { ms: 6500 });
+  }
+  // harvestables scattered across the whole map (gust them free) — no trail needed
+  _plantWildHarvest(n) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, r = 10 + Math.sqrt(Math.random()) * (ARENA - 18);
+      const x = Math.cos(a) * r, z = Math.sin(a) * r;
+      const herb = Math.random() < 0.55;
+      const g = new THREE.Group();
+      if (herb) {
+        for (let k = 0; k < 4; k++) {
+          const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.9 + Math.random() * 0.4, 5), new THREE.MeshStandardMaterial({ color: 0x5aa04a, roughness: 0.9, flatShading: true, emissive: 0x1a3a10, emissiveIntensity: 0.5 }));
+          leaf.position.set((Math.random() - 0.5) * 0.5, 0.45, (Math.random() - 0.5) * 0.5);
+          leaf.rotation.z = (Math.random() - 0.5) * 0.5;
+          g.add(leaf);
+        }
+        const bloom = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 5), new THREE.MeshBasicMaterial({ color: 0xb9ff7a, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+        bloom.position.y = 1.0; g.add(bloom);
+      } else {
+        const m = makeMushroom(); m.scale.setScalar(1.5); g.add(m);
+        const glow2 = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 5), new THREE.MeshBasicMaterial({ color: 0xffd98a, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
+        glow2.position.y = 1.1; g.add(glow2);
+      }
+      g.position.set(x, this._groundHeight(x, z), z);
+      this.arenaGroup.add(g); this._wildPlants = this._wildPlants || []; this._wildPlants.push(g);
+      this._gustables.push({ kind: 'herb', ing: herb ? 'wildherb' : 'shroomcap', pos: g.position.clone().setY(g.position.y + 0.6), mesh: g, done: false });
+    }
+  }
+  // the snail's saddle stacks visible crates as the haul grows
+  _updateSaddleCrates() {
+    const cv = this._caravan; if (!cv) return;
+    if (!cv.userData.crates) {
+      cv.userData.crates = new THREE.Group(); cv.userData.crates.position.set(-0.6, 1.1, 0); cv.add(cv.userData.crates);
+      cv.userData.crateMat = pxMap(new THREE.MeshStandardMaterial({ color: 0x9a6a3a, roughness: 0.9, flatShading: true }), 'wood', 2);
+    }
+    const g = cv.userData.crates;
+    const want = Math.min(6, Math.ceil((this._wildCargo ? this._wildCargo.length : 0) / 2));
+    while (g.children.length > want) { const c = g.children[g.children.length - 1]; c.geometry.dispose(); g.remove(c); }
+    while (g.children.length < want) {
+      const i = g.children.length;
+      const c = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.42, 0.5), cv.userData.crateMat);
+      c.position.set((i % 2) * 0.56 - 0.28, Math.floor(i / 2) * 0.44 + 0.2, ((i * 7) % 3 - 1) * 0.12);
+      c.rotation.y = ((i * 0.7) % 0.5) - 0.25;
+      g.add(c);
+    }
+  }
+  // per-frame wild life: the snail trots after you; beasts prowl in by distance ring
+  _updateWild(sdt) {
+    if (!this._wild || this.state !== 'play') return;
+    const cv = this._caravan, w = this.wizard;
+    const dx = w.pos.x - cv.position.x, dz = w.pos.z - cv.position.z;
+    const d = Math.hypot(dx, dz);
+    if (d > 6.5) {
+      const step = Math.min(Math.min(4.4, 1.6 + (d - 6.5) * 0.4) * sdt, d - 5.5);
+      cv.position.x += (dx / d) * step; cv.position.z += (dz / d) * step;
+      cv.position.y = this._groundHeight(cv.position.x, cv.position.z);
+      const want = Math.atan2(-dz, dx);
+      let dy = want - cv.rotation.y; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2;
+      cv.rotation.y += dy * Math.min(1, sdt * 3);
+      if (cv.userData.snail) cv.userData.snail.scale.x = 1 + Math.sin(this.elapsed * 7) * 0.07;
+    }
+    this._wildSpawnT -= sdt;
+    if (this._wildSpawnT <= 0) {
+      this._wildSpawnT = 3.6 + Math.random() * 2.6;
+      if (this.enemies.countNonBoss() < 9) {
+        const WILD_COOK = { boar: 'boarmeat', mushroomcap: 'shroomcap', lizardman: 'lizardtail', slime: 'slimejelly', bat: 'batwing', hydrabird: 'hydrawing', chameleon: 'chamflank', mudwhale: 'whaleblub', greatboar: 'boarmeat' };
+        const distO = Math.hypot(w.pos.x, w.pos.z);   // danger rises toward the map's edge
+        let pool = ['boar', 'mushroomcap'];
+        if (distO > 26) pool = pool.concat(['lizardman', 'slime', 'bat']);
+        if (distO > 45) pool = pool.concat(['hydrabird', 'chameleon', 'greatboar', 'mudwhale']);
+        pool = pool.filter(t => meta.ingredientUnlocked(WILD_COOK[t]));
+        if (pool.length) {
+          const t = pool[(Math.random() * pool.length) | 0];
+          const a = Math.random() * Math.PI * 2, r = 20 + Math.random() * 8;
+          const p = new THREE.Vector3(
+            Math.max(-ARENA + 5, Math.min(ARENA - 5, w.pos.x + Math.cos(a) * r)), 0,
+            Math.max(-ARENA + 5, Math.min(ARENA - 5, w.pos.z + Math.sin(a) * r)));
+          this.enemies.spawn(t, 0.9 + distO / 90, p, this, { dist: 0.1 });
+        }
+      }
+    }
+  }
+  // 🏠 the trip home: an arcane portal back to the hall, arms swept into the pantry
+  goHome() {
+    if (!this._wild) return;
+    const stray = [];
+    for (const it of this.wizard.carryStack) stray.push(it.ing);
+    if (this.wizard.floatItem) stray.push(this.wizard.floatItem.ing);
+    const hauled = (this._wildCargo ? this._wildCargo.length : 0) + stray.length;
+    this._playPortal(() => {
+      for (const ing of stray) meta.pantryAdd(ing, 1);
+      meta.setPlayerProgress(this.level, this.xp);
+      this._wild = false;
+      if (this.ui.showHomeBtn) this.ui.showHomeBtn(false);
+      this.enterResto();
+      this.ui.wispSay(hauled ? `🐌 Home! ${hauled} ingredient${hauled === 1 ? '' : 's'} hauled into the pantry.` : '🏠 Home sweet home.', { ms: 4200 });
+    });
   }
   // wisp tutorial: a few timed, friendly prompts during the first fight
   _introTutorial() {
@@ -2842,7 +3022,7 @@ export class Game {
 
       if (e.type === 'drawstart') { this.gestureAim.copy(this.aimPoint); }
       else if (e.type === 'gesture') { this._resolveGesture(e.points); }
-      else if (e.type === 'primary') { this._clickCorpse(this.input.ndc); } // left-click an airborne ingredient to grab it
+      else if (e.type === 'primary') { if (!this._clickSnail(this.input.ndc)) this._clickCorpse(this.input.ndc); } // tap the snail → saddle bags; else grab an airborne ingredient
       else if (e.type === 'quickcast') {
         const id = this.loadout ? this.loadout[e.index] : null;
         if (id) this._castAt(id, this.aimPoint, { accuracy: 0.8 });
@@ -2855,7 +3035,8 @@ export class Game {
     if (!points || points.length < 7) {
       if (points && points.length) {
         const p = points[points.length - 1];
-        this._clickCorpse({ x: (p.x / window.innerWidth) * 2 - 1, y: -(p.y / window.innerHeight) * 2 + 1 });
+        const ndcTap = { x: (p.x / window.innerWidth) * 2 - 1, y: -(p.y / window.innerHeight) * 2 + 1 };
+        if (!this._clickSnail(ndcTap)) this._clickCorpse(ndcTap);
       }
       return;
     }
@@ -3363,6 +3544,7 @@ export class Game {
     this._updatePickups(sdt);
     this._updateCorpses(sdt);   // ingredient corpses waiting to be hauled
     this._updateCaravan(sdt);   // the pack-snail cart that banks your haul
+    this._updateWild(sdt);      // open-wild life: the snail trots after you, beasts prowl in
     this._ambientFX(sdt);           // drifting motes/embers + low-HP vignette pulse
 
     // ---- kill-combo upkeep: lapses over time, snaps on any hit taken ----
